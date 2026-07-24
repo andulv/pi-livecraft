@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import test from 'node:test'
-import { getGitFileDiff, getGitSnapshot, mergeNumstats, parseGitStatus, resetGitCommit } from '../server/features/git/git.ts'
+import { getGitFileDiff, getGitSnapshot, mergeNumstats, parseGitStatus, resetGitCommit, revertGitCommit } from '../server/features/git/git.ts'
 
 const execFile = promisify(execFileCallback)
 
@@ -67,7 +67,7 @@ test('returns diffs for modified and untracked files', async () => {
   }
 })
 
-test('reports and resets unpushed commits while preserving their changes', async () => {
+test('reports, resets, and reverts unpushed commits', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-livecraft-git-'))
   const remote = await mkdtemp(join(tmpdir(), 'pi-livecraft-git-remote-'))
   try {
@@ -120,6 +120,16 @@ test('reports and resets unpushed commits while preserving their changes', async
       { path: 'unpushed.ts', status: 'added' },
     ])
     assert.equal(tracked.stdout, 'initial\n')
+
+    await execFile('git', ['add', '-A'], { cwd: directory })
+    await execFile('git', ['commit', '--quiet', '-m', 'Restored local changes'], { cwd: directory })
+    const restored = await getGitSnapshot(directory)
+    await revertGitCommit(directory, restored.commits[0]?.hash ?? '')
+    const reverted = await getGitSnapshot(directory)
+
+    assert.equal(reverted.ahead, 2)
+    assert.equal(reverted.files.length, 0)
+    assert.match(reverted.commits[0]?.subject ?? '', /^Revert "Restored local changes"$/)
   } finally {
     await rm(directory, { force: true, recursive: true })
     await rm(remote, { force: true, recursive: true })

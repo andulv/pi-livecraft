@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import { Tooltip } from './components/Tooltip.tsx'
-import { commitAndPush, createSession, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, refreshQuotas, resetGitCommit, sendPiCommand } from './api.ts'
+import { commitAndPush, createSession, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, refreshQuotas, resetGitCommit, revertGitCommit, sendPiCommand } from './api.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type { GitSnapshot, JsonObject, ManagerEvent, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary } from '../shared/types.ts'
 import { Composer } from './features/composer/Composer.tsx'
@@ -759,6 +759,12 @@ function App() {
           const result = await resetGitCommit(workspacePath, hash)
           await refreshGit(workspacePath, true)
           showToast('notice', `Commit ${hash.slice(0, 7)} reset.`)
+          return result
+        }}
+        onRevert={async (hash) => {
+          const result = await revertGitCommit(workspacePath, hash)
+          await refreshGit(workspacePath, true)
+          showToast('notice', `Commit ${hash.slice(0, 7)} reverted.`)
           return result
         }}
         onTodoSendPrompt={(message) => startAndSelectSession(() => createSession(workspacePath), message)}

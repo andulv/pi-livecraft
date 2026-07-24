@@ -65,6 +65,10 @@ export interface GitResetResult {
   hash: string
 }
 
+export interface GitRevertResult {
+  hash: string
+}
+
 export interface GitFileDiff {
   path: string
   diff: string
