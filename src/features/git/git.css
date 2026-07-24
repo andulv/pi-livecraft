@@ -41,10 +41,10 @@
 .git-commits summary:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
 .git-commits summary code { flex: 0 0 auto; color: var(--teal); font: 700 10px ui-monospace, monospace; }
 .git-commits summary span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.git-revert { display: grid; place-items: center; flex: 0 0 auto; width: 27px; height: 27px; margin: 2px; border: 0; border-radius: 6px; padding: 0; background: transparent; color: var(--muted); font-size: 16px; }
-.git-revert:hover:not(:disabled) { background: #fbe9e7; color: var(--danger); }
-.git-revert:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
-.git-revert:disabled { opacity: .5; }
+.git-reset { display: grid; place-items: center; flex: 0 0 auto; width: 27px; height: 27px; margin: 2px; border: 0; border-radius: 6px; padding: 0; background: transparent; color: var(--muted); font-size: 16px; }
+.git-reset:hover:not(:disabled) { background: #fbe9e7; color: var(--danger); }
+.git-reset:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+.git-reset:disabled { opacity: .5; }
 .git-commit-files { padding: 0 0 7px; }
 .git-empty { margin: 4px 14px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .git-actions { display: grid; gap: 7px; padding: 10px; }

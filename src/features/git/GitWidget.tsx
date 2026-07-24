@@ -1,17 +1,17 @@
 import { useState } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import type { GitActionResult, GitFileDiff, GitRevertResult, GitSnapshot } from '../../../shared/types.ts'
+import type { GitActionResult, GitFileDiff, GitResetResult, GitSnapshot } from '../../../shared/types.ts'
 import { WidgetLayout } from '../right-sidebar/WidgetLayout.tsx'
 import { parseGitDiff } from './git-diff.ts'
 
 /** Owns Git-specific selection, actions, and diff rendering inside the sidebar. */
-export function GitWidget({ snapshot, onAction, onError, onFileSelect, onRefresh, onRevert }: {
+export function GitWidget({ snapshot, onAction, onError, onFileSelect, onRefresh, onReset }: {
   snapshot: GitSnapshot
   onAction: (message: string) => Promise<GitActionResult>
   onError: (cause: unknown) => void
   onFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
   onRefresh: () => void
-  onRevert: (hash: string) => Promise<GitRevertResult>
+  onReset: (hash: string) => Promise<GitResetResult>
 }) {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
@@ -43,12 +43,12 @@ export function GitWidget({ snapshot, onAction, onError, onFileSelect, onRefresh
     }
   }
 
-  /** Reverts the chosen commit after confirmation and lets Git report conflicts. */
-  async function revertCommit(hash: string): Promise<void> {
-    if (!window.confirm(`Revert commit ${hash.slice(0, 7)}?`)) return
+  /** Resets the chosen commit and newer commits after confirming that their changes stay local. */
+  async function resetCommit(hash: string): Promise<void> {
+    if (!window.confirm(`Reset commit ${hash.slice(0, 7)} and every newer commit? Their changes will be kept in the working tree.`)) return
     setBusy(true)
     try {
-      await onRevert(hash)
+      await onReset(hash)
     } catch (cause) {
       onError(cause)
     } finally {
@@ -78,7 +78,7 @@ export function GitWidget({ snapshot, onAction, onError, onFileSelect, onRefresh
               {file.status === 'added' || file.status === 'modified' ? <button className="git-file-button" onClick={() => void selectFile(file.path, commit.hash)} type="button"><GitFileRow file={file} /></button> : <GitFileRow file={file} />}
             </li>)}</ul> : <p className="git-empty">No files modified.</p>}
           </details>
-          <Tooltip label="Revert this commit"><button aria-label={`Revert commit ${commit.hash.slice(0, 7)}`} className="git-revert" disabled={busy} onClick={() => void revertCommit(commit.hash)} type="button">↶</button></Tooltip>
+          <Tooltip label="Reset this commit"><button aria-label={`Reset commit ${commit.hash.slice(0, 7)}`} className="git-reset" disabled={busy} onClick={() => void resetCommit(commit.hash)} type="button">↶</button></Tooltip>
         </div>)}
       </section>}
       {!hasChanges && snapshot.ahead === 0 && <p className="git-empty">No changes to commit.</p>}

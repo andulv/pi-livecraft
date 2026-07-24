@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import type { GitCommit, GitFileChange, GitFileDiff, GitRevertResult, GitSnapshot } from '../../../shared/types.ts'
+import type { GitCommit, GitFileChange, GitFileDiff, GitResetResult, GitSnapshot } from '../../../shared/types.ts'
 
 interface GitCommandResult {
   exitCode: number
@@ -93,14 +93,14 @@ async function unpushedCommits(cwd: string): Promise<GitCommit[]> {
   return commits
 }
 
-/** Reverts a displayed local commit by creating its inverse without rewriting history. */
-export async function revertGitCommit(cwd: string, hash: string): Promise<GitRevertResult> {
+/** Resets a displayed local commit and every newer commit while preserving their changes. */
+export async function resetGitCommit(cwd: string, hash: string): Promise<GitResetResult> {
   const snapshot = await getGitSnapshot(cwd)
   if (!snapshot.repository) throw new Error('The current directory is not a Git repository.')
-  if (snapshot.files.length > 0) throw new Error('The repository must be clean before reverting a commit.')
-  if (!snapshot.commits.some((commit) => commit.hash === hash)) throw new Error('This commit cannot be reverted.')
+  if (snapshot.files.length > 0) throw new Error('The repository must be clean before resetting a commit.')
+  if (!snapshot.commits.some((commit) => commit.hash === hash)) throw new Error('This commit cannot be reset.')
 
-  await runGit(cwd, ['revert', '--no-edit', hash])
+  await runGit(cwd, ['reset', `${hash}^`])
   return { hash }
 }
 

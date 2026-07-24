@@ -1,4 +1,4 @@
-import type { DirectoryListing, GitActionResult, GitFileDiff, GitRevertResult, GitSnapshot, JsonObject, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary, TerminalCommandResult, TodoItem, WorkspaceFile } from '../shared/types.ts'
+import type { DirectoryListing, GitActionResult, GitFileDiff, GitResetResult, GitSnapshot, JsonObject, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary, TerminalCommandResult, TodoItem, WorkspaceFile } from '../shared/types.ts'
 
 export async function listSessions(): Promise<SessionSummary[]> {
   return request<SessionSummary[]>('/api/sessions')
@@ -61,8 +61,8 @@ export async function commitAndPush(cwd: string, message: string): Promise<GitAc
   })
 }
 
-export async function revertGitCommit(cwd: string, hash: string): Promise<GitRevertResult> {
-  return request<GitRevertResult>('/api/git/revert', {
+export async function resetGitCommit(cwd: string, hash: string): Promise<GitResetResult> {
+  return request<GitResetResult>('/api/git/reset', {
     method: 'POST',
     body: JSON.stringify({ cwd, hash }),
   })

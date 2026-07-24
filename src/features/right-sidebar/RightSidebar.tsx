@@ -1,6 +1,6 @@
 import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import type { GitActionResult, GitFileDiff, GitRevertResult, GitSnapshot, QuotaSnapshot } from '../../../shared/types.ts'
+import type { GitActionResult, GitFileDiff, GitResetResult, GitSnapshot, QuotaSnapshot } from '../../../shared/types.ts'
 import { getTodos } from '../../api.ts'
 import { GitWidget } from '../git/GitWidget.tsx'
 import { QuotaWidget } from '../quotas/QuotaWidget.tsx'
@@ -21,7 +21,7 @@ export interface RailAction {
 }
 
 /** Coordinates the sidebar panels, their common rail, and resizing. */
-export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onAnalysisNavigate, onResize, snapshot, quotas, width, workspacePath, railActions, onAction, onError, onFileSelect, onQuotaRefresh, onRefresh, onRevert, onTodoSendPrompt, onTodoStartSession, onWidgetSelect }: {
+export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onAnalysisNavigate, onResize, snapshot, quotas, width, workspacePath, railActions, onAction, onError, onFileSelect, onQuotaRefresh, onRefresh, onReset, onTodoSendPrompt, onTodoStartSession, onWidgetSelect }: {
   activeWidget: RightWidget | null
   analysis: SessionAnalysis | null
   currentQuotaProvider: QuotaProvider | undefined
@@ -37,7 +37,7 @@ export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onA
   onFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
   onQuotaRefresh: () => Promise<void>
   onRefresh: () => void
-  onRevert: (hash: string) => Promise<GitRevertResult>
+  onReset: (hash: string) => Promise<GitResetResult>
   onTodoSendPrompt: (message: string) => Promise<void>
   onTodoStartSession: (message: string) => Promise<void>
   onWidgetSelect: (widget: RightWidget) => void
@@ -112,7 +112,7 @@ export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onA
       />
       <section aria-label={panelLabel(activeWidget)} className="right-sidebar-content" id={`${activeWidget}-panel`}>
         {activeWidget === 'analysis' && analysis && <WidgetLayout header={<div><strong>Session analysis</strong><span>{analysis.requests.length} request{analysis.requests.length > 1 ? 's' : ''} analyzed</span></div>}><SessionAnalysisWidget analysis={analysis} onNavigate={onAnalysisNavigate} /></WidgetLayout>}
-        {activeWidget === 'git' && snapshot && <GitWidget onAction={onAction} onError={onError} onFileSelect={onFileSelect} onRefresh={onRefresh} onRevert={onRevert} snapshot={snapshot} />}
+        {activeWidget === 'git' && snapshot && <GitWidget onAction={onAction} onError={onError} onFileSelect={onFileSelect} onRefresh={onRefresh} onReset={onReset} snapshot={snapshot} />}
         {activeWidget === 'quotas' && <QuotaWidget onRefresh={onQuotaRefresh} quotas={quotas} />}
         {activeWidget === 'terminal' && <TerminalWidget workspacePath={workspacePath} />}
         {activeWidget === 'todo' && <TodoWidget onOpenCountChange={setTodoOpenCount} onSendPrompt={onTodoSendPrompt} onStartSession={onTodoStartSession} workspacePath={workspacePath} />}

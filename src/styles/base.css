@@ -170,7 +170,7 @@ button:disabled, select:disabled { cursor: not-allowed; }
   .git-diff-line.hunk { background: #1f2a28; color: #6ab3a3; }
   .git-commits h2 small { color: #5fc4b6; }
   .git-commits summary:hover { background: #252b29; }
-  .git-revert:hover:not(:disabled) { background: #2d1c19; }
+  .git-reset:hover:not(:disabled) { background: #2d1c19; }
   .git-actions button:hover { background: var(--accent-hover); }
   .rail-tab:hover:not(:disabled) { background: #2a322f; }
   .rail-tab small { color: #5fc4b6; }

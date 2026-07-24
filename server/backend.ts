@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { ManagerClient } from './manager-client.ts'
 import { listRecentPiSessions, loadPiSession } from './pi-session-store.ts'
-import { commitAndPush, getGitFileDiff, getGitSnapshot, revertGitCommit } from './features/git/git.ts'
+import { commitAndPush, getGitFileDiff, getGitSnapshot, resetGitCommit } from './features/git/git.ts'
 import { QuotaService } from './features/quotas/quota-service.ts'
 import { runTerminalCommand } from './features/terminal/terminal.ts'
 import { loadWorkspaceTodos, parseTodoItems, saveWorkspaceTodos } from './features/todos/todo-store.ts'
@@ -184,11 +184,11 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     return
   }
 
-  if (method === 'POST' && url.pathname === '/api/git/revert') {
+  if (method === 'POST' && url.pathname === '/api/git/reset') {
     const body = await readJsonBody(request)
     if (typeof body.cwd !== 'string' || typeof body.hash !== 'string') throw new HttpError(400, 'Working directory and commit hash are required')
     const cwd = await resolveWorkingDirectory(body.cwd)
-    sendJson(response, 200, await revertGitCommit(cwd, body.hash))
+    sendJson(response, 200, await resetGitCommit(cwd, body.hash))
     return
   }
 
