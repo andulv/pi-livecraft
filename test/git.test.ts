@@ -108,18 +108,17 @@ test('reports, resets, and reverts unpushed commits', async () => {
     const diff = await getGitFileDiff(directory, 'tracked.ts', commit?.hash)
     assert.match(diff.diff, /\+changed/)
 
-    await resetGitCommit(directory, commit?.hash ?? '')
+    await assert.rejects(resetGitCommit(directory, commit?.hash ?? ''), /Only the latest unpushed commit/)
+    await resetGitCommit(directory, snapshot.commits[0]?.hash ?? '')
     const reset = await getGitSnapshot(directory)
     const tracked = await execFile('git', ['show', 'HEAD:tracked.ts'], { cwd: directory })
 
-    assert.equal(reset.ahead, 0)
-    assert.deepEqual(reset.commits, [])
+    assert.equal(reset.ahead, 1)
+    assert.deepEqual(reset.commits.map(({ subject }) => subject), ['Local commit'])
     assert.deepEqual(reset.files.map(({ path, status }) => ({ path, status })), [
-      { path: 'tracked.ts', status: 'modified' },
       { path: 'second.ts', status: 'added' },
-      { path: 'unpushed.ts', status: 'added' },
     ])
-    assert.equal(tracked.stdout, 'initial\n')
+    assert.equal(tracked.stdout, 'initial\nchanged\n')
 
     await execFile('git', ['add', '-A'], { cwd: directory })
     await execFile('git', ['commit', '--quiet', '-m', 'Restored local changes'], { cwd: directory })
@@ -127,7 +126,7 @@ test('reports, resets, and reverts unpushed commits', async () => {
     await revertGitCommit(directory, restored.commits[0]?.hash ?? '')
     const reverted = await getGitSnapshot(directory)
 
-    assert.equal(reverted.ahead, 2)
+    assert.equal(reverted.ahead, 3)
     assert.equal(reverted.files.length, 0)
     assert.match(reverted.commits[0]?.subject ?? '', /^Revert "Restored local changes"$/)
   } finally {

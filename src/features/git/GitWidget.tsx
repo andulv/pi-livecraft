@@ -44,9 +44,9 @@ export function GitWidget({ snapshot, onAction, onError, onFileSelect, onRefresh
     }
   }
 
-  /** Resets the chosen commit and newer commits after confirming that their changes stay local. */
+  /** Resets the latest commit after confirming that its changes stay local. */
   async function resetCommit(hash: string): Promise<void> {
-    if (!window.confirm(`Reset commit ${hash.slice(0, 7)} and every newer commit? Their changes will be kept in the working tree.`)) return
+    if (!window.confirm(`Reset latest commit ${hash.slice(0, 7)}? Its changes will be kept in the working tree.`)) return
     setBusy(true)
     try {
       await onReset(hash)
@@ -85,7 +85,7 @@ export function GitWidget({ snapshot, onAction, onError, onFileSelect, onRefresh
       </ul>}
       {snapshot.commits.length > 0 && <section className="git-commits" aria-label="Unpushed commits">
         <h2>Unpushed commits <small>{snapshot.commits.length}</small></h2>
-        {snapshot.commits.map((commit) => <div className="git-commit" key={commit.hash}>
+        {snapshot.commits.map((commit, index) => <div className="git-commit" key={commit.hash}>
           <details>
             <summary><Tooltip label={commit.subject}><code>{commit.hash.slice(0, 7)}</code><span>{commit.subject}</span></Tooltip></summary>
             {commit.files.length > 0 ? <ul className="git-file-list git-commit-files">{commit.files.map((file) => <li className="git-file-item" key={file.path}>
@@ -94,7 +94,7 @@ export function GitWidget({ snapshot, onAction, onError, onFileSelect, onRefresh
           </details>
           <div className="git-commit-actions">
             <Tooltip label="Revert this commit"><button aria-label={`Revert commit ${commit.hash.slice(0, 7)}`} className="git-commit-action git-revert" disabled={busy} onClick={() => void revertCommit(commit.hash)} type="button">↶</button></Tooltip>
-            <Tooltip label="Reset this commit"><button aria-label={`Reset commit ${commit.hash.slice(0, 7)}`} className="git-commit-action git-reset" disabled={busy} onClick={() => void resetCommit(commit.hash)} type="button">🗑︎</button></Tooltip>
+            {index === 0 && <Tooltip label="Reset this commit"><button aria-label={`Reset commit ${commit.hash.slice(0, 7)}`} className="git-commit-action git-reset" disabled={busy} onClick={() => void resetCommit(commit.hash)} type="button">🗑︎</button></Tooltip>}
           </div>
         </div>)}
       </section>}

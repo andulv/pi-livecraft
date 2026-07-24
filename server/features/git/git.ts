@@ -93,12 +93,12 @@ async function unpushedCommits(cwd: string): Promise<GitCommit[]> {
   return commits
 }
 
-/** Resets a displayed local commit and every newer commit while preserving their changes. */
+/** Resets only the latest local commit while preserving its changes. */
 export async function resetGitCommit(cwd: string, hash: string): Promise<GitResetResult> {
   const snapshot = await getGitSnapshot(cwd)
   if (!snapshot.repository) throw new Error('The current directory is not a Git repository.')
   if (snapshot.files.length > 0) throw new Error('The repository must be clean before resetting a commit.')
-  if (!snapshot.commits.some((commit) => commit.hash === hash)) throw new Error('This commit cannot be reset.')
+  if (snapshot.commits[0]?.hash !== hash) throw new Error('Only the latest unpushed commit can be reset.')
 
   await runGit(cwd, ['reset', `${hash}^`])
   return { hash }
