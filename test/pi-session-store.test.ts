@@ -46,14 +46,17 @@ test('uses the first non-command user prompt when a session has no name', async 
   assert.equal(recent.name, 'One two three four five six seven eight…')
 })
 
-test('uses a placeholder when a session has no name or user prompt', async () => {
+test('hides a session until it contains a message', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-sessions-'))
   const path = join(directory, 'unnamed.jsonl')
-  await writeFile(path, JSON.stringify({ type: 'session', version: 3, id: 'unnamed', timestamp: '2026-07-19T10:00:00.000Z', cwd: '/workspace' }))
+  await writeFile(path, [
+    JSON.stringify({ type: 'session', version: 3, id: 'unnamed', timestamp: '2026-07-19T10:00:00.000Z', cwd: '/workspace' }),
+    JSON.stringify({ type: 'session_info', name: 'New session' }),
+  ].join('\n'))
 
-  const [recent] = await listRecentPiSessions('/workspace', directory)
+  const recent = await listRecentPiSessions('/workspace', directory)
 
-  assert.equal(recent.name, 'New session')
+  assert.deepEqual(recent, [])
 })
 
 async function writeSession(path: string, cwd: string, id: string, name: string, renamedName?: string, lastMessageTimestamp?: string): Promise<void> {

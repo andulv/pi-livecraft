@@ -23,7 +23,7 @@ interface WorkspaceSidebarProps {
 /** Displays the current workspace and opens or selects its recent Pi sessions. */
 export function WorkspaceSidebar({ completedSessionIds, recentSessions, sessions, selectedId, workspacePath, theme, onChooseWorkspace, onCreate, onOpenSession, onSelectSession, onToggleTheme, onOpenSettings, onError }: WorkspaceSidebarProps) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
-  const visibleSessions = useMemo(() => sidebarSessions(recentSessions, sessions, workspacePath), [recentSessions, sessions, workspacePath])
+  const visibleSessions = useMemo(() => sidebarSessions(recentSessions, workspacePath), [recentSessions, workspacePath])
 
   return <aside className="sidebar">
     <div className="brand">

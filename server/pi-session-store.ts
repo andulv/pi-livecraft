@@ -75,7 +75,7 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
   }
 
   const header = parseHeader(lines[0])
-  if (!header) return null
+  if (!header || !lines.some(isMessageLine)) return null
   const name = lines.reduce<string | undefined>((current, line) => parseSessionName(line) ?? current, undefined)
   const prompt = lines.reduce<string | undefined>((current, line) => current ?? parseUserPrompt(line), undefined)
   const lastMessageAt = lines.reduce<number | undefined>((current, line) => {
@@ -99,6 +99,15 @@ function parseHeader(line: string | undefined): PiSessionHeader | null {
     return { type: 'session', id: value.id, timestamp: value.timestamp, cwd: value.cwd }
   } catch {
     return null
+  }
+}
+
+function isMessageLine(line: string): boolean {
+  try {
+    const value: unknown = JSON.parse(line)
+    return isObject(value) && value.type === 'message'
+  } catch {
+    return false
   }
 }
 
