@@ -410,6 +410,7 @@ function App() {
       if (event.type === 'agent_start') requestStartedAtRef.current = performance.now()
       const streamedToolCall = toolCallInUpdate(event)
       if (streamedToolCall) {
+        flushLiveUpdates()
         setToolExecutions((current) => applyToolCallUpdate(current, streamedToolCall, crypto.randomUUID()))
       }
       if (event.type === 'tool_execution_start' && typeof event.toolCallId === 'string' && typeof event.toolName === 'string') {
