@@ -14,8 +14,6 @@
 
 </div>
 
-<p align="center"><img src="./docs/assets/showcase%20pi-livecraft.png" alt="Pi Livecraft interface" width="1200" /></p>
-
 <p align="center"><img src="./docs/assets/demo-pi-livecraft.gif" alt="Editing Pi Livecraft from a live Pi session" width="1200" /></p>
 
 ## Why Pi Livecraft?
