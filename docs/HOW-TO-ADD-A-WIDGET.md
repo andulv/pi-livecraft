@@ -1,137 +1,137 @@
-# Ajouter un widget
+# Add a widget
 
-Ce guide couvre l'ajout d'un widget dans la barre latérale droite. Chaque étape est obligatoire sauf
-mention contraire. Le widget [`TerminalWidget`](../src/features/terminal/TerminalWidget.tsx) sert de
-référence : ouvre ce fichier dans un second onglet et suis sa structure.
+This guide covers adding a widget to the right sidebar. Every step is required unless noted
+otherwise. The [`TerminalWidget`](../src/features/terminal/TerminalWidget.tsx) is the reference
+implementation — open it alongside and follow its shape.
 
-## 1. Créer le composant
+## 1. Create the component
 
-Crée un dossier `src/features/<widget>/` contenant le composant principal.
+Add a directory `src/features/<widget>/` with the main component.
 
-Le composant reçoit ses données via des **props** passées par `App.tsx` à travers `RightSidebar.tsx`.
-Il ne communique jamais directement avec le backend : toute requête réseau transite par `src/api.ts`.
+The component receives data through **props** passed from `App.tsx` via `RightSidebar.tsx`.
+It never talks to the backend directly — every network request goes through `src/api.ts`.
 
 ```tsx
 // src/features/<widget>/<Widget>.tsx
 
-export function MonWidget({ workspacePath }: { workspacePath: string }) {
-  // État local (formulaires, sélections, erreurs) uniquement.
-  // Données persistantes → props depuis App.tsx.
+export function MyWidget({ workspacePath }: { workspacePath: string }) {
+  // Local state only (forms, selections, errors).
+  // Persistent data → props from App.tsx.
 }
 ```
 
-**Contraintes :**
-- Le composant est affiché ou masqué via le rail, mais jamais démonté
-- Toute persistence passe par `localStorage` (préfixe `pi-livecraft.`) côté frontend, ou par un module
-  `server/features/<widget>/` côté backend
-- Les classes CSS sont colocalisées dans `src/features/<widget>/<widget>.css`
+**Constraints:**
+- The component is shown or hidden via the rail but never unmounted
+- Persistence uses `localStorage` (`pi-livecraft.` prefix) on the frontend, or a
+  `server/features/<widget>/` module on the backend
+- CSS classes live in `src/features/<widget>/<widget>.css`
 
-## 2. Enregistrer le widget
+## 2. Register the widget
 
-Ajoute une entrée dans `rightWidgetDefinitions` (`src/features/right-sidebar/right-sidebar.ts`) :
+Add an entry to `rightWidgetDefinitions` (`src/features/right-sidebar/right-sidebar.ts`):
 
 ```ts
-{ id: 'mon-widget', label: 'Mon widget' },
+{ id: 'my-widget', label: 'My widget' },
 ```
 
-**Ce seul ajout crée automatiquement :**
-- Une commande `open-widget-mon-widget` dans la palette
-- Un raccourci clavier assignable dans les paramètres (Settings)
+**This single entry automatically creates:**
+- An `open-widget-my-widget` command in the palette
+- An assignable keyboard shortcut in Settings
 
-Aucune autre inscription n'est nécessaire.
+No other registration is needed.
 
-## 3. Brancher dans RightSidebar.tsx
+## 3. Wire into RightSidebar.tsx
 
-Dans `src/features/right-sidebar/RightSidebar.tsx` :
+In `src/features/right-sidebar/RightSidebar.tsx`:
 
-- **Panneau :** ajoute un rendu conditionnel sur `activeWidget`, en suivant le pattern des widgets
-  existants (repère `activeWidget === 'terminal'` dans le fichier). Passe les props reçues
-  par `RightSidebar`.
-- **Rail :** ajoute un bouton dans la `<div className="right-sidebar-rail">` en reproduisant
-  le pattern d'accessibilité (`aria-controls`, `aria-expanded`, `aria-label`) et l'appel à
-  `onWidgetSelect`. Si le widget est conditionnel, englobe le bouton dans une garde.
-- **`panelLabel` :** ajoute une entrée dans la fonction du même nom pour le label accessible.
+- **Panel:** add a conditional render on `activeWidget`, following the pattern of existing
+  widgets (search for `activeWidget === 'terminal'` in the file). Forward the props received
+  by `RightSidebar`.
+- **Rail:** add a button inside `<div className="right-sidebar-rail">`, copying the
+  accessibility pattern (`aria-controls`, `aria-expanded`, `aria-label`) and the
+  `onWidgetSelect` call. If the widget is conditional, wrap the button in a guard.
+- **`panelLabel`:** add an entry in the same-named function for the accessible label.
 
-## 4. (Optionnel) Transmettre des props depuis App.tsx
+## 4. (Optional) Forward props from App.tsx
 
-Si le widget a besoin de données ou callbacks gérés par `App.tsx` :
+If the widget needs data or callbacks owned by `App.tsx`:
 
-- Ajoute les props à l'interface de `RightSidebar`
-- Passe-les dans le rendu de `<RightSidebar>` dans `App.tsx`
-- Transmets-les au composant dans le panneau (étape 3)
+- Add the props to `RightSidebar`'s interface
+- Pass them in the `<RightSidebar>` render in `App.tsx`
+- Forward them to the component in the panel (step 3)
 
-## 5. (Optionnel) Données depuis le backend
+## 5. (Optional) Backend data
 
-Si le widget consomme des données du backend :
+If the widget consumes backend data:
 
-### 5a. Fonction API
+### 5a. API function
 
 ```ts
 // src/api.ts
-export async function getMonWidgetData(cwd: string): Promise<MonDataType> {
-  return request<MonDataType>(`/api/mon-widget?cwd=${encodeURIComponent(cwd)}`)
+export async function getMyWidgetData(cwd: string): Promise<MyDataType> {
+  return request<MyDataType>(`/api/my-widget?cwd=${encodeURIComponent(cwd)}`)
 }
 ```
 
-### 5b. Route backend
+### 5b. Backend route
 
 ```ts
 // server/backend.ts
-if (url.pathname === '/api/mon-widget' && request.method === 'GET') {
+if (url.pathname === '/api/my-widget' && request.method === 'GET') {
   const cwd = decodeURIComponent(params.get('cwd') ?? '')
   if (!cwd) { response.writeHead(400); response.end('Missing cwd'); return }
-  const data = await getMonWidgetData(cwd)
+  const data = await getMyWidgetData(cwd)
   respondJson(response, 200, data)
 }
 ```
 
-### 5c. Types partagés
+### 5c. Shared types
 
 ```ts
 // shared/types.ts
-export interface MonDataType {
+export interface MyDataType {
   // …
 }
 ```
 
-### 5d. Module backend (si logique métier)
+### 5d. Backend module (for business logic)
 
 ```ts
-// server/features/mon-widget/mon-widget.ts
-export async function getMonWidgetData(cwd: string): Promise<MonDataType> {
-  // Logique métier, accès fichiers, etc.
+// server/features/my-widget/my-widget.ts
+export async function getMyWidgetData(cwd: string): Promise<MyDataType> {
+  // Business logic, file access, etc.
 }
 ```
 
-Les modules backend n'exposent pas de routes HTTP — cette responsabilité reste dans `server/backend.ts`.
+Backend modules do not expose HTTP routes — that responsibility stays in `server/backend.ts`.
 
-## Composant utilitaire : WidgetLayout
+## Utility component: WidgetLayout
 
-`WidgetLayout` (`src/features/right-sidebar/WidgetLayout.tsx`) fournit une structure optionnelle
-avec header fixe et zone de contenu scrollable :
+`WidgetLayout` (`src/features/right-sidebar/WidgetLayout.tsx`) provides an optional structure
+with a fixed header and scrollable content area:
 
 ```tsx
-<WidgetLayout header={<div><strong>Mon widget</strong><span>sous-titre</span></div>}>
-  {/* contenu scrollable */}
+<WidgetLayout header={<div><strong>My widget</strong><span>subtitle</span></div>}>
+  {/* scrollable content */}
 </WidgetLayout>
 ```
 
-Il est utilisé par le widget d'analyse de session, mais n'est pas obligatoire.
+Used by the session analysis widget, but not mandatory.
 
-## Récapitulatif des fichiers touchés
+## Files touched
 
-| Fichier | Action |
+| File | Action |
 |---|---|
-| `src/features/<widget>/<Widget>.tsx` | Créer le composant |
-| `src/features/right-sidebar/right-sidebar.ts` | Ajouter `rightWidgetDefinitions` |
-| `src/features/right-sidebar/RightSidebar.tsx` | Panneau, rail, `panelLabel` |
-| `src/App.tsx` | (optionnel) Props et callbacks |
-| `src/api.ts` | (optionnel) Fonction de requête |
-| `server/backend.ts` | (optionnel) Route HTTP |
-| `shared/types.ts` | (optionnel) Types |
-| `server/features/<widget>/` | (optionnel) Logique backend |
+| `src/features/<widget>/<Widget>.tsx` | Create the component |
+| `src/features/right-sidebar/right-sidebar.ts` | Add to `rightWidgetDefinitions` |
+| `src/features/right-sidebar/RightSidebar.tsx` | Panel, rail, `panelLabel` |
+| `src/App.tsx` | (optional) Props and callbacks |
+| `src/api.ts` | (optional) Request function |
+| `server/backend.ts` | (optional) HTTP route |
+| `shared/types.ts` | (optional) Types |
+| `server/features/<widget>/` | (optional) Backend logic |
 
-## Widget de référence
+## Reference widget
 
-[`TerminalWidget`](../src/features/terminal/TerminalWidget.tsx) illustre l'état local, l'appel API,
-la gestion d'erreur et le pattern header / contenu / footer.
+[`TerminalWidget`](../src/features/terminal/TerminalWidget.tsx) illustrates local state, an API
+call, error handling, and the header/content/footer pattern.

@@ -1,76 +1,76 @@
-# Ajouter une commande
+# Add a command
 
-Ce guide couvre l'ajout d'une commande dans la palette et le système de raccourcis clavier.
-Chaque étape est obligatoire. La commande `open-palette` sert de référence minimale.
+This guide covers adding a command to the palette and keyboard shortcut system.
+Every step is required. The `open-palette` command is the minimal reference.
 
-Une commande de widget (barre latérale) est créée automatiquement : voir
+Widget commands (sidebar) are created automatically — see
 [HOW-TO-ADD-A-WIDGET.md](HOW-TO-ADD-A-WIDGET.md).
 
-## 1. Définir la commande
+## 1. Define the command
 
-Ajoute l'identifiant dans `CoreCommandId` et l'entrée dans `commandDefinitions`
-(`src/features/commands/command-registry.ts`) :
+Add the identifier to `CoreCommandId` and the entry to `commandDefinitions`
+(`src/features/commands/command-registry.ts`):
 
 ```ts
 type CoreCommandId =
-  // … existants …
-  | 'ma-commande'
+  // … existing …
+  | 'my-command'
 
 export const commandDefinitions: CommandDefinition[] = [
-  // … existants …
-  { id: 'ma-commande', label: 'Ma commande' },
+  // … existing …
+  { id: 'my-command', label: 'My command' },
 ]
 ```
 
-L'identifiant devient disponible dans `CommandId` et la commande apparaît dans la palette
-sans autre inscription.
+The identifier becomes available in `CommandId` and the command appears in the palette
+with no further registration.
 
-## 2. (Optionnel) Ajouter un raccourci par défaut
+## 2. (Optional) Add a default shortcut
 
 ```ts
 export const defaultShortcuts: Partial<Record<CommandId, string>> = {
-  // … existants …
-  'ma-commande': 'mod+shift+m',
+  // … existing …
+  'my-command': 'mod+shift+m',
 }
 ```
 
-Les modifieurs utilisent `mod` (Cmd sur Mac, Ctrl sinon), `alt`, `shift`. La normalisation
-est gérée par `shortcutFromEvent`. Une commande sans raccourci par défaut reste assignable
-depuis les paramètres (Settings).
+Modifiers use `mod` (Cmd on macOS, Ctrl otherwise), `alt`, `shift`. Normalization is
+handled by `shortcutFromEvent`. Commands without a default shortcut remain assignable
+from Settings.
 
-## 3. Implémenter l'exécution
+## 3. Implement execution
 
-Dans `src/App.tsx`, ajoute un cas dans la fonction `executeCommand` qui traite le nouvel
-identifiant. Repère le pattern existant (`if (id === '...') { …; return }`) et ajoute le
-tien à la suite.
+In `src/App.tsx`, add a case in the `executeCommand` function that handles the new
+identifier. Locate the existing pattern (`if (id === '...') { …; return }`) and add
+yours after it.
 
-## 4. (Optionnel) Rendre la commande conditionnelle
+## 4. (Optional) Make the command conditional
 
-Si la commande n'a de sens que dans certains contextes (session active, données chargées…),
-ajoute sa condition de désactivation dans le `useMemo` de `paletteCommands` (`src/App.tsx`).
-Repère le champ `disabled` dans le mapping de `commandDefinitions` et ajoute ta condition
-aux côtés de `unavailableWidget` et du bloc `['send', 'abort', …]`.
+If the command only makes sense in certain contexts (active session, loaded data…),
+add its disable condition in the `useMemo` of `paletteCommands` (`src/App.tsx`).
+Find the `disabled` field in the `commandDefinitions` mapping and add your condition
+alongside `unavailableWidget` and the `['send', 'abort', …]` block.
 
-Une commande désactivée reste visible dans la palette mais grisée et non cliquable.
+A disabled command remains visible in the palette but grayed out and non-clickable.
 
-## 5. (Optionnel) Couvrir dans les tests
+## 5. (Optional) Cover in tests
 
-Ajoute un test dans `test/shortcuts.test.ts` si la commande introduit un nouveau comportement
-de normalisation, de conflit de raccourcis, ou de résolution. Pour une commande simple, un
-test de présence dans le registre suffit :
+Add a test in `test/shortcuts.test.ts` if the command introduces new normalization,
+shortcut conflict, or resolution behavior. For a simple command, a registry presence
+test is enough:
 
 ```ts
-test('ma-commande est reconnue par le registre', () => {
-  const definition = commandDefinitions.find((d) => d.id === 'ma-commande')
+test('my-command is recognized by the registry', () => {
+  const definition = commandDefinitions.find((d) => d.id === 'my-command')
   assert.ok(definition)
-  assert.equal(definition.label, 'Ma commande')
+  assert.equal(definition.label, 'My command')
 })
 ```
 
-## Récapitulatif des fichiers touchés
+## Files touched
 
-| Fichier | Action |
+| File | Action |
 |---|---|
-| `src/features/commands/command-registry.ts` | `CoreCommandId`, `commandDefinitions`, (optionnel) `defaultShortcuts` |
-| `src/App.tsx` | `executeCommand`, (optionnel) désactivation dans `paletteCommands` |
-| `test/shortcuts.test.ts` | (optionnel) Test de registre |
+| `src/features/commands/command-registry.ts` | `CoreCommandId`, `commandDefinitions`, (optional) `defaultShortcuts` |
+| `src/App.tsx` | `executeCommand`, (optional) disable in `paletteCommands` |
+| `test/shortcuts.test.ts` | (optional) Registry test |
