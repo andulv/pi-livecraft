@@ -2,7 +2,7 @@
 
 ## Architecture and boundaries
 
-- Read [`docs/architecture.md`](docs/architecture.md) before a cross-cutting change or moving a module; use [`docs/README.md`](docs/README.md) to find focused guides.
+- Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) before a cross-cutting change or moving a module; use [`docs/README.md`](docs/README.md) to find focused guides.
 - The React frontend communicates with the backend only through `src/api.ts`.
 - `src/App.tsx` orchestrates cross-cutting state. Area-specific rendering and logic belong in `src/features/<feature>/`.
 - Colocate feature CSS. Reserve `src/styles/` for global and responsive rules; `src/App.css` remains the ordered entry point.

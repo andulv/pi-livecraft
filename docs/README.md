@@ -4,7 +4,7 @@ Pi Livecraft is documented in layers: begin with the guide closest to your goal,
 
 ## Find the right place
 
-- **Understand or reshape the system:** [project architecture](architecture.md).
+- **Understand or reshape the system:** [project architecture](ARCHITECTURE.md).
 - **Change the frontend:** [frontend feature map](../src/features/README.md).
 - **Add a command, palette entry, or shortcut:** [commands](../src/features/commands/README.md).
 - **Add a preference or persisted UI state:** [settings and preferences](../src/features/settings/README.md).

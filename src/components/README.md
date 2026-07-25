@@ -25,7 +25,7 @@ import { Tooltip } from '../../components/Tooltip.tsx'
 </Tooltip>
 ```
 
-The tooltip appears after a short delay (400ms) to avoid flickering during quick pointer movements. It fades in/out with a subtle slide animation. Both the delay and animation respect the user's `prefers-reduced-motion` setting.
+The tooltip appears after a short delay (400ms) to avoid flickering during quick pointer movements. It fades in/out with a subtle slide animation.
 
 ### Implementation notes
 

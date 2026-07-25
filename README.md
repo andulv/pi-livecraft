@@ -112,7 +112,7 @@ The separation is deliberate: the browser can refresh and the backend can restar
 | Backend routes and capabilities | `node --watch` restart | Preserved |
 | Manager or Pi process ownership | `node --watch` restart | Current response is interrupted; history can normally resume |
 
-Read [`docs/architecture.md`](docs/architecture.md) before changing boundaries or process ownership.
+Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) before changing boundaries or process ownership.
 
 ## Project map
 
