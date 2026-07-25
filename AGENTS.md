@@ -39,16 +39,9 @@ npm test                    # full suite
 
 The integration test requires a configured `pi` command and the `/agent` extension. Pi documentation is installed at `$(npm root -g)/@earendil-works/pi-coding-agent/docs/`.
 
-## Focused documentation
+## Documentation
 
-- [Shared components](src/components/README.md)
-- [Frontend feature map](src/features/README.md)
-- [Tool call presentations](src/features/conversation/README.md)
-- [Commands and shortcuts](src/features/commands/README.md)
-- [Settings and preferences](src/features/settings/README.md)
-- [Right sidebar widgets](src/features/right-sidebar/README.md)
-- [Backend capabilities](server/features/README.md)
-- [Implementation guides](docs/README.md) — how to add a widget, command, or other feature.
+Find the right guide for any task in the [documentation index](docs/README.md).
 
 ## Conventions
 

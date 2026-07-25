@@ -6,6 +6,7 @@ Pi Livecraft is documented in layers: begin with the guide closest to your goal,
 
 - **Understand or reshape the system:** [project architecture](ARCHITECTURE.md).
 - **Change the frontend:** [frontend feature map](../src/features/README.md).
+- **Add a tooltip or shared UI element:** [shared components](../src/components/README.md).
 - **Add a command, palette entry, or shortcut:** [step-by-step guide](HOW-TO-PALETTE-COMMAND.md), then [contract reference](../src/features/commands/README.md).
 - **Add a preference or persisted UI state:** [settings and preferences](../src/features/settings/README.md).
 - **Add a right sidebar widget:** [step-by-step guide](HOW-TO-WIDGET.md), then [contract reference](../src/features/right-sidebar/README.md).
