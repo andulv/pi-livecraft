@@ -8,11 +8,10 @@ Une commande de widget (barre latérale) est créée automatiquement : voir
 
 ## 1. Définir la commande
 
-Ajoute l'identifiant dans `CoreCommandId` et l'entrée dans `commandDefinitions` :
+Ajoute l'identifiant dans `CoreCommandId` et l'entrée dans `commandDefinitions`
+(`src/features/commands/command-registry.ts`) :
 
 ```ts
-// src/features/commands/command-registry.ts
-
 type CoreCommandId =
   // … existants …
   | 'ma-commande'
@@ -20,73 +19,47 @@ type CoreCommandId =
 export const commandDefinitions: CommandDefinition[] = [
   // … existants …
   { id: 'ma-commande', label: 'Ma commande' },
-  // … widgets automatiques …
 ]
 ```
 
-L'identifiant devient disponible dans `CommandId` et `commandDefinitions` immédiatement.
-La commande apparaît dans la palette sans autre inscription.
+L'identifiant devient disponible dans `CommandId` et la commande apparaît dans la palette
+sans autre inscription.
 
 ## 2. (Optionnel) Ajouter un raccourci par défaut
 
 ```ts
-// src/features/commands/command-registry.ts
-
 export const defaultShortcuts: Partial<Record<CommandId, string>> = {
   // … existants …
   'ma-commande': 'mod+shift+m',
 }
 ```
 
-Les modifieurs utilisent `mod` (Cmd sur Mac, Ctrl sinon), `alt`, `shift`. La normalisation est
-gérée par `shortcutFromEvent`. Une commande sans raccourci par défaut reste assignable depuis
-les paramètres (Settings).
+Les modifieurs utilisent `mod` (Cmd sur Mac, Ctrl sinon), `alt`, `shift`. La normalisation
+est gérée par `shortcutFromEvent`. Une commande sans raccourci par défaut reste assignable
+depuis les paramètres (Settings).
 
-## 3. Implémenter l'exécution dans App.tsx
+## 3. Implémenter l'exécution
 
-Ajoute un cas dans `executeCommand` :
-
-```ts
-// src/App.tsx — dans la fonction executeCommand
-
-if (id === 'ma-commande') {
-  // Action : ouvrir un dialogue, basculer un état, lancer une requête…
-  setMonEtat(true)
-  return
-}
-```
+Dans `src/App.tsx`, ajoute un cas dans la fonction `executeCommand` qui traite le nouvel
+identifiant. Repère le pattern existant (`if (id === '...') { …; return }`) et ajoute le
+tien à la suite.
 
 ## 4. (Optionnel) Rendre la commande conditionnelle
 
 Si la commande n'a de sens que dans certains contextes (session active, données chargées…),
-ajoute sa condition de désactivation dans `paletteCommands` :
-
-```ts
-// src/App.tsx — dans le useMemo de paletteCommands
-
-const paletteCommands: PaletteCommand[] = useMemo(() => commandDefinitions.map((definition) => {
-  // …
-  return {
-    …definition,
-    shortcut: shortcuts[definition.id],
-    disabled: unavailableWidget
-      || (definition.id === 'ma-commande' && !maCondition)
-      || (['send', 'abort', …].includes(definition.id) && !selectedSession),
-    onExecute: () => executeCommand(definition.id),
-  }
-}), […])
-```
+ajoute sa condition de désactivation dans le `useMemo` de `paletteCommands` (`src/App.tsx`).
+Repère le champ `disabled` dans le mapping de `commandDefinitions` et ajoute ta condition
+aux côtés de `unavailableWidget` et du bloc `['send', 'abort', …]`.
 
 Une commande désactivée reste visible dans la palette mais grisée et non cliquable.
 
-## 5. Couvrir dans les tests
+## 5. (Optionnel) Couvrir dans les tests
 
-Ajouter un test dans `test/shortcuts.test.ts` si la commande introduit un nouveau comportement
-de normalisation, de conflit de raccourcis, ou de résolution :
+Ajoute un test dans `test/shortcuts.test.ts` si la commande introduit un nouveau comportement
+de normalisation, de conflit de raccourcis, ou de résolution. Pour une commande simple, un
+test de présence dans le registre suffit :
 
 ```ts
-// test/shortcuts.test.ts
-
 test('ma-commande est reconnue par le registre', () => {
   const definition = commandDefinitions.find((d) => d.id === 'ma-commande')
   assert.ok(definition)
@@ -100,4 +73,4 @@ test('ma-commande est reconnue par le registre', () => {
 |---|---|
 | `src/features/commands/command-registry.ts` | `CoreCommandId`, `commandDefinitions`, (optionnel) `defaultShortcuts` |
 | `src/App.tsx` | `executeCommand`, (optionnel) désactivation dans `paletteCommands` |
-| `test/shortcuts.test.ts` | (optionnel) Test de registre ou conflit |
+| `test/shortcuts.test.ts` | (optionnel) Test de registre |

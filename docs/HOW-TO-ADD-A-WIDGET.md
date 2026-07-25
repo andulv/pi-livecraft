@@ -1,8 +1,8 @@
 # Ajouter un widget
 
 Ce guide couvre l'ajout d'un widget dans la barre latérale droite. Chaque étape est obligatoire sauf
-mention contraire. Le widget [Terminal](../src/features/terminal/TerminalWidget.tsx) (55 lignes) sert de
-référence minimale.
+mention contraire. Le widget [`TerminalWidget`](../src/features/terminal/TerminalWidget.tsx) sert de
+référence : ouvre ce fichier dans un second onglet et suis sa structure.
 
 ## 1. Créer le composant
 
@@ -13,12 +13,10 @@ Il ne communique jamais directement avec le backend : toute requête réseau tra
 
 ```tsx
 // src/features/<widget>/<Widget>.tsx
-import type { ReactNode } from 'react'
 
 export function MonWidget({ workspacePath }: { workspacePath: string }) {
   // État local (formulaires, sélections, erreurs) uniquement.
   // Données persistantes → props depuis App.tsx.
-  return <>{/* contenu */}</>
 }
 ```
 
@@ -30,14 +28,10 @@ export function MonWidget({ workspacePath }: { workspacePath: string }) {
 
 ## 2. Enregistrer le widget
 
-Ajoute une entrée dans `rightWidgetDefinitions` :
+Ajoute une entrée dans `rightWidgetDefinitions` (`src/features/right-sidebar/right-sidebar.ts`) :
 
 ```ts
-// src/features/right-sidebar/right-sidebar.ts
-export const rightWidgetDefinitions = [
-  // … existants …
-  { id: 'mon-widget', label: 'Mon widget' },
-] as const
+{ id: 'mon-widget', label: 'Mon widget' },
 ```
 
 **Ce seul ajout crée automatiquement :**
@@ -48,72 +42,23 @@ Aucune autre inscription n'est nécessaire.
 
 ## 3. Brancher dans RightSidebar.tsx
 
-Deux insertions dans `src/features/right-sidebar/RightSidebar.tsx` :
+Dans `src/features/right-sidebar/RightSidebar.tsx` :
 
-### 3a. Le panneau (contenu)
-
-```tsx
-// src/features/right-sidebar/RightSidebar.tsx — dans la section <section className="right-sidebar-content">
-{activeWidget === 'mon-widget' && <MonWidget workspacePath={workspacePath} />}
-```
-
-Si le widget nécessite des données chargées par `App.tsx`, ajoute les props correspondantes.
-Exemple avec une garde conditionnelle :
-
-```tsx
-{activeWidget === 'mon-widget' && data && <MonWidget data={data} workspacePath={workspacePath} />}
-```
-
-### 3b. Le bouton du rail
-
-```tsx
-// src/features/right-sidebar/RightSidebar.tsx — dans la section <div className="right-sidebar-rail">
-<Tooltip label="Mon widget">
-  <button
-    aria-controls={activeWidget === 'mon-widget' ? 'mon-widget-panel' : undefined}
-    aria-expanded={activeWidget === 'mon-widget'}
-    aria-label={activeWidget === 'mon-widget' ? 'Collapse mon widget' : 'Expand mon widget'}
-    className="rail-tab"
-    onClick={() => onWidgetSelect('mon-widget')}
-    type="button"
-  >
-    <span aria-hidden="true">◆</span>
-  </button>
-</Tooltip>
-```
-
-Si le widget est conditionnel (n'apparaît que lorsque des données sont disponibles), englobe le
-bouton dans la même garde :
-
-```tsx
-{data && <Tooltip label="Mon widget">…</Tooltip>}
-```
-
-### 3c. Le label d'accessibilité
-
-Ajoute l'entrée dans la fonction `panelLabel` :
-
-```tsx
-function panelLabel(activeWidget: RightWidget | null): string {
-  // … existants …
-  return activeWidget === 'mon-widget' ? 'Mon widget' : /* fallback */
-}
-```
+- **Panneau :** ajoute un rendu conditionnel sur `activeWidget`, en suivant le pattern des widgets
+  existants (repère `activeWidget === 'terminal'` dans le fichier). Passe les props reçues
+  par `RightSidebar`.
+- **Rail :** ajoute un bouton dans la `<div className="right-sidebar-rail">` en reproduisant
+  le pattern d'accessibilité (`aria-controls`, `aria-expanded`, `aria-label`) et l'appel à
+  `onWidgetSelect`. Si le widget est conditionnel, englobe le bouton dans une garde.
+- **`panelLabel` :** ajoute une entrée dans la fonction du même nom pour le label accessible.
 
 ## 4. (Optionnel) Transmettre des props depuis App.tsx
 
 Si le widget a besoin de données ou callbacks gérés par `App.tsx` :
 
-```tsx
-// src/App.tsx — dans le rendu de <RightSidebar>
-<RightSidebar
-  // … props existantes …
-  monData={monData}
-  onMonAction={(arg) => { /* … */ }}
-/>
-```
-
-Puis ajouter ces props à l'interface de `RightSidebar` et les transmettre au composant.
+- Ajoute les props à l'interface de `RightSidebar`
+- Passe-les dans le rendu de `<RightSidebar>` dans `App.tsx`
+- Transmets-les au composant dans le panneau (étape 3)
 
 ## 5. (Optionnel) Données depuis le backend
 
@@ -131,7 +76,7 @@ export async function getMonWidgetData(cwd: string): Promise<MonDataType> {
 ### 5b. Route backend
 
 ```ts
-// server/backend.ts — dans la fonction de routage
+// server/backend.ts
 if (url.pathname === '/api/mon-widget' && request.method === 'GET') {
   const cwd = decodeURIComponent(params.get('cwd') ?? '')
   if (!cwd) { response.writeHead(400); response.end('Missing cwd'); return }
@@ -166,8 +111,6 @@ Les modules backend n'exposent pas de routes HTTP — cette responsabilité rest
 avec header fixe et zone de contenu scrollable :
 
 ```tsx
-import { WidgetLayout } from '../right-sidebar/WidgetLayout.tsx'
-
 <WidgetLayout header={<div><strong>Mon widget</strong><span>sous-titre</span></div>}>
   {/* contenu scrollable */}
 </WidgetLayout>
@@ -181,7 +124,7 @@ Il est utilisé par le widget d'analyse de session, mais n'est pas obligatoire.
 |---|---|
 | `src/features/<widget>/<Widget>.tsx` | Créer le composant |
 | `src/features/right-sidebar/right-sidebar.ts` | Ajouter `rightWidgetDefinitions` |
-| `src/features/right-sidebar/RightSidebar.tsx` | Importer, panneau, rail, `panelLabel` |
+| `src/features/right-sidebar/RightSidebar.tsx` | Panneau, rail, `panelLabel` |
 | `src/App.tsx` | (optionnel) Props et callbacks |
 | `src/api.ts` | (optionnel) Fonction de requête |
 | `server/backend.ts` | (optionnel) Route HTTP |
@@ -190,9 +133,5 @@ Il est utilisé par le widget d'analyse de session, mais n'est pas obligatoire.
 
 ## Widget de référence
 
-[`TerminalWidget`](../src/features/terminal/TerminalWidget.tsx) est le widget le plus simple
-(55 lignes). Il illustre :
-- Un état local (`useState`)
-- Un appel API (`executeTerminalCommand` depuis `src/api.ts`)
-- Un formulaire avec gestion d'erreur
-- Le pattern header / contenu / footer
+[`TerminalWidget`](../src/features/terminal/TerminalWidget.tsx) illustre l'état local, l'appel API,
+la gestion d'erreur et le pattern header / contenu / footer.

@@ -1,24 +1,36 @@
 # Ajouter une présentation de tool call
 
 Ce guide couvre l'ajout d'une présentation visuelle pour un outil RPC dans la conversation.
-Chaque étape est obligatoire sauf mention contraire. La présentation [`bash`](../src/features/conversation/tool-calls.ts#L251)
-sert de référence minimale.
+Chaque étape est obligatoire sauf mention contraire. La présentation `bash` dans
+[`tool-calls.ts`](../src/features/conversation/tool-calls.ts) sert de référence minimale :
+ouvre ce fichier et repère `bashPresentation` pour suivre sa structure.
 
 ## 1. Créer la fonction de présentation
 
 Ajoute une fonction dans `src/features/conversation/tool-calls.ts`.
 
+**Signature :** `(args: unknown, repositoryRoot?: string | null) => ToolCallPresentation`
+
+**Contrat :**
+- `args` est `unknown` — toujours valider avant d'accéder aux champs. Utilise `isObject()` pour
+  vérifier que `args` est un objet JSON.
+- Retourne `{}` si les arguments sont invalides (fallback silencieux, aucun affichage).
+- `headerDetail.text` : version courte affichée dans l'en-tête (limiter à ~80 caractères via
+  `truncateToolText`).
+- `headerDetail.title` : version complète pour le tooltip et le lecteur d'écran.
+- `headerDetail.suffix` : optionnel, ajouté après le texte (ex: plage de lignes `[1:10]`).
+- `pendingDetail` : optionnel, affiché sous le statut « In progress… ».
+- `repositoryRoot` permet de rendre les chemins absolus relatifs au dépôt via
+  `pathFromRepositoryRoot`.
+
 ```ts
 // src/features/conversation/tool-calls.ts
 
-function monOutilPresentation(args: unknown, repositoryRoot?: string | null): ToolCallPresentation {
-  // 1. Valider les arguments sans présumer de leur forme
+function monOutilPresentation(args: unknown): ToolCallPresentation {
   if (!isObject(args) || typeof args.monChamp !== 'string') return {}
 
-  // 2. Extraire les données
   const champ = args.monChamp
 
-  // 3. Retourner la présentation
   return {
     headerDetail: { text: truncateToolText(champ, 80).text, title: champ },
     pendingDetail: 'En attente…',
@@ -26,57 +38,52 @@ function monOutilPresentation(args: unknown, repositoryRoot?: string | null): To
 }
 ```
 
-**Signature :** `(args: unknown, repositoryRoot?: string | null) => ToolCallPresentation`
-
-**Contrat :**
-- `args` est `unknown` — toujours valider avant d'accéder aux champs
-- Retourner `{}` si les arguments sont invalides (fallback silencieux)
-- `headerDetail.text` : version courte affichée dans l'en-tête (80 car. max via `truncateToolText`)
-- `headerDetail.title` : version complète pour le tooltip et le lecteur d'écran
-- `headerDetail.suffix` : optionnel, ajouté après le texte (ex: plage de lignes `[1:10]`)
-- `pendingDetail` : affiché sous le statut « In progress… », optionnel
-- `repositoryRoot` permet de rendre les chemins relatifs au dépôt via `pathFromRepositoryRoot`
+Le corps de la fonction est libre : extrais les champs utiles, transforme-les si besoin,
+retourne la présentation. Inspire-toi de `bashPresentation` pour le cas simple, de
+`filePresentation` pour les chemins relatifs, ou de `readPresentation` pour un enrichissement
+d'une autre présentation.
 
 ## 2. Enregistrer la présentation
 
-Ajoute une entrée dans l'objet `toolCallPresentations` avec le **nom exact de l'outil RPC** comme clé :
+Ajoute une entrée dans l'objet `toolCallPresentations` avec le **nom exact de l'outil RPC**
+comme clé (tel qu'envoyé par Pi dans les événements RPC : `bash`, `read`, `write`, `edit`,
+`grep`, `find`, etc.) :
 
 ```ts
-// src/features/conversation/tool-calls.ts
-
 const toolCallPresentations: Record<string, ToolCallPresenter> = {
   // … existants …
   mon_outil: monOutilPresentation,
 }
 ```
 
-Le nom doit correspondre exactement à celui envoyé par Pi dans les événements RPC (ex: `bash`,
-`read`, `write`, `edit`, `grep`, `find`).
-
 ## 3. Ajouter un test
 
-Dans `test/tool-calls.test.ts`, couvrir deux cas :
+Dans `test/tool-calls.test.ts`, teste via `toolCallPresentation()` (la fonction publique qui
+résout le nom d'outil → présentation). Couvre deux cas :
+
+- **Arguments valides :** vérifie que `headerDetail.text` et `.title` correspondent aux données
+- **Arguments invalides :** teste `{}`, `null`, ou un champ absent → `{}`
 
 ```ts
-// test/tool-calls.test.ts
-
 test('monOutilPresentation affiche le champ principal', () => {
-  const presentation = toolCallPresentation({ name: 'mon_outil', id: 'call_1', args: { monChamp: 'valeur' } })
+  const presentation = toolCallPresentation({
+    name: 'mon_outil', id: 'call_1', args: { monChamp: 'valeur' },
+  })
   assert.equal(presentation.headerDetail?.text, 'valeur')
   assert.equal(presentation.headerDetail?.title, 'valeur')
 })
 
 test('monOutilPresentation ignore les arguments invalides', () => {
-  const presentation = toolCallPresentation({ name: 'mon_outil', id: 'call_1', args: {} })
-  assert.deepEqual(presentation, {})
-
-  const missing = toolCallPresentation({ name: 'mon_outil', id: 'call_1', args: null })
-  assert.deepEqual(missing, {})
+  assert.deepEqual(
+    toolCallPresentation({ name: 'mon_outil', id: 'call_1', args: {} }),
+    {},
+  )
+  assert.deepEqual(
+    toolCallPresentation({ name: 'mon_outil', id: 'call_1', args: null }),
+    {},
+  )
 })
 ```
-
-`toolCallPresentation()` est la fonction publique qui résout le nom d'outil → présentation.
-Tester via elle plutôt que d'appeler directement la fonction privée.
 
 ## Utilitaires disponibles
 
@@ -96,6 +103,8 @@ Tester via elle plutôt que d'appeler directement la fonction privée.
 
 ## Présentations de référence
 
-- [`bashPresentation`](../src/features/conversation/tool-calls.ts#L251) — la plus simple : un champ texte + optionnel
-- [`readPresentation`](../src/features/conversation/tool-calls.ts#L280) — enrichit `filePresentation` avec un suffixe
-- [`filePresentation`](../src/features/conversation/tool-calls.ts#L263) — chemin relatif au dépôt
+Toutes dans [`tool-calls.ts`](../src/features/conversation/tool-calls.ts) :
+
+- `bashPresentation` — la plus simple : un champ texte + `pendingDetail`
+- `filePresentation` — chemin relatif au dépôt via `pathFromRepositoryRoot`
+- `readPresentation` — enrichit `filePresentation` avec un suffixe (plage de lignes)
