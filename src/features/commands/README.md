@@ -4,7 +4,7 @@ The command registry is the shared source for the palette, global keyboard handl
 
 ## Adding a command
 
-Follow the [step-by-step guide](../../../docs/HOW-TO-ADD-A-COMMAND.md). Return here for the registry rules below.
+Follow the [step-by-step guide](../../../docs/HOW-TO-PALETTE-COMMAND.md). Return here for the registry rules below.
 
 Sidebar widgets are the exception to step 1: adding their identity to `rightWidgetDefinitions` automatically creates an `open-widget-*` command. It appears in the palette and Settings without a separate registration. Add custom availability in `App.tsx` only when the widget itself is conditional.
 

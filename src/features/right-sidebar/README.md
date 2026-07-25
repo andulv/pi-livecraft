@@ -4,7 +4,7 @@ The right sidebar keeps workspace tools close without mixing their behavior. `Ri
 
 ## Adding a widget
 
-Follow the [step-by-step guide](../../../docs/HOW-TO-ADD-A-WIDGET.md). Return here for the sidebar-specific contracts below.
+Follow the [step-by-step guide](../../../docs/HOW-TO-WIDGET.md). Return here for the sidebar-specific contracts below.
 
 Each widget automatically receives an **Open…** palette command and an assignable shortcut via `rightWidgetDefinitions`. Rendering remains explicit: do not introduce a component registry.
 

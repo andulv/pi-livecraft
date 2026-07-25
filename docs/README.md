@@ -6,10 +6,10 @@ Pi Livecraft is documented in layers: begin with the guide closest to your goal,
 
 - **Understand or reshape the system:** [project architecture](ARCHITECTURE.md).
 - **Change the frontend:** [frontend feature map](../src/features/README.md).
-- **Add a command, palette entry, or shortcut:** [step-by-step guide](HOW-TO-ADD-A-COMMAND.md), then [contract reference](../src/features/commands/README.md).
+- **Add a command, palette entry, or shortcut:** [step-by-step guide](HOW-TO-PALETTE-COMMAND.md), then [contract reference](../src/features/commands/README.md).
 - **Add a preference or persisted UI state:** [settings and preferences](../src/features/settings/README.md).
-- **Add a right sidebar widget:** [step-by-step guide](HOW-TO-ADD-A-WIDGET.md), then [contract reference](../src/features/right-sidebar/README.md).
-- **Change a tool call display:** [step-by-step guide](HOW-TO-ADD-A-TOOL-CALL.md), then [contract reference](../src/features/conversation/README.md).
+- **Add a right sidebar widget:** [step-by-step guide](HOW-TO-WIDGET.md), then [contract reference](../src/features/right-sidebar/README.md).
+- **Change a tool call display:** [step-by-step guide](HOW-TO-TOOL-PRESENTATION.md), then [contract reference](../src/features/conversation/README.md).
 - **Change Git, quotas, terminal, or todos on the server:** [backend capabilities](../server/features/README.md).
 - **Change code loaded into Pi:** [Pi extensions](../pi-extensions/README.md).
 
@@ -17,8 +17,8 @@ Pi Livecraft is documented in layers: begin with the guide closest to your goal,
 
 Step-by-step walkthroughs for common tasks. Each guide is self-contained: start here, follow the file references, no prior knowledge assumed.
 
-- **[Add a widget](HOW-TO-ADD-A-WIDGET.md)** — sidebar widget, API endpoint, and backend capability.
-- **[Add a tool call presentation](HOW-TO-ADD-A-TOOL-CALL.md)** — custom display for a Pi tool in the conversation.
-- **[Add a command](HOW-TO-ADD-A-COMMAND.md)** — palette entry, keyboard shortcut, and execution.
+- **[Add a widget](HOW-TO-WIDGET.md)** — sidebar widget, API endpoint, and backend capability.
+- **[Add a tool call presentation](HOW-TO-TOOL-PRESENTATION.md)** — custom display for a Pi tool in the conversation.
+- **[Add a palette command](HOW-TO-PALETTE-COMMAND.md)** — palette entry, keyboard shortcut, and execution.
 
 Feature README files describe ownership, important constraints, and focused tests. Source files and shared TypeScript types remain authoritative for implementation details.

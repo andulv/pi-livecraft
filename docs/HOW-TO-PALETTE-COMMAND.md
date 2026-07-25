@@ -1,12 +1,9 @@
-# Add a command
+# Add a palette command
 
 This guide covers adding a command to the palette and keyboard shortcut system.
 Every step is required. The `open-palette` command is the minimal reference.
 
-Widget commands (sidebar) are created automatically — see
-[HOW-TO-ADD-A-WIDGET.md](HOW-TO-ADD-A-WIDGET.md).
-
-## 1. Define the command
+## 1. Define the palette command
 
 Add the identifier to `CoreCommandId` and the entry to `commandDefinitions`
 (`src/features/commands/command-registry.ts`):
@@ -22,7 +19,7 @@ export const commandDefinitions: CommandDefinition[] = [
 ]
 ```
 
-The identifier becomes available in `CommandId` and the command appears in the palette
+The identifier becomes available in `CommandId` and the palette command appears
 with no further registration.
 
 ## 2. (Optional) Add a default shortcut
@@ -35,8 +32,8 @@ export const defaultShortcuts: Partial<Record<CommandId, string>> = {
 ```
 
 Modifiers use `mod` (Cmd on macOS, Ctrl otherwise), `alt`, `shift`. Normalization is
-handled by `shortcutFromEvent`. Commands without a default shortcut remain assignable
-from Settings.
+handled by `shortcutFromEvent`. Palette commands without a default shortcut remain
+assignable from Settings.
 
 ## 3. Implement execution
 
@@ -44,20 +41,20 @@ In `src/App.tsx`, add a case in the `executeCommand` function that handles the n
 identifier. Locate the existing pattern (`if (id === '...') { …; return }`) and add
 yours after it.
 
-## 4. (Optional) Make the command conditional
+## 4. (Optional) Make the palette command conditional
 
-If the command only makes sense in certain contexts (active session, loaded data…),
-add its disable condition in the `useMemo` of `paletteCommands` (`src/App.tsx`).
+If the palette command only makes sense in certain contexts (active session, loaded
+data…), add its disable condition in the `useMemo` of `paletteCommands` (`src/App.tsx`).
 Find the `disabled` field in the `commandDefinitions` mapping and add your condition
 alongside `unavailableWidget` and the `['send', 'abort', …]` block.
 
-A disabled command remains visible in the palette but grayed out and non-clickable.
+A disabled palette command remains visible but grayed out and non-clickable.
 
 ## 5. (Optional) Cover in tests
 
-Add a test in `test/shortcuts.test.ts` if the command introduces new normalization,
-shortcut conflict, or resolution behavior. For a simple command, a registry presence
-test is enough:
+Add a test in `test/shortcuts.test.ts` if the palette command introduces new
+normalization, shortcut conflict, or resolution behavior. For a simple command, a
+registry presence test is enough:
 
 ```ts
 test('my-command is recognized by the registry', () => {

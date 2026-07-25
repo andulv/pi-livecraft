@@ -38,6 +38,10 @@ Add an entry to `rightWidgetDefinitions` (`src/features/right-sidebar/right-side
 - An `open-widget-my-widget` command in the palette
 - An assignable keyboard shortcut in Settings
 
+To customize the auto-created palette command (shortcut, conditional availability,
+execution behavior), follow the [palette command guide](HOW-TO-PALETTE-COMMAND.md)
+starting from step 2.
+
 No other registration is needed.
 
 ## 3. Wire into RightSidebar.tsx
