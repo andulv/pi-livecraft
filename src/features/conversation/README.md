@@ -6,11 +6,6 @@ By default, the tool header exposes its full title on hover. Once the call is re
 
 ## Adding a presentation
 
-1. Add an entry to `toolCallPresentations` using the exact RPC tool name as its key.
-2. Validate `unknown` arguments inside the presentation function. Never assume their shape.
-3. Return a `ToolCallPresentation`:
-   - `headerDetail` shows a compact detail in the header; provide the full text in `title` for the tooltip and screen reader;
-   - `pendingDetail` only supplements the `In progress…` state.
-4. Add a test to `test/tool-calls.test.ts` for the specific presentation and its generic fallback when arguments are invalid.
+Follow the [step-by-step guide](../../../docs/HOW-TO-ADD-A-TOOL-CALL.md). Return here for the default rendering rules above.
 
 Add a presentation only when a tool genuinely provides information that is easier to understand in another form.
