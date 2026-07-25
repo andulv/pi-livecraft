@@ -11,6 +11,7 @@ Pi Livecraft is documented in layers: begin with the guide closest to your goal,
 - **Add a right sidebar widget:** [step-by-step guide](HOW-TO-WIDGET.md), then [contract reference](../src/features/right-sidebar/README.md).
 - **Change a tool call display:** [step-by-step guide](HOW-TO-TOOL-PRESENTATION.md), then [contract reference](../src/features/conversation/README.md).
 - **Change Git, quotas, terminal, or todos on the server:** [backend capabilities](../server/features/README.md).
+- **Send a command to a Pi session or inspect its data:** [how to talk to Pi](HOW-TO-TALK-TO-PI.md), then the [upstream RPC reference]($(npm root -g)/@earendil-works/pi-coding-agent/docs/rpc.md).
 - **Change code loaded into Pi:** [Pi extensions](../pi-extensions/README.md).
 
 ## Implementation guides
@@ -20,5 +21,6 @@ Step-by-step walkthroughs for common tasks. Each guide is self-contained: start 
 - **[Add a widget](HOW-TO-WIDGET.md)** — sidebar widget, API endpoint, and backend capability.
 - **[Add a tool call presentation](HOW-TO-TOOL-PRESENTATION.md)** — custom display for a Pi tool in the conversation.
 - **[Add a palette command](HOW-TO-PALETTE-COMMAND.md)** — palette entry, keyboard shortcut, and execution.
+- **[Talk to Pi](HOW-TO-TALK-TO-PI.md)** — send arbitrary RPC commands and understand the data Pi returns.
 
 Feature README files describe ownership, important constraints, and focused tests. Source files and shared TypeScript types remain authoritative for implementation details.
