@@ -1,5 +1,8 @@
 # Composer
 
+Follow the [step-by-step guide](../../docs/HOW-TO-COMPOSER.md) to add a button,
+dropdown, or stat. Return here for the data flow and internal state reference below.
+
 ## Data flow
 
 `App.tsx` → props → `Composer.tsx` → `onSend()` / `onCommand()` / `onAbort()`

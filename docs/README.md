@@ -7,6 +7,7 @@ Pi Livecraft is documented in layers: begin with the guide closest to your goal,
 - **Understand or reshape the system:** [project architecture](ARCHITECTURE.md).
 - **Change the frontend:** [frontend feature map](../src/features/README.md).
 - **Add a tooltip or shared UI element:** [shared components](../src/components/README.md).
+- **Modify the composer:** [step-by-step guide](HOW-TO-COMPOSER.md), then [composer reference](../src/features/composer/README.md).
 - **Add a command, palette entry, or shortcut:** [step-by-step guide](HOW-TO-PALETTE-COMMAND.md), then [contract reference](../src/features/commands/README.md).
 - **Add a preference or persisted UI state:** [settings and preferences](../src/features/settings/README.md).
 - **Add a right sidebar widget:** [step-by-step guide](HOW-TO-WIDGET.md), then [contract reference](../src/features/right-sidebar/README.md).
@@ -19,6 +20,7 @@ Pi Livecraft is documented in layers: begin with the guide closest to your goal,
 
 Step-by-step walkthroughs for common tasks. Each guide is self-contained: start here, follow the file references, no prior knowledge assumed.
 
+- **[Modify the composer](HOW-TO-COMPOSER.md)** — add a toolbar button, dropdown, or session stat.
 - **[Add a widget](HOW-TO-WIDGET.md)** — sidebar widget, API endpoint, and backend capability.
 - **[Add a tool call presentation](HOW-TO-TOOL-PRESENTATION.md)** — custom display for a Pi tool in the conversation.
 - **[Add a palette command](HOW-TO-PALETTE-COMMAND.md)** — palette entry, keyboard shortcut, and execution.
