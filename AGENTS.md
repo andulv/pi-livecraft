@@ -48,6 +48,7 @@ The integration test requires a configured `pi` command and the `/agent` extensi
 - [Settings and preferences](src/features/settings/README.md)
 - [Right sidebar widgets](src/features/right-sidebar/README.md)
 - [Backend capabilities](server/features/README.md)
+- [Implementation guides](docs/README.md) — how to add a widget, command, or other feature.
 
 ## Conventions
 
