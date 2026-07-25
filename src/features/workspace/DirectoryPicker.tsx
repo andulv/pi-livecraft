@@ -2,8 +2,15 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import { listDirectories } from '../../api.ts'
 import { directoryCompletionTarget } from './directory-completion.ts'
 
-/** Completes and validates a local path before changing the workspace. */
-export function DirectoryPicker({ initialPath, recentPaths, onClose, onError, onSelect }: {
+/**
+ * Completes and validates a local path before changing the workspace.
+ *
+ * Directory suggestions use a version counter: each keystroke increments
+ * `completionVersionRef`, and only the latest request's result is applied.
+ * This prevents a slow `listDirectories()` response from overwriting
+ * newer suggestions for the path currently being typed.
+ */
+export function DirectoryPicker({  initialPath, recentPaths, onClose, onError, onSelect }: {
   initialPath: string
   recentPaths: string[]
   onClose: () => void
