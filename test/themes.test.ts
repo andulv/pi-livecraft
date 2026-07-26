@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  applyThemePalette,
   BUILT_IN_THEMES,
   createTheme,
   deleteTheme,
@@ -17,6 +18,26 @@ import type { ThemePreferences } from '../src/features/settings/themes.ts'
 // ── helpers ────────────────────────────────────────────────────────
 
 const basePrefs: ThemePreferences = { active: 'light', themes: [] }
+
+// ── runtime application ────────────────────────────────────────────
+
+test('applyThemePalette clears stale derived inline variables', () => {
+  const removed: string[] = []
+  const set: Record<string, string> = {}
+  applyThemePalette({
+    style: {
+      removeProperty: (name) => removed.push(name),
+      setProperty: (name, value) => { set[name] = value },
+    },
+  }, BUILT_IN_THEMES[1].palette)
+
+  assert.equal(set['--canvas'], BUILT_IN_THEMES[1].palette.canvas)
+  assert.equal(set['--secondary'], BUILT_IN_THEMES[1].palette.secondary)
+  assert.ok(removed.includes('--surface-raised'))
+  assert.ok(removed.includes('--sidebar'))
+  assert.ok(removed.includes('--teal'))
+  assert.ok(removed.includes('--violet'))
+})
 
 // ── parseThemePreferences ──────────────────────────────────────────
 

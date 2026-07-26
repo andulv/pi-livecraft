@@ -2,25 +2,12 @@
 export const THEME_VARIABLES = [
   'canvas',
   'surface',
-  'surface-raised',
-  'sidebar',
   'ink',
-  'muted',
-  'subtle',
-  'line',
-  'line-strong',
   'accent',
-  'accent-hover',
-  'accent-soft',
-  'teal',
-  'teal-soft',
-  'violet',
-  'violet-soft',
+  'secondary',
   'success',
   'warning',
-  'warning-strong',
   'danger',
-  'danger-soft',
 ] as const
 
 export type ThemeVariable = (typeof THEME_VARIABLES)[number]
@@ -57,49 +44,23 @@ export interface ThemePreferences {
 const LIGHT_PALETTE: ThemePalette = {
   canvas: '#f4f6f4',
   surface: '#ffffff',
-  'surface-raised': '#fbfcfb',
-  sidebar: '#e9eeea',
   ink: '#1d2924',
-  muted: '#617069',
-  subtle: '#87948d',
-  line: '#d7dfd9',
-  'line-strong': '#c5d0c8',
   accent: '#23776d',
-  'accent-hover': '#185f56',
-  'accent-soft': '#e0f1ed',
-  teal: '#23776d',
-  'teal-soft': '#e0f1ed',
-  violet: '#6851a4',
-  'violet-soft': '#ede9fa',
+  secondary: '#6851a4',
   success: '#28734b',
   warning: '#b8860b',
-  'warning-strong': '#c75b00',
   danger: '#a13f37',
-  'danger-soft': '#fbe9e7',
 }
 
 const DARK_PALETTE: ThemePalette = {
   canvas: '#171c1a',
   surface: '#1e2422',
-  'surface-raised': '#252b29',
-  sidebar: '#1a201e',
   ink: '#dde3e0',
-  muted: '#94a099',
-  subtle: '#707c76',
-  line: '#2e3733',
-  'line-strong': '#3b4540',
   accent: '#4fb9ab',
-  'accent-hover': '#66c9bc',
-  'accent-soft': '#162b27',
-  teal: '#4fb9ab',
-  'teal-soft': '#162b27',
-  violet: '#9d91d4',
-  'violet-soft': '#221f3a',
+  secondary: '#9d91d4',
   success: '#59ba7c',
   warning: '#d6aa45',
-  'warning-strong': '#ea8740',
   danger: '#e26e63',
-  'danger-soft': '#321a16',
 }
 
 export const BUILT_IN_THEMES: [ThemePreset, ThemePreset] = [
@@ -113,21 +74,71 @@ const STORAGE_KEY = 'pi-livecraft.themes'
 const LEGACY_THEME_KEY = 'pi-livecraft.theme'
 type ThemeStorage = { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void; removeItem: (key: string) => void }
 
+type ThemeStyle = {
+  setProperty: (name: string, value: string) => void
+  removeProperty?: (name: string) => void
+}
+
+const DERIVED_THEME_VARIABLES = [
+  'surface-raised',
+  'sidebar',
+  'muted',
+  'subtle',
+  'line',
+  'line-strong',
+  'accent-hover',
+  'accent-soft',
+  'secondary-soft',
+  'success-soft',
+  'warning-strong',
+  'danger-soft',
+  'teal',
+  'teal-soft',
+  'violet',
+  'violet-soft',
+] as const
+
 /** Returns browser storage without requiring DOM types in the pure test build. */
 function themeStorage(): ThemeStorage | undefined {
   return (globalThis as typeof globalThis & { localStorage?: ThemeStorage }).localStorage
 }
 
-// ── Validation ─────────────────────────────────────────────────────
+// ── Validation & migration ─────────────────────────────────────────
 
 function validateHex(value: unknown): value is string {
   return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)
 }
 
-function validatePalette(value: unknown): value is ThemePalette {
-  if (typeof value !== 'object' || value === null) return false
+/**
+ * Normalizes a raw palette object (old 21-token or new 8-token) into a
+ * valid ThemePalette. Maps legacy `violet` → `secondary` and drops all
+ * derived tokens. Returns null when a source colour is missing or invalid.
+ */
+function normalizePalette(value: unknown): ThemePalette | null {
+  if (typeof value !== 'object' || value === null) return null
   const obj = value as Record<string, unknown>
-  return THEME_VARIABLES.every((v) => validateHex(obj[v]))
+  // Accept the current schema as-is.
+  if (THEME_VARIABLES.every((v) => validateHex(obj[v]))) {
+    return Object.fromEntries(THEME_VARIABLES.map((v) => [v, obj[v] as string])) as unknown as ThemePalette
+  }
+  // Migrate from the legacy 21-token schema: map violet → secondary,
+  // preserve the 8 source colours, ignore everything else.
+  const legacySourceKeys: [string, ThemeVariable][] = [
+    ['canvas', 'canvas'],
+    ['surface', 'surface'],
+    ['ink', 'ink'],
+    ['accent', 'accent'],
+    ['violet', 'secondary'],
+    ['success', 'success'],
+    ['warning', 'warning'],
+    ['danger', 'danger'],
+  ]
+  if (legacySourceKeys.every(([legacy]) => validateHex(obj[legacy]))) {
+    return Object.fromEntries(
+      legacySourceKeys.map(([legacy, current]) => [current, obj[legacy] as string]),
+    ) as unknown as ThemePalette
+  }
+  return null
 }
 
 function validateUserTheme(value: unknown): value is UserTheme {
@@ -136,13 +147,27 @@ function validateUserTheme(value: unknown): value is UserTheme {
   return typeof t.id === 'string' && t.id.length > 0 &&
     typeof t.name === 'string' && t.name.trim().length > 0 &&
     (t.mode === 'light' || t.mode === 'dark') &&
-    validatePalette(t.palette)
+    normalizePalette(t.palette) !== null
 }
 
 function validateThemePreferences(value: unknown): value is ThemePreferences {
   if (typeof value !== 'object' || value === null) return false
   const p = value as Record<string, unknown>
   return typeof p.active === 'string' && Array.isArray(p.themes) && p.themes.every(validateUserTheme)
+}
+
+/**
+ * Normalizes every user theme palette in-place so stored JSON only
+ * contains the 8 source colours going forward.
+ */
+function normalizePreferences(prefs: ThemePreferences): ThemePreferences {
+  return {
+    ...prefs,
+    themes: prefs.themes.map((t) => {
+      const normalized = normalizePalette(t.palette)
+      return normalized ? { ...t, palette: normalized } : t
+    }).filter((t) => normalizePalette(t.palette) !== null),
+  }
 }
 
 // ── Parsing & migration ────────────────────────────────────────────
@@ -152,7 +177,9 @@ function validateThemePreferences(value: unknown): value is ThemePreferences {
  * valid preferences or the light default.
  */
 export function parseThemePreferences(raw: unknown, legacyValue: string | null): ThemePreferences {
-  if (raw !== null && typeof raw === 'object' && validateThemePreferences(raw)) return raw
+  if (raw !== null && typeof raw === 'object' && validateThemePreferences(raw)) {
+    return normalizePreferences(raw as ThemePreferences)
+  }
   const active = legacyValue === 'dark' ? 'dark' : 'light'
   return { active, themes: [] }
 }
@@ -277,11 +304,29 @@ export function setActiveTheme(prefs: ThemePreferences, id: string): ThemePrefer
 
 // ── Runtime application ────────────────────────────────────────────
 
-/** Applies a theme palette as CSS custom properties on a DOM element. */
-export function applyThemePalette(element: { style: { setProperty: (name: string, value: string) => void } }, palette: ThemePalette): void {
+/**
+ * Returns either '#ffffff' or '#000000' depending on whether the given
+ * hex colour is dark enough to need light text. Uses W3C relative luminance.
+ */
+function contrastColor(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+  const toLinear = (c: number) => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  const luminance = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
+  return luminance > 0.5 ? '#000000' : '#ffffff'
+}
+
+/** Applies source colours and removes stale derived inline variables from a DOM element. */
+export function applyThemePalette(element: { style: ThemeStyle }, palette: ThemePalette): void {
+  for (const variable of DERIVED_THEME_VARIABLES) {
+    element.style.removeProperty?.(`--${variable}`)
+  }
   for (const variable of THEME_VARIABLES) {
     element.style.setProperty(`--${variable}`, palette[variable])
   }
+  element.style.setProperty('--on-accent', contrastColor(palette.accent))
+  element.style.setProperty('--on-danger', contrastColor(palette.danger))
 }
 
 /** Shadow values derived from the theme mode. */
