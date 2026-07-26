@@ -97,7 +97,7 @@ if (isolated) {
   if (process.argv[process.argv.indexOf('--thinking') + 1] !== 'off') throw new Error('Thinking is enabled')
   const systemPrompt = process.argv[process.argv.indexOf('--system-prompt') + 1]
   if (!systemPrompt.includes('task editor')) throw new Error('Missing task editor system prompt')
-  if (!systemPrompt.includes('Non précisé')) throw new Error('Missing Non précisé rule')
+  if (!systemPrompt.includes('Omit empty sections')) throw new Error('Missing empty-section rule')
   if (!systemPrompt.includes('Objectif:')) throw new Error('Missing Objectif section')
 } else if (extensionIndex === -1 || process.argv[extensionIndex + 1] !== expectedExtension) {
   throw new Error('Missing ask-user-question extension')
