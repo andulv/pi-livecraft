@@ -107,6 +107,7 @@ export interface ManagerRequest {
   model?: { provider: string; modelId: string }
   extensions?: string[]
   tools?: string[]
+  includeContextFiles?: boolean
 }
 
 export interface ManagerResponse {

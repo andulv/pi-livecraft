@@ -265,6 +265,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       model: isModelBody(body.model),
       extensions: Array.isArray(body.extensions) ? body.extensions.filter((e: unknown): e is string => typeof e === 'string') : undefined,
       tools: Array.isArray(body.tools) ? body.tools.filter((t: unknown): t is string => typeof t === 'string') : undefined,
+      includeContextFiles: typeof body.includeContextFiles === 'boolean' ? body.includeContextFiles : undefined,
     }, 5 * 60_000)
     sendJson(response, 200, data)
     return

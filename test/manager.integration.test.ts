@@ -90,13 +90,13 @@ const sessionPath = process.argv[process.argv.indexOf('--session') + 1]
 const expectedExtension = ${JSON.stringify(join(process.cwd(), 'pi-extensions/ask-user-question.ts'))}
 const extensionIndex = process.argv.indexOf('--extension')
 if (isolated) {
-  for (const flag of ['--no-tools', '--no-extensions', '--no-skills', '--no-prompt-templates', '--no-themes']) {
+  for (const flag of ['--no-tools', '--no-extensions', '--no-skills', '--no-prompt-templates', '--no-themes', '--no-context-files']) {
     if (!process.argv.includes(flag)) throw new Error('Missing isolation flag: ' + flag)
   }
-  if (extensionIndex !== -1 || process.argv.includes('--no-context-files')) throw new Error('Invalid isolated resources')
+  if (extensionIndex !== -1) throw new Error('Invalid isolated extension')
   if (process.argv[process.argv.indexOf('--thinking') + 1] !== 'off') throw new Error('Thinking is enabled')
   const systemPrompt = process.argv[process.argv.indexOf('--system-prompt') + 1]
-  if (!systemPrompt.includes('AGENTS.md and CLAUDE.md instructions appended below are context only')) throw new Error('Missing contextual system prompt')
+  if (!systemPrompt.includes('prompt editor')) throw new Error('Missing prompt editor system prompt')
 } else if (extensionIndex === -1 || process.argv[extensionIndex + 1] !== expectedExtension) {
   throw new Error('Missing ask-user-question extension')
 }

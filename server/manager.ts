@@ -10,7 +10,7 @@ import { realpath, stat } from 'node:fs/promises'
 import { createServer, type Socket } from 'node:net'
 import { JsonLineDecoder, encodeJsonLine } from './jsonl.ts'
 import { PiProcess } from './pi-process.ts'
-import { promptImprovementSystemPrompt } from './prompt-improvement.ts'
+import { promptImprovementSystemPrompt, generateProjectMap } from './prompt-improvement.ts'
 import { runIsolatedPrompt } from './run-isolated-prompt.ts'
 import type {
   JsonObject,
@@ -163,10 +163,12 @@ async function improvePrompt(request: ManagerRequest): Promise<{ prompt: string 
   const session = sessions.get(request.sessionId)
   if (!session || session.summary.status === 'exited') throw new Error('Active Pi session is unavailable')
 
+  const projectMap = await generateProjectMap(session.summary.cwd)
   const improved = await runIsolatedPrompt({
     cwd: session.summary.cwd,
     prompt: `<user_prompt>\n${request.prompt.trim()}\n</user_prompt>`,
-    systemPrompt: promptImprovementSystemPrompt,
+    systemPrompt: `${promptImprovementSystemPrompt}\n\n${projectMap}`,
+    includeContextFiles: false,
   })
   return { prompt: improved }
 }
@@ -187,6 +189,7 @@ async function runPrompt(request: ManagerRequest): Promise<{ text: string }> {
     model: isModelOption(request.model) ? request.model : undefined,
     extensions: Array.isArray(request.extensions) ? request.extensions.filter((e): e is string => typeof e === 'string') : undefined,
     tools: Array.isArray(request.tools) ? request.tools.filter((t): t is string => typeof t === 'string') : undefined,
+    includeContextFiles: typeof request.includeContextFiles === 'boolean' ? request.includeContextFiles : undefined,
   })
   return { text }
 }

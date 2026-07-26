@@ -49,6 +49,7 @@ const text: string = await runPrompt(sessionId, options)
 | `model` | `{ provider, modelId }` | auto (cheapest) | Model to use; omit for cheapest available |
 | `extensions` | `string[]` | `undefined` | Extension paths to load; omit to disable all |
 | `tools` | `string[]` | `undefined` | Tool names to load; omit to disable all |
+| `includeContextFiles` | `boolean` | `true` | Whether Pi loads `AGENTS.md`/`CLAUDE.md` from parent directories. Set `false` to disable automatic context and provide your own via `systemPrompt`. |
 
 ## Examples
 
@@ -82,6 +83,21 @@ const result = await runPrompt(sessionId, {
   extensions: [],
 })
 ```
+
+### With custom context files disabled
+
+```ts
+const result = await runPrompt(sessionId, {
+  prompt: 'Analyze this code.',
+  systemPrompt: `${mySystemPrompt}\n\n<project_map>\nsrc/\n  main.ts\n</project_map>`,
+  includeContextFiles: false,
+})
+```
+
+> **Note:** `--system-prompt` alone does not stop Pi from loading
+> `AGENTS.md`/`CLAUDE.md`. The context files are appended *after* the
+> system prompt. To provide your own context (e.g. a project map) without
+> automatic injection, set `includeContextFiles: false`.
 
 ## When to use
 

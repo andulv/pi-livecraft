@@ -20,6 +20,8 @@ interface PiProcessOptions {
   extensions?: string[]
   /** Tool names to load (omitting passes --no-tools). */
   tools?: string[]
+  /** Whether Pi loads AGENTS.md/CLAUDE.md from parent directories (default true). */
+  includeContextFiles?: boolean
 }
 
 export class PiProcess extends EventEmitter {
@@ -36,6 +38,7 @@ export class PiProcess extends EventEmitter {
           ...(options.tools ? options.tools.flatMap((name) => ['--tool', name]) : ['--no-tools']),
           ...(options.extensions ? options.extensions.flatMap((path) => ['--extension', path]) : ['--no-extensions']),
           '--no-skills', '--no-prompt-templates', '--no-themes',
+          ...(options.includeContextFiles === false ? ['--no-context-files'] : []),
           '--thinking', options.thinkingLevel ?? 'off',
           '--system-prompt', options.systemPrompt ?? '',
         ]

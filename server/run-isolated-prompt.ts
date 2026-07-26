@@ -19,6 +19,8 @@ export interface RunIsolatedPromptOptions {
   extensions?: string[]
   /** Tool names to load. Omit to disable all tools. */
   tools?: string[]
+  /** Whether Pi loads AGENTS.md/CLAUDE.md from parent directories (default true). Set false to provide your own context. */
+  includeContextFiles?: boolean
 }
 
 /**
@@ -35,6 +37,7 @@ export async function runIsolatedPrompt(options: RunIsolatedPromptOptions): Prom
     thinkingLevel: options.thinkingLevel,
     extensions: options.extensions,
     tools: options.tools,
+    includeContextFiles: options.includeContextFiles,
   })
 
   try {

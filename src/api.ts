@@ -121,6 +121,8 @@ export interface RunPromptOptions {
   model?: { provider: string; modelId: string }
   extensions?: string[]
   tools?: string[]
+  /** Disable automatic AGENTS.md/CLAUDE.md loading (default true). Set false to provide your own context. */
+  includeContextFiles?: boolean
 }
 
 /** Runs a prompt in an isolated Pi process with caller-controlled configuration. */
