@@ -244,7 +244,11 @@ function App() {
       const [nextSessions, nextRecentSessions] = await Promise.all([listSessions(), listRecentSessions(cwd)])
       if (version !== refreshVersionRef.current) return
       setSessions(nextSessions)
-      setRecentSessions(nextRecentSessions)
+      setRecentSessions((current) => {
+        const fetchedPaths = new Set(nextRecentSessions.map((session) => session.sessionPath))
+        const activePaths = new Set(nextSessions.filter((session) => session.status !== 'exited').flatMap((session) => session.sessionPath ? [session.sessionPath] : []))
+        return [...nextRecentSessions, ...current.filter((session) => activePaths.has(session.sessionPath) && !fetchedPaths.has(session.sessionPath))]
+      })
       setSelectedId((current) => nextSessions.some((session) => session.id === current) ? current : '')
       const pending = nextSessions.flatMap((session) =>
         session.pendingUi.map((request) => ({ sessionId: session.id, request })),
