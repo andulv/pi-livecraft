@@ -85,24 +85,38 @@ export function Conversation({ activity, agentName, messages, liveText, liveThin
     const selector = navigationRequest.target.kind === 'tool'
       ? `[data-tool-call-id="${CSS.escape(navigationRequest.target.id)}"]`
       : `[data-message-index="${navigationRequest.target.index}"]`
-    const target = conversationRef.current?.querySelector<HTMLElement>(selector)
-    if (!target) return
+    const conversation = conversationRef.current
+    const target = conversation?.querySelector<HTMLElement>(selector)
+    if (!conversation || !target) return
     autoScrollRef.current = false
     setShowScrollToBottom(true)
-    setHighlightedTarget(targetKey)
     let cancelled = false
-    // Wait two frames for the tool card expansion to settle before scrolling
+    let finishTimeout: number | undefined
+    let highlightTimeout: number | undefined
+    const finishNavigation = () => {
+      if (cancelled) return
+      window.clearTimeout(finishTimeout)
+      conversation.removeEventListener('scrollend', finishNavigation)
+      setHighlightedTarget(targetKey)
+      highlightTimeout = window.setTimeout(() => {
+        if (!cancelled) setHighlightedTarget(undefined)
+      }, 3000)
+    }
+    // Wait two frames for the target to mount and its layout to settle before scrolling.
     requestAnimationFrame(() => {
       if (cancelled) return
       requestAnimationFrame(() => {
         if (cancelled) return
+        conversation.addEventListener('scrollend', finishNavigation)
         target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' })
+        finishTimeout = window.setTimeout(finishNavigation, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 500)
       })
     })
-    const timeout = window.setTimeout(() => setHighlightedTarget(undefined), 3000)
     return () => {
       cancelled = true
-      window.clearTimeout(timeout)
+      conversation.removeEventListener('scrollend', finishNavigation)
+      window.clearTimeout(finishTimeout)
+      window.clearTimeout(highlightTimeout)
     }
   }, [navigationRequest])
 
