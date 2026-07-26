@@ -90,9 +90,20 @@ export function Conversation({ activity, agentName, messages, liveText, liveThin
     autoScrollRef.current = false
     setShowScrollToBottom(true)
     setHighlightedTarget(targetKey)
-    target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' })
-    const timeout = window.setTimeout(() => setHighlightedTarget(undefined), 1800)
-    return () => window.clearTimeout(timeout)
+    let cancelled = false
+    // Wait two frames for the tool card expansion to settle before scrolling
+    requestAnimationFrame(() => {
+      if (cancelled) return
+      requestAnimationFrame(() => {
+        if (cancelled) return
+        target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' })
+      })
+    })
+    const timeout = window.setTimeout(() => setHighlightedTarget(undefined), 3000)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+    }
   }, [navigationRequest])
 
   /** Resumes automatic scrolling once the user returns near the bottom. */
