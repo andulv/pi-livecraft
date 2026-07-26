@@ -291,7 +291,7 @@ function ToolUsageRow({ maxValue, metric, tool }: { maxValue: number; metric: To
 /** Renders a ranked call and keeps its navigation target in the conversation. */
 function ToolCallRow({ call, metric, onNavigate }: { call: AnalyzedToolCall; metric: ToolRanking; onNavigate: (target: SessionAnalysisTarget) => void }) {
   return <li>
-    <button onClick={() => onNavigate({ kind: 'tool', id: call.id })} type="button">
+    <button onClick={() => onNavigate({ kind: 'message', index: call.requestMessageIndex })} type="button">
       <span><strong><code>{call.name}</code>{call.isError && <i className="error">Failed</i>}{call.pending && <i>In progress</i>}</strong><small>{formatCharacters(call.inputLength)} input · {formatCharacters(call.outputLength)} output</small></span>
       <b>{metric === 'duration' ? formatDuration(call.durationMs ?? 0) : metric === 'failure' ? 'failure' : formatCharacters(call.outputLength)}</b>
     </button>
