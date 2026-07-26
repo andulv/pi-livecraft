@@ -62,14 +62,13 @@ interface ToolCallCardProps {
   resultContent?: unknown
   resultDetails?: unknown
   resultError?: boolean
-  revealRequest?: number
   streaming?: boolean
   targeted?: boolean
   workspacePath: string
 }
 
 /** Displays the official card whose full result replaces the preview when expanded. */
-export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = false, args, darkMode, hasResult, id, interrupted = false, name, onError, onStartSession, repositoryRoot, resultContent, resultDetails, resultError, revealRequest, streaming = false, targeted = false, workspacePath }: ToolCallCardProps) {
+export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = false, args, darkMode, hasResult, id, interrupted = false, name, onError, onStartSession, repositoryRoot, resultContent, resultDetails, resultError, streaming = false, targeted = false, workspacePath }: ToolCallCardProps) {
   const pending = !hasResult
   const active = pending && !interrupted
   const filePath = name === 'read' || name === 'write' ? toolFilePath(args) : null
@@ -117,10 +116,6 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
     const timeout = window.setTimeout(() => setCodeRendered(true), 0)
     return () => window.clearTimeout(timeout)
   }, [codeRendered, display.kind, expanded, loadingWrittenContent, writtenContentError])
-
-  useEffect(() => {
-    if (revealRequest !== undefined && hasResult && !htmlFile) setExpanded(true)
-  }, [hasResult, htmlFile, revealRequest])
 
   /** Opens HTML reads in the browser and expands other output in the history. */
   const activate = () => {
