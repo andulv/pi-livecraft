@@ -140,6 +140,7 @@
 .message.assistant .content h4 { color: color-mix(in srgb, var(--accent) 52%, transparent); }
 .message.assistant .content h5 { color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .message.assistant .content h6 { color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.message.assistant .content strong { color: var(--accent); }
 .content pre { overflow-x: auto; padding: 13px 14px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--canvas) 60%, var(--surface)); font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; }
 .content :not(pre) > code { padding: 2px 5px; border-radius: 4px; background: color-mix(in srgb, var(--canvas) 70%, var(--surface)); color: var(--ink); font: 12px ui-monospace, monospace; }
 .content a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
@@ -242,6 +243,7 @@
 .tool-call-markdown h4 { color: color-mix(in srgb, var(--accent) 52%, transparent); }
 .tool-call-markdown h5 { color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .tool-call-markdown h6 { color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.tool-call-markdown strong { color: var(--accent); }
 .tool-call-markdown :not(pre) > code { padding: 1px 3px; border-radius: 3px; background: color-mix(in srgb, var(--accent) 7%, transparent); font: 11px ui-monospace, monospace; overflow-wrap: anywhere; }
 .tool-call-markdown pre { overflow-x: auto; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: color-mix(in srgb, var(--accent) 3%, transparent); font: 11px/1.5 ui-monospace, monospace; white-space: pre-wrap; }
 .tool-call-markdown table { table-layout: fixed; width: 100%; margin: 0 0 11px; border-collapse: collapse; font-size: 12px; }
