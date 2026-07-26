@@ -23,7 +23,7 @@
 .todo-add input { width: 100%; min-width: 0; border: 1px solid var(--line-strong); border-radius: 7px; padding: 8px 9px; background: var(--surface); color: var(--ink); font-size: 12px; outline: 0; }
 .todo-add input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 13%, transparent); }
 .todo-add input::placeholder { color: var(--muted); }
-.todo-add button { border: 1px solid var(--teal); border-radius: 7px; background: var(--teal); color: white; font-size: 20px; line-height: 1; }
+.todo-add button { border: 1px solid var(--teal); border-radius: 7px; background: var(--teal); color: var(--surface); font-size: 20px; line-height: 1; }
 .todo-add button:hover:not(:disabled) { background: var(--accent-hover); }
 .todo-add button:disabled { opacity: .5; }
 .todo-empty { display: grid; place-items: center; gap: 7px; margin: auto; padding: 40px 22px; color: var(--muted); text-align: center; }

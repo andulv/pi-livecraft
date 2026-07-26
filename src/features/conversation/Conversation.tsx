@@ -45,6 +45,8 @@ export function Conversation({ activity, agentName, messages, liveText, liveThin
   const conversationContentRef = useRef<HTMLDivElement>(null)
   const autoScrollRef = useRef(true)
   const scrollFrameRef = useRef<number | undefined>(undefined)
+  /** Prevents onScroll from re-enabling auto-scroll during a navigation scroll. */
+  const navigationInProgressRef = useRef(false)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [highlightedTarget, setHighlightedTarget] = useState<string>()
 
@@ -120,8 +122,9 @@ export function Conversation({ activity, agentName, messages, liveText, liveThin
     }
   }, [navigationRequest])
 
-  /** Resumes automatic scrolling once the user returns near the bottom. */
+  /** Resumes automatic scrolling once the user returns near the bottom, unless a navigation scroll is in progress. */
   function handleConversationScroll(): void {
+    if (navigationInProgressRef.current) return
     const el = conversationRef.current
     if (!el || el.scrollHeight - el.scrollTop - el.clientHeight >= 50) return
     autoScrollRef.current = true

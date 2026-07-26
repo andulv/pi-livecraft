@@ -10,18 +10,16 @@ interface WorkspaceSidebarProps {
   sessions: SessionSummary[]
   selectedId: string
   workspacePath: string
-  theme: string
   onChooseWorkspace: () => void
   onCreate: () => Promise<void>
   onOpenSession: (session: RecentSession) => Promise<void>
   onSelectSession: (sessionId: string) => void
-  onToggleTheme: () => void
   onOpenSettings: () => void
   onError: (cause: unknown) => void
 }
 
 /** Displays the current workspace and opens or selects its recent Pi sessions. */
-export function WorkspaceSidebar({ completedSessionIds, recentSessions, sessions, selectedId, workspacePath, theme, onChooseWorkspace, onCreate, onOpenSession, onSelectSession, onToggleTheme, onOpenSettings, onError }: WorkspaceSidebarProps) {
+export function WorkspaceSidebar({ completedSessionIds, recentSessions, sessions, selectedId, workspacePath, onChooseWorkspace, onCreate, onOpenSession, onSelectSession, onOpenSettings, onError }: WorkspaceSidebarProps) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
   const visibleSessions = useMemo(() => sidebarSessions(recentSessions, workspacePath), [recentSessions, workspacePath])
 
@@ -29,9 +27,6 @@ export function WorkspaceSidebar({ completedSessionIds, recentSessions, sessions
     <div className="brand">
       <span className="brand-mark">π</span>
       <div><strong>Pi Livecraft</strong><small>Local workspace</small></div>
-      <Tooltip label={theme === 'dark' ? 'Light theme' : 'Dark theme'}><button aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} className="theme-toggle" onClick={onToggleTheme} type="button">
-        {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-      </button></Tooltip>
       <Tooltip label="Settings"><button aria-label="Open settings" className="theme-toggle" onClick={onOpenSettings} type="button">
         <SettingsIcon />
       </button></Tooltip>
@@ -103,23 +98,6 @@ function NewSessionButton({ onCreate, onError }: { onCreate: () => Promise<void>
   return <button className="new-session" disabled={busy} onClick={() => void create()} type="button">{busy ? 'Starting…' : '＋ New session'}</button>
 }
 
-function MoonIcon() {
-  return (
-    <svg aria-hidden="true" fill="none" height="16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" viewBox="0 0 24 24" width="16">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-    </svg>
-  )
-}
-
 function SettingsIcon() {
   return <svg aria-hidden="true" fill="none" height="16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" viewBox="0 0 24 24" width="16"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" /><path d="m19.4 15 .1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.9 1.9 0 0 0-3.2 1.3v.2a2 2 0 1 1-4 0v-.2a1.9 1.9 0 0 0-3.2-1.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.9 1.9 0 0 0 2.2 12a1.9 1.9 0 0 0 1.2-3.2l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.9 1.9 0 0 0 3.2-1.3v-.2a2 2 0 1 1 4 0v.2a1.9 1.9 0 0 0 3.2 1.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.9 1.9 0 0 0 20.8 12a1.9 1.9 0 0 0-1.4 3Z" /></svg>
-}
-
-function SunIcon() {
-  return (
-    <svg aria-hidden="true" fill="none" height="16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" viewBox="0 0 24 24" width="16">
-      <circle cx="12" cy="12" r="5" />
-      <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-    </svg>
-  )
 }

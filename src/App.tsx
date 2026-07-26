@@ -21,6 +21,7 @@ import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
 import { CommandPalette, type PaletteCommand } from './features/commands/CommandPalette.tsx'
 import { commandDefinitions, defaultShortcuts, lastAssistantText, rightWidgetFromCommand, shortcutFromEvent, type CommandId } from './features/commands/command-registry.ts'
 import { SettingsPanel } from './features/settings/SettingsPanel.tsx'
+import { allThemes, applyThemePalette, deleteTheme, duplicateTheme, persistThemePreferences, readThemePreferences, renameTheme, resolveActiveTheme, setActiveTheme, shadowForMode, updateThemeColor, type ThemeVariable } from './features/settings/themes.ts'
 import { analyzeSession, type SessionAnalysisTarget } from './features/session-analysis/session-analysis.ts'
 import './features/commands/commands.css'
 
@@ -92,7 +93,8 @@ function App() {
   const [quotas, setQuotas] = useState<QuotaSnapshot | null>(null)
   const [activeRightWidget, setActiveRightWidget] = useState<RightWidget | null>(readActiveRightWidget)
   const [rightSidebarWidth, setRightSidebarWidth] = useState(() => readRightSidebarWidth(window.localStorage.getItem('pi-livecraft.right-sidebar-width') ?? window.localStorage.getItem('pi-livecraft.git-sidebar-width')))
-  const [theme, setTheme] = useState(() => window.localStorage.getItem('pi-livecraft.theme') ?? 'light')
+  const [themePreferences, setThemePreferences] = useState(() => readThemePreferences())
+  const activeTheme = useMemo(() => resolveActiveTheme(themePreferences), [themePreferences])
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [creatingSession, setCreatingSession] = useState(false)
@@ -174,18 +176,43 @@ function App() {
     setActiveRightWidget(widget)
   }, [])
 
-  /** Toggles light/dark theme and persists the choice in local storage. */
-  const toggleTheme = useCallback(() => {
-    setTheme((current) => {
-      const next = current === 'dark' ? 'light' : 'dark'
-      window.localStorage.setItem('pi-livecraft.theme', next)
-      return next
+  const selectTheme = useCallback((id: string) => {
+    setThemePreferences((current) => setActiveTheme(current, id))
+  }, [])
+
+  const duplicateActiveTheme = useCallback(() => {
+    setThemePreferences((current) => {
+      const source = resolveActiveTheme(current)
+      const duplicated = duplicateTheme(current, source.id, `${source.name} custom`)
+      const created = duplicated.themes.at(-1)
+      return created ? setActiveTheme(duplicated, created.id) : duplicated
     })
   }, [])
 
+  const renameSelectedTheme = useCallback((id: string, name: string) => {
+    setThemePreferences((current) => renameTheme(current, id, name))
+  }, [])
+
+  const updateSelectedThemeColor = useCallback((id: string, variable: ThemeVariable, color: string) => {
+    setThemePreferences((current) => updateThemeColor(current, id, variable, color))
+  }, [])
+
+  const deleteSelectedTheme = useCallback((id: string) => {
+    setThemePreferences((current) => deleteTheme(current, id))
+  }, [])
+
   useEffect(() => {
-    document.documentElement.dataset.theme = theme
-  }, [theme])
+    persistThemePreferences(themePreferences)
+  }, [themePreferences])
+
+  useEffect(() => {
+    const root = document.documentElement
+    root.dataset.theme = activeTheme.mode
+    applyThemePalette(root, activeTheme.palette)
+    const shadows = shadowForMode(activeTheme.mode)
+    root.style.setProperty('--shadow', shadows.shadow)
+    root.style.setProperty('--shadow-soft', shadows['shadow-soft'])
+  }, [activeTheme])
 
   useEffect(() => {
     if (window.localStorage.getItem('pi-livecraft.workspace-path') !== null) return
@@ -673,8 +700,6 @@ function App() {
         onOpenSession={(recentSession) => startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))}
         onSelectSession={setSelectedId}
         onError={(cause) => showToast('error', messageOf(cause))}
-        theme={theme}
-        onToggleTheme={toggleTheme}
         onOpenSettings={() => setSettingsOpen(true)}
       />
 
@@ -691,7 +716,7 @@ function App() {
           </>
         ) : selectedSession ? (
           <>
-            <Conversation activity={displayedActivity} agentName={selectedSession.activeAgent} darkMode={theme === 'dark'} detailedView={conversationView === 'detailed'} key={selectedSession.id} liveText={liveText} liveThinking={liveThinking} messages={snapshot.messages} navigationRequest={conversationNavigation} onError={handleConversationError} onStartSession={handleContextSessionStart} pendingSteering={pendingSteering} repositoryRoot={gitSnapshot?.root} scrollToBottomRequest={scrollToBottomRequest} toolExecutions={toolExecutions} workspacePath={workspacePath} />
+            <Conversation activity={displayedActivity} agentName={selectedSession.activeAgent} darkMode={activeTheme.mode === 'dark'} detailedView={conversationView === 'detailed'} key={selectedSession.id} liveText={liveText} liveThinking={liveThinking} messages={snapshot.messages} navigationRequest={conversationNavigation} onError={handleConversationError} onStartSession={handleContextSessionStart} pendingSteering={pendingSteering} repositoryRoot={gitSnapshot?.root} scrollToBottomRequest={scrollToBottomRequest} toolExecutions={toolExecutions} workspacePath={workspacePath} />
             <Tooltip label={`${conversationViewDetail.label} — ${conversationViewDetail.description}`}><button aria-label={`${conversationViewDetail.label}. ${conversationViewDetail.description}. Click to toggle view.`} className={`chat-detail-toggle ${conversationView}`} onClick={() => setConversationView((current) => {
                 const next = current === 'simple' ? 'detailed' : 'simple'
                 window.localStorage.setItem('pi-livecraft.conversation-view', next)
@@ -815,7 +840,7 @@ function App() {
       {questionnaire && <AskUserQuestionDialog key={String(questionnaire.request.id)} dialog={questionnaire} sessionName={sessions.find((session) => session.id === questionnaire.sessionId)?.name} onClose={() => closeDialog(questionnaire)} onError={(cause) => showToast('error', messageOf(cause))} />}
       {dialog && !questionnaire && <ExtensionDialog dialog={dialog} onClose={() => closeDialog(dialog)} onError={(cause) => showToast('error', messageOf(cause))} />}
       {commandPaletteOpen && <CommandPalette commands={paletteCommands} onClose={() => setCommandPaletteOpen(false)} />}
-      {settingsOpen && <SettingsPanel definitions={commandDefinitions} shortcuts={shortcuts} terminalCommand={terminalCommand} onChange={(id, shortcut) => { const next = { ...shortcuts, [id]: shortcut }; setShortcuts(next); window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(next)) }} onTerminalCommandChange={(value) => { setTerminalCommand(value); window.localStorage.setItem('pi-livecraft.terminal-command', value) }} onReset={() => { setShortcuts(defaultShortcuts); window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(defaultShortcuts)) }} onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsPanel definitions={commandDefinitions} shortcuts={shortcuts} terminalCommand={terminalCommand} themes={allThemes(themePreferences)} activeThemeId={activeTheme.id} onChange={(id, shortcut) => { const next = { ...shortcuts, [id]: shortcut }; setShortcuts(next); window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(next)) }} onTerminalCommandChange={(value) => { setTerminalCommand(value); window.localStorage.setItem('pi-livecraft.terminal-command', value) }} onSelectTheme={selectTheme} onDuplicateTheme={duplicateActiveTheme} onRenameTheme={renameSelectedTheme} onUpdateThemeColor={updateSelectedThemeColor} onDeleteTheme={deleteSelectedTheme} onReset={() => { setShortcuts(defaultShortcuts); window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(defaultShortcuts)) }} onClose={() => setSettingsOpen(false)} />}
     </div>
   )
 }

@@ -7,6 +7,7 @@
 @import './features/conversation/conversation.css';
 @import './features/session-analysis/session-analysis.css';
 @import './features/dialogs/dialogs.css';
+@import './features/settings/settings.css';
 @import './features/composer/composer.css';
 @import './features/notifications/notifications.css';
 @import './styles/responsive.css';
