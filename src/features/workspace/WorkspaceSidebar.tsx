@@ -8,6 +8,7 @@ interface WorkspaceSidebarProps {
   compactingSessionIds: ReadonlySet<string>
   completedSessionIds: ReadonlySet<string>
   recentSessions: RecentSession[]
+  sentSessions: RecentSession[]
   sessions: SessionSummary[]
   selectedId: string
   workspacePath: string
@@ -20,9 +21,9 @@ interface WorkspaceSidebarProps {
 }
 
 /** Displays the current workspace and opens or selects its recent Pi sessions. */
-export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, recentSessions, sessions, selectedId, workspacePath, onChooseWorkspace, onCreate, onOpenSession, onSelectSession, onOpenSettings, onError }: WorkspaceSidebarProps) {
+export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, recentSessions, sentSessions, sessions, selectedId, workspacePath, onChooseWorkspace, onCreate, onOpenSession, onSelectSession, onOpenSettings, onError }: WorkspaceSidebarProps) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
-  const visibleSessions = useMemo(() => sidebarSessions(recentSessions, workspacePath), [recentSessions, workspacePath])
+  const visibleSessions = useMemo(() => sidebarSessions(recentSessions, workspacePath, sentSessions), [recentSessions, sentSessions, workspacePath])
 
   return <aside className="sidebar">
     <div className="brand">

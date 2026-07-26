@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import type { RecentSession, SessionSummary } from '../shared/types.ts'
-import { reconcileRecentSessions, sidebarSessions } from '../src/features/workspace/sidebar-sessions.ts'
+import type { RecentSession } from '../shared/types.ts'
+import { sidebarSessions } from '../src/features/workspace/sidebar-sessions.ts'
 
 const persisted: RecentSession = {
   id: 'persisted-id',
@@ -19,15 +19,13 @@ test('hides persisted sessions from another workspace', () => {
   assert.deepEqual(sidebarSessions([persisted], '/another-workspace'), [])
 })
 
-test('keeps an optimistic entry when its active session path changes', () => {
-  const activeSession: SessionSummary = {
-    id: persisted.id,
-    cwd: persisted.cwd,
-    name: persisted.name,
-    sessionPath: '/sessions/renamed.jsonl',
-    status: 'running',
-    pendingUi: [],
-  }
+test('keeps a sent session visible when persistence temporarily omits it', () => {
+  assert.deepEqual(sidebarSessions([], '/workspace', [persisted]), [persisted])
+})
 
-  assert.deepEqual(reconcileRecentSessions([persisted], [], [activeSession]), [persisted])
+test('keeps a sent session first while adopting persisted metadata', () => {
+  const other = { ...persisted, id: 'other-id', sessionPath: '/sessions/other.jsonl', updatedAt: 999 }
+  const refreshed = { ...persisted, name: 'Generated title', updatedAt: 789 }
+
+  assert.deepEqual(sidebarSessions([other, refreshed], '/workspace', [persisted]), [refreshed, other])
 })

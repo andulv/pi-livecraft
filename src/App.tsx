@@ -18,7 +18,6 @@ import { quotaProviderForModel } from './features/quotas/quota-display.ts'
 import { DirectoryPicker } from './features/workspace/DirectoryPicker.tsx'
 import { recentWorkspaces } from './features/workspace/recent-workspaces.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
-import { reconcileRecentSessions } from './features/workspace/sidebar-sessions.ts'
 import { CommandPalette, type PaletteCommand } from './features/commands/CommandPalette.tsx'
 import { commandDefinitions, defaultShortcuts, lastAssistantText, rightWidgetFromCommand, shortcutFromEvent, type CommandId } from './features/commands/command-registry.ts'
 import { SettingsPanel } from './features/settings/SettingsPanel.tsx'
@@ -67,6 +66,7 @@ function App() {
   migrateLocalStorageKeys()
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
+  const [sentSessions, setSentSessions] = useState<RecentSession[]>([])
   const [completedSessionIds, setCompletedSessionIds] = useState<ReadonlySet<string>>(new Set())
   const [compactingSessionIds, setCompactingSessionIds] = useState<ReadonlySet<string>>(new Set())
   const [workspacePath, setWorkspacePath] = useState(() => window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.')
@@ -245,7 +245,7 @@ function App() {
       const [nextSessions, nextRecentSessions] = await Promise.all([listSessions(), listRecentSessions(cwd)])
       if (version !== refreshVersionRef.current) return
       setSessions(nextSessions)
-      setRecentSessions((current) => reconcileRecentSessions(current, nextRecentSessions, nextSessions))
+      setRecentSessions(nextRecentSessions)
       setSelectedId((current) => nextSessions.some((session) => session.id === current) ? current : '')
       const pending = nextSessions.flatMap((session) =>
         session.pendingUi.map((request) => ({ sessionId: session.id, request })),
@@ -565,13 +565,13 @@ function App() {
       await sendPiCommand(selectedId, command)
       const sentSession = sessions.find((session) => session.id === selectedId)
       const shouldNameSession = sentSession?.name === 'Nouvelle session' && !snapshot.messages.some((entry) => entry.role === 'user')
-      await refreshSessions()
       if (sentSession && shouldNameSession) {
         const name = promptSessionTitle(message)
         setSessions((current) => current.map((session) => session.id === selectedId ? { ...session, name } : session))
         const sessionPath = sentSession.sessionPath
-        if (sessionPath) setRecentSessions((current) => [{ id: sentSession.id, cwd: sentSession.cwd, name, sessionPath, updatedAt: Date.now() }, ...current.filter((session) => session.sessionPath !== sessionPath)])
+        if (sessionPath) setSentSessions((current) => [{ id: sentSession.id, cwd: sentSession.cwd, name, sessionPath, updatedAt: Date.now() }, ...current.filter((session) => session.id !== sentSession.id && session.sessionPath !== sessionPath)])
       }
+      await refreshSessions()
       setScrollToBottomRequest((current) => current + 1)
     } catch (cause) {
       if (isSteering) setPendingSteering((current) => {
@@ -607,10 +607,10 @@ function App() {
       if (initialMessage) {
         await sendPiCommand(session.id, { type: 'prompt', message: initialMessage })
         const name = promptSessionTitle(initialMessage)
-        await refreshSessions()
         setSessions((current) => current.map((currentSession) => currentSession.id === session.id ? { ...currentSession, name } : currentSession))
         const sessionPath = session.sessionPath
-        if (sessionPath) setRecentSessions((current) => [{ id: session.id, cwd: session.cwd, name, sessionPath, updatedAt: Date.now() }, ...current.filter((recentSession) => recentSession.sessionPath !== sessionPath)])
+        if (sessionPath) setSentSessions((current) => [{ id: session.id, cwd: session.cwd, name, sessionPath, updatedAt: Date.now() }, ...current.filter((recentSession) => recentSession.id !== session.id && recentSession.sessionPath !== sessionPath)])
+        await refreshSessions()
         setScrollToBottomRequest((current) => current + 1)
       }
       creatingSessionRef.current = false
@@ -713,6 +713,7 @@ function App() {
         compactingSessionIds={compactingSessionIds}
         completedSessionIds={completedSessionIds}
         recentSessions={recentSessions}
+        sentSessions={sentSessions}
         sessions={sessions}
         selectedId={selectedId}
         workspacePath={workspacePath}
