@@ -98,6 +98,8 @@ if (isolated) {
   const systemPrompt = process.argv[process.argv.indexOf('--system-prompt') + 1]
   if (!systemPrompt.includes('task editor')) throw new Error('Missing task editor system prompt')
   if (!systemPrompt.includes('Add no new facts')) throw new Error('Missing no-invention rule')
+  if (!systemPrompt.includes('direct instructions')) throw new Error('Missing actionable-rewrite rule')
+  if (!systemPrompt.includes('return it unchanged')) throw new Error('Missing unchanged-prompt rule')
 } else if (extensionIndex === -1 || process.argv[extensionIndex + 1] !== expectedExtension) {
   throw new Error('Missing ask-user-question extension')
 }
