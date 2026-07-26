@@ -222,7 +222,7 @@
 .tool-call-edit-line.added > i { color: #30774c; }
 .tool-call-loading { display: flex; align-items: center; gap: 8px; padding: 10px; color: var(--muted); }
 .tool-call-notice { margin: 10px 10px 0; color: var(--muted); font: 11px/1.5 ui-sans-serif, system-ui, sans-serif; }
-.tool-call-content pre { margin: 0; border: 0; border-radius: 0; padding: 9px 10px; background: rgb(255 255 255 / 56%); color: inherit; font: 11px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; white-space: pre-wrap; }
+.tool-call-content > pre { margin: 0; border: 0; border-radius: 0; padding: 9px 10px; background: rgb(255 255 255 / 56%); color: inherit; font: 11px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; white-space: pre-wrap; }
 .tool-call-markdown { padding: 14px 16px 18px; font: 13px/1.65 ui-sans-serif, system-ui, sans-serif; overflow-wrap: anywhere; }
 .tool-call-markdown > :first-child { margin-top: 0; }
 .tool-call-markdown > :last-child { margin-bottom: 0; }

@@ -135,7 +135,7 @@ button:disabled, select:disabled { cursor: not-allowed; }
   .tool-call-writing { border-top-color: rgb(176 201 192 / 10%); background: rgb(0 0 0 / 10%); }
   .tool-call-preview { background: rgb(0 0 0 / 14%); }
   .tool-call-preview:hover { background: rgb(0 0 0 / 24%); }
-  .tool-call-content pre { background: rgb(0 0 0 / 14%); }
+  .tool-call-content > pre { background: rgb(0 0 0 / 14%); }
   .tool-call-edit-change { border-color: rgb(176 201 192 / 18%); }
   .tool-call-edit-change h4 { background: rgb(176 201 192 / 8%); }
   .tool-call-edit-line > span,
