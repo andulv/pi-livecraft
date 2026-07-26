@@ -23,9 +23,9 @@ test('keeps a sent session visible when persistence temporarily omits it', () =>
   assert.deepEqual(sidebarSessions([], '/workspace', [persisted]), [persisted])
 })
 
-test('keeps a sent session first while adopting persisted metadata', () => {
+test('uses persisted order once the sent session is returned', () => {
   const other = { ...persisted, id: 'other-id', sessionPath: '/sessions/other.jsonl', updatedAt: 999 }
   const refreshed = { ...persisted, name: 'Generated title', updatedAt: 789 }
 
-  assert.deepEqual(sidebarSessions([other, refreshed], '/workspace', [persisted]), [refreshed, other])
+  assert.deepEqual(sidebarSessions([other, refreshed], '/workspace', [persisted]), [other, refreshed])
 })

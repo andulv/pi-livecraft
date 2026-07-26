@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type { RecentSession, SessionSummary } from '../../../shared/types.ts'
 import { sessionIndicator, type SessionIndicator } from './session-indicator.ts'
@@ -23,7 +23,10 @@ interface WorkspaceSidebarProps {
 /** Displays the current workspace and opens or selects its recent Pi sessions. */
 export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, recentSessions, sentSessions, sessions, selectedId, workspacePath, onChooseWorkspace, onCreate, onOpenSession, onSelectSession, onOpenSettings, onError }: WorkspaceSidebarProps) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
+  const selectedSessionRef = useRef<HTMLButtonElement>(null)
   const visibleSessions = useMemo(() => sidebarSessions(recentSessions, workspacePath, sentSessions), [recentSessions, sentSessions, workspacePath])
+
+  useEffect(() => selectedSessionRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' }), [selectedId, visibleSessions])
 
   return <aside className="sidebar">
     <div className="brand">
@@ -55,6 +58,7 @@ export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, re
               setOpeningSessionPath(recentSession.sessionPath)
               void onOpenSession(recentSession).catch(onError).finally(() => setOpeningSessionPath(''))
             }}
+            ref={activeSession?.id === selectedId ? selectedSessionRef : undefined}
             type="button"
           >
             {indicator && <SessionStatusIndicator status={indicator} />}

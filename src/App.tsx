@@ -246,6 +246,7 @@ function App() {
       if (version !== refreshVersionRef.current) return
       setSessions(nextSessions)
       setRecentSessions(nextRecentSessions)
+      setSentSessions((current) => current.filter((sent) => !nextRecentSessions.some((recent) => recent.id === sent.id || recent.sessionPath === sent.sessionPath)))
       setSelectedId((current) => nextSessions.some((session) => session.id === current) ? current : '')
       const pending = nextSessions.flatMap((session) =>
         session.pendingUi.map((request) => ({ sessionId: session.id, request })),
