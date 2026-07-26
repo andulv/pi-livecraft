@@ -124,6 +124,7 @@ button:disabled, select:disabled { cursor: not-allowed; }
   .slash-command-item:hover,
   .slash-command-item.selected { color: #5fc4b6; }
   .content pre { background: #1e2422; }
+  .reasoning pre { background: #1e2422; }
   .content :not(pre) > code { background: #252b29; }
   .user .content pre { background: #151c19; }
   .tool-call { border-color: #3a4a43; background: #1a2421; color: #b0c9c0; }
@@ -146,6 +147,7 @@ button:disabled, select:disabled { cursor: not-allowed; }
   .tool-call-edit-line.added > span,
   .tool-call-edit-line.added > i { color: #4dba6a; }
   .tool-call-markdown :not(pre) > code { background: rgb(176 201 192 / 12%); }
+  .tool-call-markdown pre { background: rgb(0 0 0 / 14%); border-color: rgb(176 201 192 / 14%); }
   .spinner { border-color: #3a544c; }
   .message.system.error { background: #2d1c19; }
 
