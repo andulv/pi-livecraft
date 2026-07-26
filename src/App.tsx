@@ -558,14 +558,17 @@ function App() {
     const isSteering = selectedSessionStatus === 'running' && behavior === 'steer'
     if (selectedSessionStatus === 'running') command.streamingBehavior = behavior
     if (isSteering) setPendingSteering((current) => [...current, message])
-    if (selectedSession?.name === 'Nouvelle session' && !snapshot.messages.some((entry) => entry.role === 'user')) {
-      setSessions((current) => current.map((session) => session.id === selectedId
-        ? { ...session, name: promptSessionTitle(message) }
-        : session))
-    }
     try {
       await sendPiCommand(selectedId, command)
+      const sentSession = sessions.find((session) => session.id === selectedId)
+      const shouldNameSession = sentSession?.name === 'Nouvelle session' && !snapshot.messages.some((entry) => entry.role === 'user')
       await refreshSessions()
+      if (sentSession && shouldNameSession) {
+        const name = promptSessionTitle(message)
+        setSessions((current) => current.map((session) => session.id === selectedId ? { ...session, name } : session))
+        const sessionPath = sentSession.sessionPath
+        if (sessionPath) setRecentSessions((current) => [{ id: sentSession.id, cwd: sentSession.cwd, name, sessionPath, updatedAt: Date.now() }, ...current.filter((session) => session.sessionPath !== sessionPath)])
+      }
       setScrollToBottomRequest((current) => current + 1)
     } catch (cause) {
       if (isSteering) setPendingSteering((current) => {
@@ -574,7 +577,7 @@ function App() {
       })
       throw cause
     }
-  }, [refreshSessions, selectedId, selectedSession?.name, selectedSessionStatus, snapshot.messages])
+  }, [refreshSessions, selectedId, selectedSessionStatus, sessions, snapshot.messages])
   const handleComposerAbort = useCallback(() => sendPiCommand(selectedId, { type: 'abort' }), [selectedId])
   const handlePromptImprovement = useCallback((prompt: string) => improvePrompt(selectedId, prompt), [selectedId])
   const handleComposerSelectOpened = useCallback(() => setRequestedSelect(null), [])
@@ -598,11 +601,12 @@ function App() {
       setSelectedId(session.id)
       if (draftMessage) setComposerDraftRequest({ id: crypto.randomUUID(), message: draftMessage, sessionId: session.id })
       if (initialMessage) {
-        setSessions((current) => current.map((currentSession) => currentSession.id === session.id
-          ? { ...currentSession, name: promptSessionTitle(initialMessage) }
-          : currentSession))
         await sendPiCommand(session.id, { type: 'prompt', message: initialMessage })
+        const name = promptSessionTitle(initialMessage)
         await refreshSessions()
+        setSessions((current) => current.map((currentSession) => currentSession.id === session.id ? { ...currentSession, name } : currentSession))
+        const sessionPath = session.sessionPath
+        if (sessionPath) setRecentSessions((current) => [{ id: session.id, cwd: session.cwd, name, sessionPath, updatedAt: Date.now() }, ...current.filter((recentSession) => recentSession.sessionPath !== sessionPath)])
         setScrollToBottomRequest((current) => current + 1)
       }
       creatingSessionRef.current = false
