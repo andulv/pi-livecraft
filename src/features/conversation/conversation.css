@@ -211,9 +211,9 @@
 .tool-call-edit-change { overflow: hidden; border: 1px solid rgb(33 68 61 / 14%); border-radius: 6px; }
 .tool-call-edit-change h4 { margin: 0; padding: 5px 8px; background: rgb(33 68 61 / 7%); font: 10px/1.4 ui-sans-serif, system-ui, sans-serif; }
 .tool-call-edit-line { display: grid; grid-template-columns: 32px 14px minmax(0, 1fr); }
-.tool-call-edit-line > span { padding: 6px 0; color: #68756f; font: 11px/1.5 ui-monospace, monospace; text-align: right; user-select: none; }
-.tool-call-edit-line > i { padding: 6px 0; font-style: normal; text-align: center; }
-.tool-call-edit-line pre { min-width: 0; margin: 0; padding: 6px 8px; font: 11px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; white-space: pre-wrap; }
+.tool-call-edit-line > span { padding: 2px 0; color: #68756f; font: 11px/1.5 ui-monospace, monospace; text-align: right; user-select: none; }
+.tool-call-edit-line > i { padding: 2px 0; font-style: normal; text-align: center; }
+.tool-call-edit-line pre { min-width: 0; margin: 0; padding: 2px 8px; font: 11px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; white-space: pre-wrap; }
 .tool-call-edit-line.removed { background: #fbe9e7; color: #843b31; }
 .tool-call-edit-line.removed > span,
 .tool-call-edit-line.removed > i { color: #9a554b; }
