@@ -2,9 +2,10 @@ import type { SessionSummary } from '../../../../shared/types.ts'
 import { SessionInfo } from './SessionInfo.tsx'
 import { SessionStats } from './SessionStats.tsx'
 
-export function ComposerStatusBar({ session, running, cost, contextClass, contextTokens, contextPercent, contextPercentValue }: {
+export function ComposerStatusBar({ session, running, compacting, cost, contextClass, contextTokens, contextPercent, contextPercentValue }: {
   session: SessionSummary
   running: boolean
+  compacting: boolean
   cost: string
   contextClass: string
   contextTokens: string
@@ -13,7 +14,9 @@ export function ComposerStatusBar({ session, running, cost, contextClass, contex
 }) {
   return (
     <div className="composer-info" aria-label="Session information">
-      <SessionInfo name={session.name} cwd={session.cwd} active={running} />
+      {compacting
+        ? <div aria-label="Compaction in progress" className="composer-compacting" role="status"><span aria-hidden="true" className="composer-compacting-spinner" /> Compaction en cours…</div>
+        : <SessionInfo name={session.name} cwd={session.cwd} active={running} />}
       <SessionStats cost={cost} contextClass={contextClass} contextTokens={contextTokens} contextPercent={contextPercent} contextPercentValue={contextPercentValue} />
     </div>
   )

@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, useState, type ClipboardEvent as ReactClipboar
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type { JsonObject, SessionSnapshot, SessionSummary } from '../../../shared/types.ts'
 import { maxComposerImages, prepareComposerImage, type ComposerImage } from './composer-images.ts'
-import { formatTokens, isObject, readComposerDraft } from './composer-utils.ts'
+import { ensureCompactCommand, formatTokens, isCompactCommandDraft, isObject, readComposerDraft } from './composer-utils.ts'
 import { AgentSelect } from './selects/AgentSelect.tsx'
 import { BehaviorSelect } from './selects/BehaviorSelect.tsx'
 import { ModelSelect } from './selects/ModelSelect.tsx'
@@ -10,7 +10,7 @@ import { ThinkingSelect } from './selects/ThinkingSelect.tsx'
 import { ComposerStatusBar } from './status-bar/ComposerStatusBar.tsx'
 
 /** Provides user input and session commands while reflecting the current Pi state. */
-export const Composer = memo(function Composer({ session, snapshot, agentBusy, agentOptions, selectedAgent, agentLoading, showAgentSelector, onAgentChange, onCommand, commands, running, onSend, onAbort, onImprovePrompt, onError, requestedSelect, onSelectOpened, submitRequest = 0, focusRequest, draftRequest, onDraftApplied }: {
+export const Composer = memo(function Composer({ session, snapshot, agentBusy, agentOptions, selectedAgent, agentLoading, showAgentSelector, onAgentChange, onCommand, commands, running, compacting, onSend, onAbort, onImprovePrompt, onError, requestedSelect, onSelectOpened, submitRequest = 0, focusRequest, draftRequest, onDraftApplied }: {
   session: SessionSummary
   snapshot: SessionSnapshot
   agentBusy: boolean
@@ -22,6 +22,7 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
   onCommand: (command: JsonObject) => Promise<JsonObject>
   commands: JsonObject[]
   running: boolean
+  compacting: boolean
   onSend: (message: string, images: JsonObject[], behavior: 'steer' | 'followUp') => Promise<void>
   onAbort: () => Promise<JsonObject>
   onImprovePrompt: (prompt: string) => Promise<string>
@@ -56,8 +57,10 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
   const modelInput = selectedModel?.input ?? model?.input
   const supportsImages = Array.isArray(modelInput) && modelInput.includes('image')
   const thinking = typeof snapshot.state?.thinkingLevel === 'string' ? snapshot.state.thinkingLevel : 'off'
+  /** Snapshot commands augmented with the local compact command when Pi doesn't expose it. */
+  const allCommands = ensureCompactCommand(commands)
   const pendingCommandName = /^\/([^\s]+)/.exec(message)?.[1].toLowerCase()
-  const commandPending = pendingCommandName !== undefined && commands.some((command) => String(command.name).toLowerCase() === pendingCommandName)
+  const commandPending = pendingCommandName !== undefined && allCommands.some((command) => String(command.name).toLowerCase() === pendingCommandName)
 
   useEffect(() => {
     if (submitRequest > 0) formRef.current?.requestSubmit()
@@ -84,7 +87,7 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
   }, [draftRequest, onDraftApplied])
 
   /** Available commands filtered by the text after the slash. */
-  const filteredCommands = commands.filter((command) =>
+  const filteredCommands = allCommands.filter((command) =>
     slashOpen && String(command.name).toLowerCase().includes(slashFilter.toLowerCase()),
   )
 
@@ -120,6 +123,10 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
     setDraftMessage('')
     setImages([])
     try {
+      if (isCompactCommandDraft(nextMessage)) {
+        await onCommand({ type: 'compact' })
+        return
+      }
       await onSend(nextMessage, images.map(({ data, mimeType }) => ({ type: 'image', data, mimeType })), behavior)
     } catch (cause) {
       setDraftMessage(nextMessage)
@@ -212,7 +219,7 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
       <textarea aria-label="Message" disabled={submitting} onPaste={(event) => void handlePaste(event)} ref={textareaRef} value={message} onChange={(event) => {
         const next = event.target.value
         setDraftMessage(next)
-        if (next.startsWith('/') && commands.length > 0) {
+        if (next.startsWith('/') && allCommands.length > 0) {
           setSlashOpen(true)
           setSlashFilter(next.slice(1))
           setSlashIndex(-1)
@@ -303,6 +310,7 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
         <ComposerStatusBar
           session={session}
           running={running}
+          compacting={compacting}
           cost={cost}
           contextClass={contextClass}
           contextTokens={contextTokens}

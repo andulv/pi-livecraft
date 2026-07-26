@@ -119,6 +119,11 @@
 .icon-button svg { width: 15px; height: 15px; fill: currentColor; }
 .prompt-improve-button { color: var(--violet); }
 .prompt-improve-button.loading svg { animation: spin 800ms linear infinite; }
+.composer-compacting { display: inline-flex; align-items: center; gap: 8px; color: var(--teal); font: 10px ui-monospace, monospace; white-space: nowrap; }
+.composer-compacting-spinner { display: inline-block; width: 11px; height: 11px; border: 1.5px solid var(--line-strong); border-top-color: var(--teal); border-radius: 50%; animation: spin 800ms linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .composer-compacting-spinner { animation: none; }
+}
 .icon-button.send { width: 36px; height: 36px; border-color: var(--accent); border-radius: 10px; background: var(--accent); color: white; box-shadow: 0 2px 0 color-mix(in srgb, var(--accent) 72%, black); }
 .icon-button.send:hover:not(:disabled) { border-color: var(--accent-hover); background: var(--accent-hover); }
 .icon-button.send.command { border-color: #37677a; background: #37677a; box-shadow: 0 2px 0 #244b5b; }

@@ -707,6 +707,7 @@ function App() {
               onDraftApplied={markComposerDraftApplied}
               showAgentSelector={snapshotSessionId !== selectedSession.id || snapshot.commands.some((command) => command.name === 'agent')}
               running={selectedSession.status === 'running'}
+              compacting={displayedActivity?.kind === 'compacting'}
               onSend={handleComposerSend}
               onAbort={handleComposerAbort}
               onImprovePrompt={handlePromptImprovement}
