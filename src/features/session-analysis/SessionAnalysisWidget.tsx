@@ -101,6 +101,7 @@ const TOKEN_SERIES = [
 ] as const
 
 type TokenSeriesKey = typeof TOKEN_SERIES[number]['key']
+const VISIBLE_TURNS = 20
 
 /** Compares token volumes for each turn with distinct, navigable series. */
 function TokenUsageChart({ onNavigate, turns }: { onNavigate: (target: SessionAnalysisTarget) => void; turns: AnalyzedTurn[] }) {
@@ -110,7 +111,8 @@ function TokenUsageChart({ onNavigate, turns }: { onNavigate: (target: SessionAn
   const visibleSeries = TOKEN_SERIES.filter(({ key }) => !hiddenSeries.has(key))
   const height = 178
   const padding = { top: 14, right: 16, bottom: 30, left: 12 }
-  const plotWidth = width - padding.left - padding.right
+  const effectiveWidth = turns.length <= VISIBLE_TURNS ? width : padding.left + (width - padding.left - padding.right) * turns.length / VISIBLE_TURNS + padding.right
+  const plotWidth = effectiveWidth - padding.left - padding.right
   const plotHeight = height - padding.top - padding.bottom
   const maxTokens = Math.max(0, ...turns.flatMap((turn) => visibleSeries.map((series) => turn.usage[series.key])))
   const points = turns.map((turn, index) => ({
@@ -146,8 +148,8 @@ function TokenUsageChart({ onNavigate, turns }: { onNavigate: (target: SessionAn
         {yTicks.map((tick) => <span key={tick.y} style={{ top: tick.y + 2 }}>{tick.label}</span>)}
       </div>
       <div className="token-chart-scroll" ref={chartRef}>
-        <svg aria-label="Tokens per agent turn, in chronological order" className="token-chart" role="group" viewBox={`0 0 ${width} ${height}`}>
-          {yTicks.map((tick) => <line className="chart-grid" key={tick.y} x1={padding.left} x2={width - padding.right} y1={tick.y} y2={tick.y} />)}
+        <svg aria-label="Tokens per agent turn, in chronological order" className="token-chart" role="group" style={{ width: effectiveWidth }} viewBox={`0 0 ${effectiveWidth} ${height}`}>
+          {yTicks.map((tick) => <line className="chart-grid" key={tick.y} x1={padding.left} x2={effectiveWidth - padding.right} y1={tick.y} y2={tick.y} />)}
           {visibleSeries.map((series, seriesIndex) => <polyline className={`chart-line ${series.className}`} key={series.key} points={points.map((point) => `${point.x},${point.values[seriesIndex]?.y}`).join(' ')} />)}
           {points.map(({ turn, values, x }) => <g
             aria-label={`Turn ${turn.number}${values.length > 0 ? `, ${values.map((point) => `${point.label} ${point.value} tokens`).join(', ')}` : ''}`}
@@ -171,9 +173,12 @@ function TokenUsageChart({ onNavigate, turns }: { onNavigate: (target: SessionAn
             <text className="chart-x-label" x={x} y={height - 9}>{turn.number}</text>
           </g>)}
           <text className="chart-axis-title" x={padding.left + plotWidth / 2} y={height - 1}>Turn</text>
-          {activePoint && activePoint.values.length > 0 && <g aria-hidden="true" className="chart-tooltip token-chart-tooltip" transform={`translate(${Math.min(width - padding.right - tooltipWidth, Math.max(padding.left, activePoint.x - tooltipWidth / 2))} ${padding.top + 4})`}>
-            <rect height={10 + activePoint.values.length * 14} rx="6" width={tooltipWidth} />
-            <text x="10" y="14">{activePoint.values.map((point, index) => <tspan className={`token-tooltip-value ${point.className}`} dy={index === 0 ? 0 : 14} key={point.key} x="10">{point.label} · {formatTokens(point.value)}</tspan>)}</text>
+          {activePoint && <g aria-hidden="true" className="chart-tooltip token-chart-tooltip" transform={`translate(${Math.min(effectiveWidth - padding.right - tooltipWidth, Math.max(padding.left, activePoint.x - tooltipWidth / 2))} ${padding.top + 4})`}>
+            <rect height={10 + (activePoint.values.length + 1) * 14} rx="6" width={tooltipWidth} />
+            <text x="10" y="14">
+              <tspan className="chart-tooltip-turn" x="10">Turn {activePoint.turn.number}</tspan>
+              {activePoint.values.map((point) => <tspan className={`token-tooltip-value ${point.className}`} dy={14} key={point.key} x="10">{point.label} · {formatTokens(point.value)}</tspan>)}
+            </text>
           </g>}
         </svg>
       </div>
@@ -187,7 +192,8 @@ function TurnCostChart({ onNavigate, turns }: { onNavigate: (target: SessionAnal
   const [chartRef, width] = useChartWidth()
   const height = 178
   const padding = { top: 14, right: 16, bottom: 30, left: 12 }
-  const plotWidth = width - padding.left - padding.right
+  const effectiveWidth = turns.length <= VISIBLE_TURNS ? width : padding.left + (width - padding.left - padding.right) * turns.length / VISIBLE_TURNS + padding.right
+  const plotWidth = effectiveWidth - padding.left - padding.right
   const plotHeight = height - padding.top - padding.bottom
   const maxCost = Math.max(...turns.map((turn) => turn.cost))
   const points = turns.map((turn, index) => ({
@@ -196,7 +202,7 @@ function TurnCostChart({ onNavigate, turns }: { onNavigate: (target: SessionAnal
     y: padding.top + plotHeight * (1 - (maxCost > 0 ? turn.cost / maxCost : 0)),
   }))
   const linePoints = points.map(({ x, y }) => `${x},${y}`).join(' ')
-  const areaPoints = `${padding.left},${padding.top + plotHeight} ${linePoints} ${width - padding.right},${padding.top + plotHeight}`
+  const areaPoints = `${padding.left},${padding.top + plotHeight} ${linePoints} ${effectiveWidth - padding.right},${padding.top + plotHeight}`
   const yTicks = (maxCost > 0 ? [0, 0.5, 1] : [1]).map((ratio) => ({
     label: formatTurnCost(maxCost * (1 - ratio)),
     y: padding.top + plotHeight * ratio,
@@ -209,8 +215,8 @@ function TurnCostChart({ onNavigate, turns }: { onNavigate: (target: SessionAnal
       {yTicks.map((tick) => <span key={tick.y} style={{ top: tick.y + 2 }}>{tick.label}</span>)}
     </div>
     <div className="turn-cost-chart-scroll" ref={chartRef}>
-      <svg aria-label="Cost of each assistant turn, in chronological order" className="turn-cost-chart" role="group" viewBox={`0 0 ${width} ${height}`}>
-      {yTicks.map((tick) => <line className="chart-grid" key={tick.y} x1={padding.left} x2={width - padding.right} y1={tick.y} y2={tick.y} />)}
+      <svg aria-label="Cost of each assistant turn, in chronological order" className="turn-cost-chart" role="group" style={{ width: effectiveWidth }} viewBox={`0 0 ${effectiveWidth} ${height}`}>
+      {yTicks.map((tick) => <line className="chart-grid" key={tick.y} x1={padding.left} x2={effectiveWidth - padding.right} y1={tick.y} y2={tick.y} />)}
       {points.length > 1 && <polygon className="chart-area" points={areaPoints} />}
       {points.length > 1 && <polyline className="chart-line" points={linePoints} />}
       {points.map(({ turn, x, y }) => <g
@@ -235,9 +241,13 @@ function TurnCostChart({ onNavigate, turns }: { onNavigate: (target: SessionAnal
         <text className="chart-x-label" x={x} y={height - 9}>{turn.number}</text>
       </g>)}
         <text className="chart-axis-title" x={padding.left + plotWidth / 2} y={height - 1}>Turn</text>
-        {activePoint && <g aria-hidden="true" className="chart-tooltip" transform={`translate(${Math.min(width - padding.right - tooltipWidth, Math.max(padding.left, activePoint.x - tooltipWidth / 2))} ${activePoint.y < padding.top + 48 ? activePoint.y + 13 : activePoint.y - 47})`}>
-          <rect height="38" rx="6" width={tooltipWidth} />
-          <text x="10" y="15"><tspan className="chart-tooltip-cost">{formatTurnCost(activePoint.turn.cost)}</tspan><tspan className="chart-tooltip-tools" x="10" dy="14">{activePoint.turn.toolCallCount} tool call{activePoint.turn.toolCallCount !== 1 ? 's' : ''}</tspan></text>
+        {activePoint && <g aria-hidden="true" className="chart-tooltip" transform={`translate(${Math.min(effectiveWidth - padding.right - tooltipWidth, Math.max(padding.left, activePoint.x - tooltipWidth / 2))} ${activePoint.y < padding.top + 48 ? activePoint.y + 13 : activePoint.y - 47})`}>
+          <rect height="52" rx="6" width={tooltipWidth} />
+          <text x="10" y="14">
+            <tspan className="chart-tooltip-turn" x="10">Turn {activePoint.turn.number}</tspan>
+            <tspan className="chart-tooltip-cost" x="10" dy="14">{formatTurnCost(activePoint.turn.cost)}</tspan>
+            <tspan className="chart-tooltip-tools" x="10" dy="14">{activePoint.turn.toolCallCount} tool call{activePoint.turn.toolCallCount !== 1 ? 's' : ''}</tspan>
+          </text>
         </g>}
       </svg>
     </div>

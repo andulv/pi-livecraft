@@ -31,8 +31,8 @@
 .token-chart-legend button.is-hidden { opacity: .45; }
 .token-chart-legend i { width: 12px; height: 2px; background: currentcolor; }
 .turn-cost-chart-frame, .token-chart-frame { display: flex; min-width: 0; }
-.turn-cost-chart-scroll, .token-chart-scroll { flex: 1; min-width: 0; overflow: hidden; padding: 2px 0 1px; }
-.turn-cost-chart, .token-chart { display: block; width: 100%; min-width: 0; height: 178px; }
+.turn-cost-chart-scroll, .token-chart-scroll { flex: 1; min-width: 0; overflow: hidden auto; padding: 2px 0 1px; }
+.turn-cost-chart, .token-chart { display: block; min-width: 0; height: 178px; }
 .turn-cost-chart { color: var(--teal); }
 .chart-y-axis { position: relative; flex: 0 0 52px; height: 181px; }
 .chart-y-axis span { position: absolute; right: 8px; color: var(--muted); font: 8px ui-monospace, monospace; transform: translateY(-50%); white-space: nowrap; }
@@ -53,6 +53,7 @@
 .chart-tooltip text { fill: var(--ink); font: 9px ui-monospace, monospace; }
 .chart-tooltip-cost { font-weight: 700; }
 .chart-tooltip-tools { fill: var(--muted); font-size: 8px; }
+.chart-tooltip-turn { font-weight: 700; }
 .token-series-miss { color: var(--teal); }
 .token-series-read { color: var(--violet); }
 .token-series-output { color: var(--warning-strong); }
