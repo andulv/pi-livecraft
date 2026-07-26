@@ -134,10 +134,10 @@ button:disabled, select:disabled { cursor: not-allowed; }
   .reasoning pre { background: var(--surface); }
   .content :not(pre) > code { background: var(--surface-raised); }
   .user .content pre { background: color-mix(in srgb, var(--canvas) 80%, var(--ink)); }
-  .tool-call { border-color: var(--line-strong); background: color-mix(in srgb, var(--surface) 95%, var(--canvas)); color: color-mix(in srgb, var(--ink) 80%, var(--muted)); }
+  .tool-call { border-color: var(--line-strong); background: color-mix(in srgb, var(--surface) 60%, var(--canvas)); color: color-mix(in srgb, var(--ink) 80%, var(--muted)); }
   .tool-call.error { border-color: color-mix(in srgb, var(--danger) 40%, var(--canvas)); color: color-mix(in srgb, var(--danger) 80%, var(--surface)); }
   .tool-call-heading:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
-  .tool-call-content { border-top-color: color-mix(in srgb, var(--ink) 14%, transparent); }
+  .tool-call-content { border-top-color: color-mix(in srgb, var(--ink) 14%, transparent); background: color-mix(in srgb, var(--surface) 95%, var(--canvas)); }
   .tool-call-raw-args { border-top-color: color-mix(in srgb, var(--ink) 14%, transparent); background: color-mix(in srgb, var(--ink) 14%, transparent); }
   .tool-call-writing { border-top-color: color-mix(in srgb, var(--ink) 10%, transparent); background: color-mix(in srgb, var(--ink) 10%, transparent); }
   .tool-call-preview { background: color-mix(in srgb, var(--ink) 14%, transparent); }
