@@ -42,7 +42,10 @@ export function sessionActivity(current: Activity | null, status: SessionSummary
   if (connection === 'disconnected') return { kind: 'disconnected' }
   if (status === 'exited') return { kind: 'exited' }
   if (status === 'starting') return { kind: 'connecting' }
-  if (status !== 'running') return null
+  if (status !== 'running') {
+    if (current?.kind === 'compacting') return current
+    return null
+  }
   return current ?? { kind: 'working' }
 }
 

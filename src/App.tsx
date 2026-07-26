@@ -67,6 +67,7 @@ function App() {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
   const [completedSessionIds, setCompletedSessionIds] = useState<ReadonlySet<string>>(new Set())
+  const [compactingSessionIds, setCompactingSessionIds] = useState<ReadonlySet<string>>(new Set())
   const [workspacePath, setWorkspacePath] = useState(() => window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.')
   const [recentWorkspacePaths, setRecentWorkspacePaths] = useState(() => recentWorkspaces(window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.', readRecentWorkspaces()))
   const [directoryPickerOpen, setDirectoryPickerOpen] = useState(false)
@@ -385,6 +386,13 @@ function App() {
         updateSessionStatus(sessionId, 'idle')
         if (sessionId !== selectedIdRef.current) setCompletedSessionIds((current) => new Set(current).add(sessionId))
       }
+      if (event.type === 'compaction_start') setCompactingSessionIds((current) => new Set(current).add(sessionId))
+      if (event.type === 'compaction_end') setCompactingSessionIds((current) => {
+        if (!current.has(sessionId)) return current
+        const next = new Set(current)
+        next.delete(sessionId)
+        return next
+      })
       if (event.type === 'auto_retry_end' && event.success === false && typeof event.finalError === 'string') {
         showToast('error', `Provider connection failed after retries: ${event.finalError}`, sessionId)
       }
@@ -531,7 +539,11 @@ function App() {
 
   const selectedSession = sessions.find((session) => session.id === selectedId)
   const selectedSessionStatus = selectedSession?.status
-  const displayedActivity = selectedSession ? sessionActivity(activity, selectedSession.status, piConnection) : null
+  const displayedActivity = selectedSession?.id && compactingSessionIds.has(selectedSession.id)
+    ? { kind: 'compacting' as const }
+    : selectedSession
+      ? sessionActivity(activity, selectedSession.status, piConnection)
+      : null
   const handleConversationError = useCallback((cause: unknown) => showToast('error', messageOf(cause)), [showToast])
   const handleComposerAgentChange = useCallback((agent: string) => requestAgent(selectedId, agent), [requestAgent, selectedId])
   /** Executes a composer command and synchronizes capabilities affected by it. */
@@ -690,6 +702,7 @@ function App() {
       style={{ '--right-sidebar-width': `${rightSidebarWidth}px` } as CSSProperties}
     >
       <WorkspaceSidebar
+        compactingSessionIds={compactingSessionIds}
         completedSessionIds={completedSessionIds}
         recentSessions={recentSessions}
         sessions={sessions}

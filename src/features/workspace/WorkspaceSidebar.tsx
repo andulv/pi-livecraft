@@ -5,6 +5,7 @@ import { sessionIndicator, type SessionIndicator } from './session-indicator.ts'
 import { sidebarSessions } from './sidebar-sessions.ts'
 
 interface WorkspaceSidebarProps {
+  compactingSessionIds: ReadonlySet<string>
   completedSessionIds: ReadonlySet<string>
   recentSessions: RecentSession[]
   sessions: SessionSummary[]
@@ -19,7 +20,7 @@ interface WorkspaceSidebarProps {
 }
 
 /** Displays the current workspace and opens or selects its recent Pi sessions. */
-export function WorkspaceSidebar({ completedSessionIds, recentSessions, sessions, selectedId, workspacePath, onChooseWorkspace, onCreate, onOpenSession, onSelectSession, onOpenSettings, onError }: WorkspaceSidebarProps) {
+export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, recentSessions, sessions, selectedId, workspacePath, onChooseWorkspace, onCreate, onOpenSession, onSelectSession, onOpenSettings, onError }: WorkspaceSidebarProps) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
   const visibleSessions = useMemo(() => sidebarSessions(recentSessions, workspacePath), [recentSessions, workspacePath])
 
@@ -40,7 +41,7 @@ export function WorkspaceSidebar({ completedSessionIds, recentSessions, sessions
     <nav className="session-list" aria-label="Recent Pi sessions">
       {visibleSessions.map((recentSession) => {
         const activeSession = sessions.find((session) => session.sessionPath === recentSession.sessionPath && session.status !== 'exited')
-        const indicator = sessionIndicator(activeSession, selectedId, completedSessionIds)
+        const indicator = sessionIndicator(activeSession, selectedId, compactingSessionIds, completedSessionIds)
         return (
           <Tooltip key={recentSession.sessionPath} label={recentSession.name}><button
             className={activeSession?.id === selectedId ? 'session-item selected' : 'session-item'}
@@ -68,6 +69,7 @@ export function WorkspaceSidebar({ completedSessionIds, recentSessions, sessions
 const indicatorLabels: Record<SessionIndicator, string> = {
   working: 'Pi is working',
   waiting: 'Pi is waiting for your response',
+  compacting: 'Pi is compacting the session',
   complete: 'Pi finished its turn',
 }
 
@@ -76,6 +78,7 @@ function SessionStatusIndicator({ status }: { status: SessionIndicator }) {
   return <Tooltip label={indicatorLabels[status]}><span aria-label={indicatorLabels[status]} className={`session-status-indicator ${status}`} role="img">
     {status === 'working' && <svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /><path d="M8 2.5a5.5 5.5 0 0 1 5.5 5.5" /></svg>}
     {status === 'waiting' && <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M3 3.5h10v7H8l-3 2v-2H3z" /><path d="M6.6 6a1.5 1.5 0 0 1 2.8.7c0 1-1.4 1-1.4 2" /><path d="M8 9.5h.01" /></svg>}
+    {status === 'compacting' && <svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /><path d="M8 2.5a5.5 5.5 0 0 1 5.5 5.5" /></svg>}
     {status === 'complete' && <svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /><path d="m5.5 8 1.6 1.6 3.5-3.5" /></svg>}
   </span></Tooltip>
 }

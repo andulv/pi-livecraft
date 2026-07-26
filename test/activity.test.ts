@@ -59,6 +59,7 @@ test('restores reliable activity from connection and session status', () => {
   assert.deepEqual(sessionActivity(null, 'running', 'connected'), { kind: 'working' })
   assert.deepEqual(sessionActivity({ kind: 'writing' }, 'running', 'disconnected'), { kind: 'disconnected' })
   assert.deepEqual(sessionActivity(null, 'exited', 'connected'), { kind: 'exited' })
+  assert.deepEqual(sessionActivity({ kind: 'compacting' }, 'idle', 'connected'), { kind: 'compacting' })
 })
 
 test('uses playful activity labels', () => {
