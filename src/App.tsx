@@ -593,6 +593,7 @@ function App() {
     })
     : null, [observedRequestDurations, observedToolDurations, selectedSession, snapshot.messages, snapshot.stats, snapshotSessionId, toolExecutions])
   const questionnaire = dialog && isAskUserQuestionDialog(dialog.request) ? dialog : null
+  const questionnaireInComposer = questionnaire?.sessionId === selectedId && snapshotSessionId === selectedId
 
   /** Launches and selects a session, then sends a message or prepares a draft depending on the source action. */
   const startAndSelectSession = useCallback(async (start: () => Promise<SessionSummary>, initialMessage?: string, draftMessage?: string): Promise<void> => {
@@ -747,6 +748,7 @@ function App() {
               <span className="chat-detail-toggle-copy"><strong>{conversationViewDetail.label}</strong><small>{conversationViewDetail.description}</small></span>
             </button></Tooltip>
             <div className="composer-area">
+              {questionnaire && questionnaireInComposer && <AskUserQuestionDialog canMinimize dialog={questionnaire} key={String(questionnaire.request.id)} sessionName={selectedSession.name} onClose={() => closeDialog(questionnaire)} onError={(cause) => showToast('error', messageOf(cause))} />}
               <ToastStack onDismiss={dismissToast} toasts={visibleToasts} />
               <Composer
               key={selectedSession.id}
@@ -858,7 +860,7 @@ function App() {
           void refreshSessions(path)
         }}
       />}
-      {questionnaire && <AskUserQuestionDialog key={String(questionnaire.request.id)} dialog={questionnaire} sessionName={sessions.find((session) => session.id === questionnaire.sessionId)?.name} onClose={() => closeDialog(questionnaire)} onError={(cause) => showToast('error', messageOf(cause))} />}
+      {questionnaire && !questionnaireInComposer && <AskUserQuestionDialog canMinimize={false} key={String(questionnaire.request.id)} dialog={questionnaire} sessionName={sessions.find((session) => session.id === questionnaire.sessionId)?.name} onClose={() => closeDialog(questionnaire)} onError={(cause) => showToast('error', messageOf(cause))} />}
       {dialog && !questionnaire && <ExtensionDialog dialog={dialog} onClose={() => closeDialog(dialog)} onError={(cause) => showToast('error', messageOf(cause))} />}
       {commandPaletteOpen && <CommandPalette commands={paletteCommands} onClose={() => setCommandPaletteOpen(false)} />}
       {settingsOpen && <SettingsPanel definitions={commandDefinitions} shortcuts={shortcuts} terminalCommand={terminalCommand} themes={allThemes(themePreferences)} activeThemeId={activeTheme.id} onChange={(id, shortcut) => { const next = { ...shortcuts, [id]: shortcut }; setShortcuts(next); window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(next)) }} onTerminalCommandChange={(value) => { setTerminalCommand(value); window.localStorage.setItem('pi-livecraft.terminal-command', value) }} onSelectTheme={selectTheme} onDuplicateTheme={duplicateActiveTheme} onRenameTheme={renameSelectedTheme} onUpdateThemeColor={updateSelectedThemeColor} onDeleteTheme={deleteSelectedTheme} onReset={() => { setShortcuts(defaultShortcuts); window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(defaultShortcuts)) }} onClose={() => setSettingsOpen(false)} />}

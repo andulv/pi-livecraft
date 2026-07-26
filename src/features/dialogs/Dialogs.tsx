@@ -23,7 +23,7 @@ function stripMarkdown(text: string): string {
 }
 
 /** Presents one question at a time, identifies its session, and keeps responses until batch-sent to Pi. */
-export function AskUserQuestionDialog({ dialog, sessionName, onClose, onError }: { dialog: UiDialog; sessionName?: string; onClose: () => void; onError: (cause: unknown) => void }) {
+export function AskUserQuestionDialog({ canMinimize, dialog, sessionName, onClose, onError }: { canMinimize: boolean; dialog: UiDialog; sessionName?: string; onClose: () => void; onError: (cause: unknown) => void }) {
   const request = parseQuestionnaire(dialog.request)
   const [selectedOptions, setSelectedOptions] = useState<string[][]>(() => request.questions.map(() => []))
   const [freeText, setFreeText] = useState<string[]>(() => request.questions.map(() => ''))
@@ -88,7 +88,7 @@ export function AskUserQuestionDialog({ dialog, sessionName, onClose, onError }:
   }
 
   return (
-    <div className="ask-user-question-backdrop" onClick={() => setMinimized(true)}>
+    <div className="ask-user-question-backdrop" onClick={canMinimize ? () => setMinimized(true) : undefined}>
       <section aria-labelledby="ask-user-question-title" className="ask-user-question" role="dialog" onClick={(e) => e.stopPropagation()}>
         <div className="ask-user-question-heading">
           <div className="ask-user-question-heading-row">
@@ -96,11 +96,11 @@ export function AskUserQuestionDialog({ dialog, sessionName, onClose, onError }:
               <span>{sessionName ? `Question from session “${sessionName}”` : 'Pi needs your input'}</span>
               <strong id="ask-user-question-title">Question {activeQuestion + 1} sur {request.questions.length}</strong>
             </div>
-            <button className="ask-user-question-minimize" onClick={() => setMinimized(true)} aria-label="Hide question" type="button">
+            {canMinimize && <button className="ask-user-question-minimize" onClick={() => setMinimized(true)} aria-label="Hide question" type="button">
               <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-            </button>
+            </button>}
           </div>
         </div>
         <nav aria-label="Questionnaire questions" className="ask-user-question-tabs">
