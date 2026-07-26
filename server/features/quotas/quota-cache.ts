@@ -1,3 +1,4 @@
+import { isObject } from '../../../shared/is-object.ts'
 import type { CopilotQuotaWindow, JsonObject, OpenAiQuotaWindow, QuotaProviderReport, QuotaProviderSnapshot, QuotaReport, QuotaSnapshot } from '../../../shared/types.ts'
 
 const emptyProvider = <T>(): QuotaProviderSnapshot<T> => ({ data: [], stale: false })
@@ -72,7 +73,7 @@ function parseCopilotWindow(value: unknown): CopilotQuotaWindow | undefined {
 }
 
 function object(value: unknown): JsonObject | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as JsonObject : undefined
+  return isObject(value) ? value : undefined
 }
 
 function finiteNumber(value: unknown): value is number {

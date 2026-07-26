@@ -1,4 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
+import { isObject } from '../shared/is-object.ts'
 import { parseCopilotUsage, parseOpenAiUsage } from '../shared/quota-parsers.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type { CopilotQuotaWindow, OpenAiQuotaWindow, QuotaProviderReport, QuotaReport } from '../shared/types.ts'
@@ -102,7 +103,7 @@ async function readCredential(ctx: ExtensionContext, provider: string): Promise<
 }
 
 function object(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined
+  return isObject(value) ? value : undefined
 }
 
 function stringField(value: unknown, key: string): string | undefined {
