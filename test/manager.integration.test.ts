@@ -72,7 +72,7 @@ test('improves a prompt with the cheapest isolated model', { timeout: 10_000 }, 
   try {
     const opened = await client.request('open', { cwd: process.cwd(), name: 'Active', sessionPath: join(directory, 'active.jsonl') })
     const improved = await client.request('improve_prompt', { sessionId: sessionId(opened), prompt: 'Fix it' })
-    assert.deepEqual(improved.data, { prompt: 'Fix the failing behavior and validate the result.' })
+    assert.deepEqual(improved.data, { prompt: 'Fix the failing behavior and validate the result.', cost: 0.0042 })
   } finally {
     client.close()
     manager.kill('SIGTERM')
@@ -96,7 +96,7 @@ if (isolated) {
   if (extensionIndex !== -1) throw new Error('Invalid isolated extension')
   if (process.argv[process.argv.indexOf('--thinking') + 1] !== 'off') throw new Error('Thinking is enabled')
   const systemPrompt = process.argv[process.argv.indexOf('--system-prompt') + 1]
-  if (!systemPrompt.includes('prompt editor')) throw new Error('Missing prompt editor system prompt')
+  if (!systemPrompt.includes('task editor')) throw new Error('Missing task editor system prompt')
 } else if (extensionIndex === -1 || process.argv[extensionIndex + 1] !== expectedExtension) {
   throw new Error('Missing ask-user-question extension')
 }
@@ -116,6 +116,10 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
     if (command.message !== '<user_prompt>\\nFix it\\n</user_prompt>') throw new Error('Prompt was not delimited')
     console.log(JSON.stringify({ type: 'response', id: command.id, success: true }))
     setTimeout(() => console.log(JSON.stringify({ type: 'agent_settled' })), 5)
+    return
+  }
+  if (isolated && command.type === 'get_session_stats') {
+    console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: { cost: 0.0042 } }))
     return
   }
   if (isolated && command.type === 'get_messages') {

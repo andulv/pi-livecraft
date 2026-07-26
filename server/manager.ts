@@ -156,7 +156,7 @@ async function startSession(summary: SessionSummary): Promise<void> {
 }
 
 /** Rewrites a draft in a disposable, tool-free Pi process without touching the active session. */
-async function improvePrompt(request: ManagerRequest): Promise<{ prompt: string }> {
+async function improvePrompt(request: ManagerRequest): Promise<{ prompt: string; cost?: number }> {
   if (typeof request.sessionId !== 'string' || typeof request.prompt !== 'string' || !request.prompt.trim() || request.prompt.length > 100_000) {
     throw new Error('Session id and a prompt between 1 and 100,000 characters are required')
   }
@@ -164,13 +164,13 @@ async function improvePrompt(request: ManagerRequest): Promise<{ prompt: string 
   if (!session || session.summary.status === 'exited') throw new Error('Active Pi session is unavailable')
 
   const projectMap = await generateProjectMap(session.summary.cwd)
-  const improved = await runIsolatedPrompt({
+  const result = await runIsolatedPrompt({
     cwd: session.summary.cwd,
     prompt: `<user_prompt>\n${request.prompt.trim()}\n</user_prompt>`,
     systemPrompt: `${promptImprovementSystemPrompt}\n\n${projectMap}`,
     includeContextFiles: false,
   })
-  return { prompt: improved }
+  return { prompt: result.text, cost: result.cost }
 }
 
 /** Runs a prompt in an isolated, disposable Pi process with caller-controlled configuration. */
@@ -181,7 +181,7 @@ async function runPrompt(request: ManagerRequest): Promise<{ text: string }> {
   const session = sessions.get(request.sessionId)
   if (!session || session.summary.status === 'exited') throw new Error('Active Pi session is unavailable')
 
-  const text = await runIsolatedPrompt({
+  const result = await runIsolatedPrompt({
     cwd: session.summary.cwd,
     prompt: request.prompt.trim(),
     systemPrompt: typeof request.systemPrompt === 'string' ? request.systemPrompt : undefined,
@@ -191,7 +191,7 @@ async function runPrompt(request: ManagerRequest): Promise<{ text: string }> {
     tools: Array.isArray(request.tools) ? request.tools.filter((t): t is string => typeof t === 'string') : undefined,
     includeContextFiles: typeof request.includeContextFiles === 'boolean' ? request.includeContextFiles : undefined,
   })
-  return { text }
+  return { text: result.text }
 }
 
 function isModelOption(value: unknown): value is { provider: string; modelId: string } {

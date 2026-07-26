@@ -25,7 +25,7 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
   compacting: boolean
   onSend: (message: string, images: JsonObject[], behavior: 'steer' | 'followUp') => Promise<void>
   onAbort: () => Promise<JsonObject>
-  onImprovePrompt: (prompt: string) => Promise<string>
+  onImprovePrompt: (prompt: string) => Promise<{ prompt: string; cost?: number }>
   onError: (cause: unknown) => void
   requestedSelect?: 'agent' | 'model' | 'thinking' | null
   onSelectOpened?: () => void
@@ -40,7 +40,7 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
   const [preparingImages, setPreparingImages] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [improving, setImproving] = useState(false)
-  const [suggestion, setSuggestion] = useState<{ original: string; improved: string }>()
+  const [suggestion, setSuggestion] = useState<{ original: string; improved: string; cost?: number }>()
   const [openSelect, setOpenSelect] = useState<'agent' | 'model' | 'thinking' | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -144,8 +144,8 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
     setImproving(true)
     setSuggestion(undefined)
     try {
-      const improved = await onImprovePrompt(original)
-      setSuggestion({ original, improved })
+      const result = await onImprovePrompt(original)
+      setSuggestion({ original, improved: result.prompt, cost: result.cost })
     } catch (cause) {
       onError(cause)
     } finally {
@@ -245,6 +245,9 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
         <div className="prompt-comparison">
           <div><strong>Original</strong><p>{suggestion.original}</p></div>
           <div><strong>Suggestion</strong><p>{suggestion.improved}</p></div>
+        </div>
+        <div className="prompt-suggestion-meta">
+          {suggestion.cost !== undefined && <span className="prompt-improvement-cost">Improvement cost: ${suggestion.cost.toFixed(4)}</span>}
         </div>
         <div className="prompt-suggestion-actions">
           <button onClick={() => { setSuggestion(undefined); textareaRef.current?.focus() }} type="button">Ignore</button>

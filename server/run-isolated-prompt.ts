@@ -23,14 +23,21 @@ export interface RunIsolatedPromptOptions {
   includeContextFiles?: boolean
 }
 
+/** Result of running a prompt in an isolated Pi process. */
+export interface IsolatedPromptResult {
+  text: string
+  /** USD cost of the isolated execution, if Pi exposes it. */
+  cost?: number
+}
+
 /**
  * Runs a prompt in an isolated, disposable Pi process and returns the
- * assistant's text response.
+ * assistant's text response with optional cost metadata.
  *
  * The process is terminated immediately after the response is extracted,
  * regardless of success or failure.
  */
-export async function runIsolatedPrompt(options: RunIsolatedPromptOptions): Promise<string> {
+export async function runIsolatedPrompt(options: RunIsolatedPromptOptions): Promise<IsolatedPromptResult> {
   const pi = new PiProcess(options.cwd, randomUUID(), undefined, {
     isolated: true,
     systemPrompt: options.systemPrompt,
@@ -58,10 +65,23 @@ export async function runIsolatedPrompt(options: RunIsolatedPromptOptions): Prom
 
     const text = assistantText(await pi.request({ type: 'get_messages' }))
     if (!text) throw new Error('The model returned no text')
-    return text
+
+    let cost: number | undefined
+    try {
+      const stats = await pi.request({ type: 'get_session_stats' })
+      if (isObject(stats.data) && typeof stats.data.cost === 'number') cost = stats.data.cost
+    } catch {
+      // Stats unavailable on this Pi version; cost stays undefined.
+    }
+
+    return { text, cost }
   } finally {
     pi.terminate()
   }
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** Waits for a terminal Pi event while bounding failures from a stalled disposable process. */
