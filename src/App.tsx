@@ -108,6 +108,7 @@ function App() {
   const selectedIdRef = useRef(selectedId)
   const creatingSessionRef = useRef(false)
   const refreshVersionRef = useRef(0)
+  const snapshotRefreshVersionRef = useRef(0)
   const gitRefreshVersionRef = useRef(0)
   const agentIntentsRef = useRef(new Map<string, AgentIntent>())
   const toolStartedAtRef = useRef(new Map<string, number>())
@@ -255,14 +256,17 @@ function App() {
       setSnapshotSessionId('')
       return
     }
+    const version = ++snapshotRefreshVersionRef.current
+    const targetSessionId = sessionId
     try {
       const nextSnapshot = await getSnapshot(sessionId)
+      if (version !== snapshotRefreshVersionRef.current || targetSessionId !== selectedIdRef.current) return nextSnapshot
       setSnapshot(nextSnapshot)
       setSnapshotSessionId(sessionId)
-      if (clearLiveText && sessionId === selectedIdRef.current) setLiveText('')
+      if (clearLiveText) setLiveText('')
       return nextSnapshot
     } catch (cause) {
-      showToast('error', messageOf(cause))
+      if (version === snapshotRefreshVersionRef.current && targetSessionId === selectedIdRef.current) showToast('error', messageOf(cause))
     }
   }, [showToast])
 
