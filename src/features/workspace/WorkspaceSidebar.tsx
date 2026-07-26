@@ -26,7 +26,9 @@ export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, re
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
   const visibleSessions = useMemo(() => sidebarSessions(recentSessions, workspacePath, sentSessions), [recentSessions, sentSessions, workspacePath])
 
-  useEffect(() => selectedSessionRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' }), [selectedId, visibleSessions])
+  useEffect(() => {
+    selectedSessionRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [selectedId, visibleSessions])
 
   return <aside className="sidebar">
     <div className="brand">
