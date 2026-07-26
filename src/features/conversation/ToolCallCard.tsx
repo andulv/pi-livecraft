@@ -168,7 +168,7 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
               </button>
             : <button aria-expanded={false} className="tool-call-preview" onClick={() => setArgsExpanded(true)} type="button">
                 <pre>{streamingPreviewText ?? 'Waiting for arguments…'}</pre>
-                {streamingTruncated && <span>Click to view full arguments</span>}
+                {streamingTruncated && <span>Click to view full arguments ({streamingArgs?.length ?? 0} chars)</span>}
               </button>}
         </>}
         {hasResult && <div className={animateLiveChanges ? 'tool-call-result entering' : 'tool-call-result'}>
