@@ -6,7 +6,7 @@
 .composer-image button { position: absolute; top: -6px; right: -6px; display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid var(--line-strong); border-radius: 50%; padding: 0; background: var(--surface); color: var(--ink); font-size: 15px; line-height: 1; }
 .composer-image button:hover { border-color: var(--danger); color: var(--danger); }
 .composer-image button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
-.composer textarea { display: block; width: 100%; min-height: 92px; max-height: 240px; field-sizing: content; resize: none; overflow-y: auto; border: 0; outline: 0; padding: 18px 18px 16px; background: transparent; color: var(--ink); line-height: 1.55; }
+.composer textarea { display: block; width: 100%; min-height: 92px; max-height: 400px; field-sizing: content; resize: none; overflow-y: auto; border: 0; outline: 0; padding: 18px 18px 16px; background: transparent; color: var(--ink); line-height: 1.55; }
 .composer textarea::placeholder { color: var(--muted); }
 .prompt-suggestion { border-top: 1px solid var(--line); padding: 12px; background: color-mix(in srgb, var(--violet-soft) 45%, var(--surface)); }
 .prompt-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
