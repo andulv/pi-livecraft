@@ -18,6 +18,7 @@ import { quotaProviderForModel } from './features/quotas/quota-display.ts'
 import { DirectoryPicker } from './features/workspace/DirectoryPicker.tsx'
 import { recentWorkspaces } from './features/workspace/recent-workspaces.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
+import { reconcileRecentSessions } from './features/workspace/sidebar-sessions.ts'
 import { CommandPalette, type PaletteCommand } from './features/commands/CommandPalette.tsx'
 import { commandDefinitions, defaultShortcuts, lastAssistantText, rightWidgetFromCommand, shortcutFromEvent, type CommandId } from './features/commands/command-registry.ts'
 import { SettingsPanel } from './features/settings/SettingsPanel.tsx'
@@ -244,11 +245,7 @@ function App() {
       const [nextSessions, nextRecentSessions] = await Promise.all([listSessions(), listRecentSessions(cwd)])
       if (version !== refreshVersionRef.current) return
       setSessions(nextSessions)
-      setRecentSessions((current) => {
-        const fetchedPaths = new Set(nextRecentSessions.map((session) => session.sessionPath))
-        const activePaths = new Set(nextSessions.filter((session) => session.status !== 'exited').flatMap((session) => session.sessionPath ? [session.sessionPath] : []))
-        return [...nextRecentSessions, ...current.filter((session) => activePaths.has(session.sessionPath) && !fetchedPaths.has(session.sessionPath))]
-      })
+      setRecentSessions((current) => reconcileRecentSessions(current, nextRecentSessions, nextSessions))
       setSelectedId((current) => nextSessions.some((session) => session.id === current) ? current : '')
       const pending = nextSessions.flatMap((session) =>
         session.pendingUi.map((request) => ({ sessionId: session.id, request })),
