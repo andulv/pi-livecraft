@@ -94,7 +94,9 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
   const contentError = resultError || Boolean(writtenContentError) || Boolean(htmlOpenError)
   const preview = toolTextPreview(content)
   const streamingArgs = streaming || interrupted ? input : undefined
-  const streamingPreview = streamingArgs ? toolTextPreview(streamingArgs) : undefined
+  const maxPreviewChars = 400
+  const streamingTruncated = Boolean(streamingArgs && streamingArgs.length > maxPreviewChars)
+  const streamingPreviewText = streamingArgs && streamingArgs.length > maxPreviewChars ? `${streamingArgs.slice(0, maxPreviewChars)}…` : streamingArgs
   const renderingCode = display.kind === 'code' && canHighlightFile(content) && expanded && !loadingWrittenContent && !writtenContentError && !codeRendered
 
   useEffect(() => {
@@ -165,8 +167,8 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
                 {streamingArgs || 'Waiting for arguments…'}
               </button>
             : <button aria-expanded={false} className="tool-call-preview" onClick={() => setArgsExpanded(true)} type="button">
-                <pre>{streamingPreview?.text ?? 'Waiting for arguments…'}</pre>
-                {streamingPreview && streamingPreview.remainingLineCount > 0 && <span>Click to view {streamingPreview.remainingLineCount} more {streamingPreview.remainingLineCount === 1 ? 'line' : 'lines'}</span>}
+                <pre>{streamingPreviewText ?? 'Waiting for arguments…'}</pre>
+                {streamingTruncated && <span>Click to view full arguments</span>}
               </button>}
         </>}
         {hasResult && <div className={animateLiveChanges ? 'tool-call-result entering' : 'tool-call-result'}>
