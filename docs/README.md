@@ -9,7 +9,7 @@ Pi Livecraft is documented in layers: begin with the guide closest to your goal,
 - **Add a tooltip or shared UI element:** [shared components](../src/components/README.md).
 - **Modify the composer:** [step-by-step guide](HOW-TO-COMPOSER.md), then [composer reference](../src/features/composer/README.md).
 - **Add a command, palette entry, or shortcut:** [step-by-step guide](HOW-TO-PALETTE-COMMAND.md), then [contract reference](../src/features/commands/README.md).
-- **Add a preference or persisted UI state:** [settings and preferences](../src/features/settings/README.md).
+- **Add a preference, persisted UI state, or settings tab:** [how to settings](HOW-TO-SETTINGS.md), then [settings and preferences](../src/features/settings/README.md).
 - **Customise colours or add a theme:** [how to theme](HOW-TO-THEME.md).
 - **Add a right sidebar widget:** [step-by-step guide](HOW-TO-WIDGET.md), then [contract reference](../src/features/right-sidebar/README.md).
 - **Change a tool call display:** [step-by-step guide](HOW-TO-TOOL-PRESENTATION.md), then [contract reference](../src/features/conversation/README.md).
@@ -26,6 +26,7 @@ Step-by-step walkthroughs for common tasks. Each guide is self-contained: start 
 - **[Add a widget](HOW-TO-WIDGET.md)** — sidebar widget, API endpoint, and backend capability.
 - **[Add a tool call presentation](HOW-TO-TOOL-PRESENTATION.md)** — custom display for a Pi tool in the conversation.
 - **[Add a palette command](HOW-TO-PALETTE-COMMAND.md)** — palette entry, keyboard shortcut, and execution.
+- **[Add or modify a settings tab](HOW-TO-SETTINGS.md)** — new tab, section component, and persistence.
 - **[Talk to Pi](HOW-TO-TALK-TO-PI.md)** — send arbitrary RPC commands and understand the data Pi returns.
 - **[Run an isolated prompt](HOW-TO-RUN-ISOLATED-PROMPT.md)** — execute a one-shot prompt in a disposable Pi process.
 
