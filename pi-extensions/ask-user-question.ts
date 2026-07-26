@@ -1,45 +1,8 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
-import { isObject } from '../shared/is-object.ts'
-const askUserQuestionProtocol = 'pi-livecraft.ask-user-question'
-const askUserQuestionVersion = 1
+import type { AskUserQuestion, AskUserQuestionAnswer, AskUserQuestionRequest, AskUserQuestionResponse } from '../shared/ask-user-question.ts'
+import { askUserQuestionProtocol, askUserQuestionVersion, parseAskUserQuestionRequest, parseAskUserQuestionResponse } from '../shared/ask-user-question.ts'
 const rpcTitle = 'Pi Livecraft questionnaire'
-
-type AskUserQuestionOption = { label: string; description: string }
-type AskUserQuestion = { question: string; header: string; multiSelect: boolean; options: AskUserQuestionOption[] }
-type AskUserQuestionRequest = { protocol: typeof askUserQuestionProtocol; version: typeof askUserQuestionVersion; questions: AskUserQuestion[] }
-type AskUserQuestionAnswer = { question: string; selectedOptions: string[]; text?: string }
-type AskUserQuestionResponse = { answers: AskUserQuestionAnswer[]; cancelled: boolean }
-
-function parseAskUserQuestionRequest(value: unknown): AskUserQuestionRequest | null {
-  if (!isObject(value) || value.protocol !== askUserQuestionProtocol || value.version !== askUserQuestionVersion || !Array.isArray(value.questions)) return null
-  if (value.questions.length < 1 || value.questions.length > 4) return null
-  const questions = value.questions.map((question) => {
-    if (!isObject(question) || typeof question.question !== 'string' || typeof question.header !== 'string' || typeof question.multiSelect !== 'boolean' || !Array.isArray(question.options)) return null
-    if (!question.question.trim() || !question.header.trim() || question.options.length < 2 || question.options.length > 4) return null
-    const options = question.options.map((option) => isObject(option) && typeof option.label === 'string' && option.label.trim() && typeof option.description === 'string' && option.description.trim() ? { label: option.label, description: option.description } : null)
-    return options.every((option): option is AskUserQuestionOption => option !== null) && new Set(options.map((option) => option.label)).size === options.length
-      ? { question: question.question, header: question.header, multiSelect: question.multiSelect, options }
-      : null
-  })
-  return questions.every((question): question is AskUserQuestion => question !== null) ? { protocol: askUserQuestionProtocol, version: askUserQuestionVersion, questions } : null
-}
-
-function parseAskUserQuestionResponse(value: unknown, request: AskUserQuestionRequest): AskUserQuestionResponse | null {
-  if (!isObject(value) || typeof value.cancelled !== 'boolean' || !Array.isArray(value.answers)) return null
-  if (value.cancelled) return value.answers.length === 0 ? { answers: [], cancelled: true } : null
-  if (value.answers.length !== request.questions.length) return null
-  const answers = value.answers.map((answer, index) => {
-    const question = request.questions[index]
-    if (!isObject(answer) || answer.question !== question.question || !Array.isArray(answer.selectedOptions) || !answer.selectedOptions.every((option): option is string => typeof option === 'string')) return null
-    if (typeof answer.text !== 'undefined' && typeof answer.text !== 'string') return null
-    if (new Set(answer.selectedOptions).size !== answer.selectedOptions.length || (!question.multiSelect && answer.selectedOptions.length > 1)) return null
-    if (!answer.selectedOptions.every((option) => question.options.some(({ label }) => label === option))) return null
-    if (answer.selectedOptions.length === 0 && !answer.text?.trim()) return null
-    return { question: question.question, selectedOptions: answer.selectedOptions, ...(answer.text?.trim() ? { text: answer.text } : {}) }
-  })
-  return answers.every((answer): answer is AskUserQuestionAnswer => answer !== null) ? { answers, cancelled: false } : null
-}
 export default function registerAskUserQuestion(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'ask_user_question',
