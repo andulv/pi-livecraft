@@ -59,6 +59,7 @@ interface ToolCallCardProps {
   onError: (cause: unknown) => void
   onStartSession: (draft: string) => Promise<void>
   repositoryRoot?: string | null
+  partialResultContent?: unknown
   resultContent?: unknown
   resultDetails?: unknown
   resultError?: boolean
@@ -68,13 +69,14 @@ interface ToolCallCardProps {
 }
 
 /** Displays the official card whose full result replaces the preview when expanded. */
-export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = false, args, darkMode, hasResult, id, interrupted = false, name, onError, onStartSession, repositoryRoot, resultContent, resultDetails, resultError, streaming = false, targeted = false, workspacePath }: ToolCallCardProps) {
+export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = false, args, darkMode, hasResult, id, interrupted = false, name, onError, onStartSession, partialResultContent, repositoryRoot, resultContent, resultDetails, resultError, streaming = false, targeted = false, workspacePath }: ToolCallCardProps) {
   const pending = !hasResult
   const active = pending && !interrupted
   const filePath = name === 'read' || name === 'write' ? toolFilePath(args) : null
   const display = filePath ? readContentDisplay({ path: filePath }) : { kind: 'text' as const }
   const htmlFile = display.kind === 'html'
   const [expanded, setExpanded] = useState(name === 'edit')
+  const [partialOutputExpanded, setPartialOutputExpanded] = useState(false)
   const [writtenContent, setWrittenContent] = useState<string>()
   const [writtenContentError, setWrittenContentError] = useState<string>()
   const [loadingWrittenContent, setLoadingWrittenContent] = useState(false)
@@ -83,7 +85,12 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
   const [argsExpanded, setArgsExpanded] = useState(false)
   const input = formatToolData(args)
   const inputLength = toolDataLength(args)
+  const maxPreviewChars = 400
   const output = hasResult ? toolContentText(resultContent) : ''
+  const partialOutput = !hasResult && partialResultContent !== undefined ? toolContentText(partialResultContent) : ''
+  const partialOutputLength = partialOutput.length
+  const partialOutputTruncated = partialOutputLength > maxPreviewChars
+  const partialOutputPreviewText = partialOutputTruncated ? `${partialOutput.slice(0, maxPreviewChars)}…` : partialOutput
   const outputLength = output.length
   const displayedOutput = output || 'No output.'
   const presentation = toolCallPresentation({ id, name, args }, repositoryRoot)
@@ -93,7 +100,6 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
   const contentError = resultError || Boolean(writtenContentError) || Boolean(htmlOpenError)
   const preview = toolTextPreview(content)
   const streamingArgs = streaming || interrupted ? input : undefined
-  const maxPreviewChars = 400
   const streamingTruncated = Boolean(streamingArgs && streamingArgs.length > maxPreviewChars)
   const streamingPreviewText = streamingArgs && streamingArgs.length > maxPreviewChars ? `${streamingArgs.slice(0, maxPreviewChars)}…` : streamingArgs
   const renderingCode = display.kind === 'code' && canHighlightFile(content) && expanded && !loadingWrittenContent && !writtenContentError && !codeRendered
@@ -136,7 +142,7 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
     setExpanded((isExpanded) => !isExpanded)
   }
 
-  const hasBody = streaming || interrupted || hasResult
+  const hasBody = streaming || interrupted || hasResult || Boolean(partialOutput)
 
   return <article className={`tool-call${animateLiveChanges && streaming ? ' entering' : ''}${contentError ? ' error' : ''}${interrupted ? ' interrupted' : ''}${targeted ? ' conversation-target' : ''}`} data-tool-call-id={id}>
     <Tooltip label={tooltip}><button aria-expanded={htmlFile ? undefined : hasResult ? expanded : undefined} className="tool-call-heading" disabled={!hasResult} onClick={activate} type="button">
@@ -144,9 +150,9 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
       <span><strong aria-label={tooltip}>{name || 'Tool'}</strong></span>
       {presentation.headerDetail && <span className="tool-call-command"><code aria-label={`Full command: ${presentation.headerDetail.title}`}>{presentation.headerDetail.text}</code></span>}
       {presentation.headerDetail?.suffix && <span className="tool-call-range"><code aria-label={`Read range: ${presentation.headerDetail.suffix}`}>{presentation.headerDetail.suffix}</code></span>}
-      <small aria-label={hasResult && !contentError ? resolvedSizeLabel : undefined}>
+      <small aria-label={hasResult && !contentError ? resolvedSizeLabel : partialOutput ? `Output: ${partialOutputLength} characters so far` : undefined}>
         {active && presentation.pendingDetail && `${presentation.pendingDetail} · `}
-        {hasResult ? contentError ? 'Failed' : <span aria-hidden="true">↘ {inputLength} car. · ↗ {outputLength} car.</span> : interrupted ? 'Generation interrupted' : streaming ? 'Generating…' : 'In progress…'}
+        {hasResult ? contentError ? 'Failed' : <span aria-hidden="true">↘ {inputLength} car. · ↗ {outputLength} car.</span> : interrupted ? 'Generation interrupted' : streaming ? 'Generating…' : partialOutput ? <span aria-hidden="true">↗ {partialOutputLength} car.</span> : 'In progress…'}
         {active && <span aria-label={streaming ? 'Arguments are being generated' : 'Tool in progress'} className="spinner tool-call-spinner" role="status" />}
       </small>
     </button></Tooltip>
@@ -164,6 +170,16 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
             : <button aria-expanded={false} className="tool-call-preview" onClick={() => setArgsExpanded(true)} type="button">
                 <pre>{streamingPreviewText ?? 'Waiting for arguments…'}</pre>
                 {streamingTruncated && <span>Click to view full arguments ({streamingArgs?.length ?? 0} chars)</span>}
+              </button>}
+        </>}
+        {active && partialOutput && <>
+          {partialOutputExpanded
+            ? <button aria-expanded={true} className="tool-call-raw-args" onClick={() => setPartialOutputExpanded(false)} type="button">
+                {partialOutput || 'Waiting for output…'}
+              </button>
+            : <button aria-expanded={false} className="tool-call-preview" onClick={() => setPartialOutputExpanded(true)} type="button">
+                <pre>{partialOutputPreviewText || 'Waiting for output…'}</pre>
+                {partialOutputTruncated && <span>Click to view full output ({partialOutputLength} chars)</span>}
               </button>}
         </>}
         {hasResult && <div className={animateLiveChanges ? 'tool-call-result entering' : 'tool-call-result'}>

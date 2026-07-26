@@ -14,6 +14,12 @@ export interface ToolResult {
   details?: unknown
 }
 
+export interface ToolExecutionUpdate {
+  toolCallId: string
+  toolName: string
+  partialResult: ToolResult
+}
+
 export interface ToolCallUpdate {
   call: ToolCall
   contentIndex: number
@@ -23,6 +29,7 @@ export interface ToolCallUpdate {
 
 export interface ToolExecution extends ToolCall {
   contentIndex?: number
+  partialResult?: ToolResult
   result?: ToolResult
   status: 'generating' | 'running' | 'interrupted'
 }
@@ -112,6 +119,32 @@ export function interruptToolCallGeneration(executions: ToolExecution[]): ToolEx
   return executions.map((execution) => execution.status === 'generating'
     ? { ...execution, status: 'interrupted' }
     : execution)
+}
+
+/** Extracts a validated tool execution update that carries a partial result from Pi. */
+export function toolExecutionUpdateInEvent(event: JsonObject): ToolExecutionUpdate | null {
+  if (event.type !== 'tool_execution_update' || typeof event.toolCallId !== 'string' || typeof event.toolName !== 'string') return null
+  const partial = event.partialResult
+  if (!isObject(partial)) return null
+  return {
+    toolCallId: event.toolCallId,
+    toolName: event.toolName,
+    partialResult: {
+      toolCallId: event.toolCallId,
+      toolName: event.toolName,
+      content: partial.content,
+      isError: false,
+      details: isObject(partial.details) ? partial.details : undefined,
+    },
+  }
+}
+
+/** Replaces the matching execution's partial result without touching executions that are already settled. */
+export function applyToolExecutionUpdate(executions: ToolExecution[], update: ToolExecutionUpdate): ToolExecution[] {
+  return executions.map((execution) => {
+    if (execution.id !== update.toolCallId || execution.status !== 'running' || execution.result) return execution
+    return { ...execution, partialResult: update.partialResult }
+  })
 }
 
 export function toolResultInMessage(message: JsonObject): ToolResult | null {

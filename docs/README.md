@@ -10,6 +10,7 @@ Pi Livecraft is documented in layers: begin with the guide closest to your goal,
 - **Modify the composer:** [step-by-step guide](HOW-TO-COMPOSER.md), then [composer reference](../src/features/composer/README.md).
 - **Add a command, palette entry, or shortcut:** [step-by-step guide](HOW-TO-PALETTE-COMMAND.md), then [contract reference](../src/features/commands/README.md).
 - **Add a preference or persisted UI state:** [settings and preferences](../src/features/settings/README.md).
+- **Customise colours or add a theme:** [how to theme](HOW-TO-THEME.md).
 - **Add a right sidebar widget:** [step-by-step guide](HOW-TO-WIDGET.md), then [contract reference](../src/features/right-sidebar/README.md).
 - **Change a tool call display:** [step-by-step guide](HOW-TO-TOOL-PRESENTATION.md), then [contract reference](../src/features/conversation/README.md).
 - **Change Git, quotas, terminal, or todos on the server:** [backend capabilities](../server/features/README.md).

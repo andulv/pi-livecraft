@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { applyToolCallUpdate, formatToolCallTooltip, formatToolData, interruptToolCallGeneration, isToolCallPending, parseEditDiff, readContentDisplay, toolCallInUpdate, toolCallPresentation, toolCallsInMessage, toolContentText, toolDataLength, toolEditChanges, toolFilePath, toolResultInMessage, toolTextPreview, truncateToolText, windowsFileUrl } from '../src/features/conversation/tool-calls.ts'
+import { applyToolCallUpdate, applyToolExecutionUpdate, formatToolCallTooltip, formatToolData, interruptToolCallGeneration, isToolCallPending, parseEditDiff, readContentDisplay, toolCallInUpdate, toolCallPresentation, toolCallsInMessage, toolContentText, toolDataLength, toolEditChanges, toolExecutionUpdateInEvent, toolFilePath, toolResultInMessage, toolTextPreview, truncateToolText, windowsFileUrl } from '../src/features/conversation/tool-calls.ts'
 
 test('extracts tool calls and their resolved result from Pi messages', () => {
   const calls = toolCallsInMessage({
@@ -259,4 +259,52 @@ test('carries details from Pi tool result messages in history', () => {
     isError: false,
     details: { diff: '+1 added', firstChangedLine: 1 },
   })
+})
+
+test('extracts validated tool_execution_update events and rejects malformed ones', () => {
+  assert.equal(toolExecutionUpdateInEvent({ type: 'other' }), null)
+  assert.equal(toolExecutionUpdateInEvent({ type: 'tool_execution_update' }), null)
+  assert.equal(toolExecutionUpdateInEvent({ type: 'tool_execution_update', toolCallId: 'call_1', toolName: 'bash', partialResult: null }), null)
+
+  const update = toolExecutionUpdateInEvent({
+    type: 'tool_execution_update',
+    toolCallId: 'call_1',
+    toolName: 'bash',
+    partialResult: { content: [{ type: 'text', text: 'line 1' }], details: { truncation: null } },
+  })
+  assert.equal(update?.toolCallId, 'call_1')
+  assert.equal(update?.toolName, 'bash')
+  assert.equal(toolContentText(update?.partialResult.content), 'line 1')
+  assert.deepEqual(update?.partialResult.details, { truncation: null })
+  assert.equal(toolExecutionUpdateInEvent({
+    type: 'tool_execution_update', toolCallId: 'call_1', toolName: 'bash', partialResult: 'not an object',
+  }), null)
+})
+
+test('replaces partial results for matching running executions', () => {
+  const execution: import('../src/features/conversation/tool-calls.ts').ToolExecution = {
+    id: 'call_1', name: 'bash', args: { command: 'ls' }, status: 'running',
+  }
+  const executions = [{ ...execution }]
+
+  const first = applyToolExecutionUpdate(executions, {
+    toolCallId: 'call_1', toolName: 'bash', partialResult: { toolCallId: 'call_1', toolName: 'bash', content: 'a', isError: false },
+  })
+  assert.equal(toolContentText(first[0]?.partialResult?.content), 'a')
+
+  const second = applyToolExecutionUpdate(first, {
+    toolCallId: 'call_1', toolName: 'bash', partialResult: { toolCallId: 'call_1', toolName: 'bash', content: 'ab', isError: false },
+  })
+  assert.equal(toolContentText(second[0]?.partialResult?.content), 'ab')
+})
+
+test('does not touch executions that are not running', () => {
+  const settled: import('../src/features/conversation/tool-calls.ts').ToolExecution = {
+    id: 'call_1', name: 'bash', args: {}, result: { toolCallId: 'call_1', toolName: 'bash', content: 'done', isError: false }, status: 'running',
+  }
+  const updated = applyToolExecutionUpdate([settled], {
+    toolCallId: 'call_1', toolName: 'bash', partialResult: { toolCallId: 'call_1', toolName: 'bash', content: 'partial', isError: false },
+  })
+  assert.equal(toolContentText(updated[0]?.result?.content), 'done')
+  assert.equal(updated[0]?.partialResult, undefined)
 })

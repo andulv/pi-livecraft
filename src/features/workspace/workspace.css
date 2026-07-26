@@ -26,7 +26,7 @@
   transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
 }
 .theme-toggle:hover { border-color: var(--line-strong); background: color-mix(in srgb, var(--ink) 54%, transparent); color: var(--ink); }
-.theme-toggle:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .brand strong, .brand small { display: block; }
 .brand strong { font-size: 14px; letter-spacing: -.02em; }
 .brand small { margin-top: 2px; color: var(--muted); font-size: 11px; }
@@ -41,7 +41,7 @@
   background: var(--ink);
   color: var(--surface);
   font: 500 23px ui-monospace, monospace;
-  box-shadow: 0 3px 0 var(--teal-soft);
+  box-shadow: 0 3px 0 var(--accent-soft);
 }
 .brand-mark.large { width: 64px; height: 64px; margin: auto; border-radius: 18px; font-size: 38px; }
 
@@ -131,7 +131,7 @@
 .session-status-indicator.working { background: var(--accent-soft); color: var(--accent); }
 .session-status-indicator.working circle { opacity: .25; }
 .session-status-indicator.working svg { animation: session-status-spin 1.1s linear infinite; }
-.session-status-indicator.compacting { background: color-mix(in srgb, var(--teal) 14%, var(--surface)); color: var(--teal); }
+.session-status-indicator.compacting { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent); }
 .session-status-indicator.compacting circle { opacity: .25; }
 .session-status-indicator.compacting svg { animation: session-status-spin 1.1s linear infinite; }
 .session-status-indicator.waiting { background: color-mix(in srgb, var(--warning) 14%, var(--surface)); color: var(--warning-strong); animation: session-status-attention 1.8s ease-in-out infinite; }

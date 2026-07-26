@@ -4,27 +4,14 @@ import { shortcutFromEvent, shortcutConflicts } from '../commands/command-regist
 import { THEME_VARIABLES, type Theme, type ThemeVariable } from './themes.ts'
 
 const themeVariableLabels: Record<ThemeVariable, string> = {
-  canvas: 'Canvas',
+  canvas: 'Background',
   surface: 'Surface',
-  'surface-raised': 'Raised surface',
-  sidebar: 'Sidebar',
   ink: 'Text',
-  muted: 'Muted text',
-  subtle: 'Subtle text',
-  line: 'Borders',
-  'line-strong': 'Strong borders',
-  accent: 'Accent',
-  'accent-hover': 'Accent hover',
-  'accent-soft': 'Accent soft',
-  teal: 'Teal',
-  'teal-soft': 'Teal soft',
-  violet: 'Violet',
-  'violet-soft': 'Violet soft',
+  accent: 'Primary accent',
+  secondary: 'Secondary accent',
   success: 'Success',
   warning: 'Warning',
-  'warning-strong': 'Strong warning',
   danger: 'Danger',
-  'danger-soft': 'Danger soft',
 }
 
 interface SettingsPanelProps {
@@ -66,7 +53,7 @@ export function SettingsPanel({ definitions, shortcuts, terminalCommand, themes,
       <section className="settings-content">
         <section className="theme-settings">
           <h3>Color themes</h3>
-          <p>Choose a theme or duplicate one to edit its colors. Typography and layout stay unchanged.</p>
+          <p>Choose a theme or duplicate one to edit its 8 source colors. Surfaces, text shades, borders, hover states, and contrast colours are generated automatically.</p>
           <div className="theme-toolbar">
             <select aria-label="Active color theme" onChange={(event) => onSelectTheme(event.target.value)} value={activeTheme?.id ?? ''}>
               {themes.map((theme) => <option key={theme.id} value={theme.id}>{theme.name}{theme.builtIn ? ' · Built-in' : ''}</option>)}
