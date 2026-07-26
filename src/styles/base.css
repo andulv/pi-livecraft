@@ -1,31 +1,57 @@
 :root {
-  color-scheme: light;
+  /* ── 8 source colours (overridden by JS for custom themes) ── */
   --canvas: #f4f6f4;
   --surface: #ffffff;
-  --surface-raised: #fbfcfb;
-  --sidebar: #e9eeea;
   --ink: #1d2924;
-  --muted: #617069;
-  --subtle: #87948d;
-  --line: #d7dfd9;
-  --line-strong: #c5d0c8;
   --accent: #23776d;
-  --accent-hover: #185f56;
-  --accent-soft: #e0f1ed;
-  --teal: #23776d;
-  --teal-soft: #e0f1ed;
-  --violet: #6851a4;
-  --violet-soft: #ede9fa;
+  --secondary: #6851a4;
   --success: #28734b;
   --warning: #b8860b;
-  --warning-strong: #c75b00;
   --danger: #a13f37;
-  --danger-soft: #fbe9e7;
+
+  /* ── Derived neutrals ── */
+  --surface-raised: color-mix(in srgb, var(--surface) 92%, var(--canvas));
+  --sidebar: color-mix(in srgb, var(--canvas) 96%, var(--ink));
+  --muted: color-mix(in srgb, var(--ink) 55%, var(--canvas));
+  --subtle: color-mix(in srgb, var(--ink) 42%, var(--canvas));
+  --line: color-mix(in srgb, var(--ink) 12%, var(--canvas));
+  --line-strong: color-mix(in srgb, var(--ink) 20%, var(--canvas));
+
+  /* ── Derived accent variants ── */
+  --accent-hover: color-mix(in srgb, var(--accent) 78%, var(--ink));
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+
+  /* ── Derived secondary ── */
+  --secondary-soft: color-mix(in srgb, var(--secondary) 10%, var(--surface));
+
+  /* ── Derived status variants ── */
+  --success-soft: color-mix(in srgb, var(--success) 13%, var(--surface));
+  --warning-strong: color-mix(in srgb, var(--warning) 65%, var(--ink));
+  --danger-soft: color-mix(in srgb, var(--danger) 10%, var(--surface));
+
+  /* ── Contrast colours (overridden by JS) ── */
+  --on-accent: #ffffff;
+  --on-danger: #ffffff;
+
+  color-scheme: light;
   --shadow: 0 18px 45px rgb(0 0 0 / 10%);
   --shadow-soft: 0 5px 18px rgb(0 0 0 / 7%);
 }
 
-[data-theme="dark"] { color-scheme: dark; }
+[data-theme="dark"] {
+  --canvas: #171c1a;
+  --surface: #1e2422;
+  --ink: #dde3e0;
+  --accent: #4fb9ab;
+  --secondary: #9d91d4;
+  --success: #59ba7c;
+  --warning: #d6aa45;
+  --danger: #e26e63;
+  --sidebar: color-mix(in srgb, var(--canvas) 90%, var(--ink));
+  --on-accent: #000000;
+  --on-danger: #ffffff;
+  color-scheme: dark;
+}
 
 * { box-sizing: border-box; scrollbar-color: var(--subtle) transparent; scrollbar-width: thin; }
 *::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -85,15 +111,15 @@ button:disabled, select:disabled { cursor: not-allowed; }
   .composer-select.agent:hover,
   .composer-select.agent[data-state='open'] { border-color: color-mix(in srgb, var(--accent) 40%, var(--canvas)); }
   .composer-select.model:hover,
-  .composer-select.model[data-state='open'] { border-color: color-mix(in srgb, var(--violet) 40%, var(--canvas)); }
+  .composer-select.model[data-state='open'] { border-color: color-mix(in srgb, var(--secondary) 40%, var(--canvas)); }
   .composer-select.thinking:hover,
   .composer-select.thinking[data-state='open'] { border-color: color-mix(in srgb, var(--warning) 50%, var(--canvas)); }
   .composer-toggle:hover { border-color: color-mix(in srgb, var(--line-strong) 70%, var(--canvas)); }
   .composer-toggle.active { border-color: color-mix(in srgb, var(--accent) 40%, var(--canvas)); color: var(--accent-hover); }
-  .composer-select.command .composer-select-icon { color: var(--teal); }
-  .composer-select.behavior .composer-select-icon { color: var(--violet); }
+  .composer-select.command .composer-select-icon { color: var(--accent); }
+  .composer-select.behavior .composer-select-icon { color: var(--secondary); }
   .composer-select-content { box-shadow: 0 15px 32px rgb(0 0 0 / 50%); }
-  .composer-select-content.model { border-color: color-mix(in srgb, var(--violet) 40%, var(--canvas)); }
+  .composer-select-content.model { border-color: color-mix(in srgb, var(--secondary) 40%, var(--canvas)); }
   .composer-select-content.thinking { border-color: color-mix(in srgb, var(--warning) 50%, var(--canvas)); }
   .composer-select-content.agent { border-color: color-mix(in srgb, var(--accent) 40%, var(--canvas)); }
   .composer-select-option[data-highlighted] { background: color-mix(in srgb, var(--surface) 70%, var(--canvas)); }
@@ -116,7 +142,6 @@ button:disabled, select:disabled { cursor: not-allowed; }
   .tool-call-writing { border-top-color: color-mix(in srgb, var(--ink) 10%, transparent); background: color-mix(in srgb, var(--ink) 10%, transparent); }
   .tool-call-preview { background: color-mix(in srgb, var(--ink) 14%, transparent); }
   .tool-call-preview:hover { background: color-mix(in srgb, var(--ink) 24%, transparent); }
-  .tool-call-content > pre { background: color-mix(in srgb, var(--ink) 14%, transparent); }
   .tool-call-edit-change { border-color: color-mix(in srgb, var(--ink) 18%, transparent); }
   .tool-call-edit-change h4 { background: color-mix(in srgb, var(--ink) 8%, transparent); }
   .tool-call-edit-line > span,
@@ -156,7 +181,7 @@ button:disabled, select:disabled { cursor: not-allowed; }
   .git-diff-line.removed { background: var(--danger-soft); color: color-mix(in srgb, var(--danger) 80%, var(--surface)); }
   .git-diff-line.removed > span,
   .git-diff-line.removed > i { color: color-mix(in srgb, var(--danger) 60%, var(--surface)); }
-  .git-diff-line.hunk { background: color-mix(in srgb, var(--teal) 10%, var(--canvas)); color: var(--accent-hover); }
+  .git-diff-line.hunk { background: color-mix(in srgb, var(--accent) 10%, var(--canvas)); color: var(--accent-hover); }
   .git-commits h2 small { color: var(--accent-hover); }
   .git-commits summary:hover { background: var(--surface-raised); }
   .git-commit-action:hover:not(:disabled) { background: var(--surface-raised); }
