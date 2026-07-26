@@ -250,6 +250,26 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     return
   }
 
+  const runPromptMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/run-prompt$/)
+  if (method === 'POST' && runPromptMatch) {
+    const body = await readJsonBody(request)
+    if (typeof body.prompt !== 'string' || !body.prompt.trim() || body.prompt.length > 100_000) {
+      throw new HttpError(400, 'A prompt between 1 and 100,000 characters is required')
+    }
+    const data = await manager.request({
+      action: 'run_prompt',
+      sessionId: decodeURIComponent(runPromptMatch[1]),
+      prompt: body.prompt,
+      systemPrompt: typeof body.systemPrompt === 'string' ? body.systemPrompt : undefined,
+      thinkingLevel: typeof body.thinkingLevel === 'string' ? body.thinkingLevel : undefined,
+      model: isModelBody(body.model),
+      extensions: Array.isArray(body.extensions) ? body.extensions.filter((e: unknown): e is string => typeof e === 'string') : undefined,
+      tools: Array.isArray(body.tools) ? body.tools.filter((t: unknown): t is string => typeof t === 'string') : undefined,
+    }, 5 * 60_000)
+    sendJson(response, 200, data)
+    return
+  }
+
   const commandMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/commands$/)
   if (method === 'POST' && commandMatch) {
     const command = await readJsonBody(request)
@@ -376,6 +396,11 @@ function contentType(filePath: string): string {
 
 function isObject(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isModelBody(value: unknown): { provider: string; modelId: string } | undefined {
+  if (!isObject(value) || typeof value.provider !== 'string' || typeof value.modelId !== 'string') return undefined
+  return { provider: value.provider, modelId: value.modelId }
 }
 
 function errorMessage(error: unknown): string {

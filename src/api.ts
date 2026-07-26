@@ -113,6 +113,25 @@ export async function improvePrompt(sessionId: string, prompt: string): Promise<
   return result.prompt
 }
 
+/** Configuration for an isolated Pi prompt execution. */
+export interface RunPromptOptions {
+  prompt: string
+  systemPrompt?: string
+  thinkingLevel?: string
+  model?: { provider: string; modelId: string }
+  extensions?: string[]
+  tools?: string[]
+}
+
+/** Runs a prompt in an isolated Pi process with caller-controlled configuration. */
+export async function runPrompt(sessionId: string, options: RunPromptOptions): Promise<string> {
+  const result = await request<{ text: string }>(`/api/sessions/${encodeURIComponent(sessionId)}/run-prompt`, {
+    method: 'POST',
+    body: JSON.stringify(options),
+  })
+  return result.text
+}
+
 export async function sendPiCommand(sessionId: string, command: JsonObject): Promise<JsonObject> {
   return request<JsonObject>(`/api/sessions/${encodeURIComponent(sessionId)}/commands`, {
     method: 'POST',

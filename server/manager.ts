@@ -10,7 +10,8 @@ import { realpath, stat } from 'node:fs/promises'
 import { createServer, type Socket } from 'node:net'
 import { JsonLineDecoder, encodeJsonLine } from './jsonl.ts'
 import { PiProcess } from './pi-process.ts'
-import { assistantText, cheapestAvailableModel, promptImprovementSystemPrompt } from './prompt-improvement.ts'
+import { promptImprovementSystemPrompt } from './prompt-improvement.ts'
+import { runIsolatedPrompt } from './run-isolated-prompt.ts'
 import type {
   JsonObject,
   ManagerEvent,
@@ -76,6 +77,7 @@ async function handleRequest(socket: Socket, value: unknown): Promise<void> {
     else if (value.action === 'create') data = await createSession(value)
     else if (value.action === 'open') data = await openSession(value)
     else if (value.action === 'improve_prompt') data = await improvePrompt(value)
+    else if (value.action === 'run_prompt') data = await runPrompt(value)
     else data = await sendCommand(value)
     respond(socket, { kind: 'response', id: value.id, ok: true, data })
   } catch (error) {
@@ -161,26 +163,36 @@ async function improvePrompt(request: ManagerRequest): Promise<{ prompt: string 
   const session = sessions.get(request.sessionId)
   if (!session || session.summary.status === 'exited') throw new Error('Active Pi session is unavailable')
 
-  const pi = new PiProcess(session.summary.cwd, randomUUID(), undefined, {
-    isolated: true,
+  const improved = await runIsolatedPrompt({
+    cwd: session.summary.cwd,
+    prompt: `<user_prompt>\n${request.prompt.trim()}\n</user_prompt>`,
     systemPrompt: promptImprovementSystemPrompt,
   })
-  try {
-    const available = await pi.request({ type: 'get_available_models' })
-    const model = cheapestAvailableModel(available)
-    if (!model) throw new Error('No model is available to improve the prompt')
-    await pi.request({ type: 'set_model', provider: model.provider, modelId: model.id })
-    const settled = waitForPiEvent(pi, 'agent_settled')
-    await Promise.all([
-      pi.request({ type: 'prompt', message: `<user_prompt>\n${request.prompt.trim()}\n</user_prompt>` }),
-      settled,
-    ])
-    const improved = assistantText(await pi.request({ type: 'get_messages' }))
-    if (!improved) throw new Error('The prompt improvement model returned no text')
-    return { prompt: improved }
-  } finally {
-    pi.terminate()
+  return { prompt: improved }
+}
+
+/** Runs a prompt in an isolated, disposable Pi process with caller-controlled configuration. */
+async function runPrompt(request: ManagerRequest): Promise<{ text: string }> {
+  if (typeof request.sessionId !== 'string' || typeof request.prompt !== 'string' || !request.prompt.trim() || request.prompt.length > 100_000) {
+    throw new Error('Session id and a prompt between 1 and 100,000 characters are required')
   }
+  const session = sessions.get(request.sessionId)
+  if (!session || session.summary.status === 'exited') throw new Error('Active Pi session is unavailable')
+
+  const text = await runIsolatedPrompt({
+    cwd: session.summary.cwd,
+    prompt: request.prompt.trim(),
+    systemPrompt: typeof request.systemPrompt === 'string' ? request.systemPrompt : undefined,
+    thinkingLevel: typeof request.thinkingLevel === 'string' ? request.thinkingLevel : undefined,
+    model: isModelOption(request.model) ? request.model : undefined,
+    extensions: Array.isArray(request.extensions) ? request.extensions.filter((e): e is string => typeof e === 'string') : undefined,
+    tools: Array.isArray(request.tools) ? request.tools.filter((t): t is string => typeof t === 'string') : undefined,
+  })
+  return { text }
+}
+
+function isModelOption(value: unknown): value is { provider: string; modelId: string } {
+  return isObject(value) && typeof value.provider === 'string' && typeof value.modelId === 'string'
 }
 
 async function sendCommand(request: ManagerRequest): Promise<JsonObject> {
@@ -197,26 +209,6 @@ async function sendCommand(request: ManagerRequest): Promise<JsonObject> {
     return { success: true }
   }
   return session.pi.request(request.command)
-}
-
-/** Waits for a terminal Pi event while bounding failures from a stalled disposable process. */
-function waitForPiEvent(pi: PiProcess, type: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => finish(new Error(`Pi event timed out: ${type}`)), 2 * 60_000)
-    const onEvent = (event: JsonObject): void => {
-      if (event.type === type) finish()
-    }
-    const onExit = (): void => finish(new Error('Pi exited before completing the prompt improvement'))
-    function finish(error?: Error): void {
-      clearTimeout(timeout)
-      pi.off('event', onEvent)
-      pi.off('exit', onExit)
-      if (error) reject(error)
-      else resolve()
-    }
-    pi.on('event', onEvent)
-    pi.once('exit', onExit)
-  })
 }
 
 function handlePiEvent(sessionId: string, session: ManagedSession, event: JsonObject): void {
@@ -263,7 +255,7 @@ function respond(socket: Socket, response: ManagerResponse): void {
 
 function isManagerRequest(value: unknown): value is ManagerRequest {
   if (!isObject(value) || typeof value.id !== 'string') return false
-  return value.action === 'list' || value.action === 'create' || value.action === 'open' || value.action === 'command' || value.action === 'improve_prompt'
+  return value.action === 'list' || value.action === 'create' || value.action === 'open' || value.action === 'command' || value.action === 'improve_prompt' || value.action === 'run_prompt'
 }
 
 function isObject(value: unknown): value is JsonObject {

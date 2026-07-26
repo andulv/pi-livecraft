@@ -14,6 +14,12 @@ interface PendingRequest {
 interface PiProcessOptions {
   isolated?: boolean
   systemPrompt?: string
+  /** Thinking level for the isolated process (defaults to 'off'). */
+  thinkingLevel?: string
+  /** Extension paths to load (omitting passes --no-extensions). */
+  extensions?: string[]
+  /** Tool names to load (omitting passes --no-tools). */
+  tools?: string[]
 }
 
 export class PiProcess extends EventEmitter {
@@ -26,8 +32,12 @@ export class PiProcess extends EventEmitter {
     super()
     const args = options.isolated
       ? [
-          '--mode', 'rpc', '--no-session', '--no-tools', '--no-extensions', '--no-skills',
-          '--no-prompt-templates', '--no-themes', '--thinking', 'off', '--system-prompt', options.systemPrompt ?? '',
+          '--mode', 'rpc', '--no-session',
+          ...(options.tools ? options.tools.flatMap((name) => ['--tool', name]) : ['--no-tools']),
+          ...(options.extensions ? options.extensions.flatMap((path) => ['--extension', path]) : ['--no-extensions']),
+          '--no-skills', '--no-prompt-templates', '--no-themes',
+          '--thinking', options.thinkingLevel ?? 'off',
+          '--system-prompt', options.systemPrompt ?? '',
         ]
       : [
           '--mode', 'rpc',
