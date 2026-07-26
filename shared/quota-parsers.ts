@@ -1,5 +1,7 @@
 import type { CopilotQuotaWindow, OpenAiQuotaWindow } from './types.ts'
+import { isObject } from './is-object.ts'
 
+/** Extracts rate-limit windows from OpenAI's opaque quota response. */
 export function parseOpenAiUsage(value: unknown): OpenAiQuotaWindow[] {
   const root = object(value)
   const rateLimit = object(root?.rate_limit) ?? object(root?.rate_limits)
@@ -19,6 +21,7 @@ export function parseOpenAiUsage(value: unknown): OpenAiQuotaWindow[] {
   }).filter((window, index, windows) => windows.findIndex(({ period }) => period === window.period) === index)
 }
 
+/** Extracts monthly quota buckets from GitHub Copilot's opaque quota response. */
 export function parseCopilotUsage(value: unknown): CopilotQuotaWindow[] {
   const root = object(value)
   const snapshots = object(root?.quota_snapshots)
@@ -58,7 +61,7 @@ function dateValue(value: unknown): number | undefined {
 }
 
 function object(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined
+  return isObject(value) ? value : undefined
 }
 
 function numberField(value: unknown, key: string): number | undefined {

@@ -1,4 +1,5 @@
 import type { JsonObject, SessionSummary } from '../../../shared/types.ts'
+import { isObject } from '../../../shared/is-object.ts'
 
 export type PiConnection = 'connecting' | 'connected' | 'disconnected'
 
@@ -74,8 +75,4 @@ export function activityActionText(activity: Activity): string {
 export function activityAgentName(agentName: string | undefined): string {
   const name = agentName?.trim()
   return name ? name[0].toUpperCase() + name.slice(1) : 'Pi'
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

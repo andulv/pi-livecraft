@@ -2,7 +2,7 @@
 
 This guide covers adding a visual presentation for an RPC tool in the conversation.
 Every step is required unless noted otherwise. The `bash` presentation in
-[`tool-calls.ts`](../src/features/conversation/tool-calls.ts) is the reference —
+[`tool-calls.ts`](/src/features/conversation/tool-calls.ts) is the reference —
 open it and locate `bashPresentation` to follow its shape.
 
 ## 1. Create the presentation function
@@ -101,7 +101,7 @@ test('myToolPresentation ignores invalid arguments', () => {
 
 ## Reference presentations
 
-All in [`tool-calls.ts`](../src/features/conversation/tool-calls.ts):
+All in [`tool-calls.ts`](/src/features/conversation/tool-calls.ts):
 
 - `bashPresentation` — simplest: a text field + `pendingDetail`
 - `filePresentation` — repo-relative path via `pathFromRepositoryRoot`

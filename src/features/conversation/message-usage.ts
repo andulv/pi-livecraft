@@ -1,4 +1,5 @@
 import type { JsonObject } from '../../../shared/types.ts'
+import { isObject } from '../../../shared/is-object.ts'
 
 export interface MessageUsage {
   cacheMiss: number
@@ -32,11 +33,6 @@ export function turnUsageByMessage(messages: JsonObject[]): Map<number, MessageU
     return usage ? [[index, usage] as const] : []
   }))
 }
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function isNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }

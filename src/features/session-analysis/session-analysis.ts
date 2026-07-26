@@ -1,4 +1,5 @@
 import type { JsonObject, SessionStats } from '../../../shared/types.ts'
+import { isObject } from '../../../shared/is-object.ts'
 import { messageUsage, turnUsageByMessage, type MessageUsage } from '../conversation/message-usage.ts'
 import { toolCallsInMessage, toolContentText, toolDataLength, toolResultInMessage, type ToolExecution } from '../conversation/tool-calls.ts'
 
@@ -206,6 +207,7 @@ function createActiveRequest(): MutableRequest {
   return { messageIndex: -1, title: 'Request in progress', cost: 0, usage: emptyUsage(), modelCallCount: 0, toolCalls: [], failedToolCalls: 0, complete: false }
 }
 
+/** Accumulates one MessageUsage record into another, mutating the target in place. */
 function addUsage(target: MessageUsage, usage: MessageUsage): MessageUsage {
   target.cacheMiss += usage.cacheMiss
   target.cacheRead += usage.cacheRead
@@ -215,6 +217,7 @@ function addUsage(target: MessageUsage, usage: MessageUsage): MessageUsage {
   return target
 }
 
+/** Converts a snapshot token breakdown into MessageUsage, or returns null when unavailable. */
 function statsUsage(stats: SessionStats | null): MessageUsage | null {
   const tokens = stats?.tokens
   if (!tokens) return null
@@ -226,6 +229,7 @@ function statsUsage(stats: SessionStats | null): MessageUsage | null {
   return { cacheMiss, cacheRead, cacheWrite, cost: finiteNumber(stats?.cost) ?? 0, output }
 }
 
+/** Aggregates tool call metrics by tool name, sorted by call count. */
 function summarizeTools(calls: AnalyzedToolCall[]): ToolSummary[] {
   const summaries = new Map<string, ToolSummary>()
   for (const call of calls) {
@@ -243,6 +247,7 @@ function summarizeTools(calls: AnalyzedToolCall[]): ToolSummary[] {
   return [...summaries.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
 }
 
+/** Produces a short title from the user message text, truncating at 90 characters. */
 function messageTitle(message: JsonObject): string {
   const content = message.content
   const text = typeof content === 'string'
@@ -261,8 +266,4 @@ function quantile(sortedValues: number[], proportion: number): number {
 
 function finiteNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

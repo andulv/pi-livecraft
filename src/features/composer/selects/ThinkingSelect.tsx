@@ -5,6 +5,7 @@ import { capitalizeLabel } from '../composer-utils.ts'
 
 const thinkingLevels = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
 
+/** Selects the thinking effort level sent to Pi, from off to max. */
 export function ThinkingSelect({ thinking, onCommand, onError, open, onOpenChange, triggerRef }: {
   thinking: string
   onCommand: (command: JsonObject) => Promise<JsonObject>

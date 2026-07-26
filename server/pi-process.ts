@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { JsonLineDecoder, encodeJsonLine } from './jsonl.ts'
 import type { JsonObject } from '../shared/types.ts'
+import { isObject } from '../shared/is-object.ts'
 
 interface PendingRequest {
   resolve: (value: JsonObject) => void
@@ -122,8 +123,4 @@ export class PiProcess extends EventEmitter {
     }
     this.#pending.clear()
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

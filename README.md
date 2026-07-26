@@ -85,7 +85,7 @@ A few ideas:
 - combine messages, forms, and actions into a workflow for a recurring task;
 - strip the interface back to the features you enjoy using.
 
-There is no canonical setup and no prize for keeping every feature. Make something useful, make something weird, and have fun. The focused guides in the [documentation index](docs/README.md) and [frontend feature map](src/features/README.md) point to the smallest owning area for each experiment.
+There is no canonical setup and no prize for keeping every feature. Make something useful, make something weird, and have fun. The focused guides in the [documentation index](/docs/README.md) and [frontend feature map](/src/features/README.md) point to the smallest owning area for each experiment.
 
 ## How Pi Livecraft talks to Pi
 
@@ -114,7 +114,7 @@ The separation is deliberate: the browser can refresh and the backend can restar
 | Backend routes and capabilities | `node --watch` restart | Preserved |
 | Manager or Pi process ownership | `node --watch` restart | Current response is interrupted; history can normally resume |
 
-Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) before changing boundaries or process ownership.
+Read [`docs/ARCHITECTURE.md`](/docs/ARCHITECTURE.md) before changing boundaries or process ownership.
 
 ## Project map
 
@@ -160,4 +160,4 @@ Applications built from the template belong in their own repositories and do not
 
 ## License
 
-Pi Livecraft is available under the [MIT License](LICENSE).
+Pi Livecraft is available under the [MIT License](/LICENSE).

@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type WheelEvent } from 'react'
 import type { JsonObject } from '../../../shared/types.ts'
+import { isObject } from '../../../shared/is-object.ts'
 import { activityActionText, activityAgentName, type Activity } from './activity.ts'
 import { formatTokens, formatTurnCost, turnUsageByMessage, type MessageUsage } from './message-usage.ts'
 import { assistantTurnParts, toolCallsInMessage, toolResultInMessage, unreconciledLiveMessages, type ToolExecution } from './tool-calls.ts'
@@ -305,8 +306,4 @@ function isImageContent(value: unknown): value is JsonObject & { data: string; m
 
 function navigationTargetKey(target: SessionAnalysisTarget): string {
   return target.kind === 'tool' ? `tool:${target.id}` : `message:${target.index}`
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

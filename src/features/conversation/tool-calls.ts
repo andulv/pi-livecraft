@@ -1,4 +1,5 @@
 import type { JsonObject } from '../../../shared/types.ts'
+import { isObject } from '../../../shared/is-object.ts'
 
 export interface ToolCall {
   id: string
@@ -71,6 +72,7 @@ export interface ToolEditChange {
   newText: string
 }
 
+/** Extracts every tool call embedded in an assistant message's content array. */
 export function toolCallsInMessage(message: JsonObject): ToolCall[] {
   if (message.role !== 'assistant' || !Array.isArray(message.content)) return []
 
@@ -174,6 +176,7 @@ export function applyToolExecutionUpdate(executions: ToolExecution[], update: To
   })
 }
 
+/** Picks out a validated tool result from a toolResult message, or returns null. */
 export function toolResultInMessage(message: JsonObject): ToolResult | null {
   if (message.role !== 'toolResult' || typeof message.toolCallId !== 'string' || typeof message.toolName !== 'string') return null
   return {
@@ -189,6 +192,7 @@ export function isToolCallPending(result: ToolResult | undefined): boolean {
   return result === undefined
 }
 
+/** Flattens arbitrary tool output into a single string, handling nested content arrays. */
 export function toolContentText(content: unknown): string {
   if (typeof content === 'string') return content
   if (isObject(content) && 'content' in content) return toolContentText(content.content)
@@ -374,8 +378,4 @@ function toolCallFromValue(value: unknown): ToolCall | null {
 function toolCallFromPartial(value: unknown, contentIndex: number): ToolCall | null {
   if (!isObject(value) || !Array.isArray(value.content)) return null
   return toolCallFromValue(value.content[contentIndex])
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

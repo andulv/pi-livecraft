@@ -116,8 +116,8 @@ const result = await runPrompt(sessionId, {
 
 ## Related
 
-- [Talk to Pi](HOW-TO-TALK-TO-PI.md) — send arbitrary RPC commands to the
+- [Talk to Pi](/docs/HOW-TO-TALK-TO-PI.md) — send arbitrary RPC commands to the
   active session
-- [Add a widget](HOW-TO-WIDGET.md) — use `runPrompt` from a sidebar widget
-- [Add a palette command](HOW-TO-PALETTE-COMMAND.md) — use `runPrompt` from a
+- [Add a widget](/docs/HOW-TO-WIDGET.md) — use `runPrompt` from a sidebar widget
+- [Add a palette command](/docs/HOW-TO-PALETTE-COMMAND.md) — use `runPrompt` from a
   command handler

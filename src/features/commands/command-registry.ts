@@ -1,4 +1,5 @@
 import type { JsonObject } from '../../../shared/types.ts'
+import { isObject } from '../../../shared/is-object.ts'
 import { rightWidgetDefinitions, type RightWidget } from '../right-sidebar/right-sidebar.ts'
 
 type CoreCommandId = 'new-session' | 'send' | 'abort' | 'open-thinking' | 'open-model' | 'open-agent' | 'copy-last-response' | 'open-palette' | 'open-settings' | 'open-terminal'
@@ -75,8 +76,4 @@ export function lastAssistantText(messages: JsonObject[]): string {
     }
   }
   return ''
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

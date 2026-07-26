@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 import { JsonLineDecoder, encodeJsonLine } from '../server/jsonl.ts'
 import type { JsonObject } from '../shared/types.ts'
+import { isObject } from '../shared/is-object.ts'
 
 test('exposes current Pi commands over RPC', { timeout: 30_000 }, async () => {
   const pi = spawn('pi', ['--mode', 'rpc', '--offline', '--no-session'], {
@@ -65,7 +66,3 @@ test('exposes current Pi commands over RPC', { timeout: 30_000 }, async () => {
     })
   }
 })
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}

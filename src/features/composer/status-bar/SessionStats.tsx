@@ -1,3 +1,4 @@
+/** Displays session cost and context window usage with a progress bar. */
 export function SessionStats({ cost, contextClass, contextTokens, contextPercent, contextPercentValue }: {
   cost: string
   contextClass: string

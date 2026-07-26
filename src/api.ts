@@ -1,4 +1,5 @@
-import type { DirectoryListing, GitActionResult, GitFileDiff, GitPushResult, GitResetResult, GitRevertResult, GitSnapshot, JsonObject, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary, TodoItem, WorkspaceFile } from '../shared/types.ts'
+import type { DirectoryListing, GitFileDiff, GitPushResult, GitResetResult, GitRevertResult, GitSnapshot, JsonObject, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary, TodoItem, WorkspaceFile } from '../shared/types.ts'
+import { isObject } from '../shared/is-object.ts'
 
 export async function listSessions(): Promise<SessionSummary[]> {
   return request<SessionSummary[]>('/api/sessions')
@@ -51,13 +52,6 @@ export async function openTerminal(cwd: string, template: string): Promise<void>
   await request<void>('/api/terminal', {
     method: 'POST',
     body: JSON.stringify({ cwd, template }),
-  })
-}
-
-export async function commitAndPush(cwd: string, message: string): Promise<GitActionResult> {
-  return request<GitActionResult>('/api/git/action', {
-    method: 'POST',
-    body: JSON.stringify({ cwd, message }),
   })
 }
 
@@ -172,8 +166,4 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(message)
   }
   return value as T
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

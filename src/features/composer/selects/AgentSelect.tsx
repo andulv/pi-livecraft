@@ -2,6 +2,7 @@ import type { RefObject } from 'react'
 import { ComposerSelect } from './ComposerSelect.tsx'
 import { capitalizeLabel } from '../composer-utils.ts'
 
+/** Dropdown for choosing an agent from the list Pi exposes, with loading and busy states. */
 export function AgentSelect({ agentOptions, selectedAgent, agentLoading, agentBusy, onAgentChange, open, onOpenChange, triggerRef }: {
   agentOptions: string[]
   selectedAgent: string

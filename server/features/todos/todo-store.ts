@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { TodoItem } from '../../../shared/types.ts'
+import { isObject } from '../../../shared/is-object.ts'
 
 interface TodoStore {
   workspaces: Record<string, TodoItem[]>
@@ -45,12 +46,14 @@ export function saveWorkspaceTodos(workspacePath: string, todos: TodoItem[], pat
   return operation
 }
 
+/** Validates and normalizes a todo array, rejecting duplicates and oversized lists. */
 export function parseTodoItems(value: unknown): TodoItem[] {
   if (!Array.isArray(value) || value.length > maxTodoCount || !value.every(isTodoItem)) throw new Error('Invalid workspace todo list')
   if (new Set(value.map(({ id }) => id)).size !== value.length) throw new Error('Duplicate todo item')
   return value.map((todo) => ({ ...todo, text: todo.text.trim() }))
 }
 
+/** Parses the on-disk todo registry JSON into a structured workspace-to-tasks map. */
 export function parseTodoStore(content: string): TodoStore {
   const value: unknown = JSON.parse(content)
   if (!isObject(value) || !isObject(value.workspaces)) throw new Error('Invalid Pi Livecraft todo store')
@@ -65,11 +68,6 @@ function isTodoItem(value: unknown): value is TodoItem {
     && typeof value.text === 'string' && value.text.trim().length > 0 && value.text.length <= maxTodoTextLength
     && typeof value.completed === 'boolean'
 }
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function isNotFound(error: unknown): boolean {
   return isObject(error) && error.code === 'ENOENT'
 }

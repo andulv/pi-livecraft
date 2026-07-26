@@ -1,5 +1,6 @@
 import { Tooltip } from '../../../components/Tooltip.tsx'
 
+/** Renders the session name and working directory, with a dot when Pi is active. */
 export function SessionInfo({ name, cwd, active }: {
   name: string
   cwd: string

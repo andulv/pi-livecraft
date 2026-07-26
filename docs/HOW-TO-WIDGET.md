@@ -1,7 +1,7 @@
 # Add a widget
 
 This guide covers adding a widget to the right sidebar. Every step is required unless noted
-otherwise. The [`TodoWidget`](../src/features/todo/TodoWidget.tsx) is the reference
+otherwise. The [`TodoWidget`](/src/features/todo/TodoWidget.tsx) is the reference
 implementation — open it alongside and follow its shape.
 
 ## 1. Create the component
@@ -39,7 +39,7 @@ Add an entry to `rightWidgetDefinitions` (`src/features/right-sidebar/right-side
 - An assignable keyboard shortcut in Settings
 
 To customize the auto-created palette command (shortcut, conditional availability,
-execution behavior), follow the [palette command guide](HOW-TO-PALETTE-COMMAND.md)
+execution behavior), follow the [palette command guide](/docs/HOW-TO-PALETTE-COMMAND.md)
 starting from step 2.
 
 No other registration is needed.
@@ -137,5 +137,5 @@ Used by the session analysis widget, but not mandatory.
 
 ## Reference widget
 
-[`TodoWidget`](../src/features/todo/TodoWidget.tsx) illustrates local state, API
+[`TodoWidget`](/src/features/todo/TodoWidget.tsx) illustrates local state, API
 calls, error handling, and persistent data management.

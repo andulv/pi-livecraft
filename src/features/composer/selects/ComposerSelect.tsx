@@ -1,6 +1,7 @@
 import * as Select from '@radix-ui/react-select'
 import type { RefObject } from 'react'
 
+/** Generic Radix-based select dropdown shared by all composer toolbar controls. */
 export function ComposerSelect({ ariaLabel, disabled, onOpenChange, onValueChange, open, options, placeholder, tone, triggerRef, value }: {
   ariaLabel: string
   disabled?: boolean

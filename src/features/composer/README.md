@@ -1,6 +1,6 @@
 # Composer
 
-Follow the [step-by-step guide](../../docs/HOW-TO-COMPOSER.md) to add a button,
+Follow the [step-by-step guide](/src/docs/HOW-TO-COMPOSER.md) to add a button,
 dropdown, or stat. Return here for the data flow and internal state reference below.
 
 ## Data flow

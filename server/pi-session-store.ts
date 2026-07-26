@@ -2,6 +2,7 @@ import { readdir, readFile, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { isAbsolute, join, relative, sep } from 'node:path'
 import type { RecentSession } from '../shared/types.ts'
+import { isObject } from '../shared/is-object.ts'
 
 const sessionDirectory = process.env.PI_CODING_AGENT_SESSION_DIR ?? join(homedir(), '.pi', 'agent', 'sessions')
 
@@ -160,11 +161,6 @@ function shortenPrompt(prompt: string): string {
   const words = prompt.split(/\s+/)
   return words.length > 8 ? `${words.slice(0, 8).join(' ')}…` : prompt
 }
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function isNotFound(error: unknown): boolean {
   return isObject(error) && error.code === 'ENOENT'
 }

@@ -5,9 +5,7 @@ export function capitalizeLabel(value: string): string {
   return value ? `${value[0].toUpperCase()}${value.slice(1)}` : value
 }
 
-export function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
+export { isObject } from '../../../shared/is-object.ts'
 
 export function formatTokens(value: number): string {
   return value >= 1000 ? `${Math.round(value / 1000)}k` : String(value)

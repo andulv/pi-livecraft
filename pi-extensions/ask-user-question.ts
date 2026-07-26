@@ -1,5 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
+import { isObject } from '../shared/is-object.ts'
 const askUserQuestionProtocol = 'pi-livecraft.ask-user-question'
 const askUserQuestionVersion = 1
 const rpcTitle = 'Pi Livecraft questionnaire'
@@ -39,11 +40,6 @@ function parseAskUserQuestionResponse(value: unknown, request: AskUserQuestionRe
   })
   return answers.every((answer): answer is AskUserQuestionAnswer => answer !== null) ? { answers, cancelled: false } : null
 }
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 export default function registerAskUserQuestion(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'ask_user_question',

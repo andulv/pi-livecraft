@@ -1,5 +1,6 @@
 import { ComposerSelect } from './ComposerSelect.tsx'
 
+/** Toggle between Steer and Follow up modes for the next message sent to Pi. */
 export function BehaviorSelect({ behavior, onChange }: {
   behavior: 'steer' | 'followUp'
   onChange: (value: 'steer' | 'followUp') => void

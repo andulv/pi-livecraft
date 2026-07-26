@@ -1,4 +1,5 @@
 import type { JsonObject } from '../shared/types.ts'
+import { isObject } from '../shared/is-object.ts'
 
 /** Rebuilds the active conversation without dropping messages hidden from Pi by compaction. */
 export function activeSessionMessages(entries: JsonObject[], leafId: unknown): JsonObject[] {
@@ -29,8 +30,4 @@ function messageFromEntry(entry: JsonObject): JsonObject[] {
   if (entry.type === 'message' && isObject(entry.message)) return [entry.message]
   if (entry.type !== 'custom_message' || typeof entry.customType !== 'string') return []
   return [{ role: 'custom', customType: entry.customType, content: entry.content, display: entry.display, details: entry.details }]
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

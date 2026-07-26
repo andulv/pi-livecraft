@@ -1,5 +1,6 @@
 import { askUserQuestionProtocol, parseAskUserQuestionRequest } from '../../../shared/ask-user-question.ts'
 import type { JsonObject } from '../../../shared/types.ts'
+import { isObject } from '../../../shared/is-object.ts'
 
 export interface UiDialog {
   sessionId: string
@@ -28,8 +29,4 @@ export function isBlockingDialog(value: JsonObject): boolean {
 
 function safeJsonParse(value: string): unknown {
   try { return JSON.parse(value) } catch { return null }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

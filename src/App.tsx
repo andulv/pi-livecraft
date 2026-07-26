@@ -4,6 +4,7 @@ import { Tooltip } from './components/Tooltip.tsx'
 import { commitChanges, createSession, discardChanges, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, improvePrompt, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, openTerminal, pushCommits, refreshQuotas, resetGitCommit, revertGitCommit, sendPiCommand } from './api.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type { GitSnapshot, JsonObject, ManagerEvent, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary } from '../shared/types.ts'
+import { isObject } from '../shared/is-object.ts'
 import { Composer } from './features/composer/Composer.tsx'
 import { promptSessionTitle } from './features/composer/prompt-title.ts'
 import { ToastStack, type Toast } from './features/notifications/ToastStack.tsx'
@@ -880,6 +881,7 @@ function readShortcuts(): Partial<Record<CommandId, string>> {
   } catch { return defaultShortcuts }
 }
 
+/** Reads the persisted list of recent workspace paths from localStorage. */
 function readRecentWorkspaces(): string[] {
   try {
     const value: unknown = JSON.parse(window.localStorage.getItem('pi-livecraft.recent-workspace-paths') ?? '[]')
@@ -894,6 +896,7 @@ function readTerminalCommand(): string {
   return stored && stored.trim() && stored.includes('{cwd}') ? stored : ''
 }
 
+/** Restores the last-selected right sidebar widget, falling back to git when not collapsed. */
 function readActiveRightWidget(): RightWidget | null {
   const stored = window.localStorage.getItem('pi-livecraft.right-sidebar-widget')
   if (isRightWidget(stored)) return stored
@@ -905,6 +908,7 @@ function isManagerEvent(value: unknown): value is ManagerEvent {
   return isObject(value) && value.kind === 'event' && typeof value.event === 'string' && typeof value.sessionId === 'string'
 }
 
+/** Returns the timestamp of the most recent user message, if any. */
 function lastUserTimestamp(messages: JsonObject[]): number | undefined {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]
@@ -918,11 +922,6 @@ function assistantMessageInEvent(event: JsonObject): JsonObject | null {
   const message = event.message
   return isObject(message) && message.role === 'assistant' ? message : null
 }
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
 }

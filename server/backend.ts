@@ -14,6 +14,7 @@ import { readWorkspaceFile, WorkspaceFileError } from './workspace-file.ts'
 import { activeSessionMessages } from './session-snapshot.ts'
 import { externalWorkspacePath, openExplorer } from './system-integration.ts'
 import type { DirectoryListing, JsonObject, ManagerEvent, SessionSnapshot } from '../shared/types.ts'
+import { isObject } from '../shared/is-object.ts'
 
 const host = '127.0.0.1'
 const port = readPort('PI_LIVECRAFT_BACKEND_PORT', 43_121)
@@ -404,6 +405,7 @@ function sendJson(response: ServerResponse, status: number, value: unknown): voi
   response.end(JSON.stringify(value))
 }
 
+/** Maps a file extension to the MIME type served in the HTTP response. */
 function contentType(filePath: string): string {
   const types: Record<string, string> = {
     '.css': 'text/css; charset=utf-8',
@@ -414,11 +416,6 @@ function contentType(filePath: string): string {
   }
   return types[extname(filePath)] ?? 'application/octet-stream'
 }
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function isModelBody(value: unknown): { provider: string; modelId: string } | undefined {
   if (!isObject(value) || typeof value.provider !== 'string' || typeof value.modelId !== 'string') return undefined
   return { provider: value.provider, modelId: value.modelId }

@@ -6,6 +6,6 @@ By default, the tool header exposes its full title on hover. Once the call is re
 
 ## Adding a presentation
 
-Follow the [step-by-step guide](../../../docs/HOW-TO-TOOL-PRESENTATION.md). Return here for the default rendering rules above.
+Follow the [step-by-step guide](/docs/HOW-TO-TOOL-PRESENTATION.md). Return here for the default rendering rules above.
 
 Add a presentation only when a tool genuinely provides information that is easier to understand in another form.

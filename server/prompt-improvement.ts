@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { JsonObject } from '../shared/types.ts'
+import { isObject } from '../shared/is-object.ts'
 
 /** Loads the system prompt fresh from disk so edits take effect without restarting the manager. */
 export async function loadPromptImprovementSystemPrompt(): Promise<string> {
@@ -91,8 +92,4 @@ export function assistantText(response: JsonObject): string | undefined {
 function isModel(value: unknown): value is { id: string; provider: string; reasoning: boolean; cost: { input: number; output: number } } {
   if (!isObject(value) || typeof value.id !== 'string' || typeof value.provider !== 'string' || !isObject(value.cost)) return false
   return typeof value.cost.input === 'number' && typeof value.cost.output === 'number' && typeof value.reasoning === 'boolean'
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

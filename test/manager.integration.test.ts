@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { connect, type Socket } from 'node:net'
 import test from 'node:test'
+import { isObject } from '../shared/is-object.ts'
 
 test('accepts commands after an event emitted before Pi finishes starting', { timeout: 10_000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
@@ -238,11 +239,6 @@ function isManagerResponse(value: unknown): value is ManagerResponse {
 function isManagerEvent(value: unknown): value is ManagerEvent {
   return isObject(value) && value.kind === 'event' && typeof value.event === 'string' && typeof value.sessionId === 'string'
 }
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function once(process: ReturnType<typeof spawn>, event: 'exit'): Promise<void> {
   return new Promise((resolve) => process.once(event, () => resolve()))
 }

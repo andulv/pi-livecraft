@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { PiProcess } from './pi-process.ts'
 import { assistantText, cheapestAvailableModel } from './prompt-improvement.ts'
 import type { JsonObject } from '../shared/types.ts'
+import { isObject } from '../shared/is-object.ts'
 
 /** Configuration for an isolated, disposable Pi prompt execution. */
 export interface RunIsolatedPromptOptions {
@@ -79,11 +80,6 @@ export async function runIsolatedPrompt(options: RunIsolatedPromptOptions): Prom
     pi.terminate()
   }
 }
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 /** Waits for a terminal Pi event while bounding failures from a stalled disposable process. */
 function waitForPiEvent(pi: PiProcess, type: string): Promise<void> {
   return new Promise((resolve, reject) => {

@@ -1,3 +1,4 @@
+import { isObject } from './is-object.ts'
 export const askUserQuestionProtocol = 'pi-livecraft.ask-user-question'
 export const askUserQuestionVersion = 1
 
@@ -75,8 +76,4 @@ function parseAnswer(value: unknown, question: AskUserQuestion): AskUserQuestion
   if (!value.selectedOptions.every((option) => question.options.some(({ label }) => label === option))) return null
   if (value.selectedOptions.length === 0 && !value.text?.trim()) return null
   return { question: value.question, selectedOptions: value.selectedOptions, ...(value.text?.trim() ? { text: value.text } : {}) }
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

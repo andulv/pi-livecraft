@@ -2,6 +2,7 @@ import type { SessionSummary } from '../../../../shared/types.ts'
 import { SessionInfo } from './SessionInfo.tsx'
 import { SessionStats } from './SessionStats.tsx'
 
+/** Status bar shown below the composer: session name, directory, cost, and context usage. */
 export function ComposerStatusBar({ session, running, compacting, cost, contextClass, contextTokens, contextPercent, contextPercentValue }: {
   session: SessionSummary
   running: boolean

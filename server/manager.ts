@@ -12,6 +12,7 @@ import { JsonLineDecoder, encodeJsonLine } from './jsonl.ts'
 import { PiProcess } from './pi-process.ts'
 import { generateProjectMap, loadPromptImprovementSystemPrompt } from './prompt-improvement.ts'
 import { runIsolatedPrompt } from './run-isolated-prompt.ts'
+import { isObject } from '../shared/is-object.ts'
 import type {
   JsonObject,
   ManagerEvent,
@@ -263,11 +264,6 @@ function isManagerRequest(value: unknown): value is ManagerRequest {
   if (!isObject(value) || typeof value.id !== 'string') return false
   return value.action === 'list' || value.action === 'create' || value.action === 'open' || value.action === 'command' || value.action === 'improve_prompt' || value.action === 'run_prompt'
 }
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }

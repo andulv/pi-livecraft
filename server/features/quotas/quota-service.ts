@@ -1,4 +1,5 @@
 import type { ManagerEvent, QuotaSnapshot } from '../../../shared/types.ts'
+import { isObject } from '../../../shared/is-object.ts'
 import type { ManagerClient } from '../../manager-client.ts'
 import { QuotaCache } from './quota-cache.ts'
 
@@ -47,8 +48,4 @@ export class QuotaService {
       // A manual refresh remains possible once the manager is available.
     }
   }
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

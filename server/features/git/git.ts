@@ -168,6 +168,7 @@ export async function commitAndPush(cwd: string, message: string): Promise<{ com
   return { committed: false, ...(await pushCommits(cwd)) }
 }
 
+/** Parses git status --porcelain=v1 -z output into file change records without diff stats. */
 export function parseGitStatus(output: string): Omit<GitFileChange, 'additions' | 'deletions'>[] {
   const fields = output.split('\0')
   const changes: Omit<GitFileChange, 'additions' | 'deletions'>[] = []
@@ -182,6 +183,7 @@ export function parseGitStatus(output: string): Omit<GitFileChange, 'additions' 
   return changes
 }
 
+/** Parses git diff --name-status -z output into file change records, tracking renames. */
 export function parseGitNameStatus(output: string): Omit<GitFileChange, 'additions' | 'deletions'>[] {
   const fields = output.split('\0')
   const changes: Omit<GitFileChange, 'additions' | 'deletions'>[] = []
@@ -201,6 +203,7 @@ export function parseGitNameStatus(output: string): Omit<GitFileChange, 'additio
   return changes
 }
 
+/** Merges multiple git diff --numstat -z outputs into combined additions and deletions per file. */
 export function mergeNumstats(...outputs: string[]): Map<string, Pick<GitFileChange, 'additions' | 'deletions'>> {
   const counts = new Map<string, Pick<GitFileChange, 'additions' | 'deletions'>>()
   for (const output of outputs) {

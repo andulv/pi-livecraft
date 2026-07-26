@@ -2,7 +2,7 @@
 
 This guide covers adding a toolbar button, dropdown, or session stat to the composer.
 Every step is required unless noted otherwise. Open
-[`Composer.tsx`](../src/features/composer/Composer.tsx) alongside and follow its shape.
+[`Composer.tsx`](/src/features/composer/Composer.tsx) alongside and follow its shape.
 
 ## Project structure
 
@@ -99,7 +99,7 @@ onMyAction: () => void
 ## 3. Add a dropdown
 
 Dropdowns live in `selects/`. Each is a standalone component built on
-[`ComposerSelect`](../src/features/composer/selects/ComposerSelect.tsx), the generic
+[`ComposerSelect`](/src/features/composer/selects/ComposerSelect.tsx), the generic
 Radix Select wrapper.
 
 **Create the select component:**
@@ -154,7 +154,7 @@ display.
 
 ## 4. Add a session stat
 
-Stats live in [`status-bar/SessionStats.tsx`](../src/features/composer/status-bar/SessionStats.tsx).
+Stats live in [`status-bar/SessionStats.tsx`](/src/features/composer/status-bar/SessionStats.tsx).
 Each stat is a `<span>` with a `<b>` label and inline content.
 
 **Add a stat to `SessionStats`:**
