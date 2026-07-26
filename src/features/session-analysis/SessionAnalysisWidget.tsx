@@ -107,7 +107,7 @@ const VISIBLE_TURNS = 20
 function TokenUsageChart({ onNavigate, turns }: { onNavigate: (target: SessionAnalysisTarget) => void; turns: AnalyzedTurn[] }) {
   const [activePointIndex, setActivePointIndex] = useState<number>()
   const [hiddenSeries, setHiddenSeries] = useState<Set<TokenSeriesKey>>(() => new Set())
-  const [chartRef, width] = useChartWidth()
+  const [chartRef, width] = useChartWidth(turns.length > VISIBLE_TURNS, turns.length)
   const visibleSeries = TOKEN_SERIES.filter(({ key }) => !hiddenSeries.has(key))
   const height = 178
   const padding = { top: 14, right: 16, bottom: 30, left: 12 }
@@ -189,7 +189,7 @@ function TokenUsageChart({ onNavigate, turns }: { onNavigate: (target: SessionAn
 /** Plots all costs in order and keeps each turn as an accessible navigation target. */
 function TurnCostChart({ onNavigate, turns }: { onNavigate: (target: SessionAnalysisTarget) => void; turns: AnalyzedTurn[] }) {
   const [activePointIndex, setActivePointIndex] = useState<number>()
-  const [chartRef, width] = useChartWidth()
+  const [chartRef, width] = useChartWidth(turns.length > VISIBLE_TURNS, turns.length)
   const height = 178
   const padding = { top: 14, right: 16, bottom: 30, left: 12 }
   const effectiveWidth = turns.length <= VISIBLE_TURNS ? width : padding.left + (width - padding.left - padding.right) * turns.length / VISIBLE_TURNS + padding.right
@@ -254,8 +254,8 @@ function TurnCostChart({ onNavigate, turns }: { onNavigate: (target: SessionAnal
   </div>
 }
 
-/** Tracks the actual width allocated to the chart so dense series can scroll horizontally. */
-function useChartWidth() {
+/** Tracks chart width and keeps dense charts aligned with the latest turns. */
+function useChartWidth(scrollToEnd = false, contentLength = 0) {
   const chartRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(248)
 
@@ -268,6 +268,12 @@ function useChartWidth() {
     observer.observe(chart)
     return () => observer.disconnect()
   }, [])
+
+  useLayoutEffect(() => {
+    if (!scrollToEnd) return
+    const chart = chartRef.current
+    if (chart) chart.scrollLeft = chart.scrollWidth
+  }, [contentLength, scrollToEnd, width])
 
   return [chartRef, width] as const
 }
