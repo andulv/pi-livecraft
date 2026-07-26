@@ -10,7 +10,7 @@ export const promptImprovementSystemPrompt = [
   '2. Use <project_map> only to verify file paths that the user mentioned. Never add files.',
   '3. Keep every fact, constraint, and intent from the draft. Add nothing — do not invent requirements, files, libraries, or decisions.',
   '4. Remove only: greetings, politeness, repetition, filler words. Keep all technical details, code snippets, identifiers, and commands verbatim.',
-  '5. Clarify the draft: fix grammar, improve structure and flow, resolve the user\'s own ambiguities. Never fill in missing information or make choices for the user.',
+  '5. Clarify the draft: fix grammar, improve flow. Never add structure — no headings, no labels, no sections, no bullet lists unless the user wrote them. Never fill in missing information or make choices for the user.',
   '',
   'Language: detect the dominant language of the draft. Write in that language.',
   '',
