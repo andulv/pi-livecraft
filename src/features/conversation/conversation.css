@@ -142,7 +142,7 @@
 .user .content a { color: var(--surface); text-decoration: underline; }
 .user .content pre { border-color: color-mix(in srgb, var(--surface) 13%, transparent); background: color-mix(in srgb, var(--canvas) 60%, var(--ink)); }
 .pending-steering .content pre { border-color: var(--line); background: var(--accent-soft); color: var(--ink); }
-.tool-call { position: relative; max-width: 760px; margin: 0 2px 18px; border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); border-radius: 9px; background: color-mix(in srgb, var(--accent) 3%, var(--surface)); color: color-mix(in srgb, var(--accent) 40%, var(--ink)); font: 12px/1.5 ui-monospace, monospace; }
+.tool-call { position: relative; max-width: 760px; margin: 0 2px 18px; border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); border-radius: 9px; background: color-mix(in srgb, var(--accent) 2%, var(--surface)); color: color-mix(in srgb, var(--accent) 40%, var(--ink)); font: 12px/1.5 ui-monospace, monospace; }
 .context-session-button {
   position: absolute;
   z-index: 1;
