@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { applyToolCallUpdate, applyToolExecutionUpdate, formatToolCallTooltip, formatToolData, interruptToolCallGeneration, isToolCallPending, parseEditDiff, readContentDisplay, toolCallInUpdate, toolCallPresentation, toolCallsInMessage, toolContentText, toolDataLength, toolEditChanges, toolExecutionUpdateInEvent, toolFilePath, toolResultInMessage, toolTextPreview, truncateToolText, windowsFileUrl } from '../src/features/conversation/tool-calls.ts'
+import { applyToolCallUpdate, applyToolExecutionUpdate, assistantTurnParts, formatToolCallTooltip, formatToolData, interruptToolCallGeneration, isToolCallPending, parseEditDiff, readContentDisplay, sameAssistantMessage, toolCallInUpdate, toolCallPresentation, toolCallsInMessage, toolContentText, toolDataLength, toolEditChanges, toolExecutionUpdateInEvent, toolFilePath, toolResultInMessage, toolTextPreview, truncateToolText, unreconciledLiveMessages, windowsFileUrl } from '../src/features/conversation/tool-calls.ts'
 
 test('extracts tool calls and their resolved result from Pi messages', () => {
   const calls = toolCallsInMessage({
@@ -27,6 +27,24 @@ test('extracts tool calls and their resolved result from Pi messages', () => {
     details: undefined,
   })
   assert.equal(toolContentText(result?.content), 'import App')
+})
+
+test('keeps each streamed assistant message before its tool calls', () => {
+  const turns = [
+    { role: 'assistant', content: [{ type: 'thinking', thinking: 'Inspecting' }, { type: 'toolCall', id: 'call_1', name: 'read', arguments: { path: 'one' } }] },
+    { role: 'assistant', content: [{ type: 'thinking', thinking: 'Checking' }, { type: 'toolCall', id: 'call_2', name: 'read', arguments: { path: 'two' } }] },
+  ]
+
+  assert.deepEqual(turns.flatMap((message) => assistantTurnParts(message).map((part) => part.kind)), ['message', 'tool', 'message', 'tool'])
+})
+
+test('reconciles completed messages without collapsing distinct live turns', () => {
+  const completed = { role: 'assistant', timestamp: 10, content: [{ type: 'text', text: 'done' }] }
+  const different = { role: 'assistant', timestamp: 10, content: [{ type: 'text', text: 'still working' }] }
+  const live = [completed, different, completed]
+
+  assert.equal(sameAssistantMessage(completed, different), false)
+  assert.deepEqual(unreconciledLiveMessages(live, [completed]).map((message) => message.content), [different.content, completed.content])
 })
 
 test('tracks raw tool arguments from generation start to completion', () => {

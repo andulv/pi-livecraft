@@ -2,18 +2,17 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardE
 import type { JsonObject } from '../../../shared/types.ts'
 import { activityActionText, activityAgentName, type Activity } from './activity.ts'
 import { formatTokens, formatTurnCost, turnUsageByMessage, type MessageUsage } from './message-usage.ts'
-import { toolCallsInMessage, toolResultInMessage, type ToolExecution } from './tool-calls.ts'
+import { assistantTurnParts, toolCallsInMessage, toolResultInMessage, unreconciledLiveMessages, type ToolExecution } from './tool-calls.ts'
 import type { SessionAnalysisTarget } from '../session-analysis/session-analysis.ts'
 import { outputContextDraft } from './context-session.ts'
 import { ContextSessionButton, Markdown, ToolCallCard } from './ToolCallCard.tsx'
 
 /** Assembles history, the live stream, and tool executions according to the selected detail level. */
-export function Conversation({ activity, agentName, messages, liveText, liveThinking, darkMode, detailedView, navigationRequest, pendingSteering, repositoryRoot, scrollToBottomRequest, toolExecutions, workspacePath, onError, onStartSession }: {
+export function Conversation({ activity, agentName, messages, liveMessages, darkMode, detailedView, navigationRequest, pendingSteering, repositoryRoot, scrollToBottomRequest, toolExecutions, workspacePath, onError, onStartSession }: {
   activity: Activity | null
   agentName?: string
   messages: JsonObject[]
-  liveText: string
-  liveThinking: string
+  liveMessages: JsonObject[]
   darkMode: boolean
   detailedView: boolean
   navigationRequest?: { id: number; target: SessionAnalysisTarget }
@@ -41,6 +40,8 @@ export function Conversation({ activity, agentName, messages, liveText, liveThin
     }
   }, [allMessages])
   const executionsByCallId = useMemo(() => new Map(toolExecutions.map((execution) => [execution.id, execution])), [toolExecutions])
+  const liveToolCallIds = useMemo(() => new Set(liveMessages.flatMap(toolCallsInMessage).map((call) => call.id)), [liveMessages])
+  const visibleLiveMessages = useMemo(() => unreconciledLiveMessages(liveMessages, allMessages), [allMessages, liveMessages])
   const conversationRef = useRef<HTMLDivElement>(null)
   const conversationContentRef = useRef<HTMLDivElement>(null)
   const autoScrollRef = useRef(true)
@@ -69,7 +70,7 @@ export function Conversation({ activity, agentName, messages, liveText, liveThin
     return () => observer.disconnect()
   }, [scheduleAutoScroll])
 
-  useEffect(scheduleAutoScroll, [activity, liveText, liveThinking, pendingSteering.length, scheduleAutoScroll, toolExecutions, visibleMessages.length])
+  useEffect(scheduleAutoScroll, [activity, liveMessages, pendingSteering.length, scheduleAutoScroll, toolExecutions, visibleMessages.length])
 
   useEffect(() => () => {
     if (scrollFrameRef.current !== undefined) window.cancelAnimationFrame(scrollFrameRef.current)
@@ -180,14 +181,26 @@ export function Conversation({ activity, agentName, messages, liveText, liveThin
           })}
         </div>
       })}
-      {liveThinking && <ReasoningBlock live>{liveThinking}</ReasoningBlock>}
-      {detailedView && toolExecutions.filter((execution) => !toolCallIds.has(execution.id)).map((execution) => <ToolCallCard animateLiveChanges args={execution.args} darkMode={darkMode} hasResult={execution.result !== undefined} id={execution.id} interrupted={execution.status === 'interrupted'} key={execution.id} name={execution.name} onError={onError} onStartSession={onStartSession} partialResultContent={execution.partialResult?.content} repositoryRoot={repositoryRoot} resultContent={execution.result?.content} resultDetails={execution.result?.details} resultError={execution.result?.isError} streaming={execution.status === 'generating'} targeted={highlightedTarget === `tool:${execution.id}`} workspacePath={workspacePath} />)}
-      {liveText && <article className="message assistant streaming conversation-entry"><div className="content"><Markdown>{liveText}</Markdown></div></article>}
+      {visibleLiveMessages.map((message, index) => {
+        const parts = assistantTurnParts(message)
+        const calls = detailedView ? parts.flatMap((part) => part.kind === 'tool' ? [part.call] : []) : []
+        if (!isVisibleConversationMessage(message) && calls.length === 0) return null
+        return <div className="conversation-entry" key={`live-${index}-${String(message.timestamp ?? '')}`}>
+          {parts.map((part) => {
+            if (part.kind === 'message') return isVisibleConversationMessage(part.message) ? <MessageCard key="assistant" message={part.message} onStartSession={onStartSession} /> : null
+            if (!detailedView) return null
+            const execution = executionsByCallId.get(part.call.id)
+            const result = execution?.result
+            return <ToolCallCard animateLiveChanges args={part.call.args} darkMode={darkMode} hasResult={result !== undefined} id={part.call.id} interrupted={execution?.status === 'interrupted'} key={part.call.id} name={part.call.name} onError={onError} onStartSession={onStartSession} partialResultContent={execution?.partialResult?.content} repositoryRoot={repositoryRoot} resultContent={result?.content} resultDetails={result?.details} resultError={result?.isError} streaming={execution?.status === 'generating'} targeted={highlightedTarget === `tool:${part.call.id}`} workspacePath={workspacePath} />
+          })}
+        </div>
+      })}
+      {detailedView && toolExecutions.filter((execution) => !toolCallIds.has(execution.id) && !liveToolCallIds.has(execution.id)).map((execution) => <ToolCallCard animateLiveChanges args={execution.args} darkMode={darkMode} hasResult={execution.result !== undefined} id={execution.id} interrupted={execution.status === 'interrupted'} key={execution.id} name={execution.name} onError={onError} onStartSession={onStartSession} partialResultContent={execution.partialResult?.content} repositoryRoot={repositoryRoot} resultContent={execution.result?.content} resultDetails={execution.result?.details} resultError={execution.result?.isError} streaming={execution.status === 'generating'} targeted={highlightedTarget === `tool:${execution.id}`} workspacePath={workspacePath} />)}
       {pendingSteering.map((message, index) => <article className="message user pending-steering conversation-entry" key={`${message}-${index}`}>
         <div className="content"><Markdown>{message || 'Image attached'}</Markdown></div>
         <span className="pending-steering-status" role="status"><i aria-hidden="true" />Waiting to steer…</span>
       </article>)}
-      {visibleMessages.length === 0 && !liveText && !liveThinking && pendingSteering.length === 0 && <div className="empty-conversation"><h2>Session ready</h2><p>Send a message or use a command from your Pi installation.</p></div>}
+      {visibleMessages.length === 0 && visibleLiveMessages.length === 0 && pendingSteering.length === 0 && <div className="empty-conversation"><h2>Session ready</h2><p>Send a message or use a command from your Pi installation.</p></div>}
       {activity && <div className="conversation-activity"><ActivityIndicator activity={activity} agentName={agentName} /></div>}
       </div>
       <button

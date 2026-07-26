@@ -9,7 +9,7 @@ import { promptSessionTitle } from './features/composer/prompt-title.ts'
 import { ToastStack, type Toast } from './features/notifications/ToastStack.tsx'
 import { activityForPiEvent, sessionActivity, type Activity, type PiConnection } from './features/conversation/activity.ts'
 import { Conversation } from './features/conversation/Conversation.tsx'
-import { applyToolCallUpdate, applyToolExecutionUpdate, interruptToolCallGeneration, toolCallInUpdate, toolExecutionUpdateInEvent, type ToolExecution, type ToolResult } from './features/conversation/tool-calls.ts'
+import { applyToolCallUpdate, applyToolExecutionUpdate, interruptToolCallGeneration, toolCallInUpdate, toolExecutionUpdateInEvent, type ToolExecution, type ToolResult, unreconciledLiveMessages } from './features/conversation/tool-calls.ts'
 import { AskUserQuestionDialog, ExtensionDialog } from './features/dialogs/Dialogs.tsx'
 import { isAgentSelector, isAskUserQuestionDialog, isBlockingDialog, type UiDialog } from './features/dialogs/dialog-protocol.ts'
 import { clampRightSidebarWidth, isRightWidget, readRightSidebarWidth, type RightWidget } from './features/right-sidebar/right-sidebar.ts'
@@ -75,8 +75,7 @@ function App() {
   const [selectedId, setSelectedId] = useState(() => window.localStorage.getItem('pi-livecraft.selected-session') ?? '')
   const [snapshot, setSnapshot] = useState<SessionSnapshot>(emptySnapshot)
   const [snapshotSessionId, setSnapshotSessionId] = useState('')
-  const [liveText, setLiveText] = useState('')
-  const [liveThinking, setLiveThinking] = useState('')
+  const [liveMessages, setLiveMessages] = useState<JsonObject[]>([])
   const [pendingSteering, setPendingSteering] = useState<string[]>([])
   const [activity, setActivity] = useState<Activity | null>(null)
   const [piConnection, setPiConnection] = useState<PiConnection>('connecting')
@@ -119,7 +118,9 @@ function App() {
   const toolStartedAtRef = useRef(new Map<string, number>())
   const requestStartedAtRef = useRef<number | undefined>(undefined)
   const queueUpdateVersionRef = useRef(0)
-  const pendingLiveUpdatesRef = useRef({ text: '', thinking: '' })
+  const liveMessagesRef = useRef<JsonObject[]>([])
+  const liveMessageIndexRef = useRef(-1)
+  const pendingLiveMessagesRef = useRef<JsonObject[] | undefined>(undefined)
   const liveUpdateFrameRef = useRef<number | undefined>(undefined)
   const quotaAutoRefreshAtRef = useRef(new Map<string, number>())
   const quotasRef = useRef(quotas)
@@ -143,29 +144,48 @@ function App() {
 
   const visibleToasts = toasts.filter((toast) => toast.sessionId === null || toast.sessionId === selectedId)
 
-  /** Applies accumulated stream deltas at most once per rendered frame. */
+  /** Applies the latest streamed assistant messages at most once per rendered frame. */
   const flushLiveUpdates = useCallback(() => {
     if (liveUpdateFrameRef.current !== undefined) window.cancelAnimationFrame(liveUpdateFrameRef.current)
     liveUpdateFrameRef.current = undefined
-    const pending = pendingLiveUpdatesRef.current
-    pendingLiveUpdatesRef.current = { text: '', thinking: '' }
-    if (pending.text) setLiveText((current) => current + pending.text)
-    if (pending.thinking) setLiveThinking((current) => current + pending.thinking)
+    const pending = pendingLiveMessagesRef.current
+    pendingLiveMessagesRef.current = undefined
+    if (pending) {
+      liveMessagesRef.current = pending
+      setLiveMessages(pending)
+    }
   }, [])
 
-  /** Queues a stream delta without rerendering the whole workspace for every SSE event. */
-  const queueLiveUpdate = useCallback((kind: 'text' | 'thinking', delta: string) => {
-    pendingLiveUpdatesRef.current[kind] += delta
+  /** Queues a complete public-RPC assistant message without rendering every SSE delta. */
+  const queueLiveMessage = useCallback((message: JsonObject) => {
+    const index = liveMessageIndexRef.current
+    if (index < 0) return
+    const next = [...(pendingLiveMessagesRef.current ?? liveMessagesRef.current)]
+    next[index] = message
+    pendingLiveMessagesRef.current = next
     if (liveUpdateFrameRef.current !== undefined) return
     liveUpdateFrameRef.current = window.requestAnimationFrame(flushLiveUpdates)
   }, [flushLiveUpdates])
 
-  /** Cancels stream work that belongs to a response or session no longer displayed. */
-  const clearPendingLiveUpdates = useCallback(() => {
+  /** Clears streamed assistant messages when the displayed session changes. */
+  const clearLiveMessages = useCallback(() => {
     if (liveUpdateFrameRef.current !== undefined) window.cancelAnimationFrame(liveUpdateFrameRef.current)
     liveUpdateFrameRef.current = undefined
-    pendingLiveUpdatesRef.current = { text: '', thinking: '' }
+    pendingLiveMessagesRef.current = undefined
+    liveMessagesRef.current = []
+    liveMessageIndexRef.current = -1
+    setLiveMessages([])
   }, [])
+
+  /** Removes live messages once the session snapshot contains their completed versions. */
+  const reconcileLiveMessages = useCallback((messages: JsonObject[]) => {
+    flushLiveUpdates()
+    const next = unreconciledLiveMessages(liveMessagesRef.current, messages)
+    if (next.length === liveMessagesRef.current.length) return
+    liveMessagesRef.current = next
+    liveMessageIndexRef.current = next.length - 1
+    setLiveMessages(next)
+  }, [flushLiveUpdates])
 
   const updateRightSidebarWidth = useCallback((width: number) => {
     const nextWidth = clampRightSidebarWidth(width)
@@ -280,8 +300,8 @@ function App() {
     }
   }, [showToast, workspacePath])
 
-  /** Synchronizes the session snapshot and clears streamed text when a turn completes. */
-  const refreshSnapshot = useCallback(async (sessionId: string, clearLiveText = false) => {
+  /** Synchronizes the session snapshot and reconciles streamed assistant messages. */
+  const refreshSnapshot = useCallback(async (sessionId: string) => {
     if (!sessionId) {
       setSnapshot(emptySnapshot)
       setSnapshotSessionId('')
@@ -294,12 +314,12 @@ function App() {
       if (version !== snapshotRefreshVersionRef.current || targetSessionId !== selectedIdRef.current) return nextSnapshot
       setSnapshot(nextSnapshot)
       setSnapshotSessionId(sessionId)
-      if (clearLiveText) setLiveText('')
+      reconcileLiveMessages(nextSnapshot.messages)
       return nextSnapshot
     } catch (cause) {
       if (version === snapshotRefreshVersionRef.current && targetSessionId === selectedIdRef.current) showToast('error', messageOf(cause))
     }
-  }, [showToast])
+  }, [reconcileLiveMessages, showToast])
 
   /** Refreshes quotas, allowing manual clicks to bypass automatic throttling. */
   const refreshSessionQuotas = useCallback(async (sessionId: string, automatic: boolean): Promise<void> => {
@@ -339,11 +359,9 @@ function App() {
   useEffect(() => void refreshGit(), [refreshGit])
   useEffect(() => { void getQuotas().then(setQuotas).catch(() => undefined) }, [])
   useEffect(() => {
-    clearPendingLiveUpdates()
+    clearLiveMessages()
     setSnapshot(emptySnapshot)
     setSnapshotSessionId('')
-    setLiveText('')
-    setLiveThinking('')
     setPendingSteering([])
     queueUpdateVersionRef.current += 1
     setActivity(null)
@@ -354,7 +372,7 @@ function App() {
     toolStartedAtRef.current.clear()
     requestStartedAtRef.current = undefined
     void refreshSnapshot(selectedId)
-  }, [clearPendingLiveUpdates, refreshSnapshot, selectedId])
+  }, [clearLiveMessages, refreshSnapshot, selectedId])
 
   useEffect(() => {
     const events = new EventSource('/api/events')
@@ -485,16 +503,20 @@ function App() {
         return next?.kind === current?.kind ? current : next
       })
       if (event.type === 'message_start') {
-        clearPendingLiveUpdates()
+        flushLiveUpdates()
         setToolExecutions(interruptToolCallGeneration)
-        setLiveText('')
-        setLiveThinking('')
+        const message = assistantMessageInEvent(event)
+        if (message) {
+          const next = [...liveMessagesRef.current, message]
+          liveMessagesRef.current = next
+          liveMessageIndexRef.current = next.length - 1
+          setLiveMessages(next)
+        }
       }
       if (event.type === 'message_update' && isObject(event.assistantMessageEvent)) {
-        const update = event.assistantMessageEvent
-        if (update.type === 'thinking_delta' && typeof update.delta === 'string') queueLiveUpdate('thinking', update.delta)
-        if (update.type === 'text_delta' && typeof update.delta === 'string') queueLiveUpdate('text', update.delta)
-        if (update.type === 'error') setToolExecutions(interruptToolCallGeneration)
+        const message = assistantMessageInEvent(event)
+        if (message) queueLiveMessage(message)
+        if (event.assistantMessageEvent.type === 'error') setToolExecutions(interruptToolCallGeneration)
       }
       const settledRequestDuration = event.type === 'agent_settled' && requestStartedAtRef.current !== undefined
         ? performance.now() - requestStartedAtRef.current
@@ -506,12 +528,10 @@ function App() {
       if (event.type === 'message_end' || event.type === 'agent_settled') {
         flushLiveUpdates()
         setToolExecutions(interruptToolCallGeneration)
-        void refreshSnapshot(sessionId, true).then((nextSnapshot) => {
+        void refreshSnapshot(sessionId).then((nextSnapshot) => {
           if (!nextSnapshot || settledRequestDuration === undefined) return
           const requestTimestamp = lastUserTimestamp(nextSnapshot.messages)
           if (requestTimestamp !== undefined) setObservedRequestDurations((current) => new Map(current).set(requestTimestamp, settledRequestDuration))
-        }).finally(() => {
-          if (sessionId === selectedIdRef.current) setLiveThinking('')
         })
         if (event.type === 'agent_settled') setFocusComposerRequest((current) => current + 1)
       }
@@ -524,7 +544,7 @@ function App() {
         ])
       }
     }
-  }, [clearPendingLiveUpdates, flushLiveUpdates, queueLiveUpdate, refreshGit, refreshSessionQuotas, refreshSessions, refreshSnapshot, showToast])
+  }, [flushLiveUpdates, queueLiveMessage, refreshGit, refreshSessionQuotas, refreshSessions, refreshSnapshot, showToast])
 
   useEffect(() => {
     const exposesAgentCommand = snapshot.commands.some((command) => command.name === 'agent')
@@ -739,7 +759,7 @@ function App() {
           </>
         ) : selectedSession ? (
           <>
-            <Conversation activity={displayedActivity} agentName={selectedSession.activeAgent} darkMode={activeTheme.mode === 'dark'} detailedView={conversationView === 'detailed'} key={selectedSession.id} liveText={liveText} liveThinking={liveThinking} messages={snapshot.messages} navigationRequest={conversationNavigation} onError={handleConversationError} onStartSession={handleContextSessionStart} pendingSteering={pendingSteering} repositoryRoot={gitSnapshot?.root} scrollToBottomRequest={scrollToBottomRequest} toolExecutions={toolExecutions} workspacePath={workspacePath} />
+            <Conversation activity={displayedActivity} agentName={selectedSession.activeAgent} darkMode={activeTheme.mode === 'dark'} detailedView={conversationView === 'detailed'} key={selectedSession.id} liveMessages={liveMessages} messages={snapshot.messages} navigationRequest={conversationNavigation} onError={handleConversationError} onStartSession={handleContextSessionStart} pendingSteering={pendingSteering} repositoryRoot={gitSnapshot?.root} scrollToBottomRequest={scrollToBottomRequest} toolExecutions={toolExecutions} workspacePath={workspacePath} />
             <Tooltip label={`${conversationViewDetail.label} — ${conversationViewDetail.description}`}><button aria-label={`${conversationViewDetail.label}. ${conversationViewDetail.description}. Click to toggle view.`} className={`chat-detail-toggle ${conversationView}`} onClick={() => setConversationView((current) => {
                 const next = current === 'simple' ? 'detailed' : 'simple'
                 window.localStorage.setItem('pi-livecraft.conversation-view', next)
@@ -918,6 +938,12 @@ function lastUserTimestamp(messages: JsonObject[]): number | undefined {
     if (message?.role === 'user' && typeof message.timestamp === 'number') return message.timestamp
   }
   return undefined
+}
+
+/** Reads the complete assistant message carried by a public Pi stream event. */
+function assistantMessageInEvent(event: JsonObject): JsonObject | null {
+  const message = event.message
+  return isObject(message) && message.role === 'assistant' ? message : null
 }
 
 function isObject(value: unknown): value is JsonObject {

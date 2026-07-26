@@ -39,6 +39,28 @@ export interface ToolCallPresentation {
   pendingDetail?: string
 }
 
+export type AssistantTurnPart = { kind: 'message'; message: JsonObject } | { kind: 'tool'; call: ToolCall }
+
+/** Returns live assistant messages that are not yet represented by the history snapshot, preserving duplicates. */
+export function unreconciledLiveMessages(liveMessages: JsonObject[], historyMessages: JsonObject[]): JsonObject[] {
+  const unmatchedHistory = [...historyMessages]
+  return liveMessages.filter((liveMessage) => {
+    const historyIndex = unmatchedHistory.findIndex((historyMessage) => sameAssistantMessage(historyMessage, liveMessage))
+    if (historyIndex < 0) return true
+    unmatchedHistory.splice(historyIndex, 1)
+    return false
+  })
+}
+
+/** Matches assistant messages by role, timestamp when available, and serialized content. */
+export function sameAssistantMessage(left: JsonObject, right: JsonObject): boolean {
+  if (left.role !== 'assistant' || right.role !== 'assistant') return false
+  if (typeof left.timestamp === 'number' && typeof right.timestamp === 'number' && left.timestamp !== right.timestamp) return false
+  const leftContent = left.content ?? left.output
+  const rightContent = right.content ?? right.output
+  return leftContent !== undefined && rightContent !== undefined && JSON.stringify(leftContent) === JSON.stringify(rightContent)
+}
+
 export interface ReadContentDisplay {
   kind: 'code' | 'html' | 'markdown' | 'svg' | 'text'
   language?: string
@@ -56,6 +78,11 @@ export function toolCallsInMessage(message: JsonObject): ToolCall[] {
     const call = toolCallFromValue(part)
     return call ? [call] : []
   })
+}
+
+/** Returns assistant content before the tool calls belonging to that message. */
+export function assistantTurnParts(message: JsonObject): AssistantTurnPart[] {
+  return [{ kind: 'message', message }, ...toolCallsInMessage(message).map((call) => ({ kind: 'tool' as const, call }))]
 }
 
 /** Extracts each step of a tool call to track its raw arguments while they are generated. */
