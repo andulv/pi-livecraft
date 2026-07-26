@@ -58,9 +58,6 @@ interface ToolCallCardProps {
   name: string
   onError: (cause: unknown) => void
   onStartSession: (draft: string) => Promise<void>
-  rawArgs?: string
-  rawArgsLength?: number
-  rawArgsTruncated?: boolean
   repositoryRoot?: string | null
   resultContent?: unknown
   resultDetails?: unknown
@@ -72,7 +69,7 @@ interface ToolCallCardProps {
 }
 
 /** Displays the official card whose full result replaces the preview when expanded. */
-export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = false, args, darkMode, hasResult, id, interrupted = false, name, onError, onStartSession, rawArgs, rawArgsLength, rawArgsTruncated = false, repositoryRoot, resultContent, resultDetails, resultError, revealRequest, streaming = false, targeted = false, workspacePath }: ToolCallCardProps) {
+export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = false, args, darkMode, hasResult, id, interrupted = false, name, onError, onStartSession, repositoryRoot, resultContent, resultDetails, resultError, revealRequest, streaming = false, targeted = false, workspacePath }: ToolCallCardProps) {
   const pending = !hasResult
   const active = pending && !interrupted
   const filePath = name === 'read' || name === 'write' ? toolFilePath(args) : null
@@ -84,8 +81,9 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
   const [loadingWrittenContent, setLoadingWrittenContent] = useState(false)
   const [htmlOpenError, setHtmlOpenError] = useState<string>()
   const [codeRendered, setCodeRendered] = useState(false)
-  const input = streaming || interrupted ? rawArgs ?? '' : formatToolData(args)
-  const inputLength = streaming || interrupted ? rawArgsLength ?? input.length : toolDataLength(args)
+  const [argsExpanded, setArgsExpanded] = useState(false)
+  const input = formatToolData(args)
+  const inputLength = toolDataLength(args)
   const output = hasResult ? toolContentText(resultContent) : ''
   const outputLength = output.length
   const displayedOutput = output || 'No output.'
@@ -95,6 +93,8 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
   const content = htmlOpenError ?? writtenContentError ?? (name === 'write' && writtenContent === undefined && loadingWrittenContent ? 'Loading file…' : name === 'write' ? writtenContent ?? displayedOutput : displayedOutput)
   const contentError = resultError || Boolean(writtenContentError) || Boolean(htmlOpenError)
   const preview = toolTextPreview(content)
+  const streamingArgs = streaming || interrupted ? input : undefined
+  const streamingPreview = streamingArgs ? toolTextPreview(streamingArgs) : undefined
   const renderingCode = display.kind === 'code' && canHighlightFile(content) && expanded && !loadingWrittenContent && !writtenContentError && !codeRendered
 
   useEffect(() => {
@@ -160,8 +160,14 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
     <div className={`tool-call-body${hasBody ? ' visible' : ''}`}>
       <div>
         {(streaming || interrupted) && <>
-          <pre aria-label={interrupted ? 'Interrupted JSON arguments' : 'JSON arguments in progress'} className="tool-call-raw-args">{rawArgs || 'Waiting for arguments…'}</pre>
-          {streaming && rawArgsTruncated && <small className="tool-call-writing">Writing {rawArgsLength ?? 0} chars</small>}
+          {argsExpanded
+            ? <button aria-expanded={true} className="tool-call-raw-args" onClick={() => setArgsExpanded(false)} type="button">
+                {streamingArgs || 'Waiting for arguments…'}
+              </button>
+            : <button aria-expanded={false} className="tool-call-preview" onClick={() => setArgsExpanded(true)} type="button">
+                <pre>{streamingPreview?.text ?? 'Waiting for arguments…'}</pre>
+                {streamingPreview && streamingPreview.remainingLineCount > 0 && <span>Click to view {streamingPreview.remainingLineCount} more {streamingPreview.remainingLineCount === 1 ? 'line' : 'lines'}</span>}
+              </button>}
         </>}
         {hasResult && <div className={animateLiveChanges ? 'tool-call-result entering' : 'tool-call-result'}>
           {expanded && !htmlFile

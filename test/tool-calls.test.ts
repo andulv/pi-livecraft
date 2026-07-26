@@ -54,7 +54,7 @@ test('tracks raw tool arguments from generation start to completion', () => {
   assert.equal(toolCallInUpdate({ type: 'message_update', assistantMessageEvent: { type: 'text_delta' } }), null)
 })
 
-test('accumulates raw arguments and preserves interrupted generations', () => {
+test('accumulates arguments and preserves interrupted generations', () => {
   const start = { call: { id: '', name: 'write', args: {} }, contentIndex: 0, delta: '', phase: 'start' as const }
   const delta = { call: { id: 'call_1', name: 'write', args: { path: 'note' } }, contentIndex: 0, delta: '{"path":"note', phase: 'delta' as const }
   const executions = applyToolCallUpdate(applyToolCallUpdate([], start, 'draft_1'), delta, 'unused')
@@ -64,8 +64,6 @@ test('accumulates raw arguments and preserves interrupted generations', () => {
     name: 'write',
     args: { path: 'note' },
     contentIndex: 0,
-    rawArgs: '{"path":"note',
-    rawArgsLength: delta.delta.length,
     status: 'generating',
   }])
   assert.equal(interruptToolCallGeneration(executions)[0]?.status, 'interrupted')
@@ -77,39 +75,26 @@ test('accumulates raw arguments and preserves interrupted generations', () => {
     phase: 'end',
   }, 'unused')
   assert.equal(completed[0]?.status, 'running')
-  assert.equal(completed[0]?.rawArgs, undefined)
   assert.deepEqual(completed[0]?.args, { path: 'note.md' })
 })
 
-test('freezes long streamed write and edit arguments while counting characters', () => {
-  const start = { call: { id: 'call_1', name: 'write', args: { path: 'note.md' } }, contentIndex: 0, delta: '', phase: 'start' as const }
-  const firstDelta = 'a'.repeat(401)
-  const executions = applyToolCallUpdate(applyToolCallUpdate([], start, 'unused'), {
-    call: { id: 'call_1', name: 'write', args: { path: 'note.md', content: firstDelta } },
+test('preserves partial arguments through multiple deltas', () => {
+  const start = { call: { id: '', name: 'read', args: {} }, contentIndex: 0, delta: '', phase: 'start' as const }
+  const first = applyToolCallUpdate(applyToolCallUpdate([], start, 'draft_1'), {
+    call: { id: 'call_1', name: 'read', args: { path: 'src/App' } },
     contentIndex: 0,
-    delta: firstDelta,
+    delta: '{"path":"src/App',
     phase: 'delta',
   }, 'unused')
-  const continued = applyToolCallUpdate(executions, {
-    call: { id: 'call_1', name: 'write', args: { path: 'note.md', content: `${firstDelta}\nsix` } },
+  const second = applyToolCallUpdate(first, {
+    call: { id: 'call_1', name: 'read', args: { path: 'src/App.tsx' } },
     contentIndex: 0,
-    delta: '\nsix',
+    delta: '.tsx"}',
     phase: 'delta',
   }, 'unused')
 
-  assert.equal(continued[0]?.rawArgs, `${'a'.repeat(400)}…`)
-  assert.equal(continued[0]?.rawArgsLength, firstDelta.length + 4)
-  assert.equal(continued[0]?.rawArgsTruncated, true)
-  assert.deepEqual(continued[0]?.args, { path: 'note.md', content: firstDelta })
-
-  const edit = applyToolCallUpdate(applyToolCallUpdate([], { ...start, call: { id: 'call_2', name: 'edit', args: {} } }, 'unused'), {
-    call: { id: 'call_2', name: 'edit', args: { edits: [] } },
-    contentIndex: 0,
-    delta: firstDelta,
-    phase: 'delta',
-  }, 'unused')
-  assert.equal(edit[0]?.rawArgs, `${'a'.repeat(400)}…`)
-  assert.equal(edit[0]?.rawArgsTruncated, true)
+  assert.equal(second[0]?.status, 'generating')
+  assert.deepEqual(second[0]?.args, { path: 'src/App.tsx' })
 })
 
 test('marks a tool call as pending until its result arrives', () => {
