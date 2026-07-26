@@ -235,6 +235,21 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     return
   }
 
+  const promptImprovementMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/prompt-improvement$/)
+  if (method === 'POST' && promptImprovementMatch) {
+    const body = await readJsonBody(request)
+    if (typeof body.prompt !== 'string' || !body.prompt.trim() || body.prompt.length > 100_000) {
+      throw new HttpError(400, 'A prompt between 1 and 100,000 characters is required')
+    }
+    const data = await manager.request({
+      action: 'improve_prompt',
+      sessionId: decodeURIComponent(promptImprovementMatch[1]),
+      prompt: body.prompt,
+    }, 3 * 60_000)
+    sendJson(response, 200, data)
+    return
+  }
+
   const commandMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/commands$/)
   if (method === 'POST' && commandMatch) {
     const command = await readJsonBody(request)

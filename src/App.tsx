@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import { Tooltip } from './components/Tooltip.tsx'
-import { commitAndPush, createSession, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, refreshQuotas, resetGitCommit, revertGitCommit, sendPiCommand } from './api.ts'
+import { commitAndPush, createSession, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, improvePrompt, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, refreshQuotas, resetGitCommit, revertGitCommit, sendPiCommand } from './api.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type { GitSnapshot, JsonObject, ManagerEvent, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary } from '../shared/types.ts'
 import { Composer } from './features/composer/Composer.tsx'
@@ -529,6 +529,7 @@ function App() {
     }
   }, [refreshSessions, selectedId, selectedSession?.name, selectedSessionStatus, snapshot.messages])
   const handleComposerAbort = useCallback(() => sendPiCommand(selectedId, { type: 'abort' }), [selectedId])
+  const handlePromptImprovement = useCallback((prompt: string) => improvePrompt(selectedId, prompt), [selectedId])
   const handleComposerSelectOpened = useCallback(() => setRequestedSelect(null), [])
   const sessionAnalysis = useMemo(() => selectedSession && snapshotSessionId === selectedSession.id
     ? analyzeSession(snapshot.messages, snapshot.stats, selectedSession.status === 'running', {
@@ -704,6 +705,7 @@ function App() {
               running={selectedSession.status === 'running'}
               onSend={handleComposerSend}
               onAbort={handleComposerAbort}
+              onImprovePrompt={handlePromptImprovement}
               onError={handleConversationError}
               requestedSelect={requestedSelect}
               onSelectOpened={handleComposerSelectOpened}

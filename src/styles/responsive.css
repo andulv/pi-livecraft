@@ -49,5 +49,7 @@
   .composer-tools::-webkit-scrollbar { display: none; }
   .composer-tools > * { flex: 0 0 auto; }
   .composer-select { max-width: 160px; }
+  .prompt-comparison { grid-template-columns: 1fr; }
+  .prompt-comparison > div + div { border-top: 1px solid var(--line); border-left: 0; padding-top: 10px; padding-left: 4px; }
 
 }

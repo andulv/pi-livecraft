@@ -11,19 +11,32 @@ interface PendingRequest {
   timeout: NodeJS.Timeout
 }
 
+interface PiProcessOptions {
+  isolated?: boolean
+  systemPrompt?: string
+}
+
 export class PiProcess extends EventEmitter {
   readonly child: ChildProcessWithoutNullStreams
   readonly #pending = new Map<string, PendingRequest>()
   #stderr = ''
 
   /** Starts Pi in RPC mode and connects its JSONL stream to this instance's lifecycle. */
-  constructor(cwd: string, sessionId: string, sessionPath?: string) {
+  constructor(cwd: string, sessionId: string, sessionPath?: string, options: PiProcessOptions = {}) {
     super()
-    const questionExtensionPath = fileURLToPath(new URL('../pi-extensions/ask-user-question.ts', import.meta.url))
-    const quotaExtensionPath = fileURLToPath(new URL('../pi-extensions/quotas.ts', import.meta.url))
-    const sessionArgs = sessionPath ? ['--session', sessionPath] : ['--session-id', sessionId]
+    const args = options.isolated
+      ? [
+          '--mode', 'rpc', '--no-session', '--no-tools', '--no-extensions', '--no-skills',
+          '--no-prompt-templates', '--no-themes', '--thinking', 'off', '--system-prompt', options.systemPrompt ?? '',
+        ]
+      : [
+          '--mode', 'rpc',
+          '--extension', fileURLToPath(new URL('../pi-extensions/ask-user-question.ts', import.meta.url)),
+          '--extension', fileURLToPath(new URL('../pi-extensions/quotas.ts', import.meta.url)),
+          ...(sessionPath ? ['--session', sessionPath] : ['--session-id', sessionId]),
+        ]
 
-    this.child = spawn('pi', ['--mode', 'rpc', '--extension', questionExtensionPath, '--extension', quotaExtensionPath, ...sessionArgs], {
+    this.child = spawn('pi', args, {
       cwd,
       env: process.env,
       stdio: ['pipe', 'pipe', 'pipe'],

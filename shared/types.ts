@@ -95,12 +95,13 @@ export interface TerminalCommandResult {
 
 export interface ManagerRequest {
   id: string
-  action: 'list' | 'create' | 'open' | 'command'
+  action: 'list' | 'create' | 'open' | 'command' | 'improve_prompt'
   sessionId?: string
   cwd?: string
   name?: string
   sessionPath?: string
   command?: JsonObject
+  prompt?: string
 }
 
 export interface ManagerResponse {

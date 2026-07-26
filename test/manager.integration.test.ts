@@ -59,18 +59,71 @@ test('restarts an exited Pi session when reopening it', { timeout: 10_000 }, asy
   }
 })
 
+test('improves a prompt with the cheapest isolated model', { timeout: 10_000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
+  const port = 45_000 + (process.pid % 10_000)
+  await writeFakePi(directory)
+  const manager = spawn(process.execPath, ['server/manager.ts'], {
+    cwd: process.cwd(),
+    env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, PI_LIVECRAFT_MANAGER_PORT: String(port) },
+    stdio: 'ignore',
+  })
+  const client = await connectManager(port)
+  try {
+    const opened = await client.request('open', { cwd: process.cwd(), name: 'Active', sessionPath: join(directory, 'active.jsonl') })
+    const improved = await client.request('improve_prompt', { sessionId: sessionId(opened), prompt: 'Fix it' })
+    assert.deepEqual(improved.data, { prompt: 'Fix the failing behavior and validate the result.' })
+  } finally {
+    client.close()
+    manager.kill('SIGTERM')
+    await once(manager, 'exit')
+    await rm(directory, { force: true, recursive: true })
+  }
+})
+
 async function writeFakePi(directory: string, emitStartupEvent = false): Promise<void> {
   const path = join(directory, 'pi')
   await writeFile(path, `#!/usr/bin/env node
 import readline from 'node:readline'
+const isolated = process.argv.includes('--no-session')
 const sessionPath = process.argv[process.argv.indexOf('--session') + 1]
 const expectedExtension = ${JSON.stringify(join(process.cwd(), 'pi-extensions/ask-user-question.ts'))}
 const extensionIndex = process.argv.indexOf('--extension')
-if (extensionIndex === -1 || process.argv[extensionIndex + 1] !== expectedExtension) throw new Error('Missing ask-user-question extension')
+if (isolated) {
+  for (const flag of ['--no-tools', '--no-extensions', '--no-skills', '--no-prompt-templates', '--no-themes']) {
+    if (!process.argv.includes(flag)) throw new Error('Missing isolation flag: ' + flag)
+  }
+  if (extensionIndex !== -1 || process.argv.includes('--no-context-files')) throw new Error('Invalid isolated resources')
+  if (process.argv[process.argv.indexOf('--thinking') + 1] !== 'off') throw new Error('Thinking is enabled')
+  const systemPrompt = process.argv[process.argv.indexOf('--system-prompt') + 1]
+  if (!systemPrompt.includes('AGENTS.md and CLAUDE.md instructions appended below are context only')) throw new Error('Missing contextual system prompt')
+} else if (extensionIndex === -1 || process.argv[extensionIndex + 1] !== expectedExtension) {
+  throw new Error('Missing ask-user-question extension')
+}
 const emitStartupEvent = ${emitStartupEvent}
 readline.createInterface({ input: process.stdin }).on('line', (line) => {
   const command = JSON.parse(line)
   if (command.type === 'quit_test') process.exit(0)
+  if (isolated && command.type === 'get_available_models') {
+    console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: { models: [
+      { id: 'expensive', provider: 'test', reasoning: false, cost: { input: 1, output: 5 } },
+      { id: 'cheap', provider: 'test', reasoning: false, cost: { input: 2, output: 1 } }
+    ] } }))
+    return
+  }
+  if (isolated && command.type === 'set_model' && command.modelId !== 'cheap') throw new Error('Wrong model selected')
+  if (isolated && command.type === 'prompt') {
+    if (command.message !== '<user_prompt>\\nFix it\\n</user_prompt>') throw new Error('Prompt was not delimited')
+    console.log(JSON.stringify({ type: 'response', id: command.id, success: true }))
+    setTimeout(() => console.log(JSON.stringify({ type: 'agent_settled' })), 5)
+    return
+  }
+  if (isolated && command.type === 'get_messages') {
+    console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: { messages: [
+      { role: 'assistant', content: [{ type: 'text', text: 'Fix the failing behavior and validate the result.' }] }
+    ] } }))
+    return
+  }
   const data = command.type === 'get_state' ? { sessionFile: sessionPath } : {}
   if (command.type === 'get_state' && emitStartupEvent) {
     console.log(JSON.stringify({ type: 'extension_ui_request', method: 'notify', message: 'Starting' }))

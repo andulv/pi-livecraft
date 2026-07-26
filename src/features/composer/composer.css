@@ -8,6 +8,17 @@
 .composer-image button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 .composer textarea { display: block; width: 100%; min-height: 92px; max-height: 240px; field-sizing: content; resize: none; overflow-y: auto; border: 0; outline: 0; padding: 18px 18px 16px; background: transparent; color: var(--ink); line-height: 1.55; }
 .composer textarea::placeholder { color: var(--muted); }
+.prompt-suggestion { border-top: 1px solid var(--line); padding: 12px; background: color-mix(in srgb, var(--violet-soft) 45%, var(--surface)); }
+.prompt-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.prompt-comparison > div { min-width: 0; padding: 2px 4px; }
+.prompt-comparison > div + div { border-left: 1px solid var(--line); padding-left: 16px; }
+.prompt-comparison strong { color: var(--subtle); font-size: 10px; font-weight: 700; }
+.prompt-comparison p { max-height: 150px; margin: 5px 0 0; overflow: auto; color: var(--ink); font: 12px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; white-space: pre-wrap; }
+.prompt-suggestion-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 9px; }
+.prompt-suggestion-actions button { height: 28px; border: 1px solid var(--line-strong); border-radius: 7px; padding: 0 10px; background: var(--surface); color: var(--ink); font-size: 11px; font-weight: 650; }
+.prompt-suggestion-actions button:hover { border-color: color-mix(in srgb, var(--accent) 32%, var(--line-strong)); }
+.prompt-suggestion-actions button:focus-visible { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+.prompt-suggestion-actions button.accept { border-color: var(--accent); background: var(--accent); color: white; }
 .composer-footer { border-top: 1px solid var(--line); border-radius: 0 0 13px 13px; background: var(--surface-raised); }
 .composer-info { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-width: 0; border-top: 1px solid color-mix(in srgb, var(--line) 72%, transparent); padding: 6px 12px 7px; }
 .composer-session, .composer-stats { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--muted); font: 10px ui-monospace, monospace; }
@@ -106,6 +117,8 @@
 .icon-button:active:not(:disabled) { transform: translateY(0); }
 .icon-button:disabled { cursor: not-allowed; opacity: .42; transform: none; box-shadow: none; }
 .icon-button svg { width: 15px; height: 15px; fill: currentColor; }
+.prompt-improve-button { color: var(--violet); }
+.prompt-improve-button.loading svg { animation: spin 800ms linear infinite; }
 .icon-button.send { width: 36px; height: 36px; border-color: var(--accent); border-radius: 10px; background: var(--accent); color: white; box-shadow: 0 2px 0 color-mix(in srgb, var(--accent) 72%, black); }
 .icon-button.send:hover:not(:disabled) { border-color: var(--accent-hover); background: var(--accent-hover); }
 .icon-button.send.command { border-color: #37677a; background: #37677a; box-shadow: 0 2px 0 #244b5b; }

@@ -10,6 +10,7 @@ import { realpath, stat } from 'node:fs/promises'
 import { createServer, type Socket } from 'node:net'
 import { JsonLineDecoder, encodeJsonLine } from './jsonl.ts'
 import { PiProcess } from './pi-process.ts'
+import { assistantText, cheapestAvailableModel, promptImprovementSystemPrompt } from './prompt-improvement.ts'
 import type {
   JsonObject,
   ManagerEvent,
@@ -74,6 +75,7 @@ async function handleRequest(socket: Socket, value: unknown): Promise<void> {
     if (value.action === 'list') data = listSessions()
     else if (value.action === 'create') data = await createSession(value)
     else if (value.action === 'open') data = await openSession(value)
+    else if (value.action === 'improve_prompt') data = await improvePrompt(value)
     else data = await sendCommand(value)
     respond(socket, { kind: 'response', id: value.id, ok: true, data })
   } catch (error) {
@@ -151,6 +153,36 @@ async function startSession(summary: SessionSummary): Promise<void> {
   }
 }
 
+/** Rewrites a draft in a disposable, tool-free Pi process without touching the active session. */
+async function improvePrompt(request: ManagerRequest): Promise<{ prompt: string }> {
+  if (typeof request.sessionId !== 'string' || typeof request.prompt !== 'string' || !request.prompt.trim() || request.prompt.length > 100_000) {
+    throw new Error('Session id and a prompt between 1 and 100,000 characters are required')
+  }
+  const session = sessions.get(request.sessionId)
+  if (!session || session.summary.status === 'exited') throw new Error('Active Pi session is unavailable')
+
+  const pi = new PiProcess(session.summary.cwd, randomUUID(), undefined, {
+    isolated: true,
+    systemPrompt: promptImprovementSystemPrompt,
+  })
+  try {
+    const available = await pi.request({ type: 'get_available_models' })
+    const model = cheapestAvailableModel(available)
+    if (!model) throw new Error('No model is available to improve the prompt')
+    await pi.request({ type: 'set_model', provider: model.provider, modelId: model.id })
+    const settled = waitForPiEvent(pi, 'agent_settled')
+    await Promise.all([
+      pi.request({ type: 'prompt', message: `<user_prompt>\n${request.prompt.trim()}\n</user_prompt>` }),
+      settled,
+    ])
+    const improved = assistantText(await pi.request({ type: 'get_messages' }))
+    if (!improved) throw new Error('The prompt improvement model returned no text')
+    return { prompt: improved }
+  } finally {
+    pi.terminate()
+  }
+}
+
 async function sendCommand(request: ManagerRequest): Promise<JsonObject> {
   if (typeof request.sessionId !== 'string' || !isObject(request.command)) {
     throw new Error('Session id and Pi command are required')
@@ -165,6 +197,26 @@ async function sendCommand(request: ManagerRequest): Promise<JsonObject> {
     return { success: true }
   }
   return session.pi.request(request.command)
+}
+
+/** Waits for a terminal Pi event while bounding failures from a stalled disposable process. */
+function waitForPiEvent(pi: PiProcess, type: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => finish(new Error(`Pi event timed out: ${type}`)), 2 * 60_000)
+    const onEvent = (event: JsonObject): void => {
+      if (event.type === type) finish()
+    }
+    const onExit = (): void => finish(new Error('Pi exited before completing the prompt improvement'))
+    function finish(error?: Error): void {
+      clearTimeout(timeout)
+      pi.off('event', onEvent)
+      pi.off('exit', onExit)
+      if (error) reject(error)
+      else resolve()
+    }
+    pi.on('event', onEvent)
+    pi.once('exit', onExit)
+  })
 }
 
 function handlePiEvent(sessionId: string, session: ManagedSession, event: JsonObject): void {
@@ -211,7 +263,7 @@ function respond(socket: Socket, response: ManagerResponse): void {
 
 function isManagerRequest(value: unknown): value is ManagerRequest {
   if (!isObject(value) || typeof value.id !== 'string') return false
-  return value.action === 'list' || value.action === 'create' || value.action === 'open' || value.action === 'command'
+  return value.action === 'list' || value.action === 'create' || value.action === 'open' || value.action === 'command' || value.action === 'improve_prompt'
 }
 
 function isObject(value: unknown): value is JsonObject {

@@ -10,7 +10,7 @@ import { ThinkingSelect } from './selects/ThinkingSelect.tsx'
 import { ComposerStatusBar } from './status-bar/ComposerStatusBar.tsx'
 
 /** Provides user input and session commands while reflecting the current Pi state. */
-export const Composer = memo(function Composer({ session, snapshot, agentBusy, agentOptions, selectedAgent, agentLoading, showAgentSelector, onAgentChange, onCommand, commands, running, onSend, onAbort, onError, requestedSelect, onSelectOpened, submitRequest = 0, focusRequest, draftRequest, onDraftApplied }: {
+export const Composer = memo(function Composer({ session, snapshot, agentBusy, agentOptions, selectedAgent, agentLoading, showAgentSelector, onAgentChange, onCommand, commands, running, onSend, onAbort, onImprovePrompt, onError, requestedSelect, onSelectOpened, submitRequest = 0, focusRequest, draftRequest, onDraftApplied }: {
   session: SessionSummary
   snapshot: SessionSnapshot
   agentBusy: boolean
@@ -24,6 +24,7 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
   running: boolean
   onSend: (message: string, images: JsonObject[], behavior: 'steer' | 'followUp') => Promise<void>
   onAbort: () => Promise<JsonObject>
+  onImprovePrompt: (prompt: string) => Promise<string>
   onError: (cause: unknown) => void
   requestedSelect?: 'agent' | 'model' | 'thinking' | null
   onSelectOpened?: () => void
@@ -37,6 +38,8 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
   const [images, setImages] = useState<ComposerImage[]>([])
   const [preparingImages, setPreparingImages] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [improving, setImproving] = useState(false)
+  const [suggestion, setSuggestion] = useState<{ original: string; improved: string }>()
   const [openSelect, setOpenSelect] = useState<'agent' | 'model' | 'thinking' | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -113,6 +116,7 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
       return
     }
     setSubmitting(true)
+    setSuggestion(undefined)
     setDraftMessage('')
     setImages([])
     try {
@@ -123,6 +127,22 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
       onError(cause)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  /** Produces an isolated rewrite while preserving the source text for an explicit comparison. */
+  async function improveDraft(): Promise<void> {
+    const original = message.trim()
+    if (!original || improving) return
+    setImproving(true)
+    setSuggestion(undefined)
+    try {
+      const improved = await onImprovePrompt(original)
+      setSuggestion({ original, improved })
+    } catch (cause) {
+      onError(cause)
+    } finally {
+      setImproving(false)
     }
   }
 
@@ -214,6 +234,16 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
         }
         if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() }
       }} placeholder="Ask Pi…  / for commands" rows={3} />
+      {suggestion && <section aria-label="Prompt improvement suggestion" aria-live="polite" className="prompt-suggestion">
+        <div className="prompt-comparison">
+          <div><strong>Original</strong><p>{suggestion.original}</p></div>
+          <div><strong>Suggestion</strong><p>{suggestion.improved}</p></div>
+        </div>
+        <div className="prompt-suggestion-actions">
+          <button onClick={() => { setSuggestion(undefined); textareaRef.current?.focus() }} type="button">Ignore</button>
+          <button className="accept" onClick={() => { setDraftMessage(suggestion.improved); setSuggestion(undefined); textareaRef.current?.focus() }} type="button">Use suggestion</button>
+        </div>
+      </section>}
       <div className="composer-footer">
         <div className="composer-actions">
           <div className="composer-tools">
@@ -246,6 +276,18 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
             />
 
             {running && <BehaviorSelect behavior={behavior} onChange={setBehavior} />}
+            <Tooltip label={improving ? 'Improving prompt…' : 'Improve prompt'}><button
+              aria-busy={improving}
+              aria-label={improving ? 'Improving prompt' : 'Improve prompt'}
+              className={`icon-button prompt-improve-button${improving ? ' loading' : ''}`}
+              disabled={improving || submitting || !message.trim()}
+              onClick={() => void improveDraft()}
+              type="button"
+            >
+              {improving
+                ? <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M8 2a6 6 0 1 0 6 6h-2a4 4 0 1 1-4-4V2Z" /></svg>
+                : <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m8 1 1.2 3.8L13 6l-3.8 1.2L8 11 6.8 7.2 3 6l3.8-1.2L8 1Zm4 9 .7 2.3L15 13l-2.3.7L12 16l-.7-2.3L9 13l2.3-.7L12 10Z" /></svg>}
+            </button></Tooltip>
           </div>
           <div className="composer-primary-actions">
             <span className="composer-stop-slot">{running && <Tooltip label="Stop generation"><button aria-label="Stop generation" className="icon-button danger" onClick={() => void onAbort().catch(onError)} type="button">

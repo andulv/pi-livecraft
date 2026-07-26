@@ -104,6 +104,15 @@ export async function refreshQuotas(sessionId: string, automatic = false): Promi
   })
 }
 
+/** Requests an isolated rewrite without adding the draft or result to the active Pi session. */
+export async function improvePrompt(sessionId: string, prompt: string): Promise<string> {
+  const result = await request<{ prompt: string }>(`/api/sessions/${encodeURIComponent(sessionId)}/prompt-improvement`, {
+    method: 'POST',
+    body: JSON.stringify({ prompt }),
+  })
+  return result.prompt
+}
+
 export async function sendPiCommand(sessionId: string, command: JsonObject): Promise<JsonObject> {
   return request<JsonObject>(`/api/sessions/${encodeURIComponent(sessionId)}/commands`, {
     method: 'POST',
