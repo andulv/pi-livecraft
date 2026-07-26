@@ -132,7 +132,14 @@
 .reasoning { margin: 0 0 13px; color: var(--muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .reasoning pre { overflow-x: auto; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: color-mix(in srgb, var(--canvas) 60%, var(--surface)); font: 11px/1.55 ui-monospace, monospace; white-space: pre-wrap; }
 .reasoning :not(pre) > code { overflow-wrap: anywhere; }
-.content h1, .content h2, .content h3 { line-height: 1.25; letter-spacing: -.025em; text-wrap: balance; }
+.content h1, .content h2, .content h3,
+.content h4, .content h5, .content h6 { line-height: 1.25; letter-spacing: -.025em; text-wrap: balance; }
+.message.assistant .content h1 { color: var(--accent); }
+.message.assistant .content h2 { color: color-mix(in srgb, var(--accent) 82%, transparent); }
+.message.assistant .content h3 { color: color-mix(in srgb, var(--accent) 66%, transparent); }
+.message.assistant .content h4 { color: color-mix(in srgb, var(--accent) 52%, transparent); }
+.message.assistant .content h5 { color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.message.assistant .content h6 { color: color-mix(in srgb, var(--accent) 30%, transparent); }
 .content pre { overflow-x: auto; padding: 13px 14px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--canvas) 60%, var(--surface)); font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; }
 .content :not(pre) > code { padding: 2px 5px; border-radius: 4px; background: color-mix(in srgb, var(--canvas) 70%, var(--surface)); color: var(--ink); font: 12px ui-monospace, monospace; }
 .content a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
