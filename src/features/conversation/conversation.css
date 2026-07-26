@@ -197,10 +197,10 @@
   .conversation-entry, .tool-call.entering, .tool-call-result.entering, .activity-action, .pending-steering-status i, .pi-activity .activity-text { animation: none; }
   .tool-call-body { transition: none; }
 }
-.tool-call-raw-args { display: block; width: 100%; margin: 0; border: 0; border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent); padding: 9px 10px; background: color-mix(in srgb, var(--ink) 4%, transparent); color: inherit; font: 11px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; white-space: pre-wrap; text-align: left; cursor: pointer; }
+.tool-call-raw-args { display: block; width: 100%; margin: 0; border: 0; border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent); padding: 9px 10px; background: color-mix(in srgb, var(--surface) 97%, var(--canvas)); color: inherit; font: 11px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; white-space: pre-wrap; text-align: left; cursor: pointer; }
 .tool-call-writing { display: block; border-top: 1px solid color-mix(in srgb, var(--accent) 10%, transparent); padding: 5px 10px; color: var(--muted); font: 10px/1.5 ui-sans-serif, system-ui, sans-serif; }
-.tool-call-preview { display: block; width: 100%; border: 0; border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent); padding: 0; background: color-mix(in srgb, var(--ink) 4%, transparent); color: inherit; text-align: left; cursor: pointer; }
-.tool-call-preview:hover { background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.tool-call-preview { display: block; width: 100%; border: 0; border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent); padding: 0; background: color-mix(in srgb, var(--surface) 97%, var(--canvas)); color: inherit; text-align: left; cursor: pointer; }
+.tool-call-preview:hover { background: color-mix(in srgb, var(--surface) 93%, var(--canvas)); }
 .tool-call-preview:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .tool-call-svg-preview { display: block; width: 256px; max-width: 100%; height: 256px; margin: 0 auto; object-fit: contain; }
 .tool-call-preview pre { margin: 0; border: 0; border-radius: 0; padding: 9px 10px 4px; background: transparent; color: inherit; font: 11px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; white-space: pre-wrap; }
