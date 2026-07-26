@@ -254,7 +254,7 @@ function TurnCostChart({ onNavigate, turns }: { onNavigate: (target: SessionAnal
   </div>
 }
 
-/** Tracks the actual width allocated to the chart to densify points without horizontal scrolling. */
+/** Tracks the actual width allocated to the chart so dense series can scroll horizontally. */
 function useChartWidth() {
   const chartRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(248)
