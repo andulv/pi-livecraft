@@ -8,7 +8,7 @@ import { ManagerClient } from './manager-client.ts'
 import { listRecentPiSessions, loadPiSession } from './pi-session-store.ts'
 import { commitAndPush, getGitFileDiff, getGitSnapshot, resetGitCommit, revertGitCommit } from './features/git/git.ts'
 import { QuotaService } from './features/quotas/quota-service.ts'
-import { runTerminalCommand } from './features/terminal/terminal.ts'
+import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
 import { loadWorkspaceTodos, parseTodoItems, saveWorkspaceTodos } from './features/todos/todo-store.ts'
 import { readWorkspaceFile, WorkspaceFileError } from './workspace-file.ts'
 import { activeSessionMessages } from './session-snapshot.ts'
@@ -170,8 +170,15 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   if (method === 'POST' && url.pathname === '/api/terminal') {
     const body = await readJsonBody(request)
     if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
-    if (typeof body.command !== 'string' || !body.command.trim() || body.command.length > 10_000) throw new HttpError(400, 'A valid command is required')
-    sendJson(response, 200, await runTerminalCommand(await resolveWorkingDirectory(body.cwd), body.command.trim()))
+    const template = typeof body.template === 'string' && body.template.trim() ? body.template : undefined
+    if (template !== undefined && template.length > 2000) throw new HttpError(400, 'Terminal command template is too long')
+    try {
+      await openTerminalApplication(await resolveWorkingDirectory(body.cwd), template)
+      sendJson(response, 200, { ok: true })
+    } catch (error) {
+      if (error instanceof TerminalTemplateError) throw new HttpError(400, error.message)
+      throw error
+    }
     return
   }
 

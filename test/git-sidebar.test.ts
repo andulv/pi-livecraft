@@ -10,7 +10,7 @@ test('borne et restaure la largeur de la sidebar droite', () => {
   assert.equal(clampRightSidebarWidth(320.6), 321)
   assert.equal(readRightSidebarWidth(null), defaultRightSidebarWidth)
   assert.equal(readRightSidebarWidth('invalid'), defaultRightSidebarWidth)
-  assert.equal(isRightWidget('terminal'), true)
+  assert.equal(isRightWidget('git'), true)
   assert.equal(isRightWidget('unknown'), false)
 })
 

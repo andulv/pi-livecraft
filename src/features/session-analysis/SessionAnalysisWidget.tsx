@@ -63,7 +63,7 @@ export function SessionAnalysisWidget({ analysis, onNavigate }: { analysis: Sess
     </section>
 
     <section className="analysis-section">
-      <header><h2>Costliest calls</h2><select aria-label="Rank tool calls" onChange={(event) => setToolRanking(event.target.value as ToolRanking)} value={toolRanking}><option value="output">sortie</option><option value="duration">observed duration</option><option value="failure">failures</option></select></header>
+      <header><h2>Costliest calls</h2><select aria-label="Rank tool calls" onChange={(event) => setToolRanking(event.target.value as ToolRanking)} value={toolRanking}><option value="output">output</option><option value="duration">observed duration</option><option value="failure">failures</option></select></header>
       {rankedCalls.length > 0 ? <ol className="analysis-ranking tool-ranking">
         {rankedCalls.map((call) => <ToolCallRow call={call} key={call.id} metric={toolRanking} onNavigate={onNavigate} />)}
       </ol> : <EmptyState>{toolRanking === 'duration' ? 'Durations are measured during this Workbench session.' : toolRanking === 'failure' ? 'No explicit failures in this session.' : 'No tool calls in this session.'}</EmptyState>}
@@ -150,7 +150,7 @@ function TokenUsageChart({ onNavigate, turns }: { onNavigate: (target: SessionAn
           {yTicks.map((tick) => <line className="chart-grid" key={tick.y} x1={padding.left} x2={width - padding.right} y1={tick.y} y2={tick.y} />)}
           {visibleSeries.map((series, seriesIndex) => <polyline className={`chart-line ${series.className}`} key={series.key} points={points.map((point) => `${point.x},${point.values[seriesIndex]?.y}`).join(' ')} />)}
           {points.map(({ turn, values, x }) => <g
-            aria-label={`Tour ${turn.number}${values.length > 0 ? `, ${values.map((point) => `${point.label} ${point.value} tokens`).join(', ')}` : ''}`}
+            aria-label={`Turn ${turn.number}${values.length > 0 ? `, ${values.map((point) => `${point.label} ${point.value} tokens`).join(', ')}` : ''}`}
             className="chart-point"
             key={turn.messageIndex}
             onBlur={() => setActivePointIndex(undefined)}
@@ -170,7 +170,7 @@ function TokenUsageChart({ onNavigate, turns }: { onNavigate: (target: SessionAn
             {values.map((point) => <circle className={`chart-point-dot ${point.className}`} cx={x} cy={point.y} key={point.key} r="3.5" />)}
             <text className="chart-x-label" x={x} y={height - 9}>{turn.number}</text>
           </g>)}
-          <text className="chart-axis-title" x={padding.left + plotWidth / 2} y={height - 1}>Tour</text>
+          <text className="chart-axis-title" x={padding.left + plotWidth / 2} y={height - 1}>Turn</text>
           {activePoint && activePoint.values.length > 0 && <g aria-hidden="true" className="chart-tooltip token-chart-tooltip" transform={`translate(${Math.min(width - padding.right - tooltipWidth, Math.max(padding.left, activePoint.x - tooltipWidth / 2))} ${padding.top + 4})`}>
             <rect height={10 + activePoint.values.length * 14} rx="6" width={tooltipWidth} />
             <text x="10" y="14">{activePoint.values.map((point, index) => <tspan className={`token-tooltip-value ${point.className}`} dy={index === 0 ? 0 : 14} key={point.key} x="10">{point.label} · {formatTokens(point.value)}</tspan>)}</text>
@@ -234,7 +234,7 @@ function TurnCostChart({ onNavigate, turns }: { onNavigate: (target: SessionAnal
         <circle className="chart-point-dot" cx={x} cy={y} r="3.5" />
         <text className="chart-x-label" x={x} y={height - 9}>{turn.number}</text>
       </g>)}
-        <text className="chart-axis-title" x={padding.left + plotWidth / 2} y={height - 1}>Tour</text>
+        <text className="chart-axis-title" x={padding.left + plotWidth / 2} y={height - 1}>Turn</text>
         {activePoint && <g aria-hidden="true" className="chart-tooltip" transform={`translate(${Math.min(width - padding.right - tooltipWidth, Math.max(padding.left, activePoint.x - tooltipWidth / 2))} ${activePoint.y < padding.top + 48 ? activePoint.y + 13 : activePoint.y - 47})`}>
           <rect height="38" rx="6" width={tooltipWidth} />
           <text x="10" y="15"><tspan className="chart-tooltip-cost">{formatTurnCost(activePoint.turn.cost)}</tspan><tspan className="chart-tooltip-tools" x="10" dy="14">{activePoint.turn.toolCallCount} tool call{activePoint.turn.toolCallCount !== 1 ? 's' : ''}</tspan></text>

@@ -21,16 +21,16 @@ export function QuotaWidget({ quotas, onRefresh }: { quotas: QuotaSnapshot | nul
     <header className="widget-header quota-header">
       <div>
         <strong>Quotas</strong>
-        <span>{updatedAt ? `Actualisé ${formatRelativeDate(updatedAt)}` : 'Aucun relevé'}</span>
+        <span>{updatedAt ? `Updated ${formatRelativeDate(updatedAt)}` : 'No reading'}</span>
       </div>
-      <Tooltip label="Actualiser"><button aria-label="Actualiser les quotas" className="git-refresh" disabled={refreshing || quotas?.refreshing || quotas?.sessionRequired} onClick={() => void refresh()} type="button">↻</button></Tooltip>
+      <Tooltip label="Refresh"><button aria-label="Refresh quotas" className="git-refresh" disabled={refreshing || quotas?.refreshing || quotas?.sessionRequired} onClick={() => void refresh()} type="button">↻</button></Tooltip>
     </header>
     <div className="widget-content quota-content" aria-busy={refreshing || quotas?.refreshing}>
       {!quotas ? <QuotaSkeleton /> : <>
-        {quotas.sessionRequired && <p className="quota-empty">Ouvrez une session Pi pour relever les quotas.</p>}
+        {quotas.sessionRequired && <p className="quota-empty">Open a Pi session to read quotas.</p>}
         <ProviderSection name="OpenAI Codex" provider={quotas.openai}>
           {quotas.openai.data.map((window) => <div className="quota-row" key={window.period}>
-            <div className="quota-row-copy"><strong>{window.period === '5h' ? 'Fenêtre 5 heures' : 'Fenêtre 7 jours'}</strong><b>{formatPercent(window.remainingPercent)} restant</b></div>
+            <div className="quota-row-copy"><strong>{window.period === '5h' ? '5-hour window' : '7-day window'}</strong><b>{formatPercent(window.remainingPercent)} remaining</b></div>
             <QuotaBar label={`${formatPercent(window.remainingPercent)} remaining`} value={window.remainingPercent} />
             {window.resetsAt && <small>Reset {formatReset(window.resetsAt)}</small>}
           </div>)}
@@ -49,9 +49,9 @@ export function QuotaWidget({ quotas, onRefresh }: { quotas: QuotaSnapshot | nul
 
 function ProviderSection({ children, name, provider }: { children: React.ReactNode; name: string; provider: QuotaProviderSnapshot<unknown> }) {
   return <section className="quota-provider" aria-label={name}>
-    <div className="quota-provider-heading"><h2>{name}</h2>{provider.stale && <span>Relevé périmé</span>}</div>
+    <div className="quota-provider-heading"><h2>{name}</h2>{provider.stale && <span>Stale reading</span>}</div>
     {children}
-    {provider.data.length === 0 && !provider.error && <p className="quota-provider-empty">Aucun quota disponible.</p>}
+    {provider.data.length === 0 && !provider.error && <p className="quota-provider-empty">No quota data available.</p>}
     {provider.error && <p className="quota-error" role="status">{provider.error}</p>}
   </section>
 }
@@ -62,13 +62,13 @@ function QuotaBar({ label, value }: { label: string; value: number }) {
 }
 
 function QuotaSkeleton() {
-  return <div aria-label="Chargement des quotas" className="quota-skeleton" role="status"><span /><span /><span /></div>
+  return <div aria-label="Loading quotas" className="quota-skeleton" role="status"><span /><span /><span /></div>
 }
 
 function formatRelativeDate(timestamp: number): string {
   const elapsedMinutes = Math.max(0, Math.round((Date.now() - timestamp) / 60_000))
   if (elapsedMinutes < 1) return 'just now'
-  if (elapsedMinutes < 60) return `${elapsedMinutes} min ago`
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`
   return new Intl.DateTimeFormat(navigator.language, { dateStyle: 'short', timeStyle: 'short' }).format(timestamp)
 }
 

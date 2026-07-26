@@ -7,7 +7,6 @@ import { QuotaWidget } from '../quotas/QuotaWidget.tsx'
 import { railQuota, type QuotaProvider } from '../quotas/quota-display.ts'
 import { SessionAnalysisWidget } from '../session-analysis/SessionAnalysisWidget.tsx'
 import type { SessionAnalysis, SessionAnalysisTarget } from '../session-analysis/session-analysis.ts'
-import { TerminalWidget } from '../terminal/TerminalWidget.tsx'
 import { TodoWidget } from '../todo/TodoWidget.tsx'
 import { maxRightSidebarWidth, minRightSidebarWidth, type RightWidget } from './right-sidebar.ts'
 import { WidgetLayout } from './WidgetLayout.tsx'
@@ -115,7 +114,6 @@ export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onA
         {activeWidget === 'analysis' && analysis && <WidgetLayout header={<div><strong>Session analysis</strong><span>{analysis.requests.length} request{analysis.requests.length > 1 ? 's' : ''} analyzed</span></div>}><SessionAnalysisWidget analysis={analysis} onNavigate={onAnalysisNavigate} /></WidgetLayout>}
         {activeWidget === 'git' && snapshot && <GitWidget onAction={onAction} onError={onError} onFileSelect={onFileSelect} onRefresh={onRefresh} onReset={onReset} onRevert={onRevert} snapshot={snapshot} />}
         {activeWidget === 'quotas' && <QuotaWidget onRefresh={onQuotaRefresh} quotas={quotas} />}
-        {activeWidget === 'terminal' && <TerminalWidget workspacePath={workspacePath} />}
         {activeWidget === 'todo' && <TodoWidget onOpenCountChange={setTodoOpenCount} onSendPrompt={onTodoSendPrompt} onStartSession={onTodoStartSession} workspacePath={workspacePath} />}
       </section>
     </div>}
@@ -132,7 +130,6 @@ export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onA
         <span aria-hidden="true" className="quota-rail-value">{quotaSummary?.value ?? '%'}</span>
         {quotaSummary?.stale && <small>!</small>}
       </button></Tooltip>
-      <Tooltip label="Terminal"><button aria-controls={activeWidget === 'terminal' ? 'terminal-panel' : undefined} aria-expanded={activeWidget === 'terminal'} aria-label={activeWidget === 'terminal' ? 'Collapse terminal' : 'Expand terminal'} className="rail-tab" onClick={() => onWidgetSelect('terminal')} type="button"><span aria-hidden="true">›_</span></button></Tooltip>
       <Tooltip label="Todo"><button aria-controls={activeWidget === 'todo' ? 'todo-panel' : undefined} aria-expanded={activeWidget === 'todo'} aria-label={activeWidget === 'todo' ? 'Collapse the task panel' : 'Expand the task panel'} className="rail-tab" onClick={() => onWidgetSelect('todo')} type="button">
         <span aria-hidden="true">☑</span>
         {todoOpenCount !== null && todoOpenCount > 0 && <small aria-label={`${todoOpenCount} tasks remaining`}>{todoOpenCount}</small>}
@@ -143,5 +140,5 @@ export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onA
 }
 
 function panelLabel(activeWidget: RightWidget | null): string {
-  return activeWidget === 'analysis' ? 'Session analysis' : activeWidget === 'todo' ? 'Workspace tasks' : activeWidget === 'terminal' ? 'Workspace terminal' : activeWidget === 'quotas' ? 'Provider quotas' : 'Git information'
+  return activeWidget === 'analysis' ? 'Session analysis' : activeWidget === 'todo' ? 'Workspace tasks' : activeWidget === 'quotas' ? 'Provider quotas' : 'Git information'
 }

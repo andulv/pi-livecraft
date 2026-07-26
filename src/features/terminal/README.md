@@ -1,5 +1,5 @@
 # Terminal frontend
 
-This feature runs one non-interactive command in the selected workspace and keeps its current output while mounted. It calls the terminal backend only through `src/api.ts`.
+This feature opens an external terminal application directly from the rail, command palette, or keyboard shortcut. The backend spawns the configured launcher detached in the selected workspace.
 
-Commands do not share shell state, accept interactive input, or emulate a terminal. Backend limits define execution time and output size. Main coverage: `test/terminal.test.ts`.
+The terminal command template (default: `wt.exe -d {cwd}`) is editable in Settings and persisted in `pi-livecraft.terminal-command`. Backend coverage: `test/terminal-launcher.test.ts`.

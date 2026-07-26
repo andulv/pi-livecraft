@@ -4,7 +4,7 @@ This directory contains local product capabilities used by `server/backend.ts`. 
 
 - [`git/`](git/README.md) reads and mutates the selected repository.
 - [`quotas/`](quotas/README.md) caches provider reports and coordinates refreshes through the manager.
-- [`terminal/`](terminal/README.md) runs bounded, non-interactive workspace commands.
+- [`terminal/`](terminal/README.md) launches an external terminal application in the workspace directory.
 - [`todos/`](todos/README.md) persists workspace task lists.
 
 These modules do not own Pi processes. All Pi commands continue through `server/manager-client.ts` to `server/manager.ts`.

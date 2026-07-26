@@ -11,6 +11,7 @@ export interface ToolResult {
   toolName: string
   content: unknown
   isError: boolean
+  details?: unknown
 }
 
 export interface ToolCallUpdate {
@@ -142,6 +143,7 @@ export function toolResultInMessage(message: JsonObject): ToolResult | null {
     toolName: message.toolName,
     content: message.content,
     isError: message.isError === true,
+    details: message.details,
   }
 }
 
@@ -162,6 +164,24 @@ export function toolEditChanges(args: unknown): ToolEditChange[] {
   return args.edits.flatMap((edit) => isObject(edit) && typeof edit.oldText === 'string' && typeof edit.newText === 'string'
     ? [{ oldText: edit.oldText, newText: edit.newText }]
     : [])
+}
+
+export interface EditDiffLine {
+  content: string
+  kind: 'added' | 'context' | 'removed'
+  lineNumber: number | null
+}
+
+/** Turns Pi's display-oriented edit diff into colorable lines with source and destination line numbers. */
+export function parseEditDiff(diff: string): EditDiffLine[] {
+  return diff.split('\n').map((line) => {
+    const match = line.match(/^([+\- ])(\s*\d+)\s(.*)$/)
+    if (match) {
+      const kind = match[1] === '+' ? 'added' : match[1] === '-' ? 'removed' : 'context' as const
+      return { content: match[3], kind, lineNumber: parseInt(match[2].trim(), 10) }
+    }
+    return { content: line, kind: 'context', lineNumber: null }
+  })
 }
 
 export function formatToolData(value: unknown): string {

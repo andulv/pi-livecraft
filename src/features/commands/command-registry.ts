@@ -1,7 +1,7 @@
 import type { JsonObject } from '../../../shared/types.ts'
 import { rightWidgetDefinitions, type RightWidget } from '../right-sidebar/right-sidebar.ts'
 
-type CoreCommandId = 'new-session' | 'send' | 'abort' | 'open-thinking' | 'open-model' | 'open-agent' | 'copy-last-response' | 'open-palette' | 'open-settings'
+type CoreCommandId = 'new-session' | 'send' | 'abort' | 'open-thinking' | 'open-model' | 'open-agent' | 'copy-last-response' | 'open-palette' | 'open-settings' | 'open-terminal'
 export type WidgetCommandId = `open-widget-${RightWidget}`
 export type CommandId = CoreCommandId | WidgetCommandId
 
@@ -21,6 +21,7 @@ export const commandDefinitions: CommandDefinition[] = [
   { id: 'copy-last-response', label: 'Copy last response' },
   { id: 'open-palette', label: 'Open command palette' },
   { id: 'open-settings', label: 'Open settings' },
+  { id: 'open-terminal', label: 'Open terminal' },
   ...rightWidgetDefinitions.map(({ id, label }) => ({ id: rightWidgetCommandId(id), label: `Open ${label}` })),
 ]
 

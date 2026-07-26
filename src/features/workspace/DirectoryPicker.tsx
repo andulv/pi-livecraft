@@ -95,7 +95,7 @@ export function DirectoryPicker({  initialPath, recentPaths, onClose, onError, o
           id="directory-path"
           onChange={(event) => setPath(event.target.value)}
           onKeyDown={handlePathKeyDown}
-          placeholder="~/projets ou /chemin/absolu"
+          placeholder="~/projects or /absolute/path"
           role="combobox"
           value={path}
         />

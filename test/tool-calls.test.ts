@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { applyToolCallUpdate, formatToolCallTooltip, formatToolData, interruptToolCallGeneration, isToolCallPending, readContentDisplay, toolCallInUpdate, toolCallPresentation, toolCallsInMessage, toolContentText, toolDataLength, toolEditChanges, toolFilePath, toolResultInMessage, toolTextPreview, truncateToolText, windowsFileUrl } from '../src/features/conversation/tool-calls.ts'
+import { applyToolCallUpdate, formatToolCallTooltip, formatToolData, interruptToolCallGeneration, isToolCallPending, parseEditDiff, readContentDisplay, toolCallInUpdate, toolCallPresentation, toolCallsInMessage, toolContentText, toolDataLength, toolEditChanges, toolFilePath, toolResultInMessage, toolTextPreview, truncateToolText, windowsFileUrl } from '../src/features/conversation/tool-calls.ts'
 
 test('extracts tool calls and their resolved result from Pi messages', () => {
   const calls = toolCallsInMessage({
@@ -24,6 +24,7 @@ test('extracts tool calls and their resolved result from Pi messages', () => {
     toolName: 'read',
     content: [{ type: 'text', text: 'import App' }],
     isError: false,
+    details: undefined,
   })
   assert.equal(toolContentText(result?.content), 'import App')
 })
@@ -228,5 +229,49 @@ test('keeps the read range visible beside a truncated path', () => {
   })
   assert.deepEqual(toolCallPresentation({ id: 'call_3', name: 'read', args: { path: 'src/App.tsx', offset: 0 } }, root), {
     headerDetail: { text: 'src/App.tsx', title: 'src/App.tsx' },
+  })
+})
+
+test('parses Pi edit diff lines with added, removed, and context line numbers', () => {
+  const diff = [
+    ' 2   unchanged context',
+    '-3   removed line',
+    '+3   added line',
+    ' 4   after change',
+    '      ...',
+  ].join('\n')
+  const parsed = parseEditDiff(diff)
+  assert.deepEqual(parsed, [
+    { content: '  unchanged context', kind: 'context', lineNumber: 2 },
+    { content: '  removed line', kind: 'removed', lineNumber: 3 },
+    { content: '  added line', kind: 'added', lineNumber: 3 },
+    { content: '  after change', kind: 'context', lineNumber: 4 },
+    { content: '      ...', kind: 'context', lineNumber: null },
+  ])
+})
+
+test('parses diff with only insertions and only deletions', () => {
+  const onlyAdded = parseEditDiff('+10 new file content')
+  assert.deepEqual(onlyAdded[0], { content: 'new file content', kind: 'added', lineNumber: 10 })
+
+  const onlyRemoved = parseEditDiff('-3 deprecated code')
+  assert.deepEqual(onlyRemoved[0], { content: 'deprecated code', kind: 'removed', lineNumber: 3 })
+})
+
+test('carries details from Pi tool result messages in history', () => {
+  const result = toolResultInMessage({
+    role: 'toolResult',
+    toolCallId: 'edit_1',
+    toolName: 'edit',
+    content: 'Successfully replaced 1 block(s).',
+    isError: false,
+    details: { diff: '+1 added', firstChangedLine: 1 },
+  })
+  assert.deepEqual(result, {
+    toolCallId: 'edit_1',
+    toolName: 'edit',
+    content: 'Successfully replaced 1 block(s).',
+    isError: false,
+    details: { diff: '+1 added', firstChangedLine: 1 },
   })
 })

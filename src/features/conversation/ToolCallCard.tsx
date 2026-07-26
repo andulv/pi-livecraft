@@ -14,7 +14,7 @@ import { Tooltip } from '../../components/Tooltip.tsx'
 import { getWorkspaceFile, getWorkspaceFilePath } from '../../api.ts'
 import { fileContextDraft } from './context-session.ts'
 import { canHighlightFile } from './file-preview.ts'
-import { formatToolCallTooltip, formatToolData, readContentDisplay, toolCallPresentation, toolContentText, toolDataLength, toolEditChanges, toolFilePath, toolTextPreview, windowsFileUrl } from './tool-calls.ts'
+import { formatToolCallTooltip, formatToolData, parseEditDiff, readContentDisplay, toolCallPresentation, toolContentText, toolDataLength, toolEditChanges, toolFilePath, toolTextPreview, windowsFileUrl, type EditDiffLine } from './tool-calls.ts'
 
 SyntaxHighlighter.registerLanguage('bash', bash)
 SyntaxHighlighter.registerLanguage('csharp', csharp)
@@ -63,6 +63,7 @@ interface ToolCallCardProps {
   rawArgsTruncated?: boolean
   repositoryRoot?: string | null
   resultContent?: unknown
+  resultDetails?: unknown
   resultError?: boolean
   revealRequest?: number
   streaming?: boolean
@@ -71,7 +72,7 @@ interface ToolCallCardProps {
 }
 
 /** Displays the official card whose full result replaces the preview when expanded. */
-export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = false, args, darkMode, hasResult, id, interrupted = false, name, onError, onStartSession, rawArgs, rawArgsLength, rawArgsTruncated = false, repositoryRoot, resultContent, resultError, revealRequest, streaming = false, targeted = false, workspacePath }: ToolCallCardProps) {
+export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = false, args, darkMode, hasResult, id, interrupted = false, name, onError, onStartSession, rawArgs, rawArgsLength, rawArgsTruncated = false, repositoryRoot, resultContent, resultDetails, resultError, revealRequest, streaming = false, targeted = false, workspacePath }: ToolCallCardProps) {
   const pending = !hasResult
   const active = pending && !interrupted
   const filePath = name === 'read' || name === 'write' ? toolFilePath(args) : null
@@ -164,7 +165,7 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
         </>}
         {hasResult && <div className={animateLiveChanges ? 'tool-call-result entering' : 'tool-call-result'}>
           {expanded && !htmlFile
-            ? <ToolCallContent call={{ name, args }} content={content} darkMode={darkMode} onCollapse={() => setExpanded(false)} renderingCode={renderingCode || loadingWrittenContent} showEditDiff={!contentError} />
+            ? <ToolCallContent call={{ name, args }} content={content} darkMode={darkMode} onCollapse={() => setExpanded(false)} renderingCode={renderingCode || loadingWrittenContent} resultDetails={resultDetails} showEditDiff={!contentError} />
             : <ToolCallPreview call={{ name, args }} content={display.kind === 'svg' ? content : preview.text} darkMode={darkMode} htmlFile={htmlFile} onClick={activate} remainingLineCount={preview.remainingLineCount} />}
         </div>}
       </div>
@@ -192,11 +193,13 @@ function ToolCallPreview({ call, content, darkMode, htmlFile, onClick, remaining
 }
 
 /** Displays the full result in its appropriate format instead of the preview. */
-function ToolCallContent({ call, content, darkMode, onCollapse, renderingCode, showEditDiff }: { call: { name: string; args: unknown }; content: string; darkMode: boolean; onCollapse: () => void; renderingCode: boolean; showEditDiff: boolean }) {
+function ToolCallContent({ call, content, darkMode, onCollapse, renderingCode, resultDetails, showEditDiff }: { call: { name: string; args: unknown }; content: string; darkMode: boolean; onCollapse: () => void; renderingCode: boolean; resultDetails?: unknown; showEditDiff: boolean }) {
   if (renderingCode) return <section className="tool-call-content tool-call-loading" role="status" onClick={onCollapse}><span aria-hidden="true" className="spinner" />Highlighting file…</section>
 
+  const diffString = extractEditDiffString(resultDetails)
+  const diffLines = diffString ? parseEditDiff(diffString) : []
   const changes = showEditDiff && call.name === 'edit' ? toolEditChanges(call.args) : []
-  if (changes.length > 0) return <ToolCallEditDiff changes={changes} onCollapse={onCollapse} />
+  if (diffLines.length > 0 || changes.length > 0) return <ToolCallEditDiff changes={changes} diffLines={diffLines} onCollapse={onCollapse} />
 
   const display = call.name === 'read' || call.name === 'write' ? readContentDisplay(call.args) : { kind: 'text' as const }
   if (display.kind === 'markdown') return <section className="tool-call-content tool-call-markdown" onClick={onCollapse}><Markdown>{content}</Markdown></section>
@@ -206,13 +209,35 @@ function ToolCallContent({ call, content, darkMode, onCollapse, renderingCode, s
 }
 
 
-/** Displays each replacement from an edit call in a separate diff block. */
-function ToolCallEditDiff({ changes, onCollapse }: { changes: ReturnType<typeof toolEditChanges>; onCollapse: () => void }) {
+/** Extracts the display-oriented diff string from Pi result details when available. */
+function extractEditDiffString(details: unknown): string | undefined {
+  if (typeof details !== 'object' || details === null) return undefined
+  const d = details as Record<string, unknown>
+  return typeof d.diff === 'string' ? d.diff : undefined
+}
+
+/** Displays each replacement from an edit call, preferring Pi's line-numbered diff when available. */
+function ToolCallEditDiff({ changes, diffLines, onCollapse }: { changes: ReturnType<typeof toolEditChanges>; diffLines: EditDiffLine[]; onCollapse: () => void }) {
+  if (diffLines.length > 0) {
+    return <section className="tool-call-content tool-call-edit-diff" onClick={onCollapse}>
+      <section className="tool-call-edit-change">
+        {diffLines.map((line, i) => {
+          const sign = line.kind === 'added' ? '+' : line.kind === 'removed' ? '−' : ' '
+          return <div className={`tool-call-edit-line ${line.kind}`} key={i}>
+            <span>{line.lineNumber ?? ''}</span>
+            <i aria-hidden="true">{sign}</i>
+            <pre>{line.content}</pre>
+          </div>
+        })}
+      </section>
+    </section>
+  }
+
   return <section className="tool-call-content tool-call-edit-diff" onClick={onCollapse}>
     {changes.map((change, index) => <section className="tool-call-edit-change" key={index}>
       <h4>Change {index + 1}</h4>
-      <div className="tool-call-edit-line removed"><i aria-hidden="true">−</i><pre>{change.oldText}</pre></div>
-      <div className="tool-call-edit-line added"><i aria-hidden="true">+</i><pre>{change.newText}</pre></div>
+      <div className="tool-call-edit-line removed"><span /><i aria-hidden="true">−</i><pre>{change.oldText}</pre></div>
+      <div className="tool-call-edit-line added"><span /><i aria-hidden="true">+</i><pre>{change.newText}</pre></div>
     </section>)}
   </section>
 }

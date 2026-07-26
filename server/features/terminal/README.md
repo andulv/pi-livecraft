@@ -1,5 +1,5 @@
 # Terminal backend capability
 
-`terminal.ts` runs one isolated, non-interactive command in a validated workspace. Execution is limited to ten minutes and one megabyte of buffered output.
+`launcher.ts` opens an external terminal application in a validated workspace directory. The terminal command is a user-configurable template with a `{cwd}` placeholder.
 
-HTTP paths, command validation, and working-directory resolution remain in `server/backend.ts`. Main coverage: `test/terminal.test.ts`.
+HTTP routing and working-directory resolution remain in `server/backend.ts`. Main coverage: `test/terminal-launcher.test.ts`.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import { Tooltip } from './components/Tooltip.tsx'
-import { commitAndPush, createSession, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, improvePrompt, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, refreshQuotas, resetGitCommit, revertGitCommit, sendPiCommand } from './api.ts'
+import { commitAndPush, createSession, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, improvePrompt, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, openTerminal, refreshQuotas, resetGitCommit, revertGitCommit, sendPiCommand } from './api.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type { GitSnapshot, JsonObject, ManagerEvent, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary } from '../shared/types.ts'
 import { Composer } from './features/composer/Composer.tsx'
@@ -105,6 +105,7 @@ function App() {
   const [observedToolDurations, setObservedToolDurations] = useState<ReadonlyMap<string, number>>(new Map())
   const [observedRequestDurations, setObservedRequestDurations] = useState<ReadonlyMap<number, number>>(new Map())
   const [shortcuts, setShortcuts] = useState(() => readShortcuts())
+  const [terminalCommand, setTerminalCommand] = useState(() => readTerminalCommand())
   const selectedIdRef = useRef(selectedId)
   const creatingSessionRef = useRef(false)
   const refreshVersionRef = useRef(0)
@@ -428,11 +429,14 @@ function App() {
           setObservedToolDurations((current) => new Map(current).set(id, performance.now() - startedAt))
           toolStartedAtRef.current.delete(id)
         }
+        const eventResult = event.result
+        const details = isObject(eventResult) ? eventResult.details : undefined
         const result: ToolResult = {
           toolCallId: id,
           toolName: event.toolName,
           content: event.result,
           isError: event.isError === true,
+          details,
         }
         setToolExecutions((current) => current.map((execution) => execution.id === id ? { ...execution, result } : execution))
         void refreshSnapshot(sessionId)
@@ -587,6 +591,7 @@ function App() {
     }
     if (id === 'open-palette') { setCommandPaletteOpen(true); return }
     if (id === 'open-settings') { setSettingsOpen(true); return }
+    if (id === 'open-terminal') { void openTerminal(workspacePath, terminalCommand).catch((cause) => showToast('error', messageOf(cause))); return }
     if (id === 'new-session') { void startAndSelectSession(() => createSession(workspacePath)).catch((cause) => showToast('error', messageOf(cause))); return }
     if (id === 'send') { setSubmitRequest((current) => current + 1); return }
     if (id === 'abort' && selectedId) { void sendPiCommand(selectedId, { type: 'abort' }).catch((cause) => showToast('error', messageOf(cause))); return }
@@ -596,7 +601,7 @@ function App() {
       if (!text) { showToast('notice', 'No assistant response to copy.'); return }
       void navigator.clipboard.writeText(text).then(() => showToast('notice', 'Last response copied.')).catch((cause) => showToast('error', messageOf(cause)))
     }
-  }, [gitSnapshot?.repository, openRightWidget, selectedId, sessionAnalysis, showToast, snapshot.messages, startAndSelectSession, workspacePath])
+  }, [gitSnapshot?.repository, openRightWidget, selectedId, sessionAnalysis, showToast, snapshot.messages, startAndSelectSession, terminalCommand, workspacePath])
 
   const paletteCommands: PaletteCommand[] = useMemo(() => commandDefinitions.map((definition) => {
     const rightWidget = rightWidgetFromCommand(definition.id)
@@ -640,9 +645,15 @@ function App() {
       label: 'Open folder in Explorer',
       onClick: () => { void openExplorer(workspacePath).catch((cause) => showToast('error', messageOf(cause))) },
     },
-  ], [showToast, workspacePath])
+    {
+      key: 'terminal',
+      icon: <span aria-hidden="true">›_</span>,
+      label: 'Open terminal',
+      onClick: () => { void openTerminal(workspacePath, terminalCommand).catch((cause) => showToast('error', messageOf(cause))) },
+    },
+  ], [showToast, terminalCommand, workspacePath])
 
-  const rightPanelVisible = activeRightWidget === 'terminal' || activeRightWidget === 'todo' || activeRightWidget === 'quotas'
+  const rightPanelVisible = activeRightWidget === 'todo' || activeRightWidget === 'quotas'
     || (activeRightWidget === 'analysis' && sessionAnalysis !== null)
     || (activeRightWidget === 'git' && gitSnapshot?.repository === true)
 
@@ -804,7 +815,7 @@ function App() {
       {questionnaire && <AskUserQuestionDialog key={String(questionnaire.request.id)} dialog={questionnaire} sessionName={sessions.find((session) => session.id === questionnaire.sessionId)?.name} onClose={() => closeDialog(questionnaire)} onError={(cause) => showToast('error', messageOf(cause))} />}
       {dialog && !questionnaire && <ExtensionDialog dialog={dialog} onClose={() => closeDialog(dialog)} onError={(cause) => showToast('error', messageOf(cause))} />}
       {commandPaletteOpen && <CommandPalette commands={paletteCommands} onClose={() => setCommandPaletteOpen(false)} />}
-      {settingsOpen && <SettingsPanel definitions={commandDefinitions} shortcuts={shortcuts} onChange={(id, shortcut) => { const next = { ...shortcuts, [id]: shortcut }; setShortcuts(next); window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(next)) }} onReset={() => { setShortcuts(defaultShortcuts); window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(defaultShortcuts)) }} onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsPanel definitions={commandDefinitions} shortcuts={shortcuts} terminalCommand={terminalCommand} onChange={(id, shortcut) => { const next = { ...shortcuts, [id]: shortcut }; setShortcuts(next); window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(next)) }} onTerminalCommandChange={(value) => { setTerminalCommand(value); window.localStorage.setItem('pi-livecraft.terminal-command', value) }} onReset={() => { setShortcuts(defaultShortcuts); window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(defaultShortcuts)) }} onClose={() => setSettingsOpen(false)} />}
     </div>
   )
 }
@@ -824,6 +835,11 @@ function readRecentWorkspaces(): string[] {
   } catch {
     return []
   }
+}
+
+function readTerminalCommand(): string {
+  const stored = window.localStorage.getItem('pi-livecraft.terminal-command')
+  return stored && stored.trim() && stored.includes('{cwd}') ? stored : 'wt.exe -d {cwd}'
 }
 
 function readActiveRightWidget(): RightWidget | null {

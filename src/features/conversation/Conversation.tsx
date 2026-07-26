@@ -148,12 +148,12 @@ export function Conversation({ activity, agentName, messages, liveText, liveThin
           {calls.map((call) => {
             const execution = executionsByCallId.get(call.id)
             const result = resultsByCallId.get(call.id) ?? execution?.result
-            return <ToolCallCard args={call.args} darkMode={darkMode} hasResult={result !== undefined} id={call.id} interrupted={execution?.status === 'interrupted'} key={call.id} name={call.name} onError={onError} onStartSession={onStartSession} rawArgs={execution?.rawArgs} rawArgsLength={execution?.rawArgsLength} rawArgsTruncated={execution?.rawArgsTruncated} repositoryRoot={repositoryRoot} resultContent={result?.content} resultError={result?.isError} revealRequest={navigationRequest?.target.kind === 'tool' && navigationRequest.target.id === call.id ? navigationRequest.id : undefined} streaming={execution?.status === 'generating'} targeted={highlightedTarget === `tool:${call.id}`} workspacePath={workspacePath} />
+            return <ToolCallCard args={call.args} darkMode={darkMode} hasResult={result !== undefined} id={call.id} interrupted={execution?.status === 'interrupted'} key={call.id} name={call.name} onError={onError} onStartSession={onStartSession} rawArgs={execution?.rawArgs} rawArgsLength={execution?.rawArgsLength} rawArgsTruncated={execution?.rawArgsTruncated} repositoryRoot={repositoryRoot} resultContent={result?.content} resultDetails={result?.details} resultError={result?.isError} revealRequest={navigationRequest?.target.kind === 'tool' && navigationRequest.target.id === call.id ? navigationRequest.id : undefined} streaming={execution?.status === 'generating'} targeted={highlightedTarget === `tool:${call.id}`} workspacePath={workspacePath} />
           })}
         </div>
       })}
       {liveThinking && <ReasoningBlock live>{liveThinking}</ReasoningBlock>}
-      {detailedView && toolExecutions.filter((execution) => !toolCallIds.has(execution.id)).map((execution) => <ToolCallCard animateLiveChanges args={execution.args} darkMode={darkMode} hasResult={execution.result !== undefined} id={execution.id} interrupted={execution.status === 'interrupted'} key={execution.id} name={execution.name} onError={onError} onStartSession={onStartSession} rawArgs={execution.rawArgs} rawArgsLength={execution.rawArgsLength} rawArgsTruncated={execution.rawArgsTruncated} repositoryRoot={repositoryRoot} resultContent={execution.result?.content} resultError={execution.result?.isError} revealRequest={navigationRequest?.target.kind === 'tool' && navigationRequest.target.id === execution.id ? navigationRequest.id : undefined} streaming={execution.status === 'generating'} targeted={highlightedTarget === `tool:${execution.id}`} workspacePath={workspacePath} />)}
+      {detailedView && toolExecutions.filter((execution) => !toolCallIds.has(execution.id)).map((execution) => <ToolCallCard animateLiveChanges args={execution.args} darkMode={darkMode} hasResult={execution.result !== undefined} id={execution.id} interrupted={execution.status === 'interrupted'} key={execution.id} name={execution.name} onError={onError} onStartSession={onStartSession} rawArgs={execution.rawArgs} rawArgsLength={execution.rawArgsLength} rawArgsTruncated={execution.rawArgsTruncated} repositoryRoot={repositoryRoot} resultContent={execution.result?.content} resultDetails={execution.result?.details} resultError={execution.result?.isError} revealRequest={navigationRequest?.target.kind === 'tool' && navigationRequest.target.id === execution.id ? navigationRequest.id : undefined} streaming={execution.status === 'generating'} targeted={highlightedTarget === `tool:${execution.id}`} workspacePath={workspacePath} />)}
       {liveText && <article className="message assistant streaming conversation-entry"><div className="content"><Markdown>{liveText}</Markdown></div></article>}
       {pendingSteering.map((message, index) => <article className="message user pending-steering conversation-entry" key={`${message}-${index}`}>
         <div className="content"><Markdown>{message || 'Image attached'}</Markdown></div>
@@ -196,7 +196,7 @@ const DefaultMessageCard = memo(function DefaultMessageCard({ message, onStartSe
 
 /** Renders an unknown custom message without interpreting extension-specific details. */
 function DefaultCustomMessage({ message }: { message: JsonObject & { customType?: unknown } }) {
-  const content = hasVisibleContent(message.content) ? renderContent(message.content) : <p>Message sans contenu affichable.</p>
+  const content = hasVisibleContent(message.content) ? renderContent(message.content) : <p>Message has no displayable content.</p>
   return <article className="message custom-message">
     <code className="custom-message-type">{String(message.customType)}</code>
     <div className="content">{content}</div>
@@ -244,7 +244,7 @@ function renderContent(content: unknown): ReactNode {
   if (typeof content === 'string') return <Markdown>{content}</Markdown>
   if (!Array.isArray(content)) return null
   return <>{content.map((part, contentIndex) => {
-    if (isImageContent(part)) return <img alt={`Image jointe ${contentIndex + 1}`} className="message-image" key={`image-${contentIndex}`} src={`data:${part.mimeType};base64,${part.data}`} />
+    if (isImageContent(part)) return <img alt={`Attached image ${contentIndex + 1}`} className="message-image" key={`image-${contentIndex}`} src={`data:${part.mimeType};base64,${part.data}`} />
     if (!isObject(part)) return null
     if (part.type === 'thinking' && typeof part.thinking === 'string' && part.thinking.trim()) return <ReasoningBlock key={`reasoning-${contentIndex}`}>{part.thinking}</ReasoningBlock>
     if (part.type === 'text' && typeof part.text === 'string') return <Markdown key={`text-${contentIndex}`}>{part.text}</Markdown>

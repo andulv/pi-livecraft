@@ -1,7 +1,7 @@
 # Add a widget
 
 This guide covers adding a widget to the right sidebar. Every step is required unless noted
-otherwise. The [`TerminalWidget`](../src/features/terminal/TerminalWidget.tsx) is the reference
+otherwise. The [`TodoWidget`](../src/features/todo/TodoWidget.tsx) is the reference
 implementation — open it alongside and follow its shape.
 
 ## 1. Create the component
@@ -49,7 +49,7 @@ No other registration is needed.
 In `src/features/right-sidebar/RightSidebar.tsx`:
 
 - **Panel:** add a conditional render on `activeWidget`, following the pattern of existing
-  widgets (search for `activeWidget === 'terminal'` in the file). Forward the props received
+  widgets (search for `activeWidget === 'todo'` in the file). Forward the props received
   by `RightSidebar`.
 - **Rail:** add a button inside `<div className="right-sidebar-rail">`, copying the
   accessibility pattern (`aria-controls`, `aria-expanded`, `aria-label`) and the
@@ -137,5 +137,5 @@ Used by the session analysis widget, but not mandatory.
 
 ## Reference widget
 
-[`TerminalWidget`](../src/features/terminal/TerminalWidget.tsx) illustrates local state, an API
-call, error handling, and the header/content/footer pattern.
+[`TodoWidget`](../src/features/todo/TodoWidget.tsx) illustrates local state, API
+calls, error handling, and persistent data management.
