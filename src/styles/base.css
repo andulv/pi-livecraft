@@ -137,11 +137,11 @@ button:disabled, select:disabled { cursor: not-allowed; }
   .tool-call { border-color: var(--line-strong); background: color-mix(in srgb, var(--surface) 60%, var(--canvas)); color: color-mix(in srgb, var(--ink) 80%, var(--muted)); }
   .tool-call.error { border-color: color-mix(in srgb, var(--danger) 40%, var(--canvas)); color: color-mix(in srgb, var(--danger) 80%, var(--surface)); }
   .tool-call-heading:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
-  .tool-call-content { border-top-color: color-mix(in srgb, var(--ink) 14%, transparent); background: color-mix(in srgb, var(--surface) 95%, var(--canvas)); }
-  .tool-call-raw-args { border-top-color: color-mix(in srgb, var(--ink) 14%, transparent); background: color-mix(in srgb, var(--surface) 95%, var(--canvas)); }
+  .tool-call-content { border-top-color: color-mix(in srgb, var(--ink) 14%, transparent); background: color-mix(in srgb, var(--accent) 2%, color-mix(in srgb, var(--surface) 95%, var(--canvas))); }
+  .tool-call-raw-args { border-top-color: color-mix(in srgb, var(--ink) 14%, transparent); background: color-mix(in srgb, var(--accent) 2%, color-mix(in srgb, var(--surface) 95%, var(--canvas))); }
   .tool-call-writing { border-top-color: color-mix(in srgb, var(--ink) 10%, transparent); background: color-mix(in srgb, var(--ink) 10%, transparent); }
-  .tool-call-preview { background: color-mix(in srgb, var(--surface) 95%, var(--canvas)); }
-  .tool-call-preview:hover { background: color-mix(in srgb, var(--surface) 91%, var(--canvas)); }
+  .tool-call-preview { background: color-mix(in srgb, var(--accent) 2%, color-mix(in srgb, var(--surface) 95%, var(--canvas))); }
+  .tool-call-preview:hover { background: color-mix(in srgb, var(--accent) 4%, color-mix(in srgb, var(--surface) 91%, var(--canvas))); }
   .tool-call-edit-change { border-color: color-mix(in srgb, var(--ink) 18%, transparent); }
   .tool-call-edit-change h4 { background: color-mix(in srgb, var(--ink) 8%, transparent); }
   .tool-call-edit-line > span,

@@ -142,7 +142,7 @@
 .user .content a { color: var(--surface); text-decoration: underline; }
 .user .content pre { border-color: color-mix(in srgb, var(--surface) 13%, transparent); background: color-mix(in srgb, var(--canvas) 60%, var(--ink)); }
 .pending-steering .content pre { border-color: var(--line); background: var(--accent-soft); color: var(--ink); }
-.tool-call { position: relative; max-width: 760px; margin: 0 2px 18px; border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); border-radius: 9px; background: color-mix(in srgb, var(--accent) 3%, var(--surface)); color: color-mix(in srgb, var(--accent) 40%, var(--ink)); font: 12px/1.5 ui-monospace, monospace; }
+.tool-call { position: relative; max-width: 760px; margin: 0 2px 18px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); border-radius: 9px; background: color-mix(in srgb, var(--accent) 3%, var(--surface)); color: color-mix(in srgb, var(--accent) 40%, var(--ink)); font: 12px/1.5 ui-monospace, monospace; }
 .context-session-button {
   position: absolute;
   z-index: 1;
@@ -197,16 +197,16 @@
   .conversation-entry, .tool-call.entering, .tool-call-result.entering, .activity-action, .pending-steering-status i, .pi-activity .activity-text { animation: none; }
   .tool-call-body { transition: none; }
 }
-.tool-call-raw-args { display: block; width: 100%; margin: 0; border: 0; border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent); padding: 9px 10px; background: color-mix(in srgb, var(--surface) 97%, var(--canvas)); color: inherit; font: 11px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; white-space: pre-wrap; text-align: left; cursor: pointer; }
+.tool-call-raw-args { display: block; width: 100%; margin: 0; border: 0; border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent); padding: 9px 10px; background: color-mix(in srgb, var(--accent) 2%, color-mix(in srgb, var(--surface) 97%, var(--canvas))); color: inherit; font: 11px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; white-space: pre-wrap; text-align: left; cursor: pointer; }
 .tool-call-writing { display: block; border-top: 1px solid color-mix(in srgb, var(--accent) 10%, transparent); padding: 5px 10px; color: var(--muted); font: 10px/1.5 ui-sans-serif, system-ui, sans-serif; }
-.tool-call-preview { display: block; width: 100%; border: 0; border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent); padding: 0; background: color-mix(in srgb, var(--surface) 97%, var(--canvas)); color: inherit; text-align: left; cursor: pointer; }
-.tool-call-preview:hover { background: color-mix(in srgb, var(--surface) 93%, var(--canvas)); }
+.tool-call-preview { display: block; width: 100%; border: 0; border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent); padding: 0; background: color-mix(in srgb, var(--accent) 2%, color-mix(in srgb, var(--surface) 97%, var(--canvas))); color: inherit; text-align: left; cursor: pointer; }
+.tool-call-preview:hover { background: color-mix(in srgb, var(--accent) 4%, color-mix(in srgb, var(--surface) 93%, var(--canvas))); }
 .tool-call-preview:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .tool-call-svg-preview { display: block; width: 256px; max-width: 100%; height: 256px; margin: 0 auto; object-fit: contain; }
 .tool-call-preview pre { margin: 0; border: 0; border-radius: 0; padding: 9px 10px 4px; background: transparent; color: inherit; font: 11px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; white-space: pre-wrap; }
 .tool-call-preview > span { display: block; padding: 0 10px 9px; color: var(--muted); font: 10px/1.5 ui-sans-serif, system-ui, sans-serif; }
 .tool-call-preview > span + span { padding-top: 0; }
-.tool-call-content { border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent); background: color-mix(in srgb, var(--surface) 97%, var(--canvas)); cursor: pointer; }
+.tool-call-content { border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent); background: color-mix(in srgb, var(--accent) 2%, color-mix(in srgb, var(--surface) 97%, var(--canvas))); cursor: pointer; }
 .tool-call-edit-diff { display: grid; gap: 10px; padding: 10px; }
 .tool-call-edit-change { overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 6px; }
 .tool-call-edit-change h4 { margin: 0; padding: 5px 8px; background: color-mix(in srgb, var(--accent) 7%, transparent); font: 10px/1.4 ui-sans-serif, system-ui, sans-serif; }
