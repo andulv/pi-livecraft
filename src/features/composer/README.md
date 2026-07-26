@@ -12,10 +12,21 @@ All data arrives through props. The Composer never calls the backend directly.
 
 ## Sub-modules
 
-- `composer-images.ts` — validation (`maxComposerImages` = 4), dimension limit
-  (1600 px), size cap (350 KiB), `File` → base64 conversion.
-- `prompt-title.ts` — immediate session title from first message, replaced later
-  by Pi's extension-generated title.
+| Module | Purpose |
+|---|---|
+| `Composer.tsx` | Form, textarea, images, slash-commands, send/stop, assembly |
+| `composer.css` | All composer styles |
+| `composer-images.ts` | Image paste, resize, compress (`maxComposerImages` = 4) |
+| `composer-utils.ts` | `capitalizeLabel`, `formatTokens`, `readComposerDraft`, `isObject` |
+| `prompt-title.ts` | Immediate session title, replaced later by Pi's extension title |
+| `selects/ComposerSelect.tsx` | Generic Radix Select wrapper with tone-based icons |
+| `selects/AgentSelect.tsx` | Agent picker — derives label from options, calls `onAgentChange` |
+| `selects/ModelSelect.tsx` | Model picker — builds RPC `set_model` command from selection |
+| `selects/ThinkingSelect.tsx` | Thinking level — maps level to `set_thinking_level` RPC |
+| `selects/BehaviorSelect.tsx` | Steer / Follow-up toggle, only rendered while Pi is running |
+| `status-bar/ComposerStatusBar.tsx` | Layout container for session info and stats |
+| `status-bar/SessionInfo.tsx` | Session name, cwd, active status dot |
+| `status-bar/SessionStats.tsx` | Cost and context usage with progress bar |
 
 ## Internal state
 
@@ -29,9 +40,11 @@ All data arrives through props. The Composer never calls the backend directly.
 
 ## Selects
 
-The agent, model, and thinking dropdowns use `ComposerSelect`, a local wrapper
-around Radix Select. `onCommand()` sends the corresponding RPC command
-(`set_model`, `set_thinking_level`) to Pi.
+The agent, model, and thinking dropdowns each live in `selects/` as standalone
+components. `ComposerSelect` is the generic Radix Select wrapper they all use.
+Each select encapsulates its own option derivation and `onValueChange` logic.
+`onCommand()` sends the corresponding RPC command (`set_model`,
+`set_thinking_level`) to Pi.
 
 ## Draft persistence
 

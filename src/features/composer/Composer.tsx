@@ -1,8 +1,13 @@
-import * as Select from '@radix-ui/react-select'
-import { memo, useEffect, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type FormEvent, type RefObject } from 'react'
+import { memo, useEffect, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type FormEvent } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type { JsonObject, SessionSnapshot, SessionSummary } from '../../../shared/types.ts'
 import { maxComposerImages, prepareComposerImage, type ComposerImage } from './composer-images.ts'
+import { formatTokens, isObject, readComposerDraft } from './composer-utils.ts'
+import { AgentSelect } from './selects/AgentSelect.tsx'
+import { BehaviorSelect } from './selects/BehaviorSelect.tsx'
+import { ModelSelect } from './selects/ModelSelect.tsx'
+import { ThinkingSelect } from './selects/ThinkingSelect.tsx'
+import { ComposerStatusBar } from './status-bar/ComposerStatusBar.tsx'
 
 /** Provides user input and session commands while reflecting the current Pi state. */
 export const Composer = memo(function Composer({ session, snapshot, agentBusy, agentOptions, selectedAgent, agentLoading, showAgentSelector, onAgentChange, onCommand, commands, running, onSend, onAbort, onError, requestedSelect, onSelectOpened, submitRequest = 0, focusRequest, draftRequest, onDraftApplied }: {
@@ -212,50 +217,35 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
       <div className="composer-footer">
         <div className="composer-actions">
           <div className="composer-tools">
-            {showAgentSelector && <ComposerSelect
-              ariaLabel="Agent"
-              disabled={agentLoading || agentBusy || agentOptions.length === 0}
-              onValueChange={onAgentChange}
-              onOpenChange={(open) => setOpenSelect(open ? 'agent' : null)}
+            {showAgentSelector && <AgentSelect
+              agentOptions={agentOptions}
+              selectedAgent={selectedAgent}
+              agentLoading={agentLoading}
+              agentBusy={agentBusy}
+              onAgentChange={onAgentChange}
               open={openSelect === 'agent'}
-              options={agentOptions.map((agent) => ({ label: capitalizeLabel(agent), value: agent }))}
-              placeholder={agentLoading || agentBusy ? 'Loading…' : 'Choose an agent'}
-              tone="agent"
+              onOpenChange={(open) => setOpenSelect(open ? 'agent' : null)}
               triggerRef={agentTriggerRef}
-              value={selectedAgent}
             />}
-            <ComposerSelect
-              ariaLabel="Model"
-              onOpenChange={(open) => setOpenSelect(open ? 'model' : null)}
+            <ModelSelect
+              models={snapshot.models}
+              currentModel={currentModel}
+              onCommand={onCommand}
+              onError={onError}
               open={openSelect === 'model'}
-              onValueChange={(value) => {
-                const selected = snapshot.models.find((item) => `${item.provider}/${item.id}` === value)
-                if (selected) void onCommand({ type: 'set_model', provider: selected.provider, modelId: selected.id }).catch(onError)
-              }}
-              options={snapshot.models.map((item) => ({ label: String(item.name ?? item.id), value: `${item.provider}/${item.id}` }))}
-              placeholder="Choose a model"
-              tone="model"
+              onOpenChange={(open) => setOpenSelect(open ? 'model' : null)}
               triggerRef={modelTriggerRef}
-              value={currentModel}
             />
-            <ComposerSelect
-              ariaLabel="Thinking level"
-              onOpenChange={(open) => setOpenSelect(open ? 'thinking' : null)}
+            <ThinkingSelect
+              thinking={thinking}
+              onCommand={onCommand}
+              onError={onError}
               open={openSelect === 'thinking'}
-              onValueChange={(value) => void onCommand({ type: 'set_thinking_level', level: value }).catch(onError)}
-              options={['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].map((level) => ({ label: capitalizeLabel(level), value: level }))}
-              tone="thinking"
+              onOpenChange={(open) => setOpenSelect(open ? 'thinking' : null)}
               triggerRef={thinkingTriggerRef}
-              value={thinking}
             />
 
-            {running && <ComposerSelect
-              ariaLabel="Next message behavior"
-              onValueChange={(value) => setBehavior(value as 'steer' | 'followUp')}
-              options={[{ label: 'Steer', value: 'steer' }, { label: 'Follow up', value: 'followUp' }]}
-              tone="behavior"
-              value={behavior}
-            />}
+            {running && <BehaviorSelect behavior={behavior} onChange={setBehavior} />}
           </div>
           <div className="composer-primary-actions">
             <span className="composer-stop-slot">{running && <Tooltip label="Stop generation"><button aria-label="Stop generation" className="icon-button danger" onClick={() => void onAbort().catch(onError)} type="button">
@@ -268,74 +258,16 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
             </button></Tooltip>
           </div>
         </div>
-        <div className="composer-info" aria-label="Session information">
-          <div className="composer-session">{running && <span aria-label="Pi is active" className="status-dot" role="img" />}<strong>{session.name}</strong><Tooltip label={session.cwd}><span>{session.cwd}</span></Tooltip></div>
-          <div className="composer-stats"><span><b>Cost</b>{cost}</span><span className={contextClass}><b>Context</b><small>{contextTokens}</small>{contextPercentValue !== null && <>{contextPercent}<progress aria-label={`Context usage: ${contextTokens} (${contextPercent})`} max={100} value={contextPercentValue} /></>}</span></div>
-        </div>
+        <ComposerStatusBar
+          session={session}
+          running={running}
+          cost={cost}
+          contextClass={contextClass}
+          contextTokens={contextTokens}
+          contextPercent={contextPercent}
+          contextPercentValue={contextPercentValue}
+        />
       </div>
     </form>
   )
 })
-
-function ComposerSelect({ ariaLabel, disabled, onOpenChange, onValueChange, open, options, placeholder, tone, triggerRef, value }: {
-  ariaLabel: string
-  disabled?: boolean
-  onValueChange: (value: string) => void
-  options: { label: string; value: string }[]
-  placeholder?: string
-  tone: 'agent' | 'behavior' | 'command' | 'model' | 'thinking'
-  value: string
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
-  triggerRef?: RefObject<HTMLButtonElement | null>
-}) {
-  return (
-    <Select.Root disabled={disabled} onOpenChange={onOpenChange} open={open} onValueChange={onValueChange} value={value}>
-      <Select.Trigger aria-label={ariaLabel} className={`composer-select ${tone}`} ref={triggerRef}>
-        <ComposerSelectIcon tone={tone} />
-        <Select.Value placeholder={placeholder} />
-      </Select.Trigger>
-      <Select.Portal>
-        <Select.Content className={`composer-select-content ${tone}`} position="popper" sideOffset={7}>
-          <Select.Viewport>
-            {options.map((option) => (
-              <Select.Item className="composer-select-option" key={option.value} value={option.value}>
-                <Select.ItemText>{option.label}</Select.ItemText>
-                <Select.ItemIndicator aria-hidden="true">✓</Select.ItemIndicator>
-              </Select.Item>
-            ))}
-          </Select.Viewport>
-        </Select.Content>
-      </Select.Portal>
-    </Select.Root>
-  )
-}
-
-/** Makes technical values readable in composer labels without changing RPC values. */
-function capitalizeLabel(value: string): string {
-  return value ? `${value[0].toUpperCase()}${value.slice(1)}` : value
-}
-
-/** Uses consistent SVG pictograms independent of a font or emoji set. */
-function ComposerSelectIcon({ tone }: { tone: 'agent' | 'behavior' | 'command' | 'model' | 'thinking' }) {
-  if (tone === 'model') return <svg aria-hidden="true" className="composer-select-icon" viewBox="0 0 16 16"><path d="m2.5 5 5.5-2.5L13.5 5 8 7.5 2.5 5Zm0 3L8 10.5 13.5 8M2.5 11 8 13.5l5.5-2.5" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.4" /></svg>
-  if (tone === 'thinking') return <svg aria-hidden="true" className="composer-select-icon" viewBox="0 0 16 16"><path d="m8 2 1.4 4.6L14 8l-4.6 1.4L8 14 6.6 9.4 2 8l4.6-1.4L8 2Z" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.4" /></svg>
-  return <span className="composer-select-icon" aria-hidden="true" />
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function formatTokens(value: number): string {
-  return value >= 1000 ? `${Math.round(value / 1000)}k` : String(value)
-}
-
-/** Restores the draft for one session, falling back to the legacy key for migration. */
-function readComposerDraft(storageKey: string): string {
-  try {
-    return window.localStorage.getItem(storageKey) ?? window.localStorage.getItem(storageKey.replace('pi-livecraft.composer-draft.', 'pi-workbench.composer-draft.')) ?? ''
-  } catch {
-    return ''
-  }
-}

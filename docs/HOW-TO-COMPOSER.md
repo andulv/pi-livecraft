@@ -4,6 +4,27 @@ This guide covers adding a toolbar button, dropdown, or session stat to the comp
 Every step is required unless noted otherwise. Open
 [`Composer.tsx`](../src/features/composer/Composer.tsx) alongside and follow its shape.
 
+## Project structure
+
+```
+composer/
+├── Composer.tsx              # Form, textarea, images, send/stop, assembly
+├── composer.css              # All composer styles
+├── composer-images.ts        # Image paste, resize, compress
+├── composer-utils.ts         # capitalizeLabel, formatTokens, readComposerDraft
+├── prompt-title.ts           # Immediate session title
+├── selects/
+│   ├── ComposerSelect.tsx    # Generic Radix Select wrapper + icon
+│   ├── AgentSelect.tsx       # Agent picker (props → RPC)
+│   ├── ModelSelect.tsx       # Model picker (snapshot → RPC)
+│   ├── ThinkingSelect.tsx    # Thinking level picker (snapshot → RPC)
+│   └── BehaviorSelect.tsx    # Steer / Follow-up (running only)
+└── status-bar/
+    ├── ComposerStatusBar.tsx # Layout container
+    ├── SessionInfo.tsx       # Name, cwd, active dot
+    └── SessionStats.tsx      # Cost, context usage + progress bar
+```
+
 ## 1. Understand the data flow
 
 The composer never calls the backend directly. All data arrives through props from
@@ -57,13 +78,10 @@ The toolbar lives inside `<div className="composer-tools">`. Each button is a pl
 
 - Use `Tooltip` from `../../components/Tooltip.tsx` for hover labels.
 - Buttons that shouldn't fire while Pi is running check `running`.
-- Buttons that need an active session guard with `!session.id`.
 - Use the `.icon-button` class for consistent sizing. Add `.danger` for destructive
   actions.
 
 **Props and App.tsx wiring (optional):**
-
-If the button needs a callback that doesn't exist yet:
 
 ```tsx
 // In Composer's prop interface
@@ -80,30 +98,45 @@ onMyAction: () => void
 
 ## 3. Add a dropdown
 
-The composer uses `ComposerSelect`, a local wrapper around Radix Select defined in the
-same file. It provides consistent styling, keyboard navigation, and portal-based
-rendering.
+Dropdowns live in `selects/`. Each is a standalone component built on
+[`ComposerSelect`](../src/features/composer/selects/ComposerSelect.tsx), the generic
+Radix Select wrapper.
 
-**Pattern:** `ComposerSelect` → `onValueChange` → `onCommand()` for Pi actions, or a
-local callback for UI-only state.
+**Create the select component:**
 
 ```tsx
-<ComposerSelect
-  ariaLabel="My option"
-  onValueChange={(value) => {
-    void onCommand({ type: 'my_rpc_command', field: value }).catch(onError)
-  }}
-  options={[
-    { label: 'First', value: 'first' },
-    { label: 'Second', value: 'second' },
-  ]}
-  placeholder="Choose…"
-  tone="agent"
-  value={currentValue}
-/>
+// src/features/composer/selects/MySelect.tsx
+
+import { ComposerSelect } from './ComposerSelect.tsx'
+
+export function MySelect({ value, onChange }: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <ComposerSelect
+      ariaLabel="My option"
+      onValueChange={onChange}
+      options={[
+        { label: 'First', value: 'first' },
+        { label: 'Second', value: 'second' },
+      ]}
+      placeholder="Choose…"
+      tone="agent"
+      value={value}
+    />
+  )
+}
 ```
 
-**Props:**
+**Wire it in `Composer.tsx`:**
+
+```tsx
+// Inside <div className="composer-tools">
+<MySelect value={myValue} onChange={handleChange} />
+```
+
+**`ComposerSelect` props:**
 
 | Prop | Notes |
 |---|---|
@@ -121,27 +154,30 @@ display.
 
 ## 4. Add a session stat
 
-Stats appear in `<div className="composer-stats">` inside the footer. Each stat is a
-`<span>` with a `<b>` label and inline content.
+Stats live in [`status-bar/SessionStats.tsx`](../src/features/composer/status-bar/SessionStats.tsx).
+Each stat is a `<span>` with a `<b>` label and inline content.
+
+**Add a stat to `SessionStats`:**
 
 ```tsx
+// In SessionStats.tsx, after the existing <span> entries
 <span>
   <b>My stat</b>
   {myFormattedValue}
 </span>
 ```
 
-**Pattern:** extract the raw value from `snapshot.stats`, format it, guard against
-missing data.
+**Derive the value in `Composer.tsx` and forward it:**
+
+Add a prop to `SessionStats`, derive the formatted value in `Composer.tsx` before the
+JSX, and pass it through `ComposerStatusBar`.
 
 ```tsx
-const stats = snapshot.stats
-const myValue = typeof stats?.myField === 'number' ? stats.myField : null
+const myValue = typeof snapshot.stats?.myField === 'number' ? snapshot.stats.myField : null
 const displayValue = myValue === null ? '—' : `${myValue} tokens`
-```
 
-Keep formatting logic in the component body, before the JSX. If the formatting is
-non-trivial, extract a helper function at the bottom of the file.
+// Pass to ComposerStatusBar, which forwards to SessionStats
+```
 
 ## 5. (Optional) Change the input or send behavior
 
@@ -159,6 +195,8 @@ rare and high-impact — trace every caller of the modified handler before editi
 
 | File | Action |
 |---|---|
-| `src/features/composer/Composer.tsx` | Add button, dropdown, or stat |
+| `src/features/composer/Composer.tsx` | Add button, wire new select, or derive stat value |
+| `src/features/composer/selects/<Select>.tsx` | (optional) New select component |
+| `src/features/composer/status-bar/SessionStats.tsx` | (optional) New stat entry |
 | `src/App.tsx` | (optional) New props or callbacks |
 | `src/api.ts` | (optional) If the callback needs a new backend route |
