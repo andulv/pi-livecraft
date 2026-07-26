@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import { Tooltip } from './components/Tooltip.tsx'
-import { commitAndPush, createSession, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, improvePrompt, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, openTerminal, refreshQuotas, resetGitCommit, revertGitCommit, sendPiCommand } from './api.ts'
+import { commitChanges, createSession, discardChanges, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, improvePrompt, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, openTerminal, pushCommits, refreshQuotas, resetGitCommit, revertGitCommit, sendPiCommand } from './api.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type { GitSnapshot, JsonObject, ManagerEvent, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary } from '../shared/types.ts'
 import { Composer } from './features/composer/Composer.tsx'
@@ -9,7 +9,7 @@ import { promptSessionTitle } from './features/composer/prompt-title.ts'
 import { ToastStack, type Toast } from './features/notifications/ToastStack.tsx'
 import { activityForPiEvent, sessionActivity, type Activity, type PiConnection } from './features/conversation/activity.ts'
 import { Conversation } from './features/conversation/Conversation.tsx'
-import { applyToolCallUpdate, interruptToolCallGeneration, toolCallInUpdate, type ToolExecution, type ToolResult } from './features/conversation/tool-calls.ts'
+import { applyToolCallUpdate, applyToolExecutionUpdate, interruptToolCallGeneration, toolCallInUpdate, toolExecutionUpdateInEvent, type ToolExecution, type ToolResult } from './features/conversation/tool-calls.ts'
 import { AskUserQuestionDialog, ExtensionDialog } from './features/dialogs/Dialogs.tsx'
 import { isAgentSelector, isAskUserQuestionDialog, isBlockingDialog, type UiDialog } from './features/dialogs/dialog-protocol.ts'
 import { clampRightSidebarWidth, isRightWidget, readRightSidebarWidth, type RightWidget } from './features/right-sidebar/right-sidebar.ts'
@@ -454,6 +454,8 @@ function App() {
         flushLiveUpdates()
         setToolExecutions((current) => applyToolCallUpdate(current, streamedToolCall, crypto.randomUUID()))
       }
+      const toolExecutionUpdate = toolExecutionUpdateInEvent(event)
+      if (toolExecutionUpdate) setToolExecutions((current) => applyToolExecutionUpdate(current, toolExecutionUpdate))
       if (event.type === 'tool_execution_start' && typeof event.toolCallId === 'string' && typeof event.toolName === 'string') {
         toolStartedAtRef.current.set(event.toolCallId, performance.now())
         startToolExecution({ id: event.toolCallId, name: event.toolName, args: event.args })
@@ -807,11 +809,21 @@ function App() {
         width={rightSidebarWidth}
         workspacePath={workspacePath}
         railActions={railActions}
-        onAction={async (message) => {
-          const result = await commitAndPush(workspacePath, message)
+        onCommit={async (message) => {
+          await commitChanges(workspacePath, message)
           await refreshGit(workspacePath, true)
-          if (result.pushError) showToast('error', `${result.committed ? 'Commit created, but' : 'Push'} failed: ${result.pushError}`)
-          else showToast('notice', result.committed ? 'Commit created and pushed.' : 'Commits pushed.')
+          showToast('notice', 'Commit created.')
+        }}
+        onDiscard={async () => {
+          await discardChanges(workspacePath)
+          await refreshGit(workspacePath, true)
+          showToast('notice', 'Changes discarded.')
+        }}
+        onPush={async () => {
+          const result = await pushCommits(workspacePath)
+          await refreshGit(workspacePath, true)
+          if (result.pushError) showToast('error', `Push failed: ${result.pushError}`)
+          else showToast('notice', 'Commits pushed.')
           return result
         }}
         onError={(cause) => showToast('error', messageOf(cause))}

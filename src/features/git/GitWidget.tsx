@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import type { GitActionResult, GitFileDiff, GitResetResult, GitRevertResult, GitSnapshot } from '../../../shared/types.ts'
+import type { GitFileDiff, GitPushResult, GitResetResult, GitRevertResult, GitSnapshot } from '../../../shared/types.ts'
 import { WidgetLayout } from '../right-sidebar/WidgetLayout.tsx'
 import { parseGitDiff } from './git-diff.ts'
 
 /** Owns Git-specific selection, actions, and diff rendering inside the sidebar. */
-export function GitWidget({ snapshot, onAction, onError, onFileSelect, onRefresh, onReset, onRevert }: {
+export function GitWidget({ snapshot, onCommit, onDiscard, onError, onFileSelect, onPush, onRefresh, onReset, onRevert }: {
   snapshot: GitSnapshot
-  onAction: (message: string) => Promise<GitActionResult>
+  onCommit: (message: string) => Promise<void>
+  onDiscard: () => Promise<void>
   onError: (cause: unknown) => void
   onFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
+  onPush: () => Promise<GitPushResult>
   onRefresh: () => void
   onReset: (hash: string) => Promise<GitResetResult>
   onRevert: (hash: string) => Promise<GitRevertResult>
@@ -31,12 +33,37 @@ export function GitWidget({ snapshot, onAction, onError, onFileSelect, onRefresh
     }
   }
 
-  /** Executes the requested Git action and preserves the message if it fails. */
-  async function action(): Promise<void> {
+  /** Commits all changes with the current message. */
+  async function commit(): Promise<void> {
     setBusy(true)
     try {
-      const result = await onAction(message)
-      if (result.committed) setMessage('')
+      await onCommit(message)
+      setMessage('')
+    } catch (cause) {
+      onError(cause)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Pushes commits ahead of the tracked branch. */
+  async function push(): Promise<void> {
+    setBusy(true)
+    try {
+      await onPush()
+    } catch (cause) {
+      onError(cause)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Discards all uncommitted changes after confirmation. */
+  async function discard(): Promise<void> {
+    if (!window.confirm('Discard all uncommitted changes? This will delete new files and revert modifications.')) return
+    setBusy(true)
+    try {
+      await onDiscard()
     } catch (cause) {
       onError(cause)
     } finally {
@@ -71,9 +98,13 @@ export function GitWidget({ snapshot, onAction, onError, onFileSelect, onRefresh
   }
 
   return <WidgetLayout
-    footer={!selectedPath && (hasChanges || snapshot.ahead > 0) && <form className="git-actions" onSubmit={(event) => { event.preventDefault(); void action() }}>
-      {hasChanges && <input aria-label="Commit message" disabled={busy} onChange={(event) => setMessage(event.target.value)} placeholder="Commit message" value={message} />}
-      <button disabled={busy || (hasChanges && !message.trim())} type="submit">{busy ? 'Git in progress…' : hasChanges ? 'Commit & push' : `Push ${snapshot.ahead} commit${snapshot.ahead > 1 ? 's' : ''}`}</button>
+    footer={!selectedPath && <form className="git-actions" onSubmit={(event) => { event.preventDefault(); void commit() }}>
+      <input aria-label="Commit message" disabled={busy} onChange={(event) => setMessage(event.target.value)} placeholder="Commit message" value={message} />
+      <div className="git-action-buttons">
+        <button disabled={busy || !hasChanges || !message.trim()} type="submit">Commit</button>
+        <button disabled={busy || snapshot.ahead === 0} onClick={() => void push()} type="button">Push{snapshot.ahead > 0 ? ` ${snapshot.ahead}` : ''}</button>
+        <button className="git-discard" disabled={busy || !hasChanges} onClick={() => void discard()} type="button">Reset</button>
+      </div>
     </form>}
     header={fileDiff || selectedPath ? <><Tooltip label="Back"><button aria-label="Back to Git files" className="git-back" onClick={() => { setFileDiff(null); setSelectedPath(null) }} type="button">←</button></Tooltip><Tooltip label={selectedPath ?? ''}><strong>{selectedPath}</strong></Tooltip></> : <><div><strong>{snapshot.branch}</strong><span>{hasChanges ? `${snapshot.files.length} file${snapshot.files.length > 1 ? 's' : ''} modified` : 'Clean tree'}</span></div><Tooltip label="Refresh"><button aria-label="Refresh Git state" className="git-refresh" onClick={onRefresh} type="button">↻</button></Tooltip></>}
   >

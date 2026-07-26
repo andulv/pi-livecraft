@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { ManagerClient } from './manager-client.ts'
 import { listRecentPiSessions, loadPiSession } from './pi-session-store.ts'
-import { commitAndPush, getGitFileDiff, getGitSnapshot, resetGitCommit, revertGitCommit } from './features/git/git.ts'
+import { commitAndPush, commitChanges, discardChanges, getGitFileDiff, getGitSnapshot, pushCommits, resetGitCommit, revertGitCommit } from './features/git/git.ts'
 import { QuotaService } from './features/quotas/quota-service.ts'
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
 import { loadWorkspaceTodos, parseTodoItems, saveWorkspaceTodos } from './features/todos/todo-store.ts'
@@ -188,6 +188,33 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     const cwd = await resolveWorkingDirectory(body.cwd)
     const message = typeof body.message === 'string' ? body.message : ''
     sendJson(response, 200, await commitAndPush(cwd, message))
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/git/commit') {
+    const body = await readJsonBody(request)
+    if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
+    const cwd = await resolveWorkingDirectory(body.cwd)
+    const message = typeof body.message === 'string' ? body.message : ''
+    await commitChanges(cwd, message)
+    sendJson(response, 200, { ok: true })
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/git/push') {
+    const body = await readJsonBody(request)
+    if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
+    const cwd = await resolveWorkingDirectory(body.cwd)
+    sendJson(response, 200, await pushCommits(cwd))
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/git/discard') {
+    const body = await readJsonBody(request)
+    if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
+    const cwd = await resolveWorkingDirectory(body.cwd)
+    await discardChanges(cwd)
+    sendJson(response, 200, { ok: true })
     return
   }
 

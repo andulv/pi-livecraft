@@ -61,6 +61,11 @@ export interface GitActionResult {
   pushError?: string
 }
 
+export interface GitPushResult {
+  pushed: boolean
+  pushError?: string
+}
+
 export interface GitResetResult {
   hash: string
 }

@@ -115,26 +115,57 @@ export async function revertGitCommit(cwd: string, hash: string): Promise<GitRev
   return { hash }
 }
 
+/** Commits all current changes with the given message. */
+export async function commitChanges(cwd: string, message: string): Promise<void> {
+  const snapshot = await getGitSnapshot(cwd)
+  if (!snapshot.repository) throw new Error('The current directory is not a Git repository.')
+  if (snapshot.files.length === 0) throw new Error('There are no changes to commit.')
+  if (!message.trim()) throw new Error('A commit message is required.')
+  await runGit(cwd, ['add', '-A'])
+  await runGit(cwd, ['commit', '-m', message.trim()])
+}
+
+/** Pushes commits ahead of the tracked branch. */
+export async function pushCommits(cwd: string): Promise<{ pushed: boolean; pushError?: string }> {
+  const snapshot = await getGitSnapshot(cwd)
+  if (!snapshot.repository) throw new Error('The current directory is not a Git repository.')
+  if (snapshot.ahead === 0) throw new Error('There are no commits to push.')
+  const push = await runGit(cwd, ['push'], [0, 1])
+  return push.exitCode === 0
+    ? { pushed: true }
+    : { pushed: false, pushError: gitError(push) }
+}
+
+/** Discards all uncommitted changes, including untracked files (but keeps ignored files). */
+export async function discardChanges(cwd: string): Promise<void> {
+  const snapshot = await getGitSnapshot(cwd)
+  if (!snapshot.repository) throw new Error('The current directory is not a Git repository.')
+  if (snapshot.files.length === 0) throw new Error('There are no changes to discard.')
+  // On a branch with commits, restore index + working tree to HEAD.
+  // On an unborn branch (no commits), remove everything from the index.
+  const branch = await runGit(cwd, ['rev-parse', '--verify', 'HEAD'], [0, 1])
+  if (branch.exitCode === 0) {
+    await runGit(cwd, ['reset', '--hard', 'HEAD'])
+  } else {
+    await runGit(cwd, ['rm', '-rf', '--cached', '.'])
+  }
+  // Remove untracked files (including those in .gitignore'd dirs but not ignored files).
+  await runGit(cwd, ['clean', '-fd'])
+}
+
 /** Commits current changes and tries to push, or pushes commits already ahead. */
 export async function commitAndPush(cwd: string, message: string): Promise<{ committed: boolean; pushed: boolean; pushError?: string }> {
   const snapshot = await getGitSnapshot(cwd)
   if (!snapshot.repository) throw new Error('The current directory is not a Git repository.')
 
   if (snapshot.files.length > 0) {
-    if (!message.trim()) throw new Error('A commit message is required.')
-    await runGit(cwd, ['add', '-A'])
-    await runGit(cwd, ['commit', '-m', message.trim()])
-    const push = await runGit(cwd, ['push'], [0, 1])
-    return push.exitCode === 0
-      ? { committed: true, pushed: true }
-      : { committed: true, pushed: false, pushError: gitError(push) }
+    await commitChanges(cwd, message)
+    const result = await pushCommits(cwd).catch(() => ({ pushed: false, pushError: 'Push failed.' }))
+    return { committed: true, ...result }
   }
 
   if (snapshot.ahead === 0) throw new Error('There are no changes or commits to push.')
-  const push = await runGit(cwd, ['push'], [0, 1])
-  return push.exitCode === 0
-    ? { committed: false, pushed: true }
-    : { committed: false, pushed: false, pushError: gitError(push) }
+  return { committed: false, ...(await pushCommits(cwd)) }
 }
 
 export function parseGitStatus(output: string): Omit<GitFileChange, 'additions' | 'deletions'>[] {

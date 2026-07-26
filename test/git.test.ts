@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import test from 'node:test'
-import { getGitFileDiff, getGitSnapshot, mergeNumstats, parseGitStatus, resetGitCommit, revertGitCommit } from '../server/features/git/git.ts'
+import { commitChanges, discardChanges, getGitFileDiff, getGitSnapshot, mergeNumstats, parseGitStatus, pushCommits, resetGitCommit, revertGitCommit } from '../server/features/git/git.ts'
 
 const execFile = promisify(execFileCallback)
 
@@ -132,5 +132,82 @@ test('reports, resets, and reverts unpushed commits', async () => {
   } finally {
     await rm(directory, { force: true, recursive: true })
     await rm(remote, { force: true, recursive: true })
+  }
+})
+
+test('commits without pushing, pushes separately, and discards changes', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-livecraft-git-'))
+  const remote = await mkdtemp(join(tmpdir(), 'pi-livecraft-git-remote-'))
+  try {
+    await execFile('git', ['init', '--bare', '--quiet'], { cwd: remote })
+    await execFile('git', ['init', '--quiet'], { cwd: directory })
+    await execFile('git', ['config', 'user.email', 'test@example.com'], { cwd: directory })
+    await execFile('git', ['config', 'user.name', 'Test User'], { cwd: directory })
+    await writeFile(join(directory, 'initial.ts'), 'hello\n')
+    await execFile('git', ['add', 'initial.ts'], { cwd: directory })
+    await execFile('git', ['commit', '--quiet', '-m', 'Initial'], { cwd: directory })
+    await execFile('git', ['branch', '-M', 'main'], { cwd: directory })
+    await execFile('git', ['remote', 'add', 'origin', remote], { cwd: directory })
+    await execFile('git', ['push', '--quiet', '--set-upstream', 'origin', 'main'], { cwd: directory })
+
+    // Commit only — does not push
+    await writeFile(join(directory, 'initial.ts'), 'hello\nworld\n')
+    await writeFile(join(directory, 'new.ts'), 'new file\n')
+    await commitChanges(directory, 'Local only')
+
+    let snapshot = await getGitSnapshot(directory)
+    assert.equal(snapshot.files.length, 0)
+    assert.equal(snapshot.ahead, 1)
+    assert.equal(snapshot.commits[0].subject, 'Local only')
+
+    // Push the commit
+    const pushResult = await pushCommits(directory)
+    assert.equal(pushResult.pushed, true)
+
+    snapshot = await getGitSnapshot(directory)
+    assert.equal(snapshot.ahead, 0)
+
+    // Discard uncommitted changes including new files
+    await writeFile(join(directory, 'modified.ts'), 'dirty\n')
+    await writeFile(join(directory, 'untracked.ts'), 'new\n')
+    await execFile('git', ['add', 'modified.ts'], { cwd: directory })
+
+    let dirty = await getGitSnapshot(directory)
+    assert.equal(dirty.files.length, 2)
+
+    await discardChanges(directory)
+
+    dirty = await getGitSnapshot(directory)
+    assert.equal(dirty.files.length, 0)
+  } finally {
+    await rm(directory, { force: true, recursive: true })
+    await rm(remote, { force: true, recursive: true })
+  }
+})
+
+test('rejects commit without changes or message', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-livecraft-git-'))
+  try {
+    await execFile('git', ['init', '--quiet'], { cwd: directory })
+    await assert.rejects(commitChanges(directory, 'Nothing'), /no changes/)
+    await writeFile(join(directory, 'file.ts'), 'content\n')
+    await assert.rejects(commitChanges(directory, '  '), /commit message/)
+  } finally {
+    await rm(directory, { force: true, recursive: true })
+  }
+})
+
+test('rejects push without ahead commits', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-livecraft-git-'))
+  try {
+    await execFile('git', ['init', '--quiet'], { cwd: directory })
+    await execFile('git', ['config', 'user.email', 'test@example.com'], { cwd: directory })
+    await execFile('git', ['config', 'user.name', 'Test User'], { cwd: directory })
+    await writeFile(join(directory, 'file.ts'), 'content\n')
+    await execFile('git', ['add', 'file.ts'], { cwd: directory })
+    await execFile('git', ['commit', '--quiet', '-m', 'Initial'], { cwd: directory })
+    await assert.rejects(pushCommits(directory), /no commits to push/)
+  } finally {
+    await rm(directory, { force: true, recursive: true })
   }
 })

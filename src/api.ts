@@ -1,4 +1,4 @@
-import type { DirectoryListing, GitActionResult, GitFileDiff, GitResetResult, GitRevertResult, GitSnapshot, JsonObject, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary, TodoItem, WorkspaceFile } from '../shared/types.ts'
+import type { DirectoryListing, GitActionResult, GitFileDiff, GitPushResult, GitResetResult, GitRevertResult, GitSnapshot, JsonObject, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary, TodoItem, WorkspaceFile } from '../shared/types.ts'
 
 export async function listSessions(): Promise<SessionSummary[]> {
   return request<SessionSummary[]>('/api/sessions')
@@ -58,6 +58,27 @@ export async function commitAndPush(cwd: string, message: string): Promise<GitAc
   return request<GitActionResult>('/api/git/action', {
     method: 'POST',
     body: JSON.stringify({ cwd, message }),
+  })
+}
+
+export async function commitChanges(cwd: string, message: string): Promise<void> {
+  await request<void>('/api/git/commit', {
+    method: 'POST',
+    body: JSON.stringify({ cwd, message }),
+  })
+}
+
+export async function pushCommits(cwd: string): Promise<GitPushResult> {
+  return request<GitPushResult>('/api/git/push', {
+    method: 'POST',
+    body: JSON.stringify({ cwd }),
+  })
+}
+
+export async function discardChanges(cwd: string): Promise<void> {
+  await request<void>('/api/git/discard', {
+    method: 'POST',
+    body: JSON.stringify({ cwd }),
   })
 }
 
