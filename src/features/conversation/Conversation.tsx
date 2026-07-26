@@ -171,14 +171,16 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
       <div className="conversation-content" ref={conversationContentRef}>
       {allMessages.map((message, index) => {
         const calls = detailedView ? toolCallsInMessage(message) : []
+        const usage = usagesByMessage.get(index)
         if (!isVisibleConversationMessage(message) && calls.length === 0) return null
         return <div className={highlightedTarget === `message:${index}` ? 'conversation-target' : undefined} data-message-index={index} key={`${String(message.timestamp ?? '')}-${index}`}>
-          {isVisibleConversationMessage(message) && <MessageCard message={message} onStartSession={onStartSession} usage={usagesByMessage.get(index)} />}
+          {isVisibleConversationMessage(message) && <MessageCard message={message} onStartSession={onStartSession} />}
           {calls.map((call) => {
             const execution = executionsByCallId.get(call.id)
             const result = resultsByCallId.get(call.id) ?? execution?.result
             return <ToolCallCard args={call.args} darkMode={darkMode} hasResult={result !== undefined} id={call.id} interrupted={execution?.status === 'interrupted'} key={call.id} name={call.name} onError={onError} onStartSession={onStartSession} partialResultContent={execution?.partialResult?.content} repositoryRoot={repositoryRoot} resultContent={result?.content} resultDetails={result?.details} resultError={result?.isError} streaming={execution?.status === 'generating'} targeted={highlightedTarget === `tool:${call.id}`} workspacePath={workspacePath} />
           })}
+          {usage && <TurnUsage usage={usage} />}
         </div>
       })}
       {visibleLiveMessages.map((message, index) => {
@@ -217,12 +219,12 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
   )
 }
 
-const MessageCard = memo(function MessageCard({ message, onStartSession, usage }: { message: JsonObject; onStartSession: (draft: string) => Promise<void>; usage?: MessageUsage }) {
+const MessageCard = memo(function MessageCard({ message, onStartSession }: { message: JsonObject; onStartSession: (draft: string) => Promise<void> }) {
   if (message.role === 'custom' && typeof message.customType === 'string') return <DefaultCustomMessage message={message} />
-  return <DefaultMessageCard message={message} onStartSession={onStartSession} usage={usage} />
+  return <DefaultMessageCard message={message} onStartSession={onStartSession} />
 })
 
-const DefaultMessageCard = memo(function DefaultMessageCard({ message, onStartSession, usage }: { message: JsonObject; onStartSession: (draft: string) => Promise<void>; usage?: MessageUsage }) {
+const DefaultMessageCard = memo(function DefaultMessageCard({ message, onStartSession }: { message: JsonObject; onStartSession: (draft: string) => Promise<void> }) {
   const role = String(message.role)
   const timestamp = typeof message.timestamp === 'number' ? new Date(message.timestamp) : null
   const time = timestamp && !Number.isNaN(timestamp.getTime()) ? timestamp : null
@@ -230,7 +232,6 @@ const DefaultMessageCard = memo(function DefaultMessageCard({ message, onStartSe
   return <article className={`message ${role}`}>
     <div className="content">{renderContent(message.content ?? message.output)}</div>
     {output && <ContextSessionButton onClick={() => onStartSession(outputContextDraft(output))} />}
-    {usage && <TurnUsage usage={usage} />}
     {role === 'user' && time && <time className="message-time" dateTime={time.toISOString()}>{time.toLocaleTimeString(navigator.language, { hour: '2-digit', minute: '2-digit' })}</time>}
   </article>
 })
