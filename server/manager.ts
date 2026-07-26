@@ -21,7 +21,7 @@ import type {
 } from '../shared/types.ts'
 
 const host = '127.0.0.1'
-const port = readPort('PI_LIVECRAFT_MANAGER_PORT', 'PI_WORKBENCH_MANAGER_PORT', 43_120)
+const port = readPort('PI_LIVECRAFT_MANAGER_PORT', 43_120)
 const clients = new Set<Socket>()
 const sessions = new Map<string, ManagedSession>()
 
@@ -269,9 +269,9 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-/** Reads a port from the primary env var with a backward-compatible fallback to a legacy name. */
-function readPort(primary: string, legacy: string, fallback: number): number {
-  const value = Number(process.env[primary] ?? process.env[legacy] ?? fallback)
+/** Reads and validates a port from the environment, using the supplied default when unset. */
+function readPort(primary: string, fallback: number): number {
+  const value = Number(process.env[primary] ?? fallback)
   if (!Number.isInteger(value) || value < 1 || value > 65_535) throw new Error(`${primary} must be a valid port`)
   return value
 }

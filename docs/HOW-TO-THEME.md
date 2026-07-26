@@ -22,7 +22,7 @@ The following tokens are computed from the 8 source colours and **must not** be 
 | Token | Derivation |
 |---|---|
 | `--surface-raised` | `surface` mixed toward `canvas` (92:8) |
-| `--sidebar` | `canvas` mixed toward `ink` (90:10) |
+| `--sidebar` | `canvas` mixed toward `ink` (96:4 light, 90:10 dark) |
 | `--muted` | `ink` at ~55% opacity over `canvas` |
 | `--subtle` | `ink` at ~42% opacity over `canvas` |
 | `--line` | `ink` at ~12% opacity over `canvas` |

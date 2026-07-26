@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { applyToolCallUpdate, applyToolExecutionUpdate, assistantTurnParts, formatToolCallTooltip, formatToolData, interruptToolCallGeneration, isToolCallPending, parseEditDiff, readContentDisplay, sameAssistantMessage, toolCallInUpdate, toolCallPresentation, toolCallsInMessage, toolContentText, toolDataLength, toolEditChanges, toolExecutionUpdateInEvent, toolFilePath, toolResultInMessage, toolTextPreview, truncateToolText, unreconciledLiveMessages, windowsFileUrl } from '../src/features/conversation/tool-calls.ts'
+import { applyToolCallUpdate, applyToolExecutionUpdate, assistantTurnParts, formatToolCallTooltip, formatToolData, interruptToolCallGeneration, isToolCallPending, parseEditDiff, readContentDisplay, sameAssistantMessage, toolCallInUpdate, toolCallPresentation, toolCallsInMessage, toolContentText, toolDataLength, toolEditChanges, toolExecutionUpdateInEvent, toolFilePath, toolResultInMessage, toolTextPreview, truncateToolText, unreconciledLiveMessages, fileUrl } from '../src/features/conversation/tool-calls.ts'
 
 test('extracts tool calls and their resolved result from Pi messages', () => {
   const calls = toolCallsInMessage({
@@ -163,9 +163,10 @@ test('previews four lines and reports the remaining output', () => {
   })
 })
 
-test('builds browser file URLs from Windows and WSL share paths', () => {
-  assert.equal(windowsFileUrl('C:\\Users\\Ada Lovelace\\index.html'), 'file:///C:/Users/Ada%20Lovelace/index.html')
-  assert.equal(windowsFileUrl('\\\\wsl.localhost\\Ubuntu\\home\\ada\\index.html'), 'file://wsl.localhost/Ubuntu/home/ada/index.html')
+test('builds browser file URLs from Linux, Windows, and WSL paths', () => {
+  assert.equal(fileUrl('/home/ada/index.html'), 'file:///home/ada/index.html')
+  assert.equal(fileUrl('C:\\Users\\Ada Lovelace\\index.html'), 'file:///C:/Users/Ada%20Lovelace/index.html')
+  assert.equal(fileUrl('\\\\wsl.localhost\\Ubuntu\\home\\ada\\index.html'), 'file://wsl.localhost/Ubuntu/home/ada/index.html')
 })
 
 test('detects Markdown, HTML and supported code formats read from the repository', () => {

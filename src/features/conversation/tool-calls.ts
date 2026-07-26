@@ -247,10 +247,11 @@ export function toolTextPreview(text: string, maxLines = 4): { text: string; rem
   return { text: `${lines.slice(0, maxLines).join('\n')}…`, remainingLineCount }
 }
 
-/** Builds a file:// URL compatible with Windows paths and WSL shares. */
-export function windowsFileUrl(path: string): string {
+/** Builds a file:// URL compatible with POSIX paths, Windows paths, and WSL shares. */
+export function fileUrl(path: string): string {
   const normalizedPath = path.replaceAll('\\', '/')
-  return normalizedPath.startsWith('//') ? `file:${encodeURI(normalizedPath)}` : `file:///${encodeURI(normalizedPath)}`
+  if (normalizedPath.startsWith('//')) return `file:${encodeURI(normalizedPath)}`
+  return `file://${encodeURI(normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`)}`
 }
 
 export function toolCallPresentation(call: ToolCall, repositoryRoot?: string | null): ToolCallPresentation {

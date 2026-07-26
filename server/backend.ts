@@ -12,12 +12,12 @@ import { openTerminalApplication, TerminalTemplateError } from './features/termi
 import { loadWorkspaceTodos, parseTodoItems, saveWorkspaceTodos } from './features/todos/todo-store.ts'
 import { readWorkspaceFile, WorkspaceFileError } from './workspace-file.ts'
 import { activeSessionMessages } from './session-snapshot.ts'
-import { isVsCodeAvailable, openExplorer, openVsCode, windowsWorkspacePath } from './vscode.ts'
+import { externalWorkspacePath, openExplorer } from './system-integration.ts'
 import type { DirectoryListing, JsonObject, ManagerEvent, SessionSnapshot } from '../shared/types.ts'
 
 const host = '127.0.0.1'
-const port = readPort('PI_LIVECRAFT_BACKEND_PORT', 'PI_WORKBENCH_BACKEND_PORT', 43_121)
-const managerPort = readPort('PI_LIVECRAFT_MANAGER_PORT', 'PI_WORKBENCH_MANAGER_PORT', 43_120)
+const port = readPort('PI_LIVECRAFT_BACKEND_PORT', 43_121)
+const managerPort = readPort('PI_LIVECRAFT_MANAGER_PORT', 43_120)
 const manager = new ManagerClient(host, managerPort)
 const eventClients = new Set<ServerResponse>()
 const distDirectory = fileURLToPath(new URL('../dist/', import.meta.url))
@@ -104,20 +104,6 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     return
   }
 
-  if (method === 'GET' && url.pathname === '/api/vscode') {
-    sendJson(response, 200, { available: await isVsCodeAvailable() })
-    return
-  }
-
-  if (method === 'POST' && url.pathname === '/api/vscode') {
-    const body = await readJsonBody(request)
-    if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
-    if (!(await isVsCodeAvailable())) throw new HttpError(409, 'VS Code is unavailable')
-    await openVsCode(await resolveWorkingDirectory(body.cwd))
-    sendJson(response, 200, { available: true })
-    return
-  }
-
   if (method === 'GET' && url.pathname === '/api/git') {
     const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
     sendJson(response, 200, await getGitSnapshot(cwd))
@@ -138,7 +124,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     if (!path) throw new HttpError(400, 'File path is required')
     try {
       const file = await readWorkspaceFile(cwd, path)
-      sendJson(response, 200, url.pathname === '/api/files' ? file : { absolutePath: file.path, path: await windowsWorkspacePath(file.path) })
+      sendJson(response, 200, url.pathname === '/api/files' ? file : { absolutePath: file.path, path: await externalWorkspacePath(file.path) })
     } catch (error) {
       if (error instanceof WorkspaceFileError) throw new HttpError(error.status, error.message)
       throw error
@@ -442,9 +428,9 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-/** Reads a port from the primary env var with a backward-compatible fallback to a legacy name. */
-function readPort(primary: string, legacy: string, fallback: number): number {
-  const value = Number(process.env[primary] ?? process.env[legacy] ?? fallback)
+/** Reads and validates a port from the environment, using the supplied default when unset. */
+function readPort(primary: string, fallback: number): number {
+  const value = Number(process.env[primary] ?? fallback)
   if (!Number.isInteger(value) || value < 1 || value > 65_535) throw new Error(`${primary} must be a valid port`)
   return value
 }

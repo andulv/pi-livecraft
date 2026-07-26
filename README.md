@@ -29,7 +29,7 @@ Pi Livecraft starts as a capable client, not a finished product you must accept 
 
 ## Quick start
 
-Pi Livecraft is designed to run in development mode. You need **Node.js 24 or newer**, **npm**, and **Pi**.
+Pi Livecraft is designed to run in development mode. You need **Node.js 24 or newer**, **npm**, and **Pi**. The target environments are Linux with a graphical desktop and WSL; native Windows is not a supported target.
 
 ### 1. Install Pi
 
@@ -56,6 +56,8 @@ npm run dev
 ```
 
 `npm run dev` keeps the frontend, backend, and manager watched while you reshape them. Open [http://127.0.0.1:5173](http://127.0.0.1:5173); `Ctrl+C` stops all three processes.
+
+On Linux, opening a folder or terminal uses the desktop tools available in your environment (`xdg-open` and `x-terminal-emulator`). Under WSL, Pi Livecraft uses Windows Explorer and Windows Terminal; leave the terminal setting empty to use that platform default, or configure a command containing `{cwd}`.
 
 > [!WARNING]
 > **Pi is not sandboxed.** It runs with your user permissions and can read files, modify code, and execute commands. Keep important work under version control and review Git actions before confirming them. Pi Livecraft limits network exposure by listening only on `127.0.0.1`.
@@ -139,6 +141,14 @@ npm run build
 ```
 
 The Pi RPC integration test additionally requires a configured Pi installation.
+
+## Troubleshooting
+
+- `pi: command not found`: install Pi globally and verify that `pi --version` works in the same shell used to start Livecraft.
+- The manager or backend is unavailable: check that ports `43120` and `43121` are free, or set `PI_LIVECRAFT_MANAGER_PORT` and `PI_LIVECRAFT_BACKEND_PORT`.
+- A new session cannot answer: launch Pi once, configure a provider with `/login`, and verify the `/agent` extension is available.
+- Linux desktop actions unavailable: install or expose `xdg-open` and `x-terminal-emulator` in `PATH`.
+- WSL desktop actions unavailable: verify that `explorer.exe`, `wslpath`, and `wt.exe` are available in the WSL `PATH`.
 
 ## Built with Pi, for Pi ❤️
 

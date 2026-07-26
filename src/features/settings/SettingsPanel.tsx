@@ -109,9 +109,9 @@ function TerminalSettings({ terminalCommand, onTerminalCommandChange }: Terminal
   return <section>
     <label className="terminal-command-row">
       <span>External terminal command</span>
-      <input aria-label="Terminal command template" onChange={(event) => onTerminalCommandChange(event.target.value)} placeholder="wt.exe -d {cwd}" spellCheck={false} value={terminalCommand} />
-      {!terminalCommand.includes('{cwd}') && <small className="terminal-command-error">The template must contain {'{cwd}'} where the workspace folder should be inserted.</small>}
-      <small>Use {'{cwd}'} for the workspace folder. Example: wt.exe -d {'{cwd}'}</small>
+      <input aria-label="Terminal command template" onChange={(event) => onTerminalCommandChange(event.target.value)} placeholder="Platform default" spellCheck={false} value={terminalCommand} />
+      {terminalCommand && !terminalCommand.includes('{cwd}') && <small className="terminal-command-error">The template must contain {'{cwd}'} where the workspace folder should be inserted.</small>}
+      <small>Leave empty for the platform default, or use {'{cwd}'} for the workspace folder.</small>
     </label>
   </section>
 }

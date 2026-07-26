@@ -27,7 +27,7 @@ export class QuotaService {
     this.#refresh ??= (async () => {
       this.#cache.setRefreshing(true)
       try {
-        await this.#manager.request({ action: 'command', sessionId, command: { type: 'prompt', message: `/workbench-quotas${automatic ? ' auto' : ''}` } }, 60_000)
+        await this.#manager.request({ action: 'command', sessionId, command: { type: 'prompt', message: `/livecraft-quotas${automatic ? ' auto' : ''}` } }, 60_000)
       } finally {
         this.#cache.setRefreshing(false)
       }

@@ -14,7 +14,7 @@ import { Tooltip } from '../../components/Tooltip.tsx'
 import { getWorkspaceFile, getWorkspaceFilePath } from '../../api.ts'
 import { fileContextDraft } from './context-session.ts'
 import { canHighlightFile } from './file-preview.ts'
-import { formatToolCallTooltip, formatToolData, parseEditDiff, readContentDisplay, toolCallPresentation, toolContentText, toolDataLength, toolEditChanges, toolFilePath, toolTextPreview, windowsFileUrl, type EditDiffLine } from './tool-calls.ts'
+import { formatToolCallTooltip, formatToolData, parseEditDiff, readContentDisplay, toolCallPresentation, toolContentText, toolDataLength, toolEditChanges, toolFilePath, toolTextPreview, fileUrl, type EditDiffLine } from './tool-calls.ts'
 
 SyntaxHighlighter.registerLanguage('bash', bash)
 SyntaxHighlighter.registerLanguage('csharp', csharp)
@@ -131,7 +131,7 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
       setHtmlOpenError(undefined)
       void getWorkspaceFilePath(workspacePath, filePath)
         .then(({ path }) => {
-          if (tab) tab.location.href = windowsFileUrl(path)
+          if (tab) tab.location.href = fileUrl(path)
         })
         .catch((cause: unknown) => {
           tab?.close()

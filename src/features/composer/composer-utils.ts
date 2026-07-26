@@ -25,11 +25,11 @@ export function ensureCompactCommand(commands: JsonObject[]): JsonObject[] {
     : [{ name: 'compact' }, ...commands]
 }
 
-/** Restores the draft for one session, falling back to the legacy key for migration. */
+/** Restores the draft for one session from local storage. */
 export function readComposerDraft(storageKey: string): string {
   try {
     const storage = (globalThis as typeof globalThis & { localStorage?: { getItem: (key: string) => string | null } }).localStorage
-    return storage?.getItem(storageKey) ?? storage?.getItem(storageKey.replace('pi-livecraft.composer-draft.', 'pi-workbench.composer-draft.')) ?? ''
+    return storage?.getItem(storageKey) ?? ''
   } catch {
     return ''
   }

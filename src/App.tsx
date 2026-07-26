@@ -35,35 +35,8 @@ const conversationViewDetails = {
   simple: { label: 'Simplified view', description: 'Messages only, without tool calls' },
   detailed: { label: 'Detailed view', description: 'Visible calls with expandable preview' },
 } as const
-/** Migrates legacy localStorage keys to the new namespace without losing user data. */
-function migrateLocalStorageKeys(): void {
-  const keyMap: Record<string, string> = {
-    'pi-workbench.workspace-path': 'pi-livecraft.workspace-path',
-    'pi-workbench.selected-session': 'pi-livecraft.selected-session',
-    'pi-workbench.conversation-view': 'pi-livecraft.conversation-view',
-    'pi-workbench.detailed-view': 'pi-livecraft.detailed-view',
-    'pi-workbench.right-sidebar-width': 'pi-livecraft.right-sidebar-width',
-    'pi-workbench.git-sidebar-width': 'pi-livecraft.git-sidebar-width',
-    'pi-workbench.theme': 'pi-livecraft.theme',
-    'pi-workbench.right-sidebar-widget': 'pi-livecraft.right-sidebar-widget',
-    'pi-workbench.git-sidebar-collapsed': 'pi-livecraft.git-sidebar-collapsed',
-    'pi-workbench.shortcuts': 'pi-livecraft.shortcuts',
-    'pi-workbench.recent-workspace-paths': 'pi-livecraft.recent-workspace-paths',
-  }
-  for (const [oldKey, newKey] of Object.entries(keyMap)) {
-    const value = window.localStorage.getItem(oldKey)
-    if (value !== null) {
-      if (window.localStorage.getItem(newKey) === null) {
-        window.localStorage.setItem(newKey, value)
-      }
-      window.localStorage.removeItem(oldKey)
-    }
-  }
-}
-
 /** Orchestrates workspace state, Pi events, and UI panels. */
 function App() {
-  migrateLocalStorageKeys()
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
   const [sentSessions, setSentSessions] = useState<RecentSession[]>([])
@@ -710,7 +683,7 @@ function App() {
     {
       key: 'explorer',
       icon: <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h4l2 2h7A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" /><path d="M3 9h18" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" /></svg>,
-      label: 'Open folder in Explorer',
+      label: 'Open folder',
       onClick: () => { void openExplorer(workspacePath).catch((cause) => showToast('error', messageOf(cause))) },
     },
     {
@@ -918,7 +891,7 @@ function readRecentWorkspaces(): string[] {
 
 function readTerminalCommand(): string {
   const stored = window.localStorage.getItem('pi-livecraft.terminal-command')
-  return stored && stored.trim() && stored.includes('{cwd}') ? stored : 'wt.exe -d {cwd}'
+  return stored && stored.trim() && stored.includes('{cwd}') ? stored : ''
 }
 
 function readActiveRightWidget(): RightWidget | null {

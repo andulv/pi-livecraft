@@ -59,14 +59,14 @@ export function SessionAnalysisWidget({ analysis, onNavigate }: { analysis: Sess
       <header><h2>Cumulative usage by tool</h2><select aria-label="Rank cumulative tool usage" onChange={(event) => setToolUsageRanking(event.target.value as ToolUsageRanking)} value={toolUsageRanking}><option value="output">cumulative output</option><option value="input">cumulative input</option><option value="duration">cumulative duration</option></select></header>
       {rankedTools.length > 0 ? <ol className="tool-usage-ranking">
         {rankedTools.map((tool) => <ToolUsageRow key={tool.name} maxValue={maxToolUsage} metric={toolUsageRanking} tool={tool} />)}
-      </ol> : <EmptyState>{toolUsageRanking === 'duration' ? 'Durations are measured during this Workbench session.' : 'No tool calls in this session.'}</EmptyState>}
+      </ol> : <EmptyState>{toolUsageRanking === 'duration' ? 'Durations are measured during this Pi Livecraft session.' : 'No tool calls in this session.'}</EmptyState>}
     </section>
 
     <section className="analysis-section">
       <header><h2>Costliest calls</h2><select aria-label="Rank tool calls" onChange={(event) => setToolRanking(event.target.value as ToolRanking)} value={toolRanking}><option value="output">output</option><option value="duration">observed duration</option><option value="failure">failures</option></select></header>
       {rankedCalls.length > 0 ? <ol className="analysis-ranking tool-ranking">
         {rankedCalls.map((call) => <ToolCallRow call={call} key={call.id} metric={toolRanking} onNavigate={onNavigate} />)}
-      </ol> : <EmptyState>{toolRanking === 'duration' ? 'Durations are measured during this Workbench session.' : toolRanking === 'failure' ? 'No explicit failures in this session.' : 'No tool calls in this session.'}</EmptyState>}
+      </ol> : <EmptyState>{toolRanking === 'duration' ? 'Durations are measured during this Pi Livecraft session.' : toolRanking === 'failure' ? 'No explicit failures in this session.' : 'No tool calls in this session.'}</EmptyState>}
     </section>
 
     {analysis.tools.length > 0 && <section className="analysis-section">

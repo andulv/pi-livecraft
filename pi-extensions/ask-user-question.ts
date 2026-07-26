@@ -76,13 +76,13 @@ export default function registerAskUserQuestion(pi: ExtensionAPI): void {
       })
       if (!request) return result({ answers: [], cancelled: true }, 'The questionnaire was invalid.')
 
-      const response = ctx.mode === 'tui' ? await askInTui(request, ctx) : await askInWorkbench(request, ctx)
+      const response = ctx.mode === 'tui' ? await askInTui(request, ctx) : await askInLivecraft(request, ctx)
       return result(response, response.cancelled ? 'The user cancelled the questionnaire.' : formatAnswers(response.answers))
     },
   })
 }
 
-async function askInWorkbench(request: AskUserQuestionRequest, ctx: ExtensionContext) {
+async function askInLivecraft(request: AskUserQuestionRequest, ctx: ExtensionContext) {
   const value = await ctx.ui.editor(rpcTitle, JSON.stringify(request))
   if (!value) return { answers: [], cancelled: true }
   try {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { parseTerminalTemplate, tokenizeTemplate, TerminalTemplateError } from '../server/features/terminal/launcher.ts'
+import { defaultTerminalInvocation, parseTerminalTemplate, tokenizeTemplate, TerminalTemplateError } from '../server/features/terminal/launcher.ts'
 
 test('tokenizes a simple command', () => {
   assert.deepEqual(tokenizeTemplate('wt.exe -d {cwd}'), ['wt.exe', '-d', '{cwd}'])
@@ -26,6 +26,11 @@ test('replaces {cwd} with the workspace path', () => {
 test('replaces {cwd} inside a longer token', () => {
   const result = parseTerminalTemplate('cmd --path={cwd}/src', '/home/user')
   assert.deepEqual(result, { command: 'cmd', args: ['--path=/home/user/src'] })
+})
+
+test('uses the platform terminal defaults', () => {
+  assert.deepEqual(defaultTerminalInvocation('/home/user', 'linux'), { command: 'x-terminal-emulator', args: [], cwd: '/home/user' })
+  assert.deepEqual(defaultTerminalInvocation('/home/user', 'wsl'), { command: 'wt.exe', args: ['-d', '/home/user'] })
 })
 
 test('replaces {cwd} inside a quoted token', () => {

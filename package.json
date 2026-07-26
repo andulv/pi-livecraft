@@ -2,6 +2,9 @@
   "name": "pi-livecraft",
   "private": true,
   "version": "0.0.0",
+  "engines": {
+    "node": ">=24"
+  },
   "type": "module",
   "scripts": {
     "dev": "concurrently --kill-others --kill-timeout 3000 --names manager,backend,frontend npm:dev:manager npm:dev:backend npm:dev:frontend",

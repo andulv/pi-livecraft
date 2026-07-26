@@ -6,7 +6,7 @@ import type { CopilotQuotaWindow, OpenAiQuotaWindow, QuotaProviderReport, QuotaR
 const statusKey = 'pi-livecraft.quotas'
 const timeoutMs = 15_000
 
-/** Registers a silent RPC command that publishes only normalized quotas to Workbench. */
+/** Registers a silent RPC command that publishes only normalized quotas to Pi Livecraft. */
 export default function registerQuotas(pi: ExtensionAPI): void {
   let lastRefreshAt = 0
   let lastReport: QuotaReport | undefined
@@ -25,8 +25,8 @@ export default function registerQuotas(pi: ExtensionAPI): void {
   }
 
   pi.on('session_start', (_event, ctx) => { void refresh(ctx, true) })
-  pi.registerCommand('workbench-quotas', {
-    description: 'Refresh Workbench quotas',
+  pi.registerCommand('livecraft-quotas', {
+    description: 'Refresh Pi Livecraft quotas',
     handler: async (args, ctx) => refresh(ctx, args.trim() === 'auto'),
   })
 }

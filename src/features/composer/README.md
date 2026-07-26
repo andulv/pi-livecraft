@@ -48,6 +48,5 @@ Each select encapsulates its own option derivation and `onValueChange` logic.
 
 ## Draft persistence
 
-Each session has one draft in `localStorage`. The `readComposerDraft` helper
-falls back to the legacy `pi-workbench.` prefix for migration. Drafts are
-cleared on successful send, restored on failure.
+Each session has one draft in `localStorage`. Drafts are cleared on successful
+send and restored on failure.

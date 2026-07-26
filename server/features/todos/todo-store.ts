@@ -8,7 +8,6 @@ interface TodoStore {
 }
 
 const defaultTodoStorePath = process.env.PI_LIVECRAFT_TODO_STORE
-  ?? process.env.PI_WORKBENCH_TODO_STORE
   ?? join(homedir(), '.pi-livecraft', 'todos.json')
 const maxTodoCount = 500
 const maxTodoTextLength = 500

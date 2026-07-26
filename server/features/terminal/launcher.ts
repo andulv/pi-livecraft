@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
+import { getDesktopPlatform, type DesktopPlatform } from '../../system-integration.ts'
 
-const defaultTerminalTemplate = 'wt.exe -d {cwd}'
 const maxTemplateLength = 2000
 
 export class TerminalTemplateError extends Error {
@@ -71,25 +71,33 @@ export function parseTerminalTemplate(raw: string, cwd: string): { command: stri
   return { command, args }
 }
 
+/** Returns the platform-specific terminal invocation used when no custom template is set. */
+export function defaultTerminalInvocation(workspacePath: string, platform = getDesktopPlatform()): { command: string; args: string[]; cwd?: string } {
+  return platform === 'wsl'
+    ? { command: 'wt.exe', args: ['-d', workspacePath] }
+    : { command: 'x-terminal-emulator', args: [], cwd: workspacePath }
+}
+
 /**
  * Launches a terminal application detached from the backend process.
- * Falls back to `wt.exe -d {cwd}` when no template is configured.
+ * An empty template selects the platform default; custom templates still require `{cwd}`.
  */
-export function openTerminalApplication(workspacePath: string, template?: string | null): Promise<void> {
+export function openTerminalApplication(workspacePath: string, template?: string | null, platform?: DesktopPlatform): Promise<void> {
   return new Promise((resolve, reject) => {
-    const raw = template && template.trim() ? template : defaultTerminalTemplate
-    let parsed: { command: string; args: string[] }
+    let invocation: { command: string; args: string[]; cwd?: string }
     try {
-      parsed = parseTerminalTemplate(raw, workspacePath)
+      invocation = template && template.trim()
+        ? { ...parseTerminalTemplate(template, workspacePath) }
+        : defaultTerminalInvocation(workspacePath, platform ?? getDesktopPlatform())
     } catch (error) {
       reject(error)
       return
     }
 
-    const process = spawn(parsed.command, parsed.args, { detached: true, stdio: 'ignore' })
-    process.once('error', reject)
-    process.once('spawn', () => {
-      process.unref()
+    const child = spawn(invocation.command, invocation.args, { cwd: invocation.cwd, detached: true, stdio: 'ignore' })
+    child.once('error', reject)
+    child.once('spawn', () => {
+      child.unref()
       resolve()
     })
   })
