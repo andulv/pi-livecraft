@@ -116,11 +116,59 @@
 .session-item > span:last-child { flex: 1; min-width: 0; }
 .session-item strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-item strong { font-size: 13px; letter-spacing: -.01em; }
+
+/* working / compacting shimmer */
+.session-item.working, .session-item.compacting { position: relative; overflow: hidden; }
+.session-item.working strong { color: var(--accent); }
+.session-item.compacting strong { color: var(--warning-strong); }
+.session-item.working > span:last-child, .session-item.compacting > span:last-child,
+.session-item.complete:not(.selected) > span:last-child { position: relative; z-index: 1; }
+.session-item.working .session-status-indicator, .session-item.compacting .session-status-indicator,
+.session-item.complete:not(.selected) .session-status-indicator { position: relative; z-index: 1; }
+.session-item.working::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--accent) 6%, transparent) 45%, color-mix(in srgb, var(--accent) 10%, transparent) 50%, color-mix(in srgb, var(--accent) 6%, transparent) 55%, transparent 100%);
+  background-size: 200% 100%;
+  animation: session-shimmer 2.8s ease-in-out infinite;
+}
+.session-item.compacting::before {
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--warning) 8%, transparent) 45%, color-mix(in srgb, var(--warning) 12%, transparent) 50%, color-mix(in srgb, var(--warning) 8%, transparent) 55%, transparent 100%);
+  background-size: 200% 100%;
+  animation: session-shimmer 2s ease-in-out infinite;
+}
+
+/* completion card */
+.session-item.complete:not(.selected) {
+  background: var(--accent);
+  border-color: var(--accent-hover);
+  color: var(--on-accent);
+  position: relative;
+  overflow: hidden;
+}
+.session-item.complete:not(.selected) strong { color: var(--on-accent); }
+.session-item.complete:not(.selected) .session-status-indicator { background: var(--on-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--on-accent) 16%, transparent); animation: none; }
+.session-item.complete:not(.selected):hover { background: var(--accent-hover); }
+.session-item.complete:not(.selected)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 40%, color-mix(in srgb, var(--on-accent) 18%, transparent) 45%, color-mix(in srgb, var(--on-accent) 28%, transparent) 50%, color-mix(in srgb, var(--on-accent) 18%, transparent) 55%, transparent 60%);
+  animation: session-complete-flash 0.9s ease-out forwards;
+}
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 16%, transparent); }
 .composer-session .status-dot { animation: status-pulse 1.8s ease-out infinite; }
 .session-status-indicator { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
 .session-status-indicator.working { background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); animation: session-status-pulse 1.8s ease-out infinite; }
-.session-status-indicator.compacting { background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); animation: session-status-pulse 1.2s ease-out infinite; }
+.session-status-indicator.compacting { width: 16px; height: 16px; border-radius: 0; background: none; box-shadow: none; color: var(--warning-strong); }
+.session-status-indicator.compacting svg { width: 16px; height: 16px; display: block; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; animation: session-compress 1.4s ease-in-out infinite; }
 .session-status-indicator.waiting { background: var(--warning-strong); box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning) 16%, transparent); animation: session-status-attention 1.8s ease-in-out infinite; }
 .session-status-indicator.complete { background: var(--success); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 16%, transparent); animation: session-status-pulse 1.8s ease-out infinite; }
 @keyframes status-pulse {
@@ -128,6 +176,9 @@
 }
 @keyframes session-status-pulse { 50% { box-shadow: 0 0 0 7px transparent; transform: scale(1.08); } }
 @keyframes session-status-attention { 50% { box-shadow: 0 0 0 7px transparent; transform: scale(1.12); } }
+@keyframes session-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes session-compress { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.7); } }
+@keyframes session-complete-flash { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 .empty-sidebar { padding: 14px; color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center; }
 
 .directory-picker { display: flex; flex-direction: column; }
