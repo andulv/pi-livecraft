@@ -21,6 +21,18 @@ test('prioritizes attention and clears completed sessions when they are consulte
   assert.equal(sessionIndicator({ ...session, status: 'idle' }, session.id, noneCompacting, completed), null)
 })
 
+test('survives a page refresh: restored completed ids still show complete for idle, non-selected sessions', () => {
+  // After a refresh, sessionStorage restores completed ids; the manager reports the session as idle.
+  const restored = new Set([session.id])
+
+  // Still idle, not selected, in restored set → complete indicator survives refresh.
+  assert.equal(sessionIndicator({ ...session, status: 'idle' }, '', new Set(), restored), 'complete')
+  // If the manager reports it as running (still working), 'working' takes priority.
+  assert.equal(sessionIndicator({ ...session, status: 'running' }, '', new Set(), restored), 'working')
+  // Selected sessions never show complete.
+  assert.equal(sessionIndicator({ ...session, status: 'idle' }, session.id, new Set(), restored), null)
+})
+
 test('prioritizes compacting over working and complete', () => {
   const completed = new Set([session.id])
   const compacting = new Set([session.id])

@@ -41,7 +41,7 @@ function App() {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
   const [sentSessions, setSentSessions] = useState<RecentSession[]>([])
-  const [completedSessionIds, setCompletedSessionIds] = useState<ReadonlySet<string>>(new Set())
+  const [completedSessionIds, setCompletedSessionIds] = useState<ReadonlySet<string>>(() => readCompletedSessionIds())
   const [compactingSessionIds, setCompactingSessionIds] = useState<ReadonlySet<string>>(new Set())
   const [workspacePath, setWorkspacePath] = useState(() => window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.')
   const [recentWorkspacePaths, setRecentWorkspacePaths] = useState(() => recentWorkspaces(window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.', readRecentWorkspaces()))
@@ -238,6 +238,10 @@ function App() {
     })
   }, [selectedId])
 
+  useEffect(() => {
+    writeCompletedSessionIds(completedSessionIds)
+  }, [completedSessionIds])
+
   /** Reloads sessions and their UI requests while discarding stale responses. */
   const refreshSessions = useCallback(async (cwd = workspacePath) => {
     const version = ++refreshVersionRef.current
@@ -245,6 +249,12 @@ function App() {
       const [nextSessions, nextRecentSessions] = await Promise.all([listSessions(), listRecentSessions(cwd)])
       if (version !== refreshVersionRef.current) return
       setSessions(nextSessions)
+      setCompletedSessionIds((current) => {
+        if (current.size === 0) return current
+        const sessionIds = new Set(nextSessions.map(s => s.id))
+        const next = new Set([...current].filter(id => sessionIds.has(id)))
+        return next.size === current.size ? current : next
+      })
       setRecentSessions(nextRecentSessions)
       setSentSessions((current) => current.filter((sent) => !nextRecentSessions.some((recent) => recent.id === sent.id || recent.sessionPath === sent.sessionPath)))
       setSelectedId((current) => nextSessions.some((session) => session.id === current) ? current : '')
@@ -968,6 +978,33 @@ function assistantMessageInEvent(event: JsonObject): JsonObject | null {
   const message = event.message
   return isObject(message) && message.role === 'assistant' ? message : null
 }
+const COMPLETED_SESSIONS_KEY = 'pi-livecraft.completed-sessions'
+const MAX_COMPLETED_SESSIONS = 30
+
+/** Restores completed-session identifiers persisted across same-tab refreshes. */
+function readCompletedSessionIds(): ReadonlySet<string> {
+  try {
+    const stored = sessionStorage.getItem(COMPLETED_SESSIONS_KEY)
+    if (!stored) return new Set()
+    const parsed: unknown = JSON.parse(stored)
+    if (!Array.isArray(parsed)) return new Set()
+    const ids = parsed.filter((id): id is string => typeof id === 'string' && id.length > 0)
+    return new Set(ids.slice(0, MAX_COMPLETED_SESSIONS))
+  } catch {
+    return new Set()
+  }
+}
+
+/** Persists completed-session identifiers so they survive a page refresh within the same tab. */
+function writeCompletedSessionIds(ids: ReadonlySet<string>): void {
+  try {
+    if (ids.size === 0) sessionStorage.removeItem(COMPLETED_SESSIONS_KEY)
+    else sessionStorage.setItem(COMPLETED_SESSIONS_KEY, JSON.stringify([...ids].slice(0, MAX_COMPLETED_SESSIONS)))
+  } catch {
+    // sessionStorage may be unavailable
+  }
+}
+
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
 }
