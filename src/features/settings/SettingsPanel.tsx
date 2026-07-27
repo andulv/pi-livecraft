@@ -1,7 +1,8 @@
 import { type ReactNode, useEffect, useState } from 'react'
+import * as Select from '@radix-ui/react-select'
 import type { CommandDefinition, CommandId } from '../commands/command-registry.ts'
 import { shortcutFromEvent, shortcutConflicts } from '../commands/command-registry.ts'
-import { THEME_VARIABLES, type Theme, type ThemeVariable } from './themes.ts'
+import { contrastColor, THEME_VARIABLES, type Theme, type ThemeVariable } from './themes.ts'
 
 const themeVariableLabels: Record<ThemeVariable, string> = {
   canvas: 'Background',
@@ -83,9 +84,34 @@ function ThemeSettings({ activeTheme, editableTheme, themeName, themes, onSelect
   return <section className="theme-settings">
     <p>Choose a theme or duplicate one to edit its 8 source colors. Surfaces, text shades, borders, hover states, and contrast colours are generated automatically.</p>
     <div className="theme-toolbar">
-      <select aria-label="Active color theme" onChange={(event) => onSelectTheme(event.target.value)} value={activeTheme?.id ?? ''}>
-        {themes.map((theme) => <option key={theme.id} value={theme.id}>{theme.name}{theme.builtIn ? ' · Built-in' : ''}</option>)}
-      </select>
+      <Select.Root onValueChange={onSelectTheme} value={activeTheme?.id ?? ''}>
+        <Select.Trigger aria-label="Active color theme" className="theme-select-trigger">
+          <Select.Value placeholder="Choose a theme" />
+          <Select.Icon className="theme-select-chevron" />
+        </Select.Trigger>
+        <Select.Portal>
+          <Select.Content className="theme-select-content" position="popper" sideOffset={4}>
+            <Select.Viewport>
+              {themes.map((theme) => (
+                <Select.Item
+                  className="theme-select-item"
+                  key={theme.id}
+                  value={theme.id}
+                  style={{
+                    '--item-accent': theme.palette.accent,
+                    '--item-surface': theme.palette.surface,
+                    '--item-ink': theme.palette.ink,
+                    '--item-on-accent': contrastColor(theme.palette.accent),
+                  } as React.CSSProperties}
+                >
+                  <Select.ItemText>{theme.name}{theme.builtIn ? ' · Built-in' : ''}</Select.ItemText>
+                  <Select.ItemIndicator aria-hidden="true">✓</Select.ItemIndicator>
+                </Select.Item>
+              ))}
+            </Select.Viewport>
+          </Select.Content>
+        </Select.Portal>
+      </Select.Root>
       <button onClick={onDuplicateTheme} type="button">New custom theme</button>
     </div>
     {activeTheme && <>
