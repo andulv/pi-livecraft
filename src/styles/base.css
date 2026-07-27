@@ -82,11 +82,8 @@ button:disabled, select:disabled { cursor: not-allowed; }
   --shadow-soft: 0 3px 12px rgb(0 0 0 / 30%);
 
   /* ── sidebar / workspace ── */
-  .theme-toggle:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
   .sidebar-action:hover,
-  .sidebar-action:focus-visible,
-  .workspace-path:hover,
-  .workspace-path:focus-visible { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+  .sidebar-action:focus-visible { background: color-mix(in srgb, var(--ink) 6%, transparent); }
   .session-item:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
   .session-item.selected { border-color: color-mix(in srgb, var(--ink) 10%, transparent); }
   .new-session {
