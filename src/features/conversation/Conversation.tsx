@@ -62,7 +62,9 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
   /** Keeps a followed conversation pinned to its latest rendered content before paint. */
   const scrollToLiveBottom = useCallback(() => {
     const conversation = conversationRef.current
-    if (autoScrollRef.current && conversation) conversation.scrollTop = conversation.scrollHeight
+    if (!autoScrollRef.current || !conversation) return
+    conversation.scrollTop = conversation.scrollHeight
+    previousScrollTopRef.current = conversation.scrollTop
   }, [])
 
   useEffect(() => {
@@ -146,7 +148,12 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
     if (!el) return
     const previousScrollTop = previousScrollTopRef.current
     previousScrollTopRef.current = el.scrollTop
-    if (navigationInProgressRef.current || autoScrollRef.current || !resumesAutoScrollAfterDownwardScroll(previousScrollTop, el.scrollTop, el.scrollHeight, el.clientHeight)) return
+    if (navigationInProgressRef.current) return
+    if (el.scrollTop < previousScrollTop) {
+      suspendAutoScroll()
+      return
+    }
+    if (autoScrollRef.current || !resumesAutoScrollAfterDownwardScroll(previousScrollTop, el.scrollTop, el.scrollHeight, el.clientHeight)) return
     autoScrollRef.current = true
     setShowScrollToBottom(false)
   }
