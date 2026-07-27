@@ -130,7 +130,7 @@
 .content > :last-child, .reasoning > :last-child { margin-bottom: 0; }
 .content p { margin: 0 0 13px; }
 .reasoning { margin: 0 0 13px; color: var(--muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
-.reasoning pre { overflow-x: auto; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: color-mix(in srgb, var(--canvas) 60%, var(--surface)); font: 11px/1.55 ui-monospace, monospace; white-space: pre-wrap; }
+.reasoning pre { overflow-x: auto; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: color-mix(in srgb, var(--accent) 5%, var(--surface)); font: 11px/1.55 ui-monospace, monospace; white-space: pre-wrap; }
 .reasoning :not(pre) > code { overflow-wrap: anywhere; }
 .content h1, .content h2, .content h3,
 .content h4, .content h5, .content h6 { line-height: 1.25; letter-spacing: -.025em; text-wrap: balance; }
@@ -144,7 +144,7 @@
 .message.assistant .content ul ::marker,
 .message.assistant .content ol ::marker { color: var(--accent); }
 .message.assistant .content .reasoning strong { color: inherit; }
-.content pre { overflow-x: auto; padding: 13px 14px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--canvas) 60%, var(--surface)); font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; }
+.content pre { overflow-x: auto; padding: 13px 14px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--accent) 5%, var(--surface)); font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; }
 .content :not(pre) > code { padding: 2px 5px; border-radius: 4px; background: color-mix(in srgb, var(--canvas) 70%, var(--surface)); color: var(--ink); font: 12px ui-monospace, monospace; }
 .content a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .content table { width: 100%; margin: 0 0 13px; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
@@ -251,7 +251,7 @@
 .tool-call-markdown ul ::marker,
 .tool-call-markdown ol ::marker { color: var(--accent); }
 .tool-call-markdown :not(pre) > code { padding: 1px 3px; border-radius: 3px; background: color-mix(in srgb, var(--accent) 7%, transparent); font: 11px ui-monospace, monospace; overflow-wrap: anywhere; }
-.tool-call-markdown pre { overflow-x: auto; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: color-mix(in srgb, var(--accent) 3%, transparent); font: 11px/1.5 ui-monospace, monospace; white-space: pre-wrap; }
+.tool-call-markdown pre { overflow-x: auto; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: color-mix(in srgb, var(--accent) 5%, var(--surface)); font: 11px/1.5 ui-monospace, monospace; white-space: pre-wrap; }
 .tool-call-markdown table { table-layout: fixed; width: 100%; margin: 0 0 11px; border-collapse: collapse; font-size: 12px; }
 .tool-call-markdown th, .tool-call-markdown td { padding: 4px 8px; border: 1px solid var(--line); text-align: left; overflow-wrap: anywhere; word-break: break-word; }
 .tool-call-syntax { font: 11px/1.5 ui-monospace, monospace !important; }
