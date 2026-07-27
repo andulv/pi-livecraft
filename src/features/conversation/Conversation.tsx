@@ -26,16 +26,21 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
   onStartSession: (draft: string) => Promise<void>
 }) {
   const allMessages = messages
-  const { visibleMessages, usagesByMessage, toolCallIds, resultsByCallId } = useMemo(() => {
+  const { visibleMessages, usagesByMessage, turnNumbers, toolCallIds, resultsByCallId } = useMemo(() => {
     const visible = allMessages.filter(isVisibleConversationMessage)
     const calls = allMessages.flatMap(toolCallsInMessage)
     const results = new Map(allMessages.flatMap((message) => {
       const result = toolResultInMessage(message)
       return result ? [[result.toolCallId, result] as const] : []
     }))
+    const usagesByMessage = turnUsageByMessage(allMessages)
+    const turnNumbers = new Map<number, number>()
+    let turnNum = 0
+    for (const idx of [...usagesByMessage.keys()].sort((a, b) => a - b)) turnNumbers.set(idx, ++turnNum)
     return {
       visibleMessages: visible,
-      usagesByMessage: turnUsageByMessage(allMessages),
+      usagesByMessage,
+      turnNumbers,
       toolCallIds: new Set(calls.map((call) => call.id)),
       resultsByCallId: results,
     }
@@ -200,7 +205,7 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
             const result = resultsByCallId.get(call.id) ?? execution?.result
             return <ToolCallCard args={call.args} darkMode={darkMode} hasResult={result !== undefined} id={call.id} interrupted={execution?.status === 'interrupted'} key={call.id} name={call.name} onError={onError} onStartSession={onStartSession} partialResultContent={execution?.partialResult?.content} repositoryRoot={repositoryRoot} resultContent={result?.content} resultDetails={result?.details} resultError={result?.isError} streaming={execution?.status === 'generating'} targeted={highlightedTarget === `tool:${call.id}`} workspacePath={workspacePath} />
           })}
-          {usage && <TurnUsage usage={usage} />}
+          {usage && <TurnUsage turnNumber={turnNumbers.get(index)} usage={usage} />}
         </div>
       })}
       {visibleLiveMessages.map((message, index) => {
@@ -266,8 +271,9 @@ function DefaultCustomMessage({ message }: { message: JsonObject & { customType?
 }
 
 /** Displays counters billed by Pi for a completed assistant response. */
-function TurnUsage({ usage }: { usage: MessageUsage }) {
+function TurnUsage({ turnNumber, usage }: { turnNumber?: number; usage: MessageUsage }) {
   return <dl className="turn-usage">
+    {turnNumber !== undefined && <div><dt>Turn</dt><dd>{turnNumber}</dd></div>}
     <div><dt>Cost</dt><dd>{formatTurnCost(usage.cost)}</dd></div>
     <div><dt>Cache read</dt><dd>{formatTokens(usage.cacheRead)}</dd></div>
     <div><dt>Cache miss</dt><dd>{formatTokens(usage.cacheMiss)}</dd></div>
