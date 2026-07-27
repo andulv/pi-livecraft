@@ -49,7 +49,7 @@ export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, re
         const activeSession = sessions.find((session) => session.sessionPath === recentSession.sessionPath && session.status !== 'exited')
         const indicator = sessionIndicator(activeSession, selectedId, compactingSessionIds, completedSessionIds)
         return (
-          <Tooltip key={recentSession.sessionPath} label={recentSession.name}><button
+          <Tooltip key={recentSession.sessionPath} label={`${recentSession.name}\n${new Date(recentSession.updatedAt).toLocaleString('en-US')}`}><button
             className={activeSession?.id === selectedId ? 'session-item selected' : 'session-item'}
             disabled={openingSessionPath === recentSession.sessionPath}
             onClick={() => {
@@ -64,7 +64,7 @@ export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, re
             type="button"
           >
             {indicator && <SessionStatusIndicator status={indicator} />}
-            <span><strong>{openingSessionPath === recentSession.sessionPath ? 'Opening…' : recentSession.name}</strong><small>{new Date(recentSession.updatedAt).toLocaleString('en-US')}</small></span>
+            <span><strong>{openingSessionPath === recentSession.sessionPath ? 'Opening…' : recentSession.name}</strong></span>
           </button></Tooltip>
         )
       })}
@@ -82,12 +82,7 @@ const indicatorLabels: Record<SessionIndicator, string> = {
 
 /** Uses one visual vocabulary for active, attention, and completed session states. */
 function SessionStatusIndicator({ status }: { status: SessionIndicator }) {
-  return <Tooltip label={indicatorLabels[status]}><span aria-label={indicatorLabels[status]} className={`session-status-indicator ${status}`} role="img">
-    {status === 'working' && <svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /><path d="M8 2.5a5.5 5.5 0 0 1 5.5 5.5" /></svg>}
-    {status === 'waiting' && <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M3 3.5h10v7H8l-3 2v-2H3z" /><path d="M6.6 6a1.5 1.5 0 0 1 2.8.7c0 1-1.4 1-1.4 2" /><path d="M8 9.5h.01" /></svg>}
-    {status === 'compacting' && <svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /><path d="M8 2.5a5.5 5.5 0 0 1 5.5 5.5" /></svg>}
-    {status === 'complete' && <svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /><path d="m5.5 8 1.6 1.6 3.5-3.5" /></svg>}
-  </span></Tooltip>
+  return <Tooltip label={indicatorLabels[status]}><span aria-label={indicatorLabels[status]} className={`session-status-indicator ${status}`} role="img" /></Tooltip>
 }
 
 /** Prevents duplicate session creation and reports errors to the container. */
