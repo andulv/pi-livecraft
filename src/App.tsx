@@ -563,6 +563,13 @@ function App() {
     const isSteering = selectedSessionStatus === 'running' && behavior === 'steer'
     if (selectedSessionStatus === 'running') command.streamingBehavior = behavior
     if (isSteering) setPendingSteering((current) => [...current, message])
+    const optimisticId = !isSteering ? crypto.randomUUID() : undefined
+    if (optimisticId) {
+      flushLiveUpdates()
+      const next = [...liveMessagesRef.current, { id: optimisticId, message: { role: 'user', content: message } }]
+      liveMessagesRef.current = next
+      setLiveMessages(next)
+    }
     try {
       await sendPiCommand(selectedId, command)
       const sentSession = sessions.find((session) => session.id === selectedId)
@@ -576,13 +583,17 @@ function App() {
       await refreshSessions()
       setScrollToBottomRequest((current) => current + 1)
     } catch (cause) {
+      if (optimisticId) {
+        liveMessagesRef.current = liveMessagesRef.current.filter((lm) => lm.id !== optimisticId)
+        setLiveMessages(liveMessagesRef.current)
+      }
       if (isSteering) setPendingSteering((current) => {
         const index = current.lastIndexOf(message)
         return index < 0 ? current : current.toSpliced(index, 1)
       })
       throw cause
     }
-  }, [refreshSessions, selectedId, selectedSessionStatus, sessions, snapshot.messages])
+  }, [flushLiveUpdates, refreshSessions, selectedId, selectedSessionStatus, sessions, snapshot.messages])
   const handleComposerAbort = useCallback(() => sendPiCommand(selectedId, { type: 'abort' }), [selectedId])
   const handlePromptImprovement = useCallback((prompt: string) => improvePrompt(selectedId, prompt), [selectedId])
   const handleComposerSelectOpened = useCallback(() => setRequestedSelect(null), [])

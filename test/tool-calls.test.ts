@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { applyToolCallUpdate, applyToolExecutionUpdate, assistantTurnParts, conversationMessageEntries, formatToolCallTooltip, formatToolData, interruptToolCallGeneration, isToolCallPending, parseEditDiff, readContentDisplay, sameAssistantMessage, toolCallInUpdate, toolCallPresentation, toolCallsInMessage, toolContentText, toolDataLength, toolEditChanges, toolExecutionUpdateInEvent, toolFilePath, toolResultInMessage, toolTextPreview, truncateToolText, fileUrl } from '../src/features/conversation/tool-calls.ts'
+import { applyToolCallUpdate, applyToolExecutionUpdate, assistantTurnParts, conversationMessageEntries, formatToolCallTooltip, formatToolData, interruptToolCallGeneration, isToolCallPending, parseEditDiff, readContentDisplay, sameAssistantMessage, sameMessage, toolCallInUpdate, toolCallPresentation, toolCallsInMessage, toolContentText, toolDataLength, toolEditChanges, toolExecutionUpdateInEvent, toolFilePath, toolResultInMessage, toolTextPreview, truncateToolText, fileUrl } from '../src/features/conversation/tool-calls.ts'
 
 test('extracts tool calls and their resolved result from Pi messages', () => {
   const calls = toolCallsInMessage({
@@ -338,6 +338,43 @@ test('replaces partial results for matching running executions', () => {
     toolCallId: 'call_1', toolName: 'bash', partialResult: { toolCallId: 'call_1', toolName: 'bash', content: 'ab', isError: false },
   })
   assert.equal(toolContentText(second[0]?.partialResult?.content), 'ab')
+})
+
+test('matches identical user messages by text content', () => {
+  assert.equal(sameMessage({ role: 'user', content: 'Bonjour' }, { role: 'user', content: 'Bonjour' }), true)
+  assert.equal(sameMessage({ role: 'user', content: 'Bonjour' }, { role: 'user', content: 'Salut' }), false)
+  assert.equal(sameMessage({ role: 'user', content: 'Bonjour' }, { role: 'assistant', content: 'Bonjour' }), false)
+  assert.equal(sameMessage({ role: 'user' }, { role: 'user' }), false)
+})
+
+test('matches user messages when Pi returns content as an array', () => {
+  assert.equal(sameMessage(
+    { role: 'user', content: 'Salut' },
+    { role: 'user', content: [{ type: 'text', text: 'Salut' }, { type: 'image', data: '...', mimeType: 'image/png' }] },
+  ), true)
+})
+
+test('reconciles an optimistic user message with its history counterpart', () => {
+  const history = [
+    { role: 'user', timestamp: 100, content: 'Bonjour' },
+    { role: 'assistant', timestamp: 101, content: 'Réponse' },
+  ]
+  const live = [{ id: 'opt-1', message: { role: 'user', content: 'Bonjour' } }]
+  const entries = conversationMessageEntries(history, live)
+  assert.deepEqual(entries.map(({ key, source }) => ({ key, source })), [
+    { key: 'opt-1', source: 'history' },
+    { key: 'history-101-1', source: 'history' },
+  ])
+})
+
+test('keeps an unmatched optimistic user message as a live entry', () => {
+  const history = [{ role: 'assistant', content: 'Précédent' }]
+  const live = [{ id: 'opt-1', message: { role: 'user', content: 'En attente' } }]
+  const entries = conversationMessageEntries(history, live)
+  assert.deepEqual(entries.map(({ key, source }) => ({ key, source })), [
+    { key: 'history--0', source: 'history' },
+    { key: 'opt-1', source: 'live' },
+  ])
 })
 
 test('does not touch executions that are not running', () => {
