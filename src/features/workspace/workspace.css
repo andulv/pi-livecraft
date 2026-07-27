@@ -126,12 +126,12 @@
 
 /* completion card */
 .session-item.complete:not(.selected) {
-  background: var(--accent);
-  border-color: var(--accent-hover);
-  color: var(--on-accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-hover);
 }
-.session-item.complete:not(.selected) strong { color: var(--on-accent); }
-.session-item.complete:not(.selected):hover { background: var(--accent-hover); }
+.session-item.complete:not(.selected) strong { color: var(--accent-hover); }
+.session-item.complete:not(.selected):hover { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
 .session-status-indicator { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
 .session-status-indicator.working { background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); animation: session-status-pulse 1.8s ease-out infinite; }
 .session-status-indicator.compacting { width: 16px; height: 16px; border-radius: 0; background: none; box-shadow: none; color: var(--warning-strong); }
