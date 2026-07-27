@@ -120,9 +120,10 @@
 
 /* working / compacting text pulse */
 .session-item.working, .session-item.compacting, .session-item.complete:not(.selected) { padding: 10px; }
-.session-item.working strong, .session-item.compacting strong { animation: activity-text-breathe 1.8s ease-in-out infinite; }
+.session-item.working strong, .session-item.compacting strong, .session-item.waiting strong { animation: activity-text-breathe 1.8s ease-in-out infinite; }
 .session-item.working strong { color: var(--accent); }
 .session-item.compacting strong { color: var(--warning-strong); }
+.session-item.waiting strong { color: var(--secondary); }
 
 /* completion card */
 .session-item.complete:not(.selected) {
@@ -135,10 +136,10 @@
 .session-status-indicator { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
 .session-status-indicator.working { background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); animation: session-status-pulse 1.8s ease-out infinite; }
 .session-status-indicator.compacting { width: 16px; height: 16px; border-radius: 0; background: none; box-shadow: none; color: var(--warning-strong); }
-.session-status-indicator.compacting svg { width: 16px; height: 16px; display: block; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; animation: session-gear-spin 1.4s linear infinite; }
-.session-status-indicator.waiting { background: var(--warning-strong); box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning) 16%, transparent); animation: session-status-attention 1.8s ease-in-out infinite; }
+.session-status-indicator.compacting svg { width: 16px; height: 16px; display: block; animation: session-gear-spin 2s linear infinite; }
+.session-status-indicator.waiting { width: 14px; height: 14px; border-radius: 0; background: none; box-shadow: none; color: var(--secondary); animation: activity-text-breathe 1.8s ease-in-out infinite; }
+.session-status-indicator.waiting svg { width: 14px; height: 14px; display: block; }
 @keyframes session-status-pulse { 50% { box-shadow: 0 0 0 7px transparent; transform: scale(1.08); } }
-@keyframes session-status-attention { 50% { box-shadow: 0 0 0 7px transparent; transform: scale(1.12); } }
 @keyframes session-gear-spin { to { transform: rotate(360deg); } }
 .empty-sidebar { padding: 14px; color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center; }
 

@@ -1,5 +1,5 @@
 @media (prefers-reduced-motion: reduce) {
-  .session-status-indicator, .session-status-indicator.compacting svg, .session-item.working strong, .session-item.compacting strong { animation: none; }
+  .session-status-indicator, .session-status-indicator.compacting svg, .session-item.working strong, .session-item.compacting strong, .session-item.waiting strong { animation: none; }
   .rail-tab { transition: none; }
   .tooltip-content { transition: none; }
 }
