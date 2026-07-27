@@ -136,6 +136,24 @@ export async function pushCommits(cwd: string): Promise<{ pushed: boolean; pushE
     : { pushed: false, pushError: gitError(push) }
 }
 
+/** Discards changes for one file, including a staged or untracked file. */
+export async function discardFileChanges(cwd: string, path: string): Promise<void> {
+  const snapshot = await getGitSnapshot(cwd)
+  if (!snapshot.repository) throw new Error('The current directory is not a Git repository.')
+  const file = snapshot.files.find((change) => change.path === path)
+  if (!file) throw new Error('This file has no changes to discard.')
+
+  if (file.status === 'added') {
+    await runGit(cwd, ['rm', '-f', '--cached', '--', path], [0, 1, 128])
+    await runGit(cwd, ['clean', '-fd', '--', path])
+    return
+  }
+
+  const status = await runGit(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])
+  const paths = pathsForGitStatus(status.stdout, path)
+  await runGit(cwd, ['restore', '--source=HEAD', '--staged', '--worktree', '--', ...paths])
+}
+
 /** Discards all uncommitted changes, including untracked files (but keeps ignored files). */
 export async function discardChanges(cwd: string): Promise<void> {
   const snapshot = await getGitSnapshot(cwd)
@@ -153,22 +171,24 @@ export async function discardChanges(cwd: string): Promise<void> {
   await runGit(cwd, ['clean', '-fd'])
 }
 
-/** Commits current changes and tries to push, or pushes commits already ahead. */
-export async function commitAndPush(cwd: string, message: string): Promise<{ committed: boolean; pushed: boolean; pushError?: string }> {
-  const snapshot = await getGitSnapshot(cwd)
-  if (!snapshot.repository) throw new Error('The current directory is not a Git repository.')
-
-  if (snapshot.files.length > 0) {
-    await commitChanges(cwd, message)
-    const result = await pushCommits(cwd).catch(() => ({ pushed: false, pushError: 'Push failed.' }))
-    return { committed: true, ...result }
+/** Returns every path involved in a status entry, preserving a rename source path. */
+function pathsForGitStatus(output: string, targetPath: string): string[] {
+  const fields = output.split('\0')
+  for (let index = 0; index < fields.length - 1; index += 1) {
+    const field = fields[index]
+    if (!field) continue
+    const code = field.slice(0, 2)
+    const path = field.slice(3)
+    if (code.includes('R') || code.includes('C')) {
+      const oldPath = fields[++index]
+      if (path === targetPath) return oldPath ? [path, oldPath] : [path]
+      continue
+    }
+    if (path === targetPath) return [path]
   }
-
-  if (snapshot.ahead === 0) throw new Error('There are no changes or commits to push.')
-  return { committed: false, ...(await pushCommits(cwd)) }
+  throw new Error('This file has no changes to discard.')
 }
 
-/** Parses git status --porcelain=v1 -z output into file change records without diff stats. */
 export function parseGitStatus(output: string): Omit<GitFileChange, 'additions' | 'deletions'>[] {
   const fields = output.split('\0')
   const changes: Omit<GitFileChange, 'additions' | 'deletions'>[] = []

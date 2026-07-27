@@ -810,10 +810,10 @@ function App() {
           await refreshGit(workspacePath, true)
           showToast('notice', 'Commit created.')
         }}
-        onDiscard={async () => {
-          await discardChanges(workspacePath)
+        onDiscard={async (path) => {
+          await discardChanges(workspacePath, path)
           await refreshGit(workspacePath, true)
-          showToast('notice', 'Changes discarded.')
+          showToast('notice', path ? `Changes to ${path} discarded.` : 'Changes discarded.')
         }}
         onPush={async () => {
           const result = await pushCommits(workspacePath)

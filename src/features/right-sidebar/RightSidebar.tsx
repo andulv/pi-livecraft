@@ -32,7 +32,7 @@ export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onA
   workspacePath: string
   railActions: RailAction[]
   onCommit: (message: string) => Promise<void>
-  onDiscard: () => Promise<void>
+  onDiscard: (path?: string) => Promise<void>
   onError: (cause: unknown) => void
   onFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
   onPush: () => Promise<GitPushResult>

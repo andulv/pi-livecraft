@@ -8,7 +8,7 @@ import { parseGitDiff } from './git-diff.ts'
 export function GitWidget({ snapshot, onCommit, onDiscard, onError, onFileSelect, onPush, onRefresh, onReset, onRevert }: {
   snapshot: GitSnapshot
   onCommit: (message: string) => Promise<void>
-  onDiscard: () => Promise<void>
+  onDiscard: (path?: string) => Promise<void>
   onError: (cause: unknown) => void
   onFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
   onPush: () => Promise<GitPushResult>
@@ -58,12 +58,13 @@ export function GitWidget({ snapshot, onCommit, onDiscard, onError, onFileSelect
     }
   }
 
-  /** Discards all uncommitted changes after confirmation. */
-  async function discard(): Promise<void> {
-    if (!window.confirm('Discard all uncommitted changes? This will delete new files and revert modifications.')) return
+  /** Discards one file or all uncommitted changes after confirmation. */
+  async function discard(path?: string): Promise<void> {
+    const target = path ? `changes to ${path}` : 'all uncommitted changes'
+    if (!window.confirm(`Discard ${target}? This will delete new files and revert modifications.`)) return
     setBusy(true)
     try {
-      await onDiscard()
+      await onDiscard(path)
     } catch (cause) {
       onError(cause)
     } finally {
@@ -112,6 +113,7 @@ export function GitWidget({ snapshot, onCommit, onDiscard, onError, onFileSelect
       {hasChanges && <ul className="git-file-list">
         {snapshot.files.map((file) => <li className="git-file-item" key={file.path}>
           {file.status === 'added' || file.status === 'modified' ? <button className="git-file-button" onClick={() => void selectFile(file.path)} type="button"><GitFileRow file={file} /></button> : <GitFileRow file={file} />}
+          <Tooltip label={`Discard changes to ${file.path}`}><button aria-label={`Discard changes to ${file.path}`} className="git-file-discard" disabled={busy} onClick={() => void discard(file.path)} type="button">↶</button></Tooltip>
         </li>)}
       </ul>}
       {snapshot.commits.length > 0 && <section className="git-commits" aria-label="Unpushed commits">

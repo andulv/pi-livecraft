@@ -69,10 +69,10 @@ export async function pushCommits(cwd: string): Promise<GitPushResult> {
   })
 }
 
-export async function discardChanges(cwd: string): Promise<void> {
+export async function discardChanges(cwd: string, path?: string): Promise<void> {
   await request<void>('/api/git/discard', {
     method: 'POST',
-    body: JSON.stringify({ cwd }),
+    body: JSON.stringify({ cwd, path }),
   })
 }
 

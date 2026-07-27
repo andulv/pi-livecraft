@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { execFile as execFileCallback } from 'node:child_process'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import test from 'node:test'
-import { commitChanges, discardChanges, getGitFileDiff, getGitSnapshot, mergeNumstats, parseGitStatus, pushCommits, resetGitCommit, revertGitCommit } from '../server/features/git/git.ts'
+import { commitChanges, discardChanges, discardFileChanges, getGitFileDiff, getGitSnapshot, mergeNumstats, parseGitStatus, pushCommits, resetGitCommit, revertGitCommit } from '../server/features/git/git.ts'
 
 const execFile = promisify(execFileCallback)
 
@@ -182,6 +182,37 @@ test('commits without pushing, pushes separately, and discards changes', async (
   } finally {
     await rm(directory, { force: true, recursive: true })
     await rm(remote, { force: true, recursive: true })
+  }
+})
+
+test('discards only the selected file, including renamed and untracked files', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-livecraft-git-'))
+  try {
+    await execFile('git', ['init', '--quiet'], { cwd: directory })
+    await execFile('git', ['config', 'user.email', 'test@example.com'], { cwd: directory })
+    await execFile('git', ['config', 'user.name', 'Test User'], { cwd: directory })
+    await writeFile(join(directory, 'first.ts'), 'first\n')
+    await writeFile(join(directory, 'second.ts'), 'second\n')
+    await execFile('git', ['add', '.'], { cwd: directory })
+    await execFile('git', ['commit', '--quiet', '-m', 'Initial'], { cwd: directory })
+    await writeFile(join(directory, 'first.ts'), 'changed\n')
+    await writeFile(join(directory, 'second.ts'), 'also changed\n')
+    await writeFile(join(directory, 'new.ts'), 'new\n')
+
+    await discardFileChanges(directory, 'first.ts')
+    let snapshot = await getGitSnapshot(directory)
+    assert.deepEqual(snapshot.files.map(({ path }) => path), ['second.ts', 'new.ts'])
+    assert.equal(await readFile(join(directory, 'first.ts'), 'utf8'), 'first\n')
+
+    await discardFileChanges(directory, 'new.ts')
+    await execFile('git', ['checkout', '--', 'second.ts'], { cwd: directory })
+    await execFile('git', ['mv', 'second.ts', 'renamed.ts'], { cwd: directory })
+    await discardFileChanges(directory, 'renamed.ts')
+    snapshot = await getGitSnapshot(directory)
+    assert.equal(snapshot.files.length, 0)
+    assert.equal(await readFile(join(directory, 'second.ts'), 'utf8'), 'second\n')
+  } finally {
+    await rm(directory, { force: true, recursive: true })
   }
 })
 

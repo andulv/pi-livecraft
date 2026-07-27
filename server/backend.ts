@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { ManagerClient } from './manager-client.ts'
 import { listRecentPiSessions, loadPiSession } from './pi-session-store.ts'
-import { commitAndPush, commitChanges, discardChanges, getGitFileDiff, getGitSnapshot, pushCommits, resetGitCommit, revertGitCommit } from './features/git/git.ts'
+import { commitChanges, discardChanges, discardFileChanges, getGitFileDiff, getGitSnapshot, pushCommits, resetGitCommit, revertGitCommit } from './features/git/git.ts'
 import { QuotaService } from './features/quotas/quota-service.ts'
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
 import { loadWorkspaceTodos, parseTodoItems, saveWorkspaceTodos } from './features/todos/todo-store.ts'
@@ -169,15 +169,6 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     return
   }
 
-  if (method === 'POST' && url.pathname === '/api/git/action') {
-    const body = await readJsonBody(request)
-    if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
-    const cwd = await resolveWorkingDirectory(body.cwd)
-    const message = typeof body.message === 'string' ? body.message : ''
-    sendJson(response, 200, await commitAndPush(cwd, message))
-    return
-  }
-
   if (method === 'POST' && url.pathname === '/api/git/commit') {
     const body = await readJsonBody(request)
     if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
@@ -200,7 +191,8 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     const body = await readJsonBody(request)
     if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
     const cwd = await resolveWorkingDirectory(body.cwd)
-    await discardChanges(cwd)
+    if (typeof body.path === 'string') await discardFileChanges(cwd, body.path)
+    else await discardChanges(cwd)
     sendJson(response, 200, { ok: true })
     return
   }
