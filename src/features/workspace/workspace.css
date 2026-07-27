@@ -131,7 +131,7 @@
   border: 1px solid transparent;
   background:
     linear-gradient(color-mix(in srgb, var(--accent) 14%, var(--surface)), color-mix(in srgb, var(--accent) 14%, var(--surface))) padding-box,
-    conic-gradient(from var(--border-angle), var(--accent) 0deg, var(--accent) 8deg, transparent 24deg) border-box;
+    conic-gradient(from var(--border-angle), var(--accent) 0deg, var(--accent) 4deg, transparent 14deg) border-box;
   animation: complete-arrive 800ms ease-out, complete-border-spin 4s linear infinite;
 }
 .session-item.complete:not(.selected) strong { color: var(--accent-hover); }
