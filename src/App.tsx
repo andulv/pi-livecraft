@@ -599,7 +599,7 @@ function App() {
     const optimisticId = !isSteering ? crypto.randomUUID() : undefined
     if (optimisticId) {
       flushLiveUpdates()
-      const next = [...liveMessagesRef.current, { id: optimisticId, message: { role: 'user', content: message } }]
+      const next = [...liveMessagesRef.current, { id: optimisticId, message: { role: 'user', content: message, timestamp: Date.now() } }]
       liveMessagesRef.current = next
       setLiveMessages(next)
     }
