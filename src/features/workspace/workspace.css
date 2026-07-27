@@ -131,8 +131,8 @@
   color: color-mix(in srgb, var(--accent) 60%, var(--surface));
   pointer-events: none;
   white-space: inherit;
-  clip-path: polygon(0 -45%, 100% -45%, 100% -5%, 0 -5%);
-  animation: session-text-shimmer 1.8s ease-in-out infinite;
+  clip-path: polygon(-45% 0, -5% 0, -5% 100%, -45% 100%);
+  animation: session-text-shimmer 1.8s ease-out infinite;
 }
 .session-item.compacting strong::after { color: color-mix(in srgb, var(--warning) 60%, var(--surface)); }
 
@@ -155,7 +155,7 @@
   border-radius: inherit;
   pointer-events: none;
   background: linear-gradient(105deg, transparent 40%, color-mix(in srgb, var(--on-accent) 18%, transparent) 45%, color-mix(in srgb, var(--on-accent) 28%, transparent) 50%, color-mix(in srgb, var(--on-accent) 18%, transparent) 55%, transparent 60%);
-  animation: session-complete-flash 0.9s ease-out forwards;
+  animation: session-complete-flash 2.4s ease-in-out infinite;
 }
 .session-status-indicator { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
 .session-status-indicator.working { background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); animation: session-status-pulse 1.8s ease-out infinite; }
@@ -165,11 +165,14 @@
 @keyframes session-status-pulse { 50% { box-shadow: 0 0 0 7px transparent; transform: scale(1.08); } }
 @keyframes session-status-attention { 50% { box-shadow: 0 0 0 7px transparent; transform: scale(1.12); } }
 @keyframes session-text-shimmer {
-  0%, 20% { clip-path: polygon(0 -45%, 100% -45%, 100% -5%, 0 -5%); }
-  80%, 100% { clip-path: polygon(0 105%, 100% 105%, 100% 145%, 0 145%); }
+  0%, 20% { clip-path: polygon(-45% 0, -5% 0, -5% 100%, -45% 100%); }
+  80%, 100% { clip-path: polygon(105% 0, 145% 0, 145% 100%, 105% 100%); }
 }
 @keyframes session-gear-spin { to { transform: rotate(360deg); } }
-@keyframes session-complete-flash { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+@keyframes session-complete-flash {
+  0%, 55% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
 .empty-sidebar { padding: 14px; color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center; }
 
 .directory-picker { display: flex; flex-direction: column; }
