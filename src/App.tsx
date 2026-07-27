@@ -546,27 +546,26 @@ function App() {
   }
 
   const selectedSession = sessions.find((session) => session.id === selectedId)
+  const selectedSessionId = selectedSession?.id
   const selectedSessionStatus = selectedSession?.status
+  const sessionIsLoading = Boolean(selectedSessionId && snapshotSessionId !== selectedSessionId)
 
   // Manages loading overlay fade-in / fade-out around snapshot refresh.
   useEffect(() => {
-    if (!selectedSession) {
-      window.clearTimeout(loadingTimerRef.current)
+    window.clearTimeout(loadingTimerRef.current)
+    if (!selectedSessionId) {
       setLoadingPhase('hidden')
       return
     }
-    const isLoading = snapshotSessionId !== selectedSession.id
-    if (isLoading) {
-      if (loadingPhase !== 'entering') {
-        setLoadingPhase('entering')
-        loadingTimerRef.current = window.setTimeout(() => setLoadingPhase('visible'), 200)
-      }
-    } else if (loadingPhase === 'entering' || loadingPhase === 'visible') {
+    if (sessionIsLoading) {
+      setLoadingPhase('entering')
+      loadingTimerRef.current = window.setTimeout(() => setLoadingPhase('visible'), 200)
+    } else {
       setLoadingPhase('exiting')
       loadingTimerRef.current = window.setTimeout(() => setLoadingPhase('hidden'), 200)
     }
     return () => window.clearTimeout(loadingTimerRef.current)
-  }, [selectedSession, snapshotSessionId, loadingPhase])
+  }, [selectedSessionId, sessionIsLoading])
 
   const displayedActivity = selectedSession?.id && compactingSessionIds.has(selectedSession.id)
     ? { kind: 'compacting' as const }
