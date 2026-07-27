@@ -35,8 +35,7 @@ export function DirectoryPicker({  initialPath, recentPaths, onClose, onError, o
       if (version !== completionVersionRef.current) return
       setSuggestions(parent.directories
         .filter((directory) => directory.name.startsWith(target.namePrefix))
-        .map((directory) => `${target.pathPrefix}${directory.name}`)
-        .filter((completion) => completion !== path.trim()))
+        .map((directory) => `${target.pathPrefix}${directory.name}`))
       setActiveSuggestion(-1)
     }).catch(() => {
       if (version === completionVersionRef.current) setSuggestions([])
