@@ -20,7 +20,7 @@ import { DirectoryPicker } from './features/workspace/DirectoryPicker.tsx'
 import { recentWorkspaces } from './features/workspace/recent-workspaces.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
 import { CommandPalette, type PaletteCommand } from './features/commands/CommandPalette.tsx'
-import { commandDefinitions, defaultShortcuts, lastAssistantText, rightWidgetFromCommand, shortcutFromEvent, type CommandId } from './features/commands/command-registry.ts'
+import { commandDefinitions, defaultShortcuts, lastAssistantText, migrateLegacyShortcut, rightWidgetFromCommand, shortcutFromEvent, type CommandId } from './features/commands/command-registry.ts'
 import { SettingsPanel } from './features/settings/SettingsPanel.tsx'
 import { allThemes, applyThemePalette, deleteTheme, duplicateTheme, persistThemePreferences, readThemePreferences, renameTheme, resolveActiveTheme, setActiveTheme, shadowForMode, updateThemeColor, type ThemeVariable } from './features/settings/themes.ts'
 import { analyzeSession, type SessionAnalysisTarget } from './features/session-analysis/session-analysis.ts'
@@ -710,6 +710,8 @@ function App() {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.defaultPrevented) return
+      const target = event.target
+      if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) && event.key !== 'Escape' && !event.ctrlKey && !event.metaKey && !event.altKey) return
       const shortcut = shortcutFromEvent(event)
       const command = (Object.entries(shortcuts) as [CommandId, string | undefined][]).find(([, value]) => value === shortcut)?.[0]
       if (!command) return
@@ -933,7 +935,12 @@ function App() {
 function readShortcuts(): Partial<Record<CommandId, string>> {
   try {
     const value: unknown = JSON.parse(window.localStorage.getItem('pi-livecraft.shortcuts') ?? 'null')
-    return isObject(value) ? { ...defaultShortcuts, ...Object.fromEntries(Object.entries(value).filter(([key, shortcut]) => commandDefinitions.some((definition) => definition.id === key) && typeof shortcut === 'string')) as Partial<Record<CommandId, string>> } : defaultShortcuts
+    if (!isObject(value)) return defaultShortcuts
+    const primaryModifier = navigator.platform.toLowerCase().includes('mac') ? 'meta' : 'ctrl'
+    const stored = Object.entries(value)
+      .filter(([key, shortcut]) => key !== 'send' && commandDefinitions.some((definition) => definition.id === key) && typeof shortcut === 'string')
+      .map(([key, shortcut]) => [key, migrateLegacyShortcut(shortcut as string, primaryModifier)])
+    return { ...defaultShortcuts, ...Object.fromEntries(stored) } as Partial<Record<CommandId, string>>
   } catch { return defaultShortcuts }
 }
 

@@ -27,9 +27,8 @@ export const commandDefinitions: CommandDefinition[] = [
 ]
 
 export const defaultShortcuts: Partial<Record<CommandId, string>> = {
-  'open-palette': 'mod+k',
-  'open-settings': 'mod+,',
-  send: 'mod+enter',
+  'open-palette': 'ctrl+k',
+  'open-settings': 'ctrl+,',
   abort: 'escape',
 }
 
@@ -43,11 +42,17 @@ export function rightWidgetFromCommand(commandId: CommandId): RightWidget | null
   return rightWidgetDefinitions.find(({ id }) => rightWidgetCommandId(id) === commandId)?.id ?? null
 }
 
-/** Normalizes a keyboard combination for stable comparison and storage. */
+/** Preserves the exact modifiers pressed while producing a stable shortcut value. */
 export function shortcutFromEvent(event: { key: string; metaKey?: boolean; ctrlKey?: boolean; altKey?: boolean; shiftKey?: boolean }): string {
-  const modifiers = [event.metaKey || event.ctrlKey ? 'mod' : '', event.altKey ? 'alt' : '', event.shiftKey ? 'shift' : ''].filter(Boolean)
   const key = event.key.toLowerCase() === ' ' ? 'space' : event.key.toLowerCase()
+  if (['alt', 'control', 'meta', 'shift'].includes(key)) return ''
+  const modifiers = [event.ctrlKey ? 'ctrl' : '', event.metaKey ? 'meta' : '', event.altKey ? 'alt' : '', event.shiftKey ? 'shift' : ''].filter(Boolean)
   return [...modifiers, key].join('+')
+}
+
+/** Replaces the former cross-platform modifier with the current platform's exact key. */
+export function migrateLegacyShortcut(shortcut: string, primaryModifier: 'ctrl' | 'meta'): string {
+  return shortcut.replace(/^mod(?=\+|$)/, primaryModifier)
 }
 
 /** Returns conflicting shortcuts while ignoring commands without a shortcut. */

@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { commandDefinitions, defaultShortcuts, lastAssistantText, rightWidgetCommandId, rightWidgetFromCommand, shortcutConflicts, shortcutFromEvent } from '../src/features/commands/command-registry.ts'
+import { commandDefinitions, defaultShortcuts, lastAssistantText, migrateLegacyShortcut, rightWidgetCommandId, rightWidgetFromCommand, shortcutConflicts, shortcutFromEvent } from '../src/features/commands/command-registry.ts'
 import { rightWidgetDefinitions } from '../src/features/right-sidebar/right-sidebar.ts'
 
-test('normalise un raccourci clavier', () => {
-  assert.equal(shortcutFromEvent({ key: 'K', ctrlKey: true }), 'mod+k')
-  assert.equal(shortcutFromEvent({ key: 'K', ctrlKey: true, altKey: true }), 'mod+alt+k')
-  assert.equal(defaultShortcuts['open-palette'], 'mod+k')
+test('conserve exactement les touches d’un raccourci', () => {
+  assert.equal(shortcutFromEvent({ key: 'K' }), 'k')
+  assert.equal(shortcutFromEvent({ key: 'K', ctrlKey: true }), 'ctrl+k')
+  assert.equal(shortcutFromEvent({ key: 'K', metaKey: true, altKey: true }), 'meta+alt+k')
+  assert.equal(shortcutFromEvent({ key: 'Control', ctrlKey: true }), '')
+  assert.equal(defaultShortcuts['open-palette'], 'ctrl+k')
+  assert.equal(defaultShortcuts.send, undefined)
+  assert.equal(migrateLegacyShortcut('mod+k', 'meta'), 'meta+k')
 })
 
 test('expose automatiquement chaque widget dans le registre de commandes', () => {
@@ -18,7 +22,7 @@ test('expose automatiquement chaque widget dans le registre de commandes', () =>
 })
 
 test('détecte les conflits de raccourcis', () => {
-  const conflicts = shortcutConflicts({ send: 'mod+k', abort: 'mod+k' })
+  const conflicts = shortcutConflicts({ send: 'ctrl+k', abort: 'ctrl+k', 'open-agent': 'meta+k' })
   assert.deepEqual([...conflicts].sort(), ['abort', 'send'])
 })
 

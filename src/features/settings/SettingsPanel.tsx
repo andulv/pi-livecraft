@@ -154,21 +154,25 @@ interface ShortcutsSettingsProps {
 
 function ShortcutsSettings({ definitions, shortcuts, conflicts, capturing, onCaptureStart, onCaptureEnd, onChange }: ShortcutsSettingsProps) {
   return <section>
+    <p>Focus a field, then press the exact key or key combination you want.</p>
     {definitions
-      .filter(({ id }) => !['open-palette', 'open-settings'].includes(id))
+      .filter(({ id }) => id !== 'send')
       .map((definition) => (
-        <label className={conflicts.has(definition.id) ? 'shortcut-row conflict' : 'shortcut-row'} key={definition.id}>
+        <div className={conflicts.has(definition.id) ? 'shortcut-row conflict' : 'shortcut-row'} key={definition.id}>
           <span>{definition.label}{conflicts.has(definition.id) && <small>Conflict</small>}</span>
-          <input
-            aria-label={`Shortcut: ${definition.label}`}
-            onBlur={onCaptureEnd}
-            onKeyDown={(event) => { event.preventDefault(); if (event.key === 'Escape') { onCaptureEnd(); return } const value = shortcutFromEvent(event); if (value !== event.key.toLowerCase()) { onChange(definition.id, value); onCaptureEnd() } }}
-            onFocus={() => onCaptureStart(definition.id)}
-            placeholder="Unassigned"
-            readOnly
-            value={capturing === definition.id ? 'Press a key…' : shortcuts[definition.id] ?? ''}
-          />
-        </label>
+          <span className="shortcut-control">
+            <input
+              aria-label={`Shortcut: ${definition.label}`}
+              onBlur={onCaptureEnd}
+              onKeyDown={(event) => { event.preventDefault(); const value = shortcutFromEvent(event); if (value) { onChange(definition.id, value); onCaptureEnd() } }}
+              onFocus={() => onCaptureStart(definition.id)}
+              placeholder="Unassigned"
+              readOnly
+              value={capturing === definition.id ? 'Press keys…' : shortcuts[definition.id] ?? ''}
+            />
+            <button aria-label={`Clear shortcut: ${definition.label}`} disabled={!shortcuts[definition.id]} onClick={() => onChange(definition.id, '')} type="button">Clear</button>
+          </span>
+        </div>
       ))}
   </section>
 }
