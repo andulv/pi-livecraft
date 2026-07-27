@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import { Tooltip } from './components/Tooltip.tsx'
-import { commitChanges, createSession, discardChanges, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, improvePrompt, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, openTerminal, pushCommits, refreshQuotas, resetGitCommit, revertGitCommit, sendPiCommand } from './api.ts'
+import { commitChanges, createSession, discardChanges, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, improvePrompt, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, openTerminal, pushCommits, refreshQuotas, resetGitCommit, restartManager, revertGitCommit, sendPiCommand } from './api.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
-import type { GitSnapshot, JsonObject, ManagerEvent, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary } from '../shared/types.ts'
+import type { GitSnapshot, JsonObject, ManagerEvent, ManagerRuntimeStatus, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 import { Composer } from './features/composer/Composer.tsx'
 import { promptSessionTitle } from './features/composer/prompt-title.ts'
@@ -22,6 +22,7 @@ import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
 import { CommandPalette, type PaletteCommand } from './features/commands/CommandPalette.tsx'
 import { commandDefinitions, defaultShortcuts, lastAssistantText, migrateLegacyShortcut, rightWidgetFromCommand, shortcutFromEvent, type CommandId } from './features/commands/command-registry.ts'
 import { SettingsPanel } from './features/settings/SettingsPanel.tsx'
+import { ManagerRuntimeNotice } from './features/manager/ManagerRuntimeNotice.tsx'
 import { allThemes, applyThemePalette, deleteTheme, duplicateTheme, persistThemePreferences, readThemePreferences, renameTheme, resolveActiveTheme, setActiveTheme, shadowForMode, updateThemeColor, type ThemeVariable } from './features/settings/themes.ts'
 import { analyzeSession, type SessionAnalysisTarget } from './features/session-analysis/session-analysis.ts'
 import './features/commands/commands.css'
@@ -53,6 +54,7 @@ function App() {
   const [pendingSteering, setPendingSteering] = useState<string[]>([])
   const [activity, setActivity] = useState<Activity | null>(null)
   const [piConnection, setPiConnection] = useState<PiConnection>('connecting')
+  const [managerRuntimeStatus, setManagerRuntimeStatus] = useState<ManagerRuntimeStatus>({ state: 'disconnected', canRestart: false })
   const [toolExecutions, setToolExecutions] = useState<ToolExecution[]>([])
   const [conversationView, setConversationView] = useState<'detailed' | 'simple'>(() => {
     const stored = window.localStorage.getItem('pi-livecraft.conversation-view')
@@ -261,7 +263,7 @@ function App() {
       const pending = nextSessions.flatMap((session) =>
         session.pendingUi.map((request) => ({ sessionId: session.id, request })),
       ).find(({ request }) => !isAgentSelector(request))
-      if (pending) setDialog(pending)
+      setDialog((current) => pending ?? (current && nextSessions.some(({ id }) => id === current.sessionId) ? current : null))
     } catch (cause) {
       if (version === refreshVersionRef.current) showToast('error', messageOf(cause))
     }
@@ -373,6 +375,7 @@ function App() {
         setPiConnection(event.event === 'manager_connected' ? 'connected' : 'disconnected')
         setActivity(null)
       }
+      if (event.event === 'manager_status' && isManagerRuntimeStatus(event.data)) setManagerRuntimeStatus(event.data)
       if (event.event === 'manager_connected' || event.event === 'session_created' || event.event === 'session_exited') void refreshSessions()
       if (event.event !== 'pi' || !isObject(event.data)) return
       handlePiEvent(event.sessionId, event.data)
@@ -774,6 +777,12 @@ function App() {
       />
 
       <main className="workspace">
+        <ManagerRuntimeNotice
+          activeSession={sessions.some(({ status }) => status === 'running' || status === 'starting')}
+          status={managerRuntimeStatus}
+          onError={(cause) => showToast('error', messageOf(cause))}
+          onRestart={restartManager}
+        />
         {selectedSession ? (
           <>
             {(snapshotSessionId === selectedSession.id || loadingPhase === 'exiting') && (
@@ -969,6 +978,11 @@ function readActiveRightWidget(): RightWidget | null {
 
 function isManagerEvent(value: unknown): value is ManagerEvent {
   return isObject(value) && value.kind === 'event' && typeof value.event === 'string' && typeof value.sessionId === 'string'
+}
+
+function isManagerRuntimeStatus(value: unknown): value is ManagerRuntimeStatus {
+  if (!isObject(value) || typeof value.canRestart !== 'boolean' || typeof value.state !== 'string') return false
+  return value.state === 'checking' || value.state === 'current' || value.state === 'stale' || value.state === 'restarting' || value.state === 'disconnected' || value.state === 'unknown'
 }
 
 /** Returns the timestamp of the most recent user message, if any. */

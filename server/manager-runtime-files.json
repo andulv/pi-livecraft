@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "files": [
+    "server/manager.ts",
+    "server/jsonl.ts",
+    "server/pi-process.ts",
+    "server/prompt-improvement.ts",
+    "server/run-isolated-prompt.ts",
+    "shared/is-object.ts"
+  ]
+}

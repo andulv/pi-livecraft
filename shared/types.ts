@@ -86,9 +86,24 @@ export interface TodoItem {
   completed: boolean
 }
 
+export interface ManagerRuntimeIdentity {
+  instanceId: string
+  startedAt: string
+  runtimeRevision: string | null
+  supervised: boolean
+}
+
+export type ManagerRuntimeState = 'checking' | 'current' | 'stale' | 'restarting' | 'disconnected' | 'unknown'
+
+export interface ManagerRuntimeStatus {
+  state: ManagerRuntimeState
+  canRestart: boolean
+  error?: string
+}
+
 export interface ManagerRequest {
   id: string
-  action: 'list' | 'create' | 'open' | 'command' | 'improve_prompt' | 'run_prompt'
+  action: 'list' | 'create' | 'open' | 'command' | 'improve_prompt' | 'run_prompt' | 'status' | 'restart'
   sessionId?: string
   cwd?: string
   name?: string
@@ -113,7 +128,7 @@ export interface ManagerResponse {
 
 export interface ManagerEvent {
   kind: 'event'
-  event: 'session_created' | 'session_exited' | 'manager_connected' | 'manager_disconnected' | 'pi'
+  event: 'session_created' | 'session_exited' | 'manager_connected' | 'manager_disconnected' | 'manager_status' | 'pi'
   sessionId: string
   data?: unknown
 }

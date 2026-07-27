@@ -9,7 +9,7 @@ React browser
 server/backend.ts
     │ JSON Lines over local TCP
     ▼
-server/manager.ts
+server/manager.ts ◀── lifecycle ── server/manager-supervisor.ts
     │ Pi public RPC
     ▼
 pi --mode rpc process
@@ -23,6 +23,7 @@ pi --mode rpc process
 - `conversation/` — history, activity, usage, and tool calls;
 - `dialogs/` — extension questionnaires and dialogs;
 - `git/` — Git widget state and diffs;
+- `manager/` — persistent runtime update and restart notice;
 - `right-sidebar/` — integrated widgets, rail actions, collapse state, and resizing;
 - `workspace/` — directory selection and recent sessions.
 
@@ -36,7 +37,9 @@ Use the [`src/features/` map](/src/features/README.md) to locate frontend owners
 
 `server/backend.ts` exposes the web API, validates HTTP requests, serves the build, and broadcasts SSE events. Domain behavior for Git, quotas, terminal launching, and todos lives in `server/features/`; route definitions remain in the backend. Other neighboring modules provide workspace files, recent sessions, and system integrations.
 
-`server/manager.ts` is the sole owner of `pi --mode rpc` processes. `server/pi-process.ts` starts each process with the required extensions from `pi-extensions/`. `server/manager-client.ts` connects the backend to the manager through a local JSON Lines protocol. This responsibility must not move to the backend: the manager must survive its restart. Backend capabilities that need Pi communicate through this client rather than owning a process.
+`server/manager.ts` is the sole owner of `pi --mode rpc` processes. `server/pi-process.ts` starts each process with the required extensions from `pi-extensions/`. `server/manager-client.ts` connects the backend to the manager through a local JSON Lines protocol. This responsibility must not move to the backend: the manager must survive backend restarts. Backend capabilities that need Pi communicate through this client rather than owning a process.
+
+`server/manager-supervisor.ts` owns only the manager process lifecycle. It captures the declared runtime revision before launch and starts a replacement only after the manager exits with the reserved restart code. It does not restart after file changes or crashes, and remains alive after a crash so the backend can report the outage. `server/manager-runtime-monitor.ts` runs in the backend, compares that captured revision with `server/manager-runtime-files.json`, and publishes status through SSE. A manual restart is rejected while a session is starting or running or manager work is still in flight, and the old manager terminates all owned Pi children before the supervisor launches the new instance.
 
 ## Shared contracts
 

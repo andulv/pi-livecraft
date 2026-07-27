@@ -55,7 +55,9 @@ npm install
 npm run dev
 ```
 
-`npm run dev` keeps the frontend, backend, and manager watched while you reshape them. Open [http://127.0.0.1:5173](http://127.0.0.1:5173); `Ctrl+C` stops all three processes.
+`npm run dev` watches the frontend and backend while a stable supervisor keeps the manager running. Manager runtime changes are reported in the interface and take effect only after you choose **Restart manager**; `Ctrl+C` stops all three processes.
+
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
 On Linux, opening a folder or terminal uses the desktop tools available in your environment (`xdg-open` and `x-terminal-emulator`). Under WSL, Pi Livecraft uses Windows Explorer and Windows Terminal; leave the terminal setting empty to use that platform default, or configure a command containing `{cwd}`.
 
@@ -100,19 +102,19 @@ React browser
 server/backend.ts
     │ local JSON Lines
     ▼
-server/manager.ts
+server/manager.ts ◀── lifecycle ── server/manager-supervisor.ts
     │ Pi public RPC
     ▼
 pi --mode rpc
 ```
 
-The separation is deliberate: the browser can refresh and the backend can restart while the manager continues to own the Pi processes.
+The separation is deliberate: the browser can refresh and the backend can restart while the manager continues to own the Pi processes. The supervisor never restarts the manager after a code change or crash; it replaces it only after the running manager accepts an explicit restart request and exits cleanly.
 
 | Change | Development behavior | Active session |
 | --- | --- | --- |
 | React UI and feature styles | Vite hot update | Preserved |
 | Backend routes and capabilities | `node --watch` restart | Preserved |
-| Manager or Pi process ownership | `node --watch` restart | Current response is interrupted; history can normally resume |
+| Manager runtime files | Persistent notice, then manual restart | Restart is blocked during an active response; open Pi processes close when confirmed |
 
 Read [`docs/ARCHITECTURE.md`](/docs/ARCHITECTURE.md) before changing boundaries or process ownership.
 
@@ -121,9 +123,10 @@ Read [`docs/ARCHITECTURE.md`](/docs/ARCHITECTURE.md) before changing boundaries 
 ```text
 src/features/        Frontend behavior, rendering, and colocated styles
 src/api.ts           Browser-to-backend boundary
-server/backend.ts    Local HTTP API and SSE stream
-server/manager.ts    Sole owner of Pi RPC processes
-server/features/     Git, quotas, terminal, and todo capabilities
+server/backend.ts              Local HTTP API and SSE stream
+server/manager-supervisor.ts   Stable, explicit manager restart boundary
+server/manager.ts              Sole owner of Pi RPC processes
+server/features/               Git, quotas, terminal, and todo capabilities
 pi-extensions/       Extensions loaded ONLY into Livecraft sessions
 shared/              Contracts exchanged between layers
 test/                Focused automated checks

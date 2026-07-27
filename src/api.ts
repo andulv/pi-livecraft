@@ -5,6 +5,13 @@ export async function listSessions(): Promise<SessionSummary[]> {
   return request<SessionSummary[]>('/api/sessions')
 }
 
+export async function restartManager(): Promise<void> {
+  await request<void>('/api/manager/restart', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+}
+
 export async function listRecentSessions(cwd: string): Promise<RecentSession[]> {
   return request<RecentSession[]>(`/api/sessions/recent?cwd=${encodeURIComponent(cwd)}`)
 }

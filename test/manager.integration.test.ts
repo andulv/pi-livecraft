@@ -7,6 +7,101 @@ import { connect, type Socket } from 'node:net'
 import test from 'node:test'
 import { isObject } from '../shared/is-object.ts'
 
+test('keeps supervision alive without relaunching a manager that crashes', { timeout: 10_000 }, async (t) => {
+  const supervisor = spawn(process.execPath, ['server/manager-supervisor.ts'], {
+    cwd: process.cwd(),
+    env: { ...process.env, PI_LIVECRAFT_MANAGER_PORT: 'invalid' },
+    stdio: ['ignore', 'ignore', 'pipe'],
+  })
+  t.after(() => supervisor.kill('SIGKILL'))
+  let errors = ''
+  supervisor.stderr.on('data', (chunk: Buffer) => { errors += chunk.toString('utf8') })
+
+  await waitFor(() => errors.includes('PI_LIVECRAFT_MANAGER_PORT must be a valid port'))
+  await new Promise((resolve) => setTimeout(resolve, 200))
+  assert.equal(supervisor.exitCode, null)
+  assert.equal(errors.match(/PI_LIVECRAFT_MANAGER_PORT must be a valid port/g)?.length, 1)
+
+  supervisor.kill('SIGTERM')
+  await once(supervisor, 'exit')
+})
+
+test('restarts a supervised manager only after an explicit request', { timeout: 10_000 }, async () => {
+  const port = 45_000 + (process.pid % 10_000)
+  const supervisor = spawn(process.execPath, ['server/manager-supervisor.ts'], {
+    cwd: process.cwd(),
+    env: { ...process.env, PI_LIVECRAFT_MANAGER_PORT: String(port) },
+    stdio: 'ignore',
+  })
+  const firstClient = await connectManager(port)
+  try {
+    const firstStatus = await firstClient.request('status', {})
+    assert.equal(firstStatus.ok, true)
+    assert.equal(isObject(firstStatus.data) && firstStatus.data.supervised, true)
+    const firstInstanceId = isObject(firstStatus.data) ? firstStatus.data.instanceId : undefined
+    assert.equal(typeof firstInstanceId, 'string')
+
+    const restart = await firstClient.request('restart', {})
+    assert.equal(restart.ok, true)
+    firstClient.close()
+    await new Promise((resolve) => setTimeout(resolve, 200))
+
+    const secondClient = await connectManager(port)
+    try {
+      const secondStatus = await secondClient.request('status', {})
+      const secondInstanceId = isObject(secondStatus.data) ? secondStatus.data.instanceId : undefined
+      assert.equal(typeof secondInstanceId, 'string')
+      assert.notEqual(secondInstanceId, firstInstanceId)
+    } finally {
+      secondClient.close()
+    }
+  } finally {
+    firstClient.close()
+    supervisor.kill('SIGTERM')
+    await once(supervisor, 'exit')
+  }
+})
+
+test('rejects a restart while manager work is still in flight', { timeout: 10_000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
+  const port = 45_000 + (process.pid % 10_000)
+  await writeFakePi(directory)
+  const manager = spawn(process.execPath, ['server/manager.ts'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      PATH: `${directory}:${process.env.PATH}`,
+      PI_LIVECRAFT_MANAGER_PORT: String(port),
+      PI_LIVECRAFT_MANAGER_RESTART_EXIT_CODE: '75',
+      PI_LIVECRAFT_MANAGER_RUNTIME_REVISION: 'test-revision',
+      PI_LIVECRAFT_MANAGER_SUPERVISED: '1',
+    },
+    stdio: 'ignore',
+  })
+  const client = await connectManager(port)
+  try {
+    const opened = await client.request('open', { cwd: process.cwd(), name: 'Active', sessionPath: join(directory, 'active.jsonl') })
+    const pendingCommand = client.request('command', { sessionId: sessionId(opened), command: { type: 'hold_test' } })
+    await new Promise((resolve) => setTimeout(resolve, 25))
+
+    const restart = await client.request('restart', {})
+    assert.equal(restart.ok, false)
+    assert.match(restart.error ?? '', /Active Pi work/)
+    assert.equal((await pendingCommand).ok, true)
+
+    assert.equal((await client.request('command', { sessionId: sessionId(opened), command: { type: 'prompt', message: 'Test' } })).ok, true)
+    const activeRestart = await client.request('restart', {})
+    assert.equal(activeRestart.ok, false)
+    assert.match(activeRestart.error ?? '', /Active Pi work/)
+    assert.equal((await client.request('status', {})).ok, true)
+  } finally {
+    client.close()
+    manager.kill('SIGTERM')
+    await once(manager, 'exit')
+    await rm(directory, { force: true, recursive: true })
+  }
+})
+
 test('accepts commands after an event emitted before Pi finishes starting', { timeout: 10_000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
   const port = 45_000 + (process.pid % 10_000)
@@ -108,6 +203,10 @@ const emitStartupEvent = ${emitStartupEvent}
 readline.createInterface({ input: process.stdin }).on('line', (line) => {
   const command = JSON.parse(line)
   if (command.type === 'quit_test') process.exit(0)
+  if (!isolated && command.type === 'hold_test') {
+    setTimeout(() => console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: {} })), 150)
+    return
+  }
   if (isolated && command.type === 'get_available_models') {
     console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: { models: [
       { id: 'expensive', provider: 'test', reasoning: false, cost: { input: 1, output: 5 } },
@@ -149,6 +248,7 @@ interface ManagerResponse {
   id: string
   ok: boolean
   data?: unknown
+  error?: string
 }
 
 interface ManagerEvent {
@@ -210,6 +310,15 @@ async function connectManager(port: number): Promise<{ request: (action: string,
     },
     close: () => socket.end(),
   }
+}
+
+/** Waits for asynchronous process output without relying on a fixed startup duration. */
+async function waitFor(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (predicate()) return
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+  throw new Error('Timed out waiting for condition')
 }
 
 async function connectWithRetry(port: number): Promise<Socket> {

@@ -6,6 +6,8 @@ import { JsonLineDecoder, encodeJsonLine } from './jsonl.ts'
 import type { JsonObject } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 
+const activeChildren = new Set<ChildProcessWithoutNullStreams>()
+
 interface PendingRequest {
   resolve: (value: JsonObject) => void
   reject: (error: Error) => void
@@ -55,6 +57,7 @@ export class PiProcess extends EventEmitter {
       env: process.env,
       stdio: ['pipe', 'pipe', 'pipe'],
     })
+    activeChildren.add(this.child)
 
     const decoder = new JsonLineDecoder((value) => this.#receive(value))
     this.child.stdout.on('data', (chunk: Buffer) => {
@@ -68,8 +71,12 @@ export class PiProcess extends EventEmitter {
     this.child.stderr.on('data', (chunk: Buffer) => {
       this.#stderr = `${this.#stderr}${chunk.toString('utf8')}`.slice(-8_192)
     })
-    this.child.on('error', (error) => this.#fail(error))
+    this.child.on('error', (error) => {
+      activeChildren.delete(this.child)
+      this.#fail(error)
+    })
     this.child.on('exit', (code, signal) => {
+      activeChildren.delete(this.child)
       const detail = this.#stderr.trim()
       this.#fail(new Error(`Pi exited (${signal ?? code ?? 'unknown'})${detail ? `: ${detail}` : ''}`))
       this.emit('exit', { code, signal, detail })
@@ -123,4 +130,15 @@ export class PiProcess extends EventEmitter {
     }
     this.#pending.clear()
   }
+}
+
+/** Terminates every Pi child owned by this process and force-kills stragglers after the grace period. */
+export async function terminateAllPiProcesses(graceMs = 2_000): Promise<void> {
+  const children = [...activeChildren]
+  if (children.length === 0) return
+  const exited = Promise.all(children.map((child) => new Promise<void>((resolve) => child.once('exit', () => resolve()))))
+  for (const child of children) child.kill('SIGTERM')
+  await Promise.race([exited, new Promise<void>((resolve) => setTimeout(resolve, graceMs))])
+  for (const child of activeChildren) child.kill('SIGKILL')
+  await Promise.race([exited, new Promise<void>((resolve) => setTimeout(resolve, Math.min(750, graceMs)))])
 }

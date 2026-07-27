@@ -5,6 +5,7 @@ import { dirname, extname, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { ManagerClient } from './manager-client.ts'
+import { ManagerRuntimeMonitor } from './manager-runtime-monitor.ts'
 import { listRecentPiSessions, loadPiSession } from './pi-session-store.ts'
 import { commitChanges, discardChanges, discardFileChanges, getGitFileDiff, getGitSnapshot, pushCommits, resetGitCommit, revertGitCommit } from './features/git/git.ts'
 import { QuotaService } from './features/quotas/quota-service.ts'
@@ -23,16 +24,24 @@ const manager = new ManagerClient(host, managerPort)
 const eventClients = new Set<ServerResponse>()
 const distDirectory = fileURLToPath(new URL('../dist/', import.meta.url))
 const quotas = new QuotaService(manager)
+const managerRuntime = new ManagerRuntimeMonitor(manager, (status) => {
+  broadcast({ kind: 'event', event: 'manager_status', sessionId: '', data: status })
+})
 
 manager.on('event', (event: ManagerEvent) => {
   quotas.receiveManagerEvent(event)
   broadcast(event)
 })
 manager.on('connected', () => {
+  managerRuntime.connected()
   broadcast({ kind: 'event', event: 'manager_connected', sessionId: '' })
   void quotas.restoreFromIdleSession()
 })
-manager.on('disconnected', () => broadcast({ kind: 'event', event: 'manager_disconnected', sessionId: '' }))
+manager.on('disconnected', () => {
+  managerRuntime.disconnected()
+  broadcast({ kind: 'event', event: 'manager_disconnected', sessionId: '' })
+})
+managerRuntime.start()
 manager.start()
 
 const server = createServer((request, response) => {
@@ -64,8 +73,20 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       Connection: 'keep-alive',
     })
     response.write(`retry: 500\n\ndata: ${JSON.stringify({ kind: 'event', event: manager.connected ? 'manager_connected' : 'manager_disconnected', sessionId: '' })}\n\n`)
+    response.write(`data: ${JSON.stringify({ kind: 'event', event: 'manager_status', sessionId: '', data: managerRuntime.status })}\n\n`)
     eventClients.add(response)
     request.on('close', () => eventClients.delete(response))
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/manager/restart') {
+    await readJsonBody(request)
+    try {
+      await managerRuntime.restart()
+    } catch (error) {
+      throw new HttpError(manager.connected ? 409 : 503, errorMessage(error))
+    }
+    sendJson(response, 202, { accepted: true })
     return
   }
 

@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto'
 import { realpath, stat } from 'node:fs/promises'
 import { createServer, type Socket } from 'node:net'
 import { JsonLineDecoder, encodeJsonLine } from './jsonl.ts'
-import { PiProcess } from './pi-process.ts'
+import { PiProcess, terminateAllPiProcesses } from './pi-process.ts'
 import { generateProjectMap, loadPromptImprovementSystemPrompt } from './prompt-improvement.ts'
 import { runIsolatedPrompt } from './run-isolated-prompt.ts'
 import { isObject } from '../shared/is-object.ts'
@@ -25,6 +25,17 @@ const host = '127.0.0.1'
 const port = readPort('PI_LIVECRAFT_MANAGER_PORT', 43_120)
 const clients = new Set<Socket>()
 const sessions = new Map<string, ManagedSession>()
+const restartExitCode = readRestartExitCode()
+const supervised = process.env.PI_LIVECRAFT_MANAGER_SUPERVISED === '1' && restartExitCode !== undefined
+const runtimeIdentity = {
+  instanceId: randomUUID(),
+  startedAt: new Date().toISOString(),
+  runtimeRevision: process.env.PI_LIVECRAFT_MANAGER_RUNTIME_REVISION ?? null,
+  supervised,
+}
+let shuttingDown = false
+let restartAccepted = false
+let activeRequests = 0
 
 interface ManagedSession {
   summary: SessionSummary
@@ -51,19 +62,30 @@ const server = createServer((socket) => {
 
 server.on('error', (error) => {
   console.error(`Pi manager failed: ${error.message}`)
-  process.exitCode = 1
+  void shutdown(1)
 })
 
 server.listen(port, host, () => {
   console.log(`Pi manager listening on tcp://${host}:${port}`)
 })
 
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)
+process.on('SIGINT', () => void shutdown(0))
+process.on('SIGTERM', () => void shutdown(0))
 
-function shutdown(): void {
-  for (const session of sessions.values()) session.pi.terminate()
-  server.close(() => process.exit(0))
+/** Closes manager connections and every owned Pi process before exiting. */
+async function shutdown(exitCode: number): Promise<void> {
+  if (shuttingDown) return
+  shuttingDown = true
+  const serverClosed = server.listening
+    ? new Promise<void>((resolve) => server.close(() => resolve()))
+    : Promise.resolve()
+  for (const client of clients) client.end()
+  await Promise.race([
+    Promise.all([serverClosed, terminateAllPiProcesses()]),
+    new Promise<void>((resolve) => setTimeout(resolve, 3_000)),
+  ])
+  for (const client of clients) client.destroy()
+  process.exit(exitCode)
 }
 
 async function handleRequest(socket: Socket, value: unknown): Promise<void> {
@@ -72,9 +94,20 @@ async function handleRequest(socket: Socket, value: unknown): Promise<void> {
     return
   }
 
+  const tracksActivity = value.action === 'create' || value.action === 'open' || value.action === 'command' || value.action === 'improve_prompt' || value.action === 'run_prompt'
+  if (tracksActivity) activeRequests += 1
   try {
     let data: unknown
-    if (value.action === 'list') data = listSessions()
+    if (value.action === 'status') data = runtimeIdentity
+    else if (value.action === 'restart') {
+      if (!supervised || restartExitCode === undefined) throw new Error('Pi manager is not supervised')
+      if (restartAccepted) throw new Error('Pi manager restart is already in progress')
+      if (activeRequests > 0 || [...sessions.values()].some(({ summary }) => summary.status === 'starting' || summary.status === 'running')) throw new Error('Active Pi work must settle before restarting')
+      restartAccepted = true
+      respond(socket, { kind: 'response', id: value.id, ok: true, data: { accepted: true } })
+      setImmediate(() => void shutdown(restartExitCode))
+      return
+    } else if (value.action === 'list') data = listSessions()
     else if (value.action === 'create') data = await createSession(value)
     else if (value.action === 'open') data = await openSession(value)
     else if (value.action === 'improve_prompt') data = await improvePrompt(value)
@@ -83,6 +116,8 @@ async function handleRequest(socket: Socket, value: unknown): Promise<void> {
     respond(socket, { kind: 'response', id: value.id, ok: true, data })
   } catch (error) {
     respond(socket, { kind: 'response', id: value.id, ok: false, error: errorMessage(error) })
+  } finally {
+    if (tracksActivity) activeRequests -= 1
   }
 }
 
@@ -202,6 +237,7 @@ function isModelOption(value: unknown): value is { provider: string; modelId: st
   return isObject(value) && typeof value.provider === 'string' && typeof value.modelId === 'string'
 }
 
+/** Forwards one RPC command while making prompt activity visible before Pi emits its first event. */
 async function sendCommand(request: ManagerRequest): Promise<JsonObject> {
   if (typeof request.sessionId !== 'string' || !isObject(request.command)) {
     throw new Error('Session id and Pi command are required')
@@ -215,7 +251,15 @@ async function sendCommand(request: ManagerRequest): Promise<JsonObject> {
     session.pi.send(request.command)
     return { success: true }
   }
-  return session.pi.request(request.command)
+
+  const startsAgent = request.command.type === 'prompt'
+  if (startsAgent) session.summary.status = 'running'
+  try {
+    return await session.pi.request(request.command)
+  } catch (error) {
+    if (startsAgent && session.summary.status === 'running') session.summary.status = 'idle'
+    throw error
+  }
 }
 
 function handlePiEvent(sessionId: string, session: ManagedSession, event: JsonObject): void {
@@ -262,7 +306,7 @@ function respond(socket: Socket, response: ManagerResponse): void {
 
 function isManagerRequest(value: unknown): value is ManagerRequest {
   if (!isObject(value) || typeof value.id !== 'string') return false
-  return value.action === 'list' || value.action === 'create' || value.action === 'open' || value.action === 'command' || value.action === 'improve_prompt' || value.action === 'run_prompt'
+  return value.action === 'list' || value.action === 'create' || value.action === 'open' || value.action === 'command' || value.action === 'improve_prompt' || value.action === 'run_prompt' || value.action === 'status' || value.action === 'restart'
 }
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -273,4 +317,11 @@ function readPort(primary: string, fallback: number): number {
   const value = Number(process.env[primary] ?? fallback)
   if (!Number.isInteger(value) || value < 1 || value > 65_535) throw new Error(`${primary} must be a valid port`)
   return value
+}
+
+function readRestartExitCode(): number | undefined {
+  const rawValue = process.env.PI_LIVECRAFT_MANAGER_RESTART_EXIT_CODE
+  if (rawValue === undefined) return undefined
+  const value = Number(rawValue)
+  return Number.isInteger(value) && value > 0 && value <= 255 ? value : undefined
 }
