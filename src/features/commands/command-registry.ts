@@ -27,9 +27,19 @@ export const commandDefinitions: CommandDefinition[] = [
 ]
 
 export const defaultShortcuts: Partial<Record<CommandId, string>> = {
-  'open-palette': 'ctrl+k',
-  'open-settings': 'ctrl+,',
+  'new-session': 'alt+n',
   abort: 'escape',
+  'open-thinking': 'alt+2',
+  'open-model': 'alt+1',
+  'open-agent': 'alt+3',
+  'copy-last-response': 'alt+c',
+  'open-palette': 'alt+k',
+  'open-settings': 'alt+s',
+  'open-terminal': 'alt+t',
+  'open-widget-analysis': 'alt+a',
+  'open-widget-git': 'alt+g',
+  'open-widget-quotas': 'alt+q',
+  'open-widget-todo': 'alt+y',
 }
 
 /** Gives every sidebar widget a stable command without duplicating its identity. */
