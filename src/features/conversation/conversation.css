@@ -152,8 +152,8 @@
 .message.assistant .content .reasoning h6,
 .message.assistant .content .reasoning ul ::marker,
 .message.assistant .content .reasoning ol ::marker { color: inherit; }
-.content pre { overflow-x: auto; padding: 13px 14px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; }
-.content :not(pre) > code { padding: 2px 5px; border-radius: 4px; background: color-mix(in srgb, var(--canvas) 70%, var(--surface)); color: var(--ink); font: 12px ui-monospace, monospace; }
+.content pre { overflow-x: auto; padding: 13px 14px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--canvas) 60%, var(--surface)); font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; }
+.content :not(pre) > code { padding: 2px 5px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); color: var(--ink); font: 12px ui-monospace, monospace; }
 .content a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .content table { width: 100%; margin: 0 0 13px; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 .content th, .content td { padding: 6px 10px; border: 1px solid var(--line); text-align: left; overflow-wrap: anywhere; word-break: break-word; }
