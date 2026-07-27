@@ -87,6 +87,6 @@
 .analysis-tools span { color: var(--muted); font-family: ui-monospace, monospace; white-space: nowrap; }
 .analysis-tools b { color: var(--danger); }
 .analysis-empty { margin: 5px 6px 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
-.conversation-target { border-radius: 9px; animation: conversation-target-highlight 3s ease-out; }
-@keyframes conversation-target-highlight { from { filter: brightness(1.3) saturate(1.2); } to { filter: none; } }
-@media (prefers-reduced-motion: reduce) { .chart-point-dot { transition: none; } .conversation-target { animation: none; filter: brightness(1.2) saturate(1.15); } }
+.conversation-target { border-radius: 9px; animation: conversation-target-highlight 1.5s ease-out; }
+@keyframes conversation-target-highlight { from { background: color-mix(in srgb, var(--accent) 10%, transparent); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .chart-point-dot { transition: none; } .conversation-target { animation: none; background: color-mix(in srgb, var(--accent) 8%, transparent); } }

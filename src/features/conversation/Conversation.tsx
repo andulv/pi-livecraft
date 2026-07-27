@@ -93,18 +93,22 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
     const target = conversation?.querySelector<HTMLElement>(selector)
     if (!conversation || !target) return
     autoScrollRef.current = false
+    navigationInProgressRef.current = true
     setShowScrollToBottom(true)
     let cancelled = false
-    let finishTimeout: number | undefined
+    let finished = false
     let highlightTimeout: number | undefined
+    let fallbackRaf: number | undefined
     const finishNavigation = () => {
-      if (cancelled) return
-      window.clearTimeout(finishTimeout)
+      if (cancelled || finished) return
+      finished = true
+      window.cancelAnimationFrame(fallbackRaf ?? 0)
       conversation.removeEventListener('scrollend', finishNavigation)
+      navigationInProgressRef.current = false
       setHighlightedTarget(targetKey)
       highlightTimeout = window.setTimeout(() => {
         if (!cancelled) setHighlightedTarget(undefined)
-      }, 3000)
+      }, 1500)
     }
     // Wait two frames for the target to mount and its layout to settle before scrolling.
     requestAnimationFrame(() => {
@@ -112,15 +116,30 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
       requestAnimationFrame(() => {
         if (cancelled) return
         conversation.addEventListener('scrollend', finishNavigation)
-        target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' })
-        finishTimeout = window.setTimeout(finishNavigation, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 500)
+        target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })
+        // Fallback for browsers without scrollend: poll until position stabilizes.
+        let stableFrames = 0
+        let lastTop = conversation.scrollTop
+        const poll = () => {
+          if (cancelled || finished) return
+          if (conversation.scrollTop === lastTop) {
+            stableFrames += 1
+            if (stableFrames >= 3) { finishNavigation(); return }
+          } else {
+            lastTop = conversation.scrollTop
+            stableFrames = 0
+          }
+          fallbackRaf = requestAnimationFrame(poll)
+        }
+        fallbackRaf = requestAnimationFrame(poll)
       })
     })
     return () => {
       cancelled = true
       conversation.removeEventListener('scrollend', finishNavigation)
-      window.clearTimeout(finishTimeout)
+      window.cancelAnimationFrame(fallbackRaf ?? 0)
       window.clearTimeout(highlightTimeout)
+      navigationInProgressRef.current = false
     }
   }, [navigationRequest])
 
