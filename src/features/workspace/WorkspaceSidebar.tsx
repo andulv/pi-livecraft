@@ -64,7 +64,7 @@ export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, re
             ref={activeSession?.id === selectedId ? selectedSessionRef : undefined}
             type="button"
           >
-            {indicator && <SessionStatusIndicator status={indicator} />}
+            {indicator && indicator !== 'complete' && <SessionStatusIndicator status={indicator} />}
             <span><strong data-text={sessionLabel}>{sessionLabel}</strong></span>
           </button></Tooltip>
         )
@@ -84,7 +84,7 @@ const indicatorLabels: Record<SessionIndicator, string> = {
 /** Uses one visual vocabulary for active, attention, and completed session states. */
 function SessionStatusIndicator({ status }: { status: SessionIndicator }) {
   return <Tooltip label={indicatorLabels[status]}><span aria-label={indicatorLabels[status]} className={`session-status-indicator ${status}`} role="img">
-    {status === 'compacting' && <svg aria-hidden="true" viewBox="0 0 16 16"><line x1="13" y1="8" x2="6" y2="8" /><polyline points="13,8 10,6" /><polyline points="13,8 10,10" /><line x1="3" y1="8" x2="10" y2="8" /><polyline points="3,8 6,6" /><polyline points="3,8 6,10" /></svg>}
+    {status === 'compacting' && <SettingsIcon />}
   </span></Tooltip>
 }
 

@@ -8,7 +8,7 @@ export function SessionInfo({ name, cwd, active }: {
 }) {
   return (
     <div className="composer-session">
-      {active && <span aria-label="Pi is active" className="status-dot" role="img" />}
+      {active && <span aria-label="Pi is active" className="session-status-indicator working" role="img" />}
       <strong>{name}</strong>
       <Tooltip label={cwd}><span>{cwd}</span></Tooltip>
     </div>

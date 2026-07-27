@@ -103,6 +103,7 @@
   align-items: center;
   gap: 10px;
   width: 100%;
+  min-height: 40px;
   border: 1px solid transparent;
   border-radius: 10px;
   padding: 10px;
@@ -130,23 +131,22 @@
   color: color-mix(in srgb, var(--accent) 60%, var(--surface));
   pointer-events: none;
   white-space: inherit;
-  clip-path: polygon(-35% 0, -20% 0, -40% 100%, -55% 100%);
-  animation: session-text-shimmer 2.8s ease-in-out infinite;
+  clip-path: polygon(0 -45%, 100% -45%, 100% -5%, 0 -5%);
+  animation: session-text-shimmer 1.8s ease-in-out infinite;
 }
-.session-item.compacting strong::after { color: color-mix(in srgb, var(--warning) 60%, var(--surface)); animation-duration: 2s; }
+.session-item.compacting strong::after { color: color-mix(in srgb, var(--warning) 60%, var(--surface)); }
 
 /* completion card */
 .session-item.complete:not(.selected) {
   position: relative;
   overflow: hidden;
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent-hover);
+  background: var(--accent);
+  border-color: var(--accent-hover);
+  color: var(--on-accent);
 }
 .session-item.complete:not(.selected) > span:last-child { position: relative; z-index: 1; }
-.session-item.complete:not(.selected) strong { color: var(--accent-hover); }
-.session-item.complete:not(.selected) .session-status-indicator { position: relative; z-index: 1; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); animation: none; }
-.session-item.complete:not(.selected):hover { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+.session-item.complete:not(.selected) strong { color: var(--on-accent); }
+.session-item.complete:not(.selected):hover { background: var(--accent-hover); }
 .session-item.complete:not(.selected)::after {
   content: '';
   position: absolute;
@@ -154,27 +154,21 @@
   z-index: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(105deg, transparent 40%, color-mix(in srgb, var(--accent) 24%, var(--surface)) 45%, color-mix(in srgb, var(--accent) 38%, var(--surface)) 50%, color-mix(in srgb, var(--accent) 24%, var(--surface)) 55%, transparent 60%);
+  background: linear-gradient(105deg, transparent 40%, color-mix(in srgb, var(--on-accent) 18%, transparent) 45%, color-mix(in srgb, var(--on-accent) 28%, transparent) 50%, color-mix(in srgb, var(--on-accent) 18%, transparent) 55%, transparent 60%);
   animation: session-complete-flash 0.9s ease-out forwards;
 }
-.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 16%, transparent); }
-.composer-session .status-dot { animation: status-pulse 1.8s ease-out infinite; }
 .session-status-indicator { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
 .session-status-indicator.working { background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); animation: session-status-pulse 1.8s ease-out infinite; }
 .session-status-indicator.compacting { width: 16px; height: 16px; border-radius: 0; background: none; box-shadow: none; color: var(--warning-strong); }
-.session-status-indicator.compacting svg { width: 16px; height: 16px; display: block; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; animation: session-compress 1.4s ease-in-out infinite; }
+.session-status-indicator.compacting svg { width: 16px; height: 16px; display: block; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; animation: session-gear-spin 1.4s linear infinite; }
 .session-status-indicator.waiting { background: var(--warning-strong); box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning) 16%, transparent); animation: session-status-attention 1.8s ease-in-out infinite; }
-.session-status-indicator.complete { background: var(--success); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 16%, transparent); animation: session-status-pulse 1.8s ease-out infinite; }
-@keyframes status-pulse {
-  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 0%, transparent); transform: scale(1.08); }
-}
 @keyframes session-status-pulse { 50% { box-shadow: 0 0 0 7px transparent; transform: scale(1.08); } }
 @keyframes session-status-attention { 50% { box-shadow: 0 0 0 7px transparent; transform: scale(1.12); } }
 @keyframes session-text-shimmer {
-  0%, 20% { clip-path: polygon(-35% 0, -20% 0, -40% 100%, -55% 100%); }
-  80%, 100% { clip-path: polygon(120% 0, 135% 0, 115% 100%, 100% 100%); }
+  0%, 20% { clip-path: polygon(0 -45%, 100% -45%, 100% -5%, 0 -5%); }
+  80%, 100% { clip-path: polygon(0 105%, 100% 105%, 100% 145%, 0 145%); }
 }
-@keyframes session-compress { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.7); } }
+@keyframes session-gear-spin { to { transform: rotate(360deg); } }
 @keyframes session-complete-flash { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 .empty-sidebar { padding: 14px; color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center; }
 

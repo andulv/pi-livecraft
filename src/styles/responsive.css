@@ -1,5 +1,5 @@
 @media (prefers-reduced-motion: reduce) {
-  .composer-session .status-dot, .session-status-indicator, .session-item strong::after, .session-item::after { animation: none; }
+  .session-status-indicator, .session-status-indicator.compacting svg, .session-item strong::after, .session-item::after { animation: none; }
   .rail-tab { transition: none; }
   .tooltip-content { transition: none; }
 }
