@@ -42,16 +42,14 @@ export interface ToolCallPresentation {
 
 export type AssistantTurnPart = { kind: 'message'; message: JsonObject } | { kind: 'tool'; call: ToolCall }
 
-/** Returns live assistant messages that are not yet represented by the history snapshot, preserving duplicates. */
-export function unreconciledLiveMessages(liveMessages: JsonObject[], historyMessages: JsonObject[]): JsonObject[] {
-  const unmatchedHistory = [...historyMessages]
-  return liveMessages.filter((liveMessage) => {
-    const historyIndex = unmatchedHistory.findIndex((historyMessage) => sameAssistantMessage(historyMessage, liveMessage))
-    if (historyIndex < 0) return true
-    unmatchedHistory.splice(historyIndex, 1)
-    return false
-  })
+export interface LiveMessage {
+  id: string
+  message: JsonObject
 }
+
+export type ConversationMessageEntry =
+  | { key: string; message: JsonObject; source: 'history'; historyIndex: number }
+  | { key: string; message: JsonObject; source: 'live' }
 
 /** Matches assistant messages by role, timestamp when available, and serialized content. */
 export function sameAssistantMessage(left: JsonObject, right: JsonObject): boolean {
@@ -60,6 +58,22 @@ export function sameAssistantMessage(left: JsonObject, right: JsonObject): boole
   const leftContent = left.content ?? left.output
   const rightContent = right.content ?? right.output
   return leftContent !== undefined && rightContent !== undefined && JSON.stringify(leftContent) === JSON.stringify(rightContent)
+}
+
+/** Merges history and streamed messages while retaining each streamed message's React identity. */
+export function conversationMessageEntries(historyMessages: JsonObject[], liveMessages: LiveMessage[]): ConversationMessageEntry[] {
+  const unmatchedLive = [...liveMessages]
+  const historyEntries = historyMessages.map((message, historyIndex): ConversationMessageEntry => {
+    const liveIndex = unmatchedLive.findIndex((live) => sameAssistantMessage(message, live.message))
+    const live = liveIndex < 0 ? undefined : unmatchedLive.splice(liveIndex, 1)[0]
+    return {
+      key: live?.id ?? `history-${String(message.timestamp ?? '')}-${historyIndex}`,
+      message,
+      source: 'history',
+      historyIndex,
+    }
+  })
+  return [...historyEntries, ...unmatchedLive.map(({ id, message }) => ({ key: id, message, source: 'live' as const }))]
 }
 
 export interface ReadContentDisplay {

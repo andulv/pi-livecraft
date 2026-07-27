@@ -1,9 +1,9 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type WheelEvent } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type WheelEvent } from 'react'
 import type { JsonObject } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
 import { activityActionText, activityAgentName, type Activity } from './activity.ts'
 import { formatTokens, formatTurnCost, turnUsageByMessage, type MessageUsage } from './message-usage.ts'
-import { assistantTurnParts, toolCallsInMessage, toolResultInMessage, unreconciledLiveMessages, type ToolExecution } from './tool-calls.ts'
+import { assistantTurnParts, conversationMessageEntries, toolCallsInMessage, toolResultInMessage, type LiveMessage, type ToolExecution } from './tool-calls.ts'
 import type { SessionAnalysisTarget } from '../session-analysis/session-analysis.ts'
 import { outputContextDraft } from './context-session.ts'
 import { ContextSessionButton, Markdown, ToolCallCard } from './ToolCallCard.tsx'
@@ -13,7 +13,7 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
   activity: Activity | null
   agentName?: string
   messages: JsonObject[]
-  liveMessages: JsonObject[]
+  liveMessages: LiveMessage[]
   darkMode: boolean
   detailedView: boolean
   navigationRequest?: { id: number; target: SessionAnalysisTarget }
@@ -46,42 +46,32 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
     }
   }, [allMessages])
   const executionsByCallId = useMemo(() => new Map(toolExecutions.map((execution) => [execution.id, execution])), [toolExecutions])
-  const liveToolCallIds = useMemo(() => new Set(liveMessages.flatMap(toolCallsInMessage).map((call) => call.id)), [liveMessages])
-  const visibleLiveMessages = useMemo(() => unreconciledLiveMessages(liveMessages, allMessages), [allMessages, liveMessages])
+  const liveToolCallIds = useMemo(() => new Set(liveMessages.flatMap(({ message }) => toolCallsInMessage(message)).map((call) => call.id)), [liveMessages])
+  const messageEntries = useMemo(() => conversationMessageEntries(allMessages, liveMessages), [allMessages, liveMessages])
+  const visibleLiveMessages = messageEntries.filter((entry) => entry.source === 'live')
   const conversationRef = useRef<HTMLDivElement>(null)
   const conversationContentRef = useRef<HTMLDivElement>(null)
   const autoScrollRef = useRef(true)
-  const scrollFrameRef = useRef<number | undefined>(undefined)
   /** Prevents onScroll from re-enabling auto-scroll during a navigation scroll. */
   const navigationInProgressRef = useRef(false)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [highlightedTarget, setHighlightedTarget] = useState<string>()
 
-  /** Coalesces content growth into one automatic scroll per rendered frame. */
-  const scheduleAutoScroll = useCallback(() => {
-    if (!autoScrollRef.current || scrollFrameRef.current !== undefined) return
-    scrollFrameRef.current = window.requestAnimationFrame(() => {
-      scrollFrameRef.current = undefined
-      const conversation = conversationRef.current
-      if (autoScrollRef.current && conversation) conversation.scrollTop = conversation.scrollHeight
-    })
+  /** Keeps a followed conversation pinned to its latest rendered content before paint. */
+  const scrollToLiveBottom = useCallback(() => {
+    const conversation = conversationRef.current
+    if (autoScrollRef.current && conversation) conversation.scrollTop = conversation.scrollHeight
   }, [])
 
   useEffect(() => {
     const content = conversationContentRef.current
     if (!content) return
-    const observer = new ResizeObserver(scheduleAutoScroll)
+    const observer = new ResizeObserver(scrollToLiveBottom)
     observer.observe(content)
-    scheduleAutoScroll()
     return () => observer.disconnect()
-  }, [scheduleAutoScroll])
+  }, [scrollToLiveBottom])
 
-  useEffect(scheduleAutoScroll, [activity, liveMessages, pendingSteering.length, scheduleAutoScroll, toolExecutions, visibleMessages.length])
-
-  useEffect(() => () => {
-    if (scrollFrameRef.current !== undefined) window.cancelAnimationFrame(scrollFrameRef.current)
-    scrollFrameRef.current = undefined
-  }, [])
+  useLayoutEffect(scrollToLiveBottom, [activity, liveMessages, pendingSteering.length, scrollToLiveBottom, toolExecutions, visibleMessages.length])
 
   useEffect(() => {
     if (scrollToBottomRequest > 0) resumeAutoScroll()
@@ -194,27 +184,30 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
       tabIndex={0}
     >
       <div className="conversation-content" ref={conversationContentRef}>
-      {allMessages.map((message, index) => {
-        const calls = detailedView ? toolCallsInMessage(message) : []
-        const usage = usagesByMessage.get(index)
-        if (!isVisibleConversationMessage(message) && calls.length === 0) return null
-        return <div className={highlightedTarget === `message:${index}` ? 'conversation-target' : undefined} data-message-index={index} key={`${String(message.timestamp ?? '')}-${index}`}>
-          {isVisibleConversationMessage(message) && <MessageCard message={message} onStartSession={onStartSession} />}
-          {calls.map((call) => {
-            const execution = executionsByCallId.get(call.id)
-            const result = resultsByCallId.get(call.id) ?? execution?.result
-            return <ToolCallCard args={call.args} darkMode={darkMode} hasResult={result !== undefined} id={call.id} interrupted={execution?.status === 'interrupted'} key={call.id} name={call.name} onError={onError} onStartSession={onStartSession} partialResultContent={execution?.partialResult?.content} repositoryRoot={repositoryRoot} resultContent={result?.content} resultDetails={result?.details} resultError={result?.isError} streaming={execution?.status === 'generating'} targeted={highlightedTarget === `tool:${call.id}`} workspacePath={workspacePath} />
-          })}
-          {usage && <TurnUsage turnNumber={turnNumbers.get(index)} usage={usage} />}
-        </div>
-      })}
-      {visibleLiveMessages.map((message, index) => {
+      {messageEntries.map((entry) => {
+        const { message } = entry
+        if (entry.source === 'history') {
+          const index = entry.historyIndex
+          const calls = detailedView ? toolCallsInMessage(message) : []
+          const usage = usagesByMessage.get(index)
+          if (!isVisibleConversationMessage(message) && calls.length === 0) return null
+          return <div className={highlightedTarget === `message:${index}` ? 'conversation-target' : undefined} data-message-index={index} key={entry.key}>
+            {isVisibleConversationMessage(message) && <MessageCard message={message} onStartSession={onStartSession} />}
+            {calls.map((call) => {
+              const execution = executionsByCallId.get(call.id)
+              const result = resultsByCallId.get(call.id) ?? execution?.result
+              return <ToolCallCard args={call.args} darkMode={darkMode} hasResult={result !== undefined} id={call.id} interrupted={execution?.status === 'interrupted'} key={call.id} name={call.name} onError={onError} onStartSession={onStartSession} partialResultContent={execution?.partialResult?.content} repositoryRoot={repositoryRoot} resultContent={result?.content} resultDetails={result?.details} resultError={result?.isError} streaming={execution?.status === 'generating'} targeted={highlightedTarget === `tool:${call.id}`} workspacePath={workspacePath} />
+            })}
+            {usage && <TurnUsage turnNumber={turnNumbers.get(index)} usage={usage} />}
+          </div>
+        }
+
         const parts = assistantTurnParts(message)
         const calls = detailedView ? parts.flatMap((part) => part.kind === 'tool' ? [part.call] : []) : []
         if (!isVisibleConversationMessage(message) && calls.length === 0) return null
-        return <div className="conversation-entry" key={`live-${index}-${String(message.timestamp ?? '')}`}>
+        return <div className="conversation-entry" key={entry.key}>
           {parts.map((part) => {
-            if (part.kind === 'message') return isVisibleConversationMessage(part.message) ? <MessageCard key="assistant" message={part.message} onStartSession={onStartSession} /> : null
+            if (part.kind === 'message') return isVisibleConversationMessage(part.message) ? <MessageCard key="message" message={part.message} onStartSession={onStartSession} /> : null
             if (!detailedView) return null
             const execution = executionsByCallId.get(part.call.id)
             const result = execution?.result

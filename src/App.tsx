@@ -10,7 +10,7 @@ import { promptSessionTitle } from './features/composer/prompt-title.ts'
 import { ToastStack, type Toast } from './features/notifications/ToastStack.tsx'
 import { activityForPiEvent, sessionActivity, type Activity, type PiConnection } from './features/conversation/activity.ts'
 import { Conversation } from './features/conversation/Conversation.tsx'
-import { applyToolCallUpdate, applyToolExecutionUpdate, interruptToolCallGeneration, toolCallInUpdate, toolExecutionUpdateInEvent, type ToolExecution, type ToolResult, unreconciledLiveMessages } from './features/conversation/tool-calls.ts'
+import { applyToolCallUpdate, applyToolExecutionUpdate, interruptToolCallGeneration, toolCallInUpdate, toolExecutionUpdateInEvent, type LiveMessage, type ToolExecution, type ToolResult } from './features/conversation/tool-calls.ts'
 import { AskUserQuestionDialog, ExtensionDialog } from './features/dialogs/Dialogs.tsx'
 import { isAgentSelector, isAskUserQuestionDialog, isBlockingDialog, type UiDialog } from './features/dialogs/dialog-protocol.ts'
 import { clampRightSidebarWidth, isRightWidget, readRightSidebarWidth, type RightWidget } from './features/right-sidebar/right-sidebar.ts'
@@ -49,7 +49,7 @@ function App() {
   const [selectedId, setSelectedId] = useState(() => window.localStorage.getItem('pi-livecraft.selected-session') ?? '')
   const [snapshot, setSnapshot] = useState<SessionSnapshot>(emptySnapshot)
   const [snapshotSessionId, setSnapshotSessionId] = useState('')
-  const [liveMessages, setLiveMessages] = useState<JsonObject[]>([])
+  const [liveMessages, setLiveMessages] = useState<LiveMessage[]>([])
   const [pendingSteering, setPendingSteering] = useState<string[]>([])
   const [activity, setActivity] = useState<Activity | null>(null)
   const [piConnection, setPiConnection] = useState<PiConnection>('connecting')
@@ -93,9 +93,9 @@ function App() {
   const toolStartedAtRef = useRef(new Map<string, number>())
   const requestStartedAtRef = useRef<number | undefined>(undefined)
   const queueUpdateVersionRef = useRef(0)
-  const liveMessagesRef = useRef<JsonObject[]>([])
+  const liveMessagesRef = useRef<LiveMessage[]>([])
   const liveMessageIndexRef = useRef(-1)
-  const pendingLiveMessagesRef = useRef<JsonObject[] | undefined>(undefined)
+  const pendingLiveMessagesRef = useRef<LiveMessage[] | undefined>(undefined)
   const liveUpdateFrameRef = useRef<number | undefined>(undefined)
   const quotaAutoRefreshAtRef = useRef(new Map<string, number>())
   const quotasRef = useRef(quotas)
@@ -148,7 +148,7 @@ function App() {
     const index = liveMessageIndexRef.current
     if (index < 0) return
     const next = [...(pendingLiveMessagesRef.current ?? liveMessagesRef.current)]
-    next[index] = message
+    next[index] = { ...next[index], message }
     pendingLiveMessagesRef.current = next
     if (liveUpdateFrameRef.current !== undefined) return
     liveUpdateFrameRef.current = window.requestAnimationFrame(flushLiveUpdates)
@@ -163,16 +163,6 @@ function App() {
     liveMessageIndexRef.current = -1
     setLiveMessages([])
   }, [])
-
-  /** Removes live messages once the session snapshot contains their completed versions. */
-  const reconcileLiveMessages = useCallback((messages: JsonObject[]) => {
-    flushLiveUpdates()
-    const next = unreconciledLiveMessages(liveMessagesRef.current, messages)
-    if (next.length === liveMessagesRef.current.length) return
-    liveMessagesRef.current = next
-    liveMessageIndexRef.current = next.length - 1
-    setLiveMessages(next)
-  }, [flushLiveUpdates])
 
   const updateRightSidebarWidth = useCallback((width: number) => {
     const nextWidth = clampRightSidebarWidth(width)
@@ -299,14 +289,14 @@ function App() {
     try {
       const nextSnapshot = await getSnapshot(sessionId)
       if (version !== snapshotRefreshVersionRef.current || targetSessionId !== selectedIdRef.current) return nextSnapshot
+      flushLiveUpdates()
       setSnapshot(nextSnapshot)
       setSnapshotSessionId(sessionId)
-      reconcileLiveMessages(nextSnapshot.messages)
       return nextSnapshot
     } catch (cause) {
       if (version === snapshotRefreshVersionRef.current && targetSessionId === selectedIdRef.current) showToast('error', messageOf(cause))
     }
-  }, [reconcileLiveMessages, showToast])
+  }, [flushLiveUpdates, showToast])
 
   /** Refreshes quotas, allowing manual clicks to bypass automatic throttling. */
   const refreshSessionQuotas = useCallback(async (sessionId: string, automatic: boolean): Promise<void> => {
@@ -498,7 +488,7 @@ function App() {
         setToolExecutions(interruptToolCallGeneration)
         const message = assistantMessageInEvent(event)
         if (message) {
-          const next = [...liveMessagesRef.current, message]
+          const next = [...liveMessagesRef.current, { id: crypto.randomUUID(), message }]
           liveMessagesRef.current = next
           liveMessageIndexRef.current = next.length - 1
           setLiveMessages(next)
