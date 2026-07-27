@@ -48,6 +48,7 @@ export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, re
       {visibleSessions.map((recentSession) => {
         const activeSession = sessions.find((session) => session.sessionPath === recentSession.sessionPath && session.status !== 'exited')
         const indicator = sessionIndicator(activeSession, selectedId, compactingSessionIds, completedSessionIds)
+        const sessionLabel = openingSessionPath === recentSession.sessionPath ? 'Opening…' : recentSession.name
         return (
           <Tooltip key={recentSession.sessionPath} label={`${recentSession.name}\n${new Date(recentSession.updatedAt).toLocaleString('en-US')}`}><button
             className={`session-item${activeSession?.id === selectedId ? ' selected' : ''}${indicator ? ` ${indicator}` : ''}`}
@@ -64,7 +65,7 @@ export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, re
             type="button"
           >
             {indicator && <SessionStatusIndicator status={indicator} />}
-            <span><strong>{openingSessionPath === recentSession.sessionPath ? 'Opening…' : recentSession.name}</strong></span>
+            <span><strong data-text={sessionLabel}>{sessionLabel}</strong></span>
           </button></Tooltip>
         )
       })}
