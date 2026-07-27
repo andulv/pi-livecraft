@@ -7,6 +7,7 @@ import { assistantTurnParts, conversationMessageEntries, toolCallsInMessage, too
 import type { SessionAnalysisTarget } from '../session-analysis/session-analysis.ts'
 import { outputContextDraft } from './context-session.ts'
 import { ContextSessionButton, Markdown, ToolCallCard } from './ToolCallCard.tsx'
+import { resumesAutoScrollAfterDownwardScroll } from './conversation-scroll.ts'
 
 /** Assembles history, the live stream, and tool executions according to the selected detail level. */
 export function Conversation({ activity, agentName, messages, liveMessages, darkMode, detailedView, navigationRequest, pendingSteering, repositoryRoot, scrollToBottomRequest, toolExecutions, workspacePath, onError, onStartSession }: {
@@ -52,6 +53,7 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
   const conversationRef = useRef<HTMLDivElement>(null)
   const conversationContentRef = useRef<HTMLDivElement>(null)
   const autoScrollRef = useRef(true)
+  const previousScrollTopRef = useRef(0)
   /** Prevents onScroll from re-enabling auto-scroll during a navigation scroll. */
   const navigationInProgressRef = useRef(false)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
@@ -138,11 +140,13 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
     }
   }, [navigationRequest])
 
-  /** Resumes automatic scrolling once the user returns near the bottom, unless a navigation scroll is in progress. */
+  /** Resumes automatic scrolling only when the user scrolls downward back near the bottom. */
   function handleConversationScroll(): void {
-    if (navigationInProgressRef.current) return
     const el = conversationRef.current
-    if (!el || el.scrollHeight - el.scrollTop - el.clientHeight >= 50) return
+    if (!el) return
+    const previousScrollTop = previousScrollTopRef.current
+    previousScrollTopRef.current = el.scrollTop
+    if (navigationInProgressRef.current || autoScrollRef.current || !resumesAutoScrollAfterDownwardScroll(previousScrollTop, el.scrollTop, el.scrollHeight, el.clientHeight)) return
     autoScrollRef.current = true
     setShowScrollToBottom(false)
   }
@@ -150,6 +154,8 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
   /** Suspends following only for input that can move the viewport away from the response. */
   function suspendAutoScroll(): void {
     autoScrollRef.current = false
+    const conversation = conversationRef.current
+    if (conversation) previousScrollTopRef.current = conversation.scrollTop
     setShowScrollToBottom(true)
   }
 
