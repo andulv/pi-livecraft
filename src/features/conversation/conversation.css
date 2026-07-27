@@ -22,7 +22,7 @@
 .scroll-to-bottom:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .scroll-to-bottom:focus-visible { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
 .message { margin: 0 0 26px; }
-.message.user { width: fit-content; max-width: 78%; margin-left: auto; padding: 13px 16px; border-radius: 14px 14px 4px; background: var(--accent); color: var(--surface); box-shadow: var(--shadow-soft); }
+.message.user { width: fit-content; max-width: 78%; margin-left: auto; padding: 13px 16px; border-radius: 14px 14px 4px; background: var(--accent); color: var(--surface); box-shadow: var(--shadow-soft); animation: conversation-entry-in 180ms cubic-bezier(.25, 1, .5, 1); }
 .message.user.pending-steering { border: 1px dashed var(--line-strong); background: var(--surface-raised); color: var(--ink); box-shadow: none; }
 .pending-steering-status { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 8px; color: var(--muted); font: 10px/1.4 ui-monospace, monospace; }
 .pending-steering-status i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pending-steering-pulse 1.2s ease-in-out infinite; }
@@ -214,7 +214,7 @@
 .tool-call-body.visible { grid-template-rows: 1fr; opacity: 1; }
 .tool-call-body > div { min-height: 0; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
-  .conversation-entry, .tool-call.entering, .tool-call-result.entering, .activity-action, .pending-steering-status i, .pi-activity .activity-text, .turn-usage { animation: none; }
+  .conversation-entry, .tool-call.entering, .tool-call-result.entering, .activity-action, .pending-steering-status i, .pi-activity .activity-text, .turn-usage, .message.user { animation: none; }
   .tool-call-body { transition: none; }
 }
 .tool-call-raw-args { display: block; width: 100%; margin: 0; border: 0; border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent); padding: 9px 10px; background: color-mix(in srgb, var(--accent) 2%, color-mix(in srgb, var(--surface) 97%, var(--canvas))); color: inherit; font: 11px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; white-space: pre-wrap; text-align: left; cursor: pointer; }
