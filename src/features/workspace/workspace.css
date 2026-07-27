@@ -125,13 +125,18 @@
 .session-item.compacting strong { color: var(--warning-strong); }
 .session-item.waiting strong { color: var(--secondary); }
 
-/* completion — light accent tint with one-shot arrival */
+/* completion — light accent tint with one-shot arrival and subtle rotating border */
+@property --border-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
 .session-item.complete:not(.selected) {
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
-  animation: complete-arrive 800ms ease-out;
+  border: 1px solid transparent;
+  background:
+    color-mix(in srgb, var(--accent) 14%, var(--surface)) padding-box,
+    conic-gradient(from var(--border-angle), var(--accent), color-mix(in srgb, var(--accent) 25%, transparent), var(--accent), color-mix(in srgb, var(--accent) 8%, transparent)) border-box;
+  animation: complete-arrive 800ms ease-out, complete-border-spin 4s linear infinite;
 }
 .session-item.complete:not(.selected) strong { color: var(--accent-hover); }
-@keyframes complete-arrive { from { background: color-mix(in srgb, var(--accent) 28%, var(--surface)); } }
+@keyframes complete-arrive { from { box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--accent) 14%, var(--surface)); } }
+@keyframes complete-border-spin { to { --border-angle: 360deg; } }
 .session-status-indicator { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
 .session-status-indicator.working { background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); animation: session-status-pulse 1.8s ease-out infinite; }
 .session-status-indicator.compacting { width: 16px; height: 16px; border-radius: 0; background: none; box-shadow: none; color: var(--warning-strong); }
