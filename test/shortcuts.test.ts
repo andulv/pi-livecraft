@@ -5,6 +5,7 @@ import { rightWidgetDefinitions } from '../src/features/right-sidebar/right-side
 
 test('normalise un raccourci clavier', () => {
   assert.equal(shortcutFromEvent({ key: 'K', ctrlKey: true }), 'mod+k')
+  assert.equal(shortcutFromEvent({ key: 'K', ctrlKey: true, altKey: true }), 'mod+alt+k')
   assert.equal(defaultShortcuts['open-palette'], 'mod+k')
 })
 
