@@ -73,6 +73,8 @@ function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [creatingSession, setCreatingSession] = useState(false)
+  type LoadingPhase = 'hidden' | 'entering' | 'visible' | 'exiting'
+  const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>('hidden')
   const [requestedSelect, setRequestedSelect] = useState<'agent' | 'model' | 'thinking' | null>(null)
   const [submitRequest, setSubmitRequest] = useState(0)
   const [focusComposerRequest, setFocusComposerRequest] = useState(0)
@@ -88,6 +90,7 @@ function App() {
   const creatingSessionRef = useRef(false)
   const refreshVersionRef = useRef(0)
   const snapshotRefreshVersionRef = useRef(0)
+  const loadingTimerRef = useRef<number>(0)
   const gitRefreshVersionRef = useRef(0)
   const agentIntentsRef = useRef(new Map<string, AgentIntent>())
   const toolStartedAtRef = useRef(new Map<string, number>())
@@ -544,6 +547,27 @@ function App() {
 
   const selectedSession = sessions.find((session) => session.id === selectedId)
   const selectedSessionStatus = selectedSession?.status
+
+  // Manages loading overlay fade-in / fade-out around snapshot refresh.
+  useEffect(() => {
+    if (!selectedSession) {
+      window.clearTimeout(loadingTimerRef.current)
+      setLoadingPhase('hidden')
+      return
+    }
+    const isLoading = snapshotSessionId !== selectedSession.id
+    if (isLoading) {
+      if (loadingPhase !== 'entering') {
+        setLoadingPhase('entering')
+        loadingTimerRef.current = window.setTimeout(() => setLoadingPhase('visible'), 200)
+      }
+    } else if (loadingPhase === 'entering' || loadingPhase === 'visible') {
+      setLoadingPhase('exiting')
+      loadingTimerRef.current = window.setTimeout(() => setLoadingPhase('hidden'), 200)
+    }
+    return () => window.clearTimeout(loadingTimerRef.current)
+  }, [selectedSession, snapshotSessionId, loadingPhase])
+
   const displayedActivity = selectedSession?.id && compactingSessionIds.has(selectedSession.id)
     ? { kind: 'compacting' as const }
     : selectedSession
@@ -739,56 +763,61 @@ function App() {
       />
 
       <main className="workspace">
-        {selectedSession && snapshotSessionId !== selectedSession.id ? (
+        {selectedSession ? (
           <>
-            <section aria-busy="true" aria-live="polite" className="welcome session-loading">
-              <span className="brand-mark large">π</span>
-              <h1>Connecting to Pi…</h1>
-              <p>Loading the session and its capabilities.</p>
-              <span aria-hidden="true" className="session-loading-indicator" />
-            </section>
-            <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />
-          </>
-        ) : selectedSession ? (
-          <>
-            <Conversation activity={displayedActivity} agentName={selectedSession.activeAgent} darkMode={activeTheme.mode === 'dark'} detailedView={conversationView === 'detailed'} key={selectedSession.id} liveMessages={liveMessages} messages={snapshot.messages} navigationRequest={conversationNavigation} onError={handleConversationError} onStartSession={handleContextSessionStart} pendingSteering={pendingSteering} repositoryRoot={gitSnapshot?.root} scrollToBottomRequest={scrollToBottomRequest} toolExecutions={toolExecutions} workspacePath={workspacePath} />
-            <Tooltip label={`${conversationViewDetail.label} — ${conversationViewDetail.description}`}><button aria-label={`${conversationViewDetail.label}. ${conversationViewDetail.description}. Click to toggle view.`} className={`chat-detail-toggle ${conversationView}`} onClick={() => setConversationView((current) => {
-                const next = current === 'simple' ? 'detailed' : 'simple'
-                window.localStorage.setItem('pi-livecraft.conversation-view', next)
-                return next
-              })} type="button">
-              <span aria-hidden="true" className="chat-detail-toggle-icon">⌘</span>
-              <span className="chat-detail-toggle-copy"><strong>{conversationViewDetail.label}</strong><small>{conversationViewDetail.description}</small></span>
-            </button></Tooltip>
-            <div className="composer-area">
-              {questionnaire && questionnaireInComposer && <AskUserQuestionDialog canMinimize dialog={questionnaire} key={String(questionnaire.request.id)} sessionName={selectedSession.name} onClose={() => closeDialog(questionnaire)} onError={(cause) => showToast('error', messageOf(cause))} />}
-              <ToastStack onDismiss={dismissToast} toasts={visibleToasts} />
-              <Composer
-              key={selectedSession.id}
-              session={selectedSession}
-              snapshot={snapshot}
-              agentBusy={Boolean(agentBusy[selectedSession.id])}
-              agentOptions={agentOptions[selectedSession.id] ?? emptyAgentOptions}
-              selectedAgent={selectedSession.activeAgent ?? ''}
-              onAgentChange={handleComposerAgentChange}
-              onCommand={handleComposerCommand}
-              commands={snapshot.commands}
-              agentLoading={snapshotSessionId !== selectedSession.id}
-              focusRequest={focusComposerRequest}
-              draftRequest={composerDraftRequest?.sessionId === selectedSession.id ? composerDraftRequest : undefined}
-              onDraftApplied={markComposerDraftApplied}
-              showAgentSelector={snapshotSessionId !== selectedSession.id || snapshot.commands.some((command) => command.name === 'agent')}
-              running={selectedSession.status === 'running'}
-              compacting={displayedActivity?.kind === 'compacting'}
-              onSend={handleComposerSend}
-              onAbort={handleComposerAbort}
-              onImprovePrompt={handlePromptImprovement}
-              onError={handleConversationError}
-              requestedSelect={requestedSelect}
-              onSelectOpened={handleComposerSelectOpened}
-              submitRequest={submitRequest}
-              />
-            </div>
+            {(snapshotSessionId === selectedSession.id || loadingPhase === 'exiting') && (
+              <>
+                <Conversation activity={displayedActivity} agentName={selectedSession.activeAgent} darkMode={activeTheme.mode === 'dark'} detailedView={conversationView === 'detailed'} key={selectedSession.id} liveMessages={liveMessages} messages={snapshot.messages} navigationRequest={conversationNavigation} onError={handleConversationError} onStartSession={handleContextSessionStart} pendingSteering={pendingSteering} repositoryRoot={gitSnapshot?.root} scrollToBottomRequest={scrollToBottomRequest} toolExecutions={toolExecutions} workspacePath={workspacePath} />
+                <Tooltip label={`${conversationViewDetail.label} — ${conversationViewDetail.description}`}><button aria-label={`${conversationViewDetail.label}. ${conversationViewDetail.description}. Click to toggle view.`} className={`chat-detail-toggle ${conversationView}`} onClick={() => setConversationView((current) => {
+                    const next = current === 'simple' ? 'detailed' : 'simple'
+                    window.localStorage.setItem('pi-livecraft.conversation-view', next)
+                    return next
+                  })} type="button">
+                  <span aria-hidden="true" className="chat-detail-toggle-icon">⌘</span>
+                  <span className="chat-detail-toggle-copy"><strong>{conversationViewDetail.label}</strong><small>{conversationViewDetail.description}</small></span>
+                </button></Tooltip>
+                <div className="composer-area">
+                  {questionnaire && questionnaireInComposer && <AskUserQuestionDialog canMinimize dialog={questionnaire} key={String(questionnaire.request.id)} sessionName={selectedSession.name} onClose={() => closeDialog(questionnaire)} onError={(cause) => showToast('error', messageOf(cause))} />}
+                  <ToastStack onDismiss={dismissToast} toasts={visibleToasts} />
+                  <Composer
+                  key={selectedSession.id}
+                  session={selectedSession}
+                  snapshot={snapshot}
+                  agentBusy={Boolean(agentBusy[selectedSession.id])}
+                  agentOptions={agentOptions[selectedSession.id] ?? emptyAgentOptions}
+                  selectedAgent={selectedSession.activeAgent ?? ''}
+                  onAgentChange={handleComposerAgentChange}
+                  onCommand={handleComposerCommand}
+                  commands={snapshot.commands}
+                  agentLoading={snapshotSessionId !== selectedSession.id}
+                  focusRequest={focusComposerRequest}
+                  draftRequest={composerDraftRequest?.sessionId === selectedSession.id ? composerDraftRequest : undefined}
+                  onDraftApplied={markComposerDraftApplied}
+                  showAgentSelector={snapshotSessionId !== selectedSession.id || snapshot.commands.some((command) => command.name === 'agent')}
+                  running={selectedSession.status === 'running'}
+                  compacting={displayedActivity?.kind === 'compacting'}
+                  onSend={handleComposerSend}
+                  onAbort={handleComposerAbort}
+                  onImprovePrompt={handlePromptImprovement}
+                  onError={handleConversationError}
+                  requestedSelect={requestedSelect}
+                  onSelectOpened={handleComposerSelectOpened}
+                  submitRequest={submitRequest}
+                  />
+                </div>
+              </>
+            )}
+            {loadingPhase !== 'hidden' && (
+              <>
+                <section aria-busy={loadingPhase !== 'exiting' ? true : undefined} aria-live={loadingPhase !== 'exiting' ? "polite" : undefined} className={`welcome session-loading session-loading-${loadingPhase}`}>
+                  <span className="brand-mark large">π</span>
+                  <h1>Connecting to Pi…</h1>
+                  <p>Loading the session and its capabilities.</p>
+                  <span aria-hidden="true" className="session-loading-indicator" />
+                </section>
+                {loadingPhase !== 'exiting' && <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />}
+              </>
+            )}
           </>
         ) : creatingSession ? (
           <>
