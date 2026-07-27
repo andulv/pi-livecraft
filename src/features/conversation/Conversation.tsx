@@ -121,7 +121,7 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
       requestAnimationFrame(() => {
         if (cancelled) return
         conversation.addEventListener('scrollend', finishNavigation)
-        target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' })
+        target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: navigationRequest.target.kind === 'tool' ? 'center' : 'end' })
         // Fallback for browsers without scrollend: poll until position stabilizes.
         let stableFrames = 0
         let lastTop = conversation.scrollTop
