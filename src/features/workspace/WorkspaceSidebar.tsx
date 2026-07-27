@@ -65,7 +65,7 @@ export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, re
             type="button"
           >
             {indicator && indicator !== 'complete' && <SessionStatusIndicator status={indicator} />}
-            <span><strong data-text={sessionLabel}>{sessionLabel}</strong></span>
+            <span><strong>{sessionLabel}</strong></span>
           </button></Tooltip>
         )
       })}
