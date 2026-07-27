@@ -125,11 +125,13 @@
 .session-item.compacting strong { color: var(--warning-strong); }
 .session-item.waiting strong { color: var(--secondary); }
 
-/* completion — subtle accent outline, no fill */
+/* completion — light accent tint with one-shot arrival */
 .session-item.complete:not(.selected) {
-  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  animation: complete-arrive 800ms ease-out;
 }
 .session-item.complete:not(.selected) strong { color: var(--accent-hover); }
+@keyframes complete-arrive { from { background: color-mix(in srgb, var(--accent) 28%, var(--surface)); } }
 .session-status-indicator { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
 .session-status-indicator.working { background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); animation: session-status-pulse 1.8s ease-out infinite; }
 .session-status-indicator.compacting { width: 16px; height: 16px; border-radius: 0; background: none; box-shadow: none; color: var(--warning-strong); }
