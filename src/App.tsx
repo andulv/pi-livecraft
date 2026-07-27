@@ -107,16 +107,27 @@ function App() {
   quotasRef.current = quotas
   currentQuotaProviderRef.current = currentQuotaProvider
 
+  const dismissingRef = useRef(new Set<string>())
+
+  /** Marks a toast as dismissing, then removes it after the exit animation. */
+  const startDismissal = useCallback((id: string) => {
+    if (dismissingRef.current.has(id)) return
+    dismissingRef.current.add(id)
+    setToasts((current) => current.map((toast) => toast.id === id ? { ...toast, dismissing: true } : toast))
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id))
+      dismissingRef.current.delete(id)
+    }, 160)
+  }, [])
+
   const showToast = useCallback((kind: Toast['kind'], message: string, sessionId = selectedIdRef.current) => {
     const toast = { id: crypto.randomUUID(), kind, message, sessionId }
     setToasts((current) => [...current, toast])
-    if (kind !== 'error') window.setTimeout(() => setToasts((current) => current.filter((item) => item.id !== toast.id)), 3000)
-  }, [])
+    if (kind !== 'error') window.setTimeout(() => startDismissal(toast.id), 3000)
+  }, [startDismissal])
 
   /** Removes a toast after explicit dismissal or automatic timeout. */
-  const dismissToast = useCallback((id: string) => {
-    setToasts((current) => current.filter((toast) => toast.id !== id))
-  }, [])
+  const dismissToast = useCallback((id: string) => startDismissal(id), [startDismissal])
 
   const visibleToasts = toasts.filter((toast) => toast.sessionId === null || toast.sessionId === selectedId)
 
