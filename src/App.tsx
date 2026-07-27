@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import { Tooltip } from './components/Tooltip.tsx'
 import { commitChanges, createSession, discardChanges, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, improvePrompt, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, openTerminal, pushCommits, refreshQuotas, resetGitCommit, revertGitCommit, sendPiCommand } from './api.ts'
@@ -549,7 +549,7 @@ function App() {
   const selectedSessionStatus = selectedSession?.status
 
   // Manages loading overlay fade-in / fade-out around snapshot refresh.
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!selectedSession) {
       window.clearTimeout(loadingTimerRef.current)
       setLoadingPhase('hidden')
