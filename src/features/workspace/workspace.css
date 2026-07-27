@@ -17,10 +17,10 @@
   flex: 0 0 auto;
   width: 32px;
   height: 32px;
-  border: 1px solid transparent;
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0;
-  background: transparent;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--muted);
   cursor: pointer;
   transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
@@ -70,10 +70,10 @@
   gap: 4px;
   width: 100%;
   overflow: hidden;
-  border: 1px solid transparent;
+  border: 1px solid var(--line);
   border-radius: 10px;
   padding: 9px 10px;
-  background: transparent;
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
   color: var(--ink);
   text-align: left;
   transition: background 180ms ease, border-color 180ms ease;
