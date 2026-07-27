@@ -130,7 +130,7 @@
 .session-item.complete:not(.selected) {
   border: 1px solid transparent;
   background:
-    color-mix(in srgb, var(--accent) 14%, var(--surface)) padding-box,
+    linear-gradient(color-mix(in srgb, var(--accent) 14%, var(--surface)), color-mix(in srgb, var(--accent) 14%, var(--surface))) padding-box,
     conic-gradient(from var(--border-angle), var(--accent), color-mix(in srgb, var(--accent) 25%, transparent), var(--accent), color-mix(in srgb, var(--accent) 8%, transparent)) border-box;
   animation: complete-arrive 800ms ease-out, complete-border-spin 4s linear infinite;
 }
