@@ -84,6 +84,7 @@ function App() {
   const [shortcuts, setShortcuts] = useState(() => readShortcuts())
   const [terminalCommand, setTerminalCommand] = useState(() => readTerminalCommand())
   const selectedIdRef = useRef(selectedId)
+  const sessionsRef = useRef(sessions)
   const creatingSessionRef = useRef(false)
   const refreshVersionRef = useRef(0)
   const snapshotRefreshVersionRef = useRef(0)
@@ -102,6 +103,7 @@ function App() {
   const currentQuotaProvider = quotaProviderForModel(model?.provider)
   const currentQuotaProviderRef = useRef(currentQuotaProvider)
   selectedIdRef.current = selectedId
+  sessionsRef.current = sessions
   quotasRef.current = quotas
   currentQuotaProviderRef.current = currentQuotaProvider
 
@@ -373,7 +375,11 @@ function App() {
       if (event.type === 'session_info_changed') {
         const name = typeof event.name === 'string' && event.name.trim() ? event.name.trim() : 'New session'
         setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, name } : session))
-        void refreshSessions()
+        const sessionPath = sessionsRef.current.find((session) => session.id === sessionId)?.sessionPath
+        setRecentSessions((current) => current.map((recent) =>
+          sessionPath && recent.sessionPath === sessionPath ? { ...recent, name } : recent))
+        setSentSessions((current) => current.map((sent) =>
+          sent.id === sessionId || (sessionPath && sent.sessionPath === sessionPath) ? { ...sent, name } : sent))
       }
       if (event.type === 'agent_start') updateSessionStatus(sessionId, 'running')
       if (event.type === 'agent_settled') {
