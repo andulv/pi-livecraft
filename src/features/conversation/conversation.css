@@ -287,8 +287,15 @@
 .empty-conversation, .welcome { align-self: center; margin: auto; color: var(--muted); text-align: center; }
 .empty-conversation { max-width: 360px; padding: 44px 20px; }
 .empty-conversation h2, .welcome h1 { color: var(--ink); text-wrap: balance; }
+.empty-conversation .brand-mark.large { width: 56px; height: 56px; margin: 0 auto 14px; border-radius: 16px; font-size: 32px; box-shadow: 0 2px 0 var(--accent-hover); opacity: .92; }
 .empty-conversation h2 { margin-bottom: 8px; font-size: 21px; letter-spacing: -.03em; }
 .empty-conversation p, .welcome p { margin: 0; line-height: 1.6; }
+.brand-mark-loading { animation: brand-mark-float 2.6s ease-in-out infinite; }
+@keyframes brand-mark-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+@media (prefers-reduced-motion: reduce) { .brand-mark-loading { animation: none; } }
 .welcome { max-width: 540px; padding: 30px; }
 .welcome h1 { margin: 22px 0 10px; font-size: 36px; letter-spacing: -.045em; }
 .session-loading-indicator { display: block; width: 24px; height: 24px; margin: 22px auto 0; border: 2px solid var(--line-strong); border-top-color: var(--accent); border-radius: 50%; animation: spin 800ms linear infinite; }

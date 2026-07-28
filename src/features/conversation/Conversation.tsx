@@ -233,7 +233,7 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
         <div className="content"><Markdown>{message || 'Image attached'}</Markdown></div>
         <span className="pending-steering-status" role="status"><i aria-hidden="true" />Waiting to steer…</span>
       </article>)}
-      {visibleMessages.length === 0 && visibleLiveMessages.length === 0 && pendingSteering.length === 0 && <div className="empty-conversation"><h2>Session ready</h2><p>Send a message or use a command from your Pi installation.</p></div>}
+      {visibleMessages.length === 0 && visibleLiveMessages.length === 0 && pendingSteering.length === 0 && <div className="empty-conversation"><span aria-hidden="true" className="brand-mark large">π</span><h2>Session ready</h2><p>Send a message or use a command from your Pi installation.</p></div>}
       {activity && <div className="conversation-activity"><ActivityIndicator activity={activity} agentName={agentName} /></div>}
       </div>
       <button

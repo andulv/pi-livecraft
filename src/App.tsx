@@ -894,7 +894,7 @@ function App() {
             {loadingPhase !== 'hidden' && (
               <>
                 <section aria-busy={loadingPhase !== 'exiting' ? true : undefined} aria-live={loadingPhase !== 'exiting' ? "polite" : undefined} className={`welcome session-loading session-loading-${loadingPhase}`}>
-                  <span className="brand-mark large">π</span>
+                  <span className="brand-mark large brand-mark-loading">π</span>
                   <h1>Connecting to Pi…</h1>
                   <p>Loading the session and its capabilities.</p>
                   <span aria-hidden="true" className="session-loading-indicator" />
@@ -906,7 +906,7 @@ function App() {
         ) : creatingSession ? (
           <>
             <section className="welcome" aria-busy="true">
-              <span className="brand-mark large">π</span>
+              <span className="brand-mark large brand-mark-loading">π</span>
               <h1>Starting new session…</h1>
               <p>Initializing Pi and its agents.</p>
               <span aria-hidden="true" className="session-loading-indicator" />
