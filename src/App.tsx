@@ -40,6 +40,7 @@ const conversationViewDetails = {
 } as const
 /** Orchestrates workspace state, Pi events, and UI panels. */
 function App() {
+  // Workspace and sessions
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
   const [sentSessions, setSentSessions] = useState<RecentSession[]>([])
@@ -50,6 +51,8 @@ function App() {
   const [recentWorkspacePaths, setRecentWorkspacePaths] = useState(() => recentWorkspaces(window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.', readRecentWorkspaces()))
   const [directoryPickerOpen, setDirectoryPickerOpen] = useState(false)
   const [selectedId, setSelectedId] = useState(() => window.localStorage.getItem('pi-livecraft.selected-session') ?? '')
+
+  // Conversation and Pi lifecycle
   const [snapshot, setSnapshot] = useState<SessionSnapshot>(emptySnapshot)
   const [snapshotSessionId, setSnapshotSessionId] = useState('')
   const [liveMessages, setLiveMessages] = useState<LiveMessage[]>([])
@@ -65,18 +68,26 @@ function App() {
     return window.localStorage.getItem('pi-livecraft.detailed-view') === 'false' ? 'simple' : 'detailed'
   })
   const conversationViewDetail = conversationViewDetails[conversationView]
+
+  // Dialogs and notifications
   const [agentOptions, setAgentOptions] = useState<Record<string, string[]>>({})
   const [agentBusy, setAgentBusy] = useState<Record<string, boolean>>({})
   const [dialog, setDialog] = useState<UiDialog | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
+
+  // Workspace tools and right sidebar
   const [gitSnapshot, setGitSnapshot] = useState<GitSnapshot | null>(null)
   const [quotas, setQuotas] = useState<QuotaSnapshot | null>(null)
   const [activeRightWidget, setActiveRightWidget] = useState<RightWidget | null>(readActiveRightWidget)
   const [rightSidebarWidth, setRightSidebarWidth] = useState(() => readRightSidebarWidth(window.localStorage.getItem('pi-livecraft.right-sidebar-width') ?? window.localStorage.getItem('pi-livecraft.git-sidebar-width')))
+
+  // Preferences and commands
   const [themePreferences, setThemePreferences] = useState(() => readThemePreferences())
   const activeTheme = useMemo(() => resolveActiveTheme(themePreferences), [themePreferences])
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+
+  // Transient UI requests and measurements
   const [creatingSession, setCreatingSession] = useState(false)
   type LoadingPhase = 'hidden' | 'entering' | 'visible' | 'exiting'
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>('hidden')
@@ -90,6 +101,8 @@ function App() {
   const [observedRequestDurations, setObservedRequestDurations] = useState<ReadonlyMap<number, number>>(new Map())
   const [shortcuts, setShortcuts] = useState(() => readShortcuts())
   const [terminalCommand, setTerminalCommand] = useState(() => readTerminalCommand())
+
+  // Workspace and session synchronization
   const selectedIdRef = useRef(selectedId)
   const sessionsRef = useRef(sessions)
   const sentSessionsRef = useRef(sentSessions)
@@ -97,9 +110,13 @@ function App() {
   const creatingSessionRef = useRef(false)
   const refreshVersionRef = useRef(0)
   const snapshotRefreshVersionRef = useRef(0)
+
+  // UI and capability synchronization
   const loadingTimerRef = useRef<number>(0)
   const gitRefreshVersionRef = useRef(0)
   const agentIntentsRef = useRef(new Map<string, AgentIntent>())
+
+  // Conversation timing and streaming
   const toolStartedAtRef = useRef(new Map<string, number>())
   const requestStartedAtRef = useRef<number | undefined>(undefined)
   const queueUpdateVersionRef = useRef(0)
@@ -122,6 +139,7 @@ function App() {
 
   const dismissingRef = useRef(new Set<string>())
 
+  // Notifications
   /** Marks a toast as dismissing, then removes it after the exit animation. */
   const startDismissal = useCallback((id: string) => {
     if (dismissingRef.current.has(id)) return
@@ -144,6 +162,7 @@ function App() {
 
   const visibleToasts = toasts.filter((toast) => toast.sessionId === null || toast.sessionId === selectedId)
 
+  // Conversation streaming
   /** Applies the latest streamed assistant messages at most once per rendered frame. */
   const flushLiveUpdates = useCallback(() => {
     if (liveUpdateFrameRef.current !== undefined) window.cancelAnimationFrame(liveUpdateFrameRef.current)
@@ -177,6 +196,7 @@ function App() {
     setLiveMessages([])
   }, [])
 
+  // Right sidebar preferences
   const updateRightSidebarWidth = useCallback((width: number) => {
     const nextWidth = clampRightSidebarWidth(width)
     window.localStorage.setItem('pi-livecraft.right-sidebar-width', String(nextWidth))
@@ -188,6 +208,7 @@ function App() {
     setActiveRightWidget(widget)
   }, [])
 
+  // Theme preferences
   const selectTheme = useCallback((id: string) => {
     setThemePreferences((current) => setActiveTheme(current, id))
   }, [])
@@ -226,6 +247,7 @@ function App() {
     root.style.setProperty('--shadow-soft', shadows['shadow-soft'])
   }, [activeTheme])
 
+  // Workspaces and sessions
   useEffect(() => {
     if (window.localStorage.getItem('pi-livecraft.workspace-path') !== null) return
     let active = true
@@ -311,6 +333,7 @@ function App() {
     void refreshSessions(path)
   }, [recentWorkspacePaths, refreshSessions])
 
+  // Dialogs
   /** Clears an answered request immediately, then reconciles all pending requests with the manager. */
   const closeDialog = useCallback((closedDialog: UiDialog) => {
     const requestId = closedDialog.request.id
@@ -323,6 +346,7 @@ function App() {
     void refreshSessions()
   }, [refreshSessions])
 
+  // Workspace capabilities
   /** Refreshes Git state for the current directory. Throws when requested so callers can handle the error. */
   const refreshGit = useCallback(async (cwd = workspacePath, notifyOnError = false) => {
     const version = ++gitRefreshVersionRef.current
@@ -334,6 +358,7 @@ function App() {
     }
   }, [workspacePath])
 
+  // Session snapshot and Pi capabilities
   /** Synchronizes the session snapshot and reconciles streamed assistant messages. */
   const refreshSnapshot = useCallback(async (sessionId: string) => {
     if (!sessionId) {
@@ -389,9 +414,12 @@ function App() {
       .finally(() => setAgentBusy((current) => ({ ...current, [sessionId]: false })))
   }, [refreshSnapshot, showToast])
 
+  // Initial application synchronization
   useEffect(() => void refreshSessions(), [refreshSessions])
   useEffect(() => void refreshGit(), [refreshGit])
   useEffect(() => { void getQuotas().then(setQuotas).catch(() => undefined) }, [])
+
+  // Selected session synchronization
   useEffect(() => {
     clearLiveMessages()
     setSnapshot(emptySnapshot)
@@ -408,6 +436,7 @@ function App() {
     void refreshSnapshot(selectedId)
   }, [clearLiveMessages, refreshSnapshot, selectedId])
 
+  // Pi event stream
   useEffect(() => {
     const events = new EventSource('/api/events')
     events.onmessage = ({ data }) => {
@@ -587,6 +616,7 @@ function App() {
     }
   }, [flushLiveUpdates, queueLiveMessage, refreshGit, refreshSessionQuotas, refreshSessions, refreshSnapshot, showToast])
 
+  // Agent capabilities
   useEffect(() => {
     const exposesAgentCommand = snapshot.commands.some((command) => command.name === 'agent')
     if (snapshotSessionId === selectedId && exposesAgentCommand && !agentOptions[selectedId] && !agentBusy[selectedId]) {
@@ -602,6 +632,7 @@ function App() {
     setSessions((current) => current.map((session) => (session.id === sessionId ? { ...session, activeAgent } : session)))
   }
 
+  // Selected session and loading state
   const selectedSession = sessions.find((session) => session.id === selectedId)
   const selectedSessionId = selectedSession?.id
   const selectedSessionStatus = selectedSession?.status
@@ -629,6 +660,8 @@ function App() {
     : selectedSession
       ? sessionActivity(activity, selectedSession.status, piConnection)
       : null
+
+  // Composer and session lifecycle
   const handleConversationError = useCallback((cause: unknown) => showToast('error', messageOf(cause)), [showToast])
   const handleComposerAgentChange = useCallback((agent: string) => requestAgent(selectedId, agent), [requestAgent, selectedId])
   /** Executes a composer command and synchronizes capabilities affected by it. */
@@ -722,6 +755,7 @@ function App() {
     setComposerDraftRequest((current) => current?.id === id ? undefined : current)
   }, [])
 
+  // Commands and keyboard shortcuts
   /** Executes a productivity command in the context of the active session. */
   const executeCommand = useCallback((id: CommandId): void => {
     const rightWidget = rightWidgetFromCommand(id)
@@ -809,6 +843,7 @@ function App() {
     setConversationNavigation((current) => ({ id: (current?.id ?? 0) + 1, target }))
   }, [])
 
+  // Right sidebar composition
   /** Actions pinned to the right rail without an associated panel. */
   const railActions = useMemo(() => [
     {
@@ -825,6 +860,7 @@ function App() {
     },
   ], [showToast, terminalCommand, workspacePath])
 
+  // Application layout
   const rightPanelVisible = activeRightWidget === 'todo' || activeRightWidget === 'quotas'
     || (activeRightWidget === 'analysis' && sessionAnalysis !== null)
     || (activeRightWidget === 'git' && gitSnapshot?.repository === true)
