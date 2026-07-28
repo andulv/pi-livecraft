@@ -8,7 +8,7 @@ export function sessionIndicator(session: SessionSummary | undefined, selectedId
   if (!session) return null
   if (session.pendingUi.some((request) => isBlockingDialog(request) && !isAgentSelector(request))) return 'waiting'
   if (compactingSessionIds.has(session.id)) return 'compacting'
-  if (session.status === 'running') return 'working'
+  if (session.status === 'starting' || session.status === 'running') return 'working'
   if (session.status === 'idle' && session.id !== selectedId && completedSessionIds.has(session.sessionPath ?? session.id)) return 'complete'
   return null
 }

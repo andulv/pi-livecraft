@@ -3,12 +3,6 @@ export interface Toast {
   kind: 'notice' | 'error'
   message: string
   sessionId: string | null
-  action?: {
-    label: string
-    cwd: string
-    sessionId: string
-    sessionPath?: string
-  }
   dismissing?: boolean
 }
 

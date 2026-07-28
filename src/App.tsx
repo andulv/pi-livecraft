@@ -89,8 +89,9 @@ function App() {
   const [shortcuts, setShortcuts] = useState(() => readShortcuts())
   const [terminalCommand, setTerminalCommand] = useState(() => readTerminalCommand())
   const selectedIdRef = useRef(selectedId)
-  const workspacePathRef = useRef(workspacePath)
   const sessionsRef = useRef(sessions)
+  const sentSessionsRef = useRef(sentSessions)
+  const completedSessionIdsRef = useRef(completedSessionIds)
   const creatingSessionRef = useRef(false)
   const refreshVersionRef = useRef(0)
   const snapshotRefreshVersionRef = useRef(0)
@@ -111,8 +112,9 @@ function App() {
   const currentQuotaProvider = quotaProviderForModel(model?.provider)
   const currentQuotaProviderRef = useRef(currentQuotaProvider)
   selectedIdRef.current = selectedId
-  workspacePathRef.current = workspacePath
   sessionsRef.current = sessions
+  sentSessionsRef.current = sentSessions
+  completedSessionIdsRef.current = completedSessionIds
   quotasRef.current = quotas
   currentQuotaProviderRef.current = currentQuotaProvider
 
@@ -129,18 +131,16 @@ function App() {
     }, 160)
   }, [])
 
-  const showToast = useCallback((kind: Toast['kind'], message: string, sessionId: string | null = selectedIdRef.current, action?: Toast['action']) => {
-    const toast = { id: crypto.randomUUID(), kind, message, sessionId, action }
+  const showToast = useCallback((kind: Toast['kind'], message: string, sessionId: string | null = selectedIdRef.current) => {
+    const toast = { id: crypto.randomUUID(), kind, message, sessionId }
     setToasts((current) => [...current, toast])
-    const delay = action ? 5000 : (kind !== 'error' ? 3000 : undefined)
-    if (delay !== undefined) window.setTimeout(() => startDismissal(toast.id), delay)
+    if (kind !== 'error') window.setTimeout(() => startDismissal(toast.id), 3000)
   }, [startDismissal])
 
   /** Removes a toast after explicit dismissal or automatic timeout. */
   const dismissToast = useCallback((id: string) => startDismissal(id), [startDismissal])
 
-  const visibleToasts = toasts.filter((toast) => !toast.action && (toast.sessionId === null || toast.sessionId === selectedId))
-  const completionNotices = toasts.filter((toast) => toast.action !== undefined)
+  const visibleToasts = toasts.filter((toast) => toast.sessionId === null || toast.sessionId === selectedId)
 
   /** Applies the latest streamed assistant messages at most once per rendered frame. */
   const flushLiveUpdates = useCallback(() => {
@@ -259,7 +259,7 @@ function App() {
       const [nextSessions, nextRecentSessions] = await Promise.all([listSessions(), listRecentSessions(cwd)])
       if (version !== refreshVersionRef.current) return
       const autoSelectId = shouldAutoSelect
-        ? pickSessionOnOpen(sidebarSessions(nextRecentSessions, cwd, sentSessions), nextSessions, completedSessionIds)
+        ? pickSessionOnOpen(sidebarSessions(nextRecentSessions, cwd, sentSessionsRef.current), nextSessions, completedSessionIdsRef.current)
         : undefined
       setSessions(nextSessions)
       setCompletedSessionIds((current) => {
@@ -286,8 +286,8 @@ function App() {
     }
   }, [showToast, workspacePath])
 
-  /** Selects a workspace, persists it in recent history, and refreshes its sessions. */
-  const selectWorkspace = useCallback((path: string): void => {
+  /** Selects a workspace, optionally preserving an explicit session over automatic selection. */
+  const selectWorkspace = useCallback((path: string, targetSessionId?: string): void => {
     window.localStorage.setItem('pi-livecraft.workspace-path', path)
     const nextRecentWorkspacePaths = recentWorkspaces(path, recentWorkspacePaths)
     window.localStorage.setItem('pi-livecraft.recent-workspace-paths', JSON.stringify(nextRecentWorkspacePaths))
@@ -295,48 +295,11 @@ function App() {
     setGitSnapshot(null)
     setActiveRightWidget(null)
     setWorkspacePath(path)
-    setSelectedId('')
+    setSelectedId(targetSessionId ?? '')
     setDirectoryPickerOpen(false)
-    autoSelectOnRefreshRef.current = true
+    autoSelectOnRefreshRef.current = targetSessionId === undefined
     void refreshSessions(path)
   }, [recentWorkspacePaths, refreshSessions])
-
-  /** Opens a completed-session notification's workspace and selects its session. */
-  const openToastTarget = useCallback((toast: Toast): void => {
-    const target = toast.action
-    if (!target) return
-    dismissToast(toast.id)
-    selectWorkspace(target.cwd)
-    autoSelectOnRefreshRef.current = false
-    void (async () => {
-      try {
-        const session = target.sessionPath
-          ? await openSession(target.cwd, target.sessionPath)
-          : sessionsRef.current.find(({ id }) => id === target.sessionId)
-        await refreshSessions(target.cwd)
-        if (session) setSelectedId(session.id)
-      } catch (cause) {
-        showToast('error', messageOf(cause), null)
-      }
-    })()
-  }, [dismissToast, refreshSessions, selectWorkspace, showToast])
-
-  /** Displays a completed-session notice with workspace and session name, actionable to open. */
-  function CompletedSessionNotice({ toast }: { toast: Toast }): React.ReactElement {
-    if (!toast.action) return <></>
-    return <aside aria-live="polite" className={`completion-notice${toast.dismissing ? ' dismissing' : ''}`}>
-      <button aria-label={toast.action.label} className="completion-notice-body" disabled={toast.dismissing} onClick={() => openToastTarget(toast)} type="button">
-        <span aria-hidden="true" className="completion-notice-icon">
-          <svg fill="currentColor" height="16" viewBox="0 0 24 24" width="16"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
-        </span>
-        <div>
-          <strong>Session terminée</strong>
-          <p>{toast.message}</p>
-        </div>
-      </button>
-      <button aria-label="Fermer" className="completion-notice-dismiss" disabled={toast.dismissing} onClick={() => dismissToast(toast.id)} type="button">×</button>
-    </aside>
-  }
 
   /** Clears an answered request immediately, then reconciles all pending requests with the manager. */
   const closeDialog = useCallback((closedDialog: UiDialog) => {
@@ -473,19 +436,6 @@ function App() {
         const completedSession = sessionsRef.current.find((session) => session.id === sessionId)
         const sessionKey = completedSession?.sessionPath ?? sessionId
         if (sessionId !== selectedIdRef.current) setCompletedSessionIds((current) => new Set(current).add(sessionKey))
-        if (completedSession && completedSession.cwd !== workspacePathRef.current) {
-          showToast(
-            'notice',
-            `Workspace «${completedSession.cwd}» — session «${completedSession.name}» terminée.`,
-            null,
-            {
-              label: `Ouvrir le workspace ${completedSession.cwd} et la session ${completedSession.name}`,
-              cwd: completedSession.cwd,
-              sessionId: completedSession.id,
-              sessionPath: completedSession.sessionPath,
-            },
-          )
-        }
       }
       if (event.type === 'compaction_start') setCompactingSessionIds((current) => new Set(current).add(sessionId))
       if (event.type === 'compaction_end') setCompactingSessionIds((current) => {
@@ -855,6 +805,7 @@ function App() {
         onChooseWorkspace={() => setDirectoryPickerOpen(true)}
         onCreate={() => startAndSelectSession(() => createSession(workspacePath))}
         onOpenSession={(recentSession) => startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))}
+        onSelectOtherWorkspaceSession={(session) => selectWorkspace(session.cwd, session.id)}
         onSelectSession={setSelectedId}
         onError={(cause) => showToast('error', messageOf(cause))}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -867,11 +818,6 @@ function App() {
           onError={(cause) => showToast('error', messageOf(cause))}
           onRestart={restartManager}
         />
-        {completionNotices.length > 0 && (
-          <div className="completion-notices">
-            {completionNotices.map((toast) => <CompletedSessionNotice key={toast.id} toast={toast} />)}
-          </div>
-        )}
         {selectedSession ? (
           <>
             {(snapshotSessionId === selectedSession.id || loadingPhase === 'exiting') && (

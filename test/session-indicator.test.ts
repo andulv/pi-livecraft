@@ -16,6 +16,7 @@ test('prioritizes attention and clears completed sessions when they are consulte
   const noneCompacting = new Set<string>()
 
   assert.equal(sessionIndicator(session, '', noneCompacting, completed), 'working')
+  assert.equal(sessionIndicator({ ...session, status: 'starting' }, '', noneCompacting, completed), 'working')
   assert.equal(sessionIndicator({ ...session, pendingUi: [{ method: 'confirm' }] }, '', noneCompacting, completed), 'waiting')
   assert.equal(sessionIndicator({ ...session, status: 'idle' }, '', noneCompacting, completed), 'complete')
   assert.equal(sessionIndicator({ ...session, status: 'idle' }, session.id, noneCompacting, completed), null)

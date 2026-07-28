@@ -26,6 +26,8 @@
   .brand { min-width: 0; }
   .new-session { width: auto; padding-inline: 13px; }
   .session-list { grid-column: 1 / -1; display: flex; flex-direction: row; overflow-x: auto; }
+  .other-workspace-sessions { grid-column: 1 / -1; max-height: none; }
+  .other-session-list { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
   .session-item { min-width: 220px; }
   .workspace { flex: 1; }
   .right-sidebar { max-height: 38dvh; border-top: 1px solid var(--line); }

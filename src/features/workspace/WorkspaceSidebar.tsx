@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type { RecentSession, SessionSummary } from '../../../shared/types.ts'
 import { sessionIndicator, type SessionIndicator } from './session-indicator.ts'
-import { sidebarSessions } from './sidebar-sessions.ts'
+import { otherWorkspaceSessions, sidebarSessions } from './sidebar-sessions.ts'
 
 interface WorkspaceSidebarProps {
   compactingSessionIds: ReadonlySet<string>
@@ -15,16 +15,21 @@ interface WorkspaceSidebarProps {
   onChooseWorkspace: () => void
   onCreate: () => Promise<void>
   onOpenSession: (session: RecentSession) => Promise<void>
+  onSelectOtherWorkspaceSession: (session: SessionSummary) => void
   onSelectSession: (sessionId: string) => void
   onOpenSettings: () => void
   onError: (cause: unknown) => void
 }
 
 /** Displays the current workspace and opens or selects its recent Pi sessions. */
-export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, recentSessions, sentSessions, sessions, selectedId, workspacePath, onChooseWorkspace, onCreate, onOpenSession, onSelectSession, onOpenSettings, onError }: WorkspaceSidebarProps) {
+export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, recentSessions, sentSessions, sessions, selectedId, workspacePath, onChooseWorkspace, onCreate, onOpenSession, onSelectOtherWorkspaceSession, onSelectSession, onOpenSettings, onError }: WorkspaceSidebarProps) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
   const visibleSessions = useMemo(() => sidebarSessions(recentSessions, workspacePath, sentSessions), [recentSessions, sentSessions, workspacePath])
+  const otherSessions = useMemo(
+    () => otherWorkspaceSessions(sessions, workspacePath, compactingSessionIds, completedSessionIds),
+    [compactingSessionIds, completedSessionIds, sessions, workspacePath],
+  )
 
   useEffect(() => {
     selectedSessionRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
@@ -71,6 +76,23 @@ export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, re
       })}
       {visibleSessions.length === 0 && <p className="empty-sidebar">No Pi sessions in this directory.</p>}
     </nav>
+    {otherSessions.length > 0 && <section className="other-workspace-sessions">
+      <h2>Other workspaces</h2>
+      <nav aria-label="Active and completed sessions in other workspaces" className="other-session-list">
+        {otherSessions.map((session) => {
+          const indicator = sessionIndicator(session, selectedId, compactingSessionIds, completedSessionIds)
+          return <Tooltip key={session.id} label={`${session.name}\n${session.cwd}`}><button
+            aria-label={`${session.name} in workspace ${session.cwd}`}
+            className={`session-item${indicator ? ` ${indicator}` : ''}`}
+            onClick={() => onSelectOtherWorkspaceSession(session)}
+            type="button"
+          >
+            {indicator && <SessionStatusIndicator status={indicator} />}
+            <span><strong>{session.name}</strong><small>{session.cwd}</small></span>
+          </button></Tooltip>
+        })}
+      </nav>
+    </section>}
   </aside>
 }
 
