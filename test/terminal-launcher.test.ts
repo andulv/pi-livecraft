@@ -30,11 +30,11 @@ test('replaces {cwd} inside a longer token', () => {
 
 test('uses the platform terminal defaults', () => {
   assert.deepEqual(defaultTerminalInvocation('/home/user', 'linux'), { command: 'x-terminal-emulator', args: [], cwd: '/home/user' })
-  assert.deepEqual(defaultTerminalInvocation('/home/user', 'wsl', { WSL_DISTRO_NAME: 'Ubuntu-22.04' }), { command: 'wsl.exe', args: ['-d', 'Ubuntu-22.04', '--cd', '/home/user'] })
+  assert.deepEqual(defaultTerminalInvocation('/home/user', 'wsl', { WSL_DISTRO_NAME: 'Ubuntu-22.04' }), { command: 'wt.exe', args: ['nt', '--', 'wsl.exe', '-d', 'Ubuntu-22.04', '--cd', '/home/user'] })
 })
 
 test('falls back to the default WSL distribution when its name is unavailable', () => {
-  assert.deepEqual(defaultTerminalInvocation('/home/user', 'wsl', { WSL_INTEROP: '/run/WSL/1_interop' }), { command: 'wsl.exe', args: ['--cd', '/home/user'] })
+  assert.deepEqual(defaultTerminalInvocation('/home/user', 'wsl', { WSL_INTEROP: '/run/WSL/1_interop' }), { command: 'wt.exe', args: ['nt', '--', 'wsl.exe', '--cd', '/home/user'] })
 })
 
 test('replaces {cwd} inside a quoted token', () => {
