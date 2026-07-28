@@ -43,19 +43,6 @@
   color: var(--danger);
 }
 .toast-message { overflow-wrap: anywhere; }
-.toast-action {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
-  text-underline-offset: 2px;
-}
-.toast-action:hover { text-decoration-color: currentColor; }
-.toast-action:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .toast-dismiss {
   flex: 0 0 auto;
   width: 20px;
@@ -80,4 +67,83 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }
+}
+
+/* completion notices — wide banner at top, styled like completed-session sidebar cards */
+.completion-notices {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  pointer-events: none;
+}
+.completion-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(680px, calc(100% - 32px));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: 10px;
+  padding: 11px 12px 11px 14px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--ink);
+  box-shadow: var(--shadow-soft);
+  pointer-events: auto;
+  animation: completion-notice-in 240ms ease-out;
+}
+.completion-notice.dismissing {
+  animation: completion-notice-out 160ms ease-in forwards;
+  pointer-events: none;
+}
+.completion-notice-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.completion-notice-body:hover strong { text-decoration: underline; }
+.completion-notice-body:focus-visible { outline: 2px solid var(--accent-hover); outline-offset: 2px; border-radius: 4px; }
+.completion-notice-icon { flex: 0 0 auto; margin-top: 1px; color: var(--accent-hover); }
+.completion-notice strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--accent-hover);
+}
+.completion-notice p {
+  margin: 2px 0 0;
+  color: color-mix(in srgb, currentColor 78%, var(--muted));
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.completion-notice-dismiss {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin: -2px -3px 0 0;
+  border: 0;
+  border-radius: 5px;
+  padding: 0;
+  background: transparent;
+  color: currentColor;
+  font-size: 17px;
+  line-height: 1;
+  opacity: .7;
+  cursor: pointer;
+}
+.completion-notice-dismiss:hover { background: color-mix(in srgb, var(--subtle) 35%, transparent); opacity: 1; }
+.completion-notice-dismiss:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; opacity: 1; }
+@keyframes completion-notice-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes completion-notice-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) {
+  .completion-notice { animation: none; }
 }

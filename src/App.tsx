@@ -130,13 +130,15 @@ function App() {
   const showToast = useCallback((kind: Toast['kind'], message: string, sessionId: string | null = selectedIdRef.current, action?: Toast['action']) => {
     const toast = { id: crypto.randomUUID(), kind, message, sessionId, action }
     setToasts((current) => [...current, toast])
-    if (kind !== 'error') window.setTimeout(() => startDismissal(toast.id), 3000)
+    const delay = action ? 5000 : (kind !== 'error' ? 3000 : undefined)
+    if (delay !== undefined) window.setTimeout(() => startDismissal(toast.id), delay)
   }, [startDismissal])
 
   /** Removes a toast after explicit dismissal or automatic timeout. */
   const dismissToast = useCallback((id: string) => startDismissal(id), [startDismissal])
 
-  const visibleToasts = toasts.filter((toast) => toast.sessionId === null || toast.sessionId === selectedId)
+  const visibleToasts = toasts.filter((toast) => !toast.action && (toast.sessionId === null || toast.sessionId === selectedId))
+  const completionNotices = toasts.filter((toast) => toast.action !== undefined)
 
   /** Applies the latest streamed assistant messages at most once per rendered frame. */
   const flushLiveUpdates = useCallback(() => {
@@ -305,6 +307,23 @@ function App() {
       }
     })()
   }, [dismissToast, refreshSessions, selectWorkspace, showToast])
+
+  /** Displays a completed-session notice with workspace and session name, actionable to open. */
+  function CompletedSessionNotice({ toast }: { toast: Toast }): React.ReactElement {
+    if (!toast.action) return <></>
+    return <aside aria-live="polite" className={`completion-notice${toast.dismissing ? ' dismissing' : ''}`}>
+      <button aria-label={toast.action.label} className="completion-notice-body" disabled={toast.dismissing} onClick={() => openToastTarget(toast)} type="button">
+        <span aria-hidden="true" className="completion-notice-icon">
+          <svg fill="currentColor" height="16" viewBox="0 0 24 24" width="16"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
+        </span>
+        <div>
+          <strong>Session terminée</strong>
+          <p>{toast.message}</p>
+        </div>
+      </button>
+      <button aria-label="Fermer" className="completion-notice-dismiss" disabled={toast.dismissing} onClick={() => dismissToast(toast.id)} type="button">×</button>
+    </aside>
+  }
 
   /** Clears an answered request immediately, then reconciles all pending requests with the manager. */
   const closeDialog = useCallback((closedDialog: UiDialog) => {
@@ -835,6 +854,11 @@ function App() {
           onError={(cause) => showToast('error', messageOf(cause))}
           onRestart={restartManager}
         />
+        {completionNotices.length > 0 && (
+          <div className="completion-notices">
+            {completionNotices.map((toast) => <CompletedSessionNotice key={toast.id} toast={toast} />)}
+          </div>
+        )}
         {selectedSession ? (
           <>
             {(snapshotSessionId === selectedSession.id || loadingPhase === 'exiting') && (
@@ -850,7 +874,7 @@ function App() {
                 </button></Tooltip>
                 <div className="composer-area">
                   {questionnaire && questionnaireInComposer && <AskUserQuestionDialog canMinimize dialog={questionnaire} key={String(questionnaire.request.id)} sessionName={selectedSession.name} onClose={() => closeDialog(questionnaire)} onError={(cause) => showToast('error', messageOf(cause))} />}
-                  <ToastStack onAction={openToastTarget} onDismiss={dismissToast} toasts={visibleToasts} />
+                  <ToastStack onDismiss={dismissToast} toasts={visibleToasts} />
                   <Composer
                   key={selectedSession.id}
                   session={selectedSession}
@@ -887,7 +911,7 @@ function App() {
                   <p>Loading the session and its capabilities.</p>
                   <span aria-hidden="true" className="session-loading-indicator" />
                 </section>
-                {loadingPhase !== 'exiting' && <ToastStack onAction={openToastTarget} onDismiss={dismissToast} standalone toasts={visibleToasts} />}
+                {loadingPhase !== 'exiting' && <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />}
               </>
             )}
           </>
@@ -899,7 +923,7 @@ function App() {
               <p>Initializing Pi and its agents.</p>
               <span aria-hidden="true" className="session-loading-indicator" />
             </section>
-            <ToastStack onAction={openToastTarget} onDismiss={dismissToast} standalone toasts={visibleToasts} />
+            <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />
           </>
         ) : (
           <>
@@ -908,7 +932,7 @@ function App() {
               <h1>Control Pi from your browser</h1>
               <p>Create a local session to access your models, agents, tools, and commands.</p>
             </section>
-            <ToastStack onAction={openToastTarget} onDismiss={dismissToast} standalone toasts={visibleToasts} />
+            <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />
           </>
         )}
       </main>
