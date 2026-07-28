@@ -162,6 +162,14 @@
 @keyframes session-gear-spin { to { transform: rotate(360deg); } }
 .empty-sidebar { padding: 14px; color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center; }
 
+.session-list-loading {
+  padding: 6px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  animation: activity-text-breathe 1.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .session-list-loading { animation: none; } }
+
 .directory-picker { display: flex; flex-direction: column; }
 .recent-workspaces { margin-top: 12px; }
 .recent-workspaces > strong { display: block; margin-bottom: 6px; color: var(--muted); font-size: 12px; }

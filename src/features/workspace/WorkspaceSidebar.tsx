@@ -7,6 +7,7 @@ import { otherWorkspaceSessions, sidebarSessions } from './sidebar-sessions.ts'
 interface WorkspaceSidebarProps {
   compactingSessionIds: ReadonlySet<string>
   completedSessionIds: ReadonlySet<string>
+  isRefreshing: boolean
   recentSessions: RecentSession[]
   sentSessions: RecentSession[]
   sessions: SessionSummary[]
@@ -22,7 +23,7 @@ interface WorkspaceSidebarProps {
 }
 
 /** Displays the current workspace and opens or selects its recent Pi sessions. */
-export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, recentSessions, sentSessions, sessions, selectedId, workspacePath, onChooseWorkspace, onCreate, onOpenSession, onSelectOtherWorkspaceSession, onSelectSession, onOpenSettings, onError }: WorkspaceSidebarProps) {
+export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, isRefreshing, recentSessions, sentSessions, sessions, selectedId, workspacePath, onChooseWorkspace, onCreate, onOpenSession, onSelectOtherWorkspaceSession, onSelectSession, onOpenSettings, onError }: WorkspaceSidebarProps) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
   const visibleSessions = useMemo(() => sidebarSessions(recentSessions, workspacePath, sentSessions), [recentSessions, sentSessions, workspacePath])
@@ -50,6 +51,7 @@ export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, re
     </div>
     <NewSessionButton onCreate={onCreate} onError={onError} />
     <nav className="session-list" aria-label="Recent Pi sessions">
+      {isRefreshing && <p className="session-list-loading" role="status">Loading sessions…</p>}
       {visibleSessions.map((recentSession) => {
         const activeSession = sessions.find((session) => session.sessionPath === recentSession.sessionPath && session.status !== 'exited')
         const indicator = sessionIndicator(activeSession, selectedId, compactingSessionIds, completedSessionIds)
@@ -74,7 +76,7 @@ export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, re
           </button></Tooltip>
         )
       })}
-      {visibleSessions.length === 0 && <p className="empty-sidebar">No Pi sessions in this directory.</p>}
+      {visibleSessions.length === 0 && !isRefreshing && <p className="empty-sidebar">No Pi sessions in this directory.</p>}
     </nav>
     {otherSessions.length > 0 && <section className="other-workspace-sessions">
       <h2>Other workspaces</h2>

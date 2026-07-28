@@ -44,6 +44,7 @@ function App() {
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
   const [sentSessions, setSentSessions] = useState<RecentSession[]>([])
   const [completedSessionIds, setCompletedSessionIds] = useState<ReadonlySet<string>>(() => readCompletedSessionIds())
+  const [isRefreshingSessions, setIsRefreshingSessions] = useState(true)
   const [compactingSessionIds, setCompactingSessionIds] = useState<ReadonlySet<string>>(new Set())
   const [workspacePath, setWorkspacePath] = useState(() => window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.')
   const [recentWorkspacePaths, setRecentWorkspacePaths] = useState(() => recentWorkspaces(window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.', readRecentWorkspaces()))
@@ -265,6 +266,7 @@ function App() {
   const refreshSessions = useCallback(async (cwd = workspacePath) => {
     const version = ++refreshVersionRef.current
     const shouldAutoSelect = autoSelectOnRefreshRef.current
+    setIsRefreshingSessions(true)
     try {
       const [nextSessions, nextRecentSessions] = await Promise.all([listSessions(), listRecentSessions(cwd)])
       if (version !== refreshVersionRef.current) return
@@ -298,6 +300,8 @@ function App() {
       setDialog((current) => pending ?? (current && nextSessions.some(({ id }) => id === current.sessionId) ? current : null))
     } catch (cause) {
       if (version === refreshVersionRef.current) showToast('error', messageOf(cause))
+    } finally {
+      if (version === refreshVersionRef.current) setIsRefreshingSessions(false)
     }
   }, [showToast, workspacePath])
 
@@ -877,6 +881,7 @@ function App() {
       <WorkspaceSidebar
         compactingSessionIds={compactingSessionIds}
         completedSessionIds={completedSessionIds}
+        isRefreshing={isRefreshingSessions}
         recentSessions={recentSessions}
         sentSessions={sentSessions}
         sessions={sessions}
