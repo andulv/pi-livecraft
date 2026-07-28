@@ -132,7 +132,11 @@ export const ToolCallCard = memo(function ToolCallCard({
   const pending = !hasResult
   const active = pending && !interrupted
   const filePath = name === 'read' || name === 'write' ? toolFilePath(args) : null
-  const display = filePath ? readContentDisplay({ path: filePath }) : { kind: 'text' as const }
+  const rawDisplay = filePath ? readContentDisplay({ path: filePath }) : { kind: 'text' as const }
+  const isWrite = name === 'write'
+  const display = isWrite && rawDisplay.kind === 'html'
+    ? ({ kind: 'code' as const, language: 'markup' })
+    : rawDisplay
   const htmlFile = display.kind === 'html'
   const [expanded, setExpanded] = useState(name === 'edit')
   const [partialOutputExpanded, setPartialOutputExpanded] = useState(false)
@@ -413,18 +417,21 @@ function ToolCallPreview({
   onClick: () => void
   remainingLineCount: number
 }) {
-  const display = call.name === 'read' || call.name === 'write'
+  const rawDisplay = call.name === 'read' || call.name === 'write'
     ? readContentDisplay(call.args)
     : { kind: 'text' as const }
+  const display = call.name === 'write' && rawDisplay.kind === 'html'
+    ? ({ kind: 'code' as const, language: 'markup' })
+    : rawDisplay
   const remainingLabel = display.kind === 'svg'
     ? 'Click to view full code'
     : `Click to view ${remainingLineCount} more ${remainingLineCount === 1 ? 'line' : 'lines'}`
   const highlightedCode = display.kind === 'code' && canHighlightFile(content)
   const svgPreview = display.kind === 'svg' && content.trim().length > 0
   const filePath = toolFilePath(call.args)
-  const isRead = call.name === 'read'
-  const startLine = isRead ? readStartingLineNumber(call.args) : 1
-  const plainPreview = isRead
+  const isReadOrWrite = call.name === 'read' || call.name === 'write'
+  const startLine = isReadOrWrite ? readStartingLineNumber(call.args) : 1
+  const plainPreview = isReadOrWrite
     ? <NumberedPre content={content} startLine={startLine} />
     : <pre>{content}</pre>
 
@@ -446,9 +453,9 @@ function ToolCallPreview({
               customStyle={{ background: 'transparent', margin: 0, padding: '9px 10px 4px' }}
               language={display.language}
               PreTag='div'
-              showLineNumbers={isRead}
-              startingLineNumber={isRead ? startLine : undefined}
-              lineNumberStyle={isRead ? lineNumberStyle : undefined}
+              showLineNumbers={isReadOrWrite}
+              startingLineNumber={isReadOrWrite ? startLine : undefined}
+              lineNumberStyle={isReadOrWrite ? lineNumberStyle : undefined}
               darkMode={darkMode}
               wrapLongLines
             >
@@ -494,11 +501,14 @@ function ToolCallContent({
   if (diffLines.length > 0 || changes.length > 0)
     return <ToolCallEditDiff changes={changes} diffLines={diffLines} onCollapse={onCollapse} />
 
-  const display = call.name === 'read' || call.name === 'write'
+  const rawContentDisplay = call.name === 'read' || call.name === 'write'
     ? readContentDisplay(call.args)
     : { kind: 'text' as const }
-  const isRead = call.name === 'read'
-  const startLine = isRead ? readStartingLineNumber(call.args) : 1
+  const display = call.name === 'write' && rawContentDisplay.kind === 'html'
+    ? ({ kind: 'code' as const, language: 'markup' })
+    : rawContentDisplay
+  const isReadOrWrite = call.name === 'read' || call.name === 'write'
+  const startLine = isReadOrWrite ? readStartingLineNumber(call.args) : 1
   if (display.kind === 'markdown')
     return (
       <section className='tool-call-content tool-call-markdown' onClick={onCollapse}>
@@ -509,7 +519,7 @@ function ToolCallContent({
     return (
       <section className='tool-call-content' onClick={onCollapse}>
         <Suspense
-          fallback={isRead
+          fallback={isReadOrWrite
             ? <NumberedPre content={content} startLine={startLine} />
             : <pre>{content}</pre>}
         >
@@ -518,9 +528,9 @@ function ToolCallContent({
             customStyle={{ background: 'transparent', margin: 0, padding: '9px 10px' }}
             language={display.language}
             PreTag='div'
-            showLineNumbers={isRead}
-            startingLineNumber={isRead ? startLine : undefined}
-            lineNumberStyle={isRead ? lineNumberStyle : undefined}
+            showLineNumbers={isReadOrWrite}
+            startingLineNumber={isReadOrWrite ? startLine : undefined}
+            lineNumberStyle={isReadOrWrite ? lineNumberStyle : undefined}
             darkMode={darkMode}
             wrapLongLines
           >
@@ -533,12 +543,16 @@ function ToolCallContent({
     return (
       <section className='tool-call-content' onClick={onCollapse}>
         <p className='tool-call-notice'>Highlighting disabled beyond 50,000 characters.</p>
-        {isRead ? <NumberedPre content={content} startLine={startLine} /> : <pre>{content}</pre>}
+        {isReadOrWrite
+          ? <NumberedPre content={content} startLine={startLine} />
+          : <pre>{content}</pre>}
       </section>
     )
   return (
     <section className='tool-call-content' onClick={onCollapse}>
-      {isRead ? <NumberedPre content={content} startLine={startLine} /> : <pre>{content}</pre>}
+      {isReadOrWrite
+        ? <NumberedPre content={content} startLine={startLine} />
+        : <pre>{content}</pre>}
     </section>
   )
 }
