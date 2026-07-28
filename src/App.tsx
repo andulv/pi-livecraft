@@ -32,7 +32,7 @@ interface AgentIntent {
   value?: string
 }
 
-const emptySnapshot: SessionSnapshot = { state: null, messages: [], models: [], commands: [], stats: null }
+const emptySnapshot: SessionSnapshot = { state: null, messages: [], models: [], commands: [], stats: null, liveEvents: [] }
 const emptyAgentOptions: string[] = []
 const conversationViewDetails = {
   simple: { label: 'Simplified view', description: 'Messages only, without tool calls' },
@@ -110,6 +110,8 @@ function App() {
   const creatingSessionRef = useRef(false)
   const refreshVersionRef = useRef(0)
   const snapshotRefreshVersionRef = useRef(0)
+  const appliedPiEventSequenceRef = useRef(0)
+  const replayPiEventRef = useRef<(sessionId: string, event: JsonObject, sequence?: number) => void>(() => undefined)
 
   // UI and capability synchronization
   const loadingTimerRef = useRef<number>(0)
@@ -374,11 +376,19 @@ function App() {
       flushLiveUpdates()
       setSnapshot(nextSnapshot)
       setSnapshotSessionId(sessionId)
+      const latestLiveSequence = nextSnapshot.liveEvents.at(-1)?.sequence ?? 0
+      if (latestLiveSequence > appliedPiEventSequenceRef.current) {
+        clearLiveMessages()
+        setActivity(null)
+        setToolExecutions([])
+        appliedPiEventSequenceRef.current = 0
+        for (const liveEvent of nextSnapshot.liveEvents) replayPiEventRef.current(sessionId, liveEvent.data, liveEvent.sequence)
+      }
       return nextSnapshot
     } catch (cause) {
       if (version === snapshotRefreshVersionRef.current && targetSessionId === selectedIdRef.current) showToast('error', messageOf(cause))
     }
-  }, [flushLiveUpdates, showToast])
+  }, [clearLiveMessages, flushLiveUpdates, showToast])
 
   /** Refreshes quotas, allowing manual clicks to bypass automatic throttling. */
   const refreshSessionQuotas = useCallback(async (sessionId: string, automatic: boolean): Promise<void> => {
@@ -422,6 +432,7 @@ function App() {
   // Selected session synchronization
   useEffect(() => {
     clearLiveMessages()
+    appliedPiEventSequenceRef.current = 0
     setSnapshot(emptySnapshot)
     setSnapshotSessionId('')
     setPendingSteering([])
@@ -449,17 +460,19 @@ function App() {
       if (event.event === 'manager_status' && isManagerRuntimeStatus(event.data)) setManagerRuntimeStatus(event.data)
       if (event.event === 'manager_connected' || event.event === 'session_created' || event.event === 'session_exited') void refreshSessions()
       if (event.event !== 'pi' || !isObject(event.data)) return
-      handlePiEvent(event.sessionId, event.data)
+      handlePiEvent(event.sessionId, event.data, event.sequence)
     }
     events.onerror = () => {
+      appliedPiEventSequenceRef.current = 0
       setPiConnection('connecting')
       setActivity(null)
       showToast('error', 'Connection to backend lost; retrying.')
     }
+    replayPiEventRef.current = handlePiEvent
     return () => events.close()
 
     /** Translates received events into UI updates and possible UI responses. */
-    function handlePiEvent(sessionId: string, event: JsonObject): void {
+    function handlePiEvent(sessionId: string, event: JsonObject, sequence?: number): void {
       if (event.type === 'session_info_changed') {
         const name = typeof event.name === 'string' && event.name.trim() ? event.name.trim() : 'New session'
         setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, name } : session))
@@ -529,6 +542,10 @@ function App() {
       }
 
       if (sessionId !== selectedIdRef.current) return
+      if (sequence !== undefined) {
+        if (sequence <= appliedPiEventSequenceRef.current) return
+        appliedPiEventSequenceRef.current = sequence
+      }
       if (event.type === 'queue_update' && Array.isArray(event.steering)) {
         const steering = event.steering.filter((message): message is string => typeof message === 'string')
         const version = ++queueUpdateVersionRef.current

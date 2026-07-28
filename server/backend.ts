@@ -12,7 +12,7 @@ import { QuotaService } from './features/quotas/quota-service.ts'
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
 import { loadWorkspaceTodos, parseTodoItems, saveWorkspaceTodos } from './features/todos/todo-store.ts'
 import { readWorkspaceFile, WorkspaceFileError } from './workspace-file.ts'
-import { activeSessionMessages } from './session-snapshot.ts'
+import { activeSessionMessages, LiveSessionEvents } from './session-snapshot.ts'
 import { externalWorkspacePath, openExplorer } from './system-integration.ts'
 import type { DirectoryListing, JsonObject, ManagerEvent, SessionSnapshot } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
@@ -22,6 +22,8 @@ const port = readPort('PI_LIVECRAFT_BACKEND_PORT', 43_121)
 const managerPort = readPort('PI_LIVECRAFT_MANAGER_PORT', 43_120)
 const manager = new ManagerClient(host, managerPort)
 const eventClients = new Set<ServerResponse>()
+const liveSessionEvents = new Map<string, LiveSessionEvents>()
+let piEventSequence = 0
 const distDirectory = fileURLToPath(new URL('../dist/', import.meta.url))
 const quotas = new QuotaService(manager)
 const managerRuntime = new ManagerRuntimeMonitor(manager, (status) => {
@@ -30,6 +32,15 @@ const managerRuntime = new ManagerRuntimeMonitor(manager, (status) => {
 
 manager.on('event', (event: ManagerEvent) => {
   quotas.receiveManagerEvent(event)
+  if (event.event === 'session_exited') liveSessionEvents.delete(event.sessionId)
+  if (event.event === 'pi' && isObject(event.data)) {
+    const sequence = ++piEventSequence
+    const live = liveSessionEvents.get(event.sessionId) ?? new LiveSessionEvents()
+    liveSessionEvents.set(event.sessionId, live)
+    live.receive(event.data, sequence)
+    broadcast({ ...event, sequence })
+    return
+  }
   broadcast(event)
 })
 manager.on('connected', () => {
@@ -264,6 +275,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       models: arrayData(models, 'models'),
       commands: arrayData(commands, 'commands'),
       stats: objectData(stats),
+      liveEvents: liveSessionEvents.get(sessionId)?.snapshot() ?? [],
     }
     sendJson(response, 200, snapshot)
     return

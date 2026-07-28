@@ -1,6 +1,51 @@
 import type { JsonObject } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 
+export interface SequencedPiEvent {
+  data: JsonObject
+  sequence: number
+}
+
+/** Keeps only the current turn events needed to rebuild transient conversation state. */
+export class LiveSessionEvents {
+  readonly #events = new Map<string, SequencedPiEvent>()
+
+  receive(data: JsonObject, sequence: number): void {
+    const type = data.type
+    if (type === 'agent_settled') {
+      this.#events.clear()
+      return
+    }
+    if (type === 'agent_start') this.#events.set('agent', { data, sequence })
+    if (type === 'message_start') {
+      this.#deletePrefix('message:')
+      this.#events.set('message:start', { data, sequence })
+    }
+    if (type === 'message_update') {
+      this.#events.set('message:update', { data, sequence })
+      const update = isObject(data.assistantMessageEvent) ? data.assistantMessageEvent : undefined
+      if ((update?.type === 'toolcall_start' || update?.type === 'toolcall_delta' || update?.type === 'toolcall_end')
+        && Number.isSafeInteger(update.contentIndex)) this.#events.set(`message:tool:${String(update.contentIndex)}`, { data, sequence })
+    }
+    if (type === 'message_end') this.#deletePrefix('message:')
+    if ((type === 'tool_execution_start' || type === 'tool_execution_update') && typeof data.toolCallId === 'string') {
+      this.#events.set(`tool:${data.toolCallId}:${type === 'tool_execution_start' ? 'start' : 'update'}`, { data, sequence })
+    }
+    if (type === 'tool_execution_end' && typeof data.toolCallId === 'string') this.#deletePrefix(`tool:${data.toolCallId}:`)
+    if (type === 'auto_retry_start') this.#events.set('retry', { data, sequence })
+    if (type === 'auto_retry_end') this.#events.delete('retry')
+  }
+
+  snapshot(): SequencedPiEvent[] {
+    return [...new Map([...this.#events.values()].map((event) => [event.sequence, event])).values()]
+      .sort((left, right) => left.sequence - right.sequence)
+  }
+
+  #deletePrefix(prefix: string): void {
+    for (const key of this.#events.keys()) if (key.startsWith(prefix)) this.#events.delete(key)
+  }
+}
+
 /** Rebuilds the active conversation without dropping messages hidden from Pi by compaction. */
 export function activeSessionMessages(entries: JsonObject[], leafId: unknown): JsonObject[] {
   if (typeof leafId !== 'string') return []

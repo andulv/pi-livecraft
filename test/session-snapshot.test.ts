@@ -1,6 +1,25 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { activeSessionMessages, visibleSessionMessages } from '../server/session-snapshot.ts'
+import { activeSessionMessages, LiveSessionEvents, visibleSessionMessages } from '../server/session-snapshot.ts'
+
+test('retains only the events needed to restore active thinking and tools', () => {
+  const live = new LiveSessionEvents()
+  live.receive({ type: 'agent_start' }, 1)
+  live.receive({ type: 'message_start', message: { role: 'assistant', content: [] } }, 2)
+  live.receive({ type: 'message_update', message: { role: 'assistant', content: [{ type: 'thinking', thinking: 'Inspecting' }] }, assistantMessageEvent: { type: 'thinking_delta', delta: 'Inspecting' } }, 3)
+  live.receive({ type: 'message_update', message: { role: 'assistant', content: [{ type: 'thinking', thinking: 'Inspecting' }, { type: 'toolCall', id: 'call-1', name: 'read', arguments: {} }] }, assistantMessageEvent: { type: 'toolcall_start', contentIndex: 1 } }, 4)
+  live.receive({ type: 'tool_execution_start', toolCallId: 'call-1', toolName: 'read', args: {} }, 5)
+  live.receive({ type: 'tool_execution_update', toolCallId: 'call-1', toolName: 'read', partialResult: { content: 'partial' } }, 6)
+
+  assert.deepEqual(live.snapshot().map(({ sequence }) => sequence), [1, 2, 4, 5, 6])
+
+  live.receive({ type: 'message_end' }, 7)
+  assert.deepEqual(live.snapshot().map(({ sequence }) => sequence), [1, 5, 6])
+  live.receive({ type: 'tool_execution_end', toolCallId: 'call-1' }, 8)
+  assert.deepEqual(live.snapshot().map(({ sequence }) => sequence), [1])
+  live.receive({ type: 'agent_settled' }, 9)
+  assert.deepEqual(live.snapshot(), [])
+})
 
 test('keeps the active conversation before and after compaction', () => {
   const messages = activeSessionMessages([

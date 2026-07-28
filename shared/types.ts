@@ -132,6 +132,7 @@ export interface ManagerEvent {
   event: 'session_created' | 'session_exited' | 'manager_connected' | 'manager_disconnected' | 'manager_status' | 'pi'
   sessionId: string
   data?: unknown
+  sequence?: number
 }
 
 export type ManagerMessage = ManagerResponse | ManagerEvent
@@ -163,6 +164,7 @@ export interface SessionSnapshot {
   models: JsonObject[]
   commands: JsonObject[]
   stats: SessionStats | null
+  liveEvents: Array<{ data: JsonObject; sequence: number }>
 }
 
 export interface OpenAiQuotaWindow {
