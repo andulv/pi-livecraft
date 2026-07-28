@@ -61,7 +61,8 @@ function App() {
   const [conversationView, setConversationView] = useState<'detailed' | 'simple'>(() => {
     const stored = window.localStorage.getItem('pi-livecraft.conversation-view')
     if (stored === 'detailed' || stored === 'simple-expanded') return 'detailed'
-    return window.localStorage.getItem('pi-livecraft.detailed-view') === 'true' ? 'detailed' : 'simple'
+    if (stored === 'simple') return 'simple'
+    return window.localStorage.getItem('pi-livecraft.detailed-view') === 'false' ? 'simple' : 'detailed'
   })
   const conversationViewDetail = conversationViewDetails[conversationView]
   const [agentOptions, setAgentOptions] = useState<Record<string, string[]>>({})
