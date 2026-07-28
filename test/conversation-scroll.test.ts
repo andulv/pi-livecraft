@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { resumesAutoScrollAfterDownwardScroll } from '../src/features/conversation/conversation-scroll.ts'
+import {
+  isNearConversationBottom,
+  resumesAutoScrollAfterDownwardScroll,
+} from '../src/features/conversation/conversation-scroll.ts'
+
+test('isNearConversationBottom identifies viewport proximity to conversation bottom', () => {
+  assert.equal(isNearConversationBottom(1_000, 2_000, 1_000), true)
+  assert.equal(isNearConversationBottom(951, 2_000, 1_000), true)
+  assert.equal(isNearConversationBottom(950, 2_000, 1_000), false)
+  assert.equal(isNearConversationBottom(500, 2_000, 1_000), false)
+})
 
 test('resumes automatic scrolling only after a downward scroll near the bottom', () => {
   assert.equal(resumesAutoScrollAfterDownwardScroll(950, 940, 2_000, 1_000), false)

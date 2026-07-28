@@ -28,7 +28,10 @@ import { toolCallsInMessage, toolResultInMessage, type ToolExecution } from './t
 import type { SessionAnalysisTarget } from '../session-analysis/session-analysis.ts'
 import { outputContextDraft } from './context-session.ts'
 import { ContextSessionButton, Markdown, ToolCallCard } from './ToolCallCard.tsx'
-import { resumesAutoScrollAfterDownwardScroll } from './conversation-scroll.ts'
+import {
+  isNearConversationBottom,
+  resumesAutoScrollAfterDownwardScroll,
+} from './conversation-scroll.ts'
 
 /** Assembles history, the live stream, and tool executions according to the selected detail level. */
 export function Conversation(
@@ -254,8 +257,20 @@ export function Conversation(
 
   /** Suspends following only for input that can move the viewport away from the response. */
   function suspendAutoScroll(): void {
-    autoScrollRef.current = false
     const conversation = conversationRef.current
+    if (
+      conversation && isNearConversationBottom(
+        conversation.scrollTop,
+        conversation.scrollHeight,
+        conversation.clientHeight,
+      )
+    ) {
+      autoScrollRef.current = true
+      previousScrollTopRef.current = conversation.scrollTop
+      setShowScrollToBottom(false)
+      return
+    }
+    autoScrollRef.current = false
     if (conversation) previousScrollTopRef.current = conversation.scrollTop
     setShowScrollToBottom(true)
   }
