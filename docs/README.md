@@ -14,7 +14,7 @@ Pi Livecraft is documented in layers: begin with the guide closest to your goal,
 - **Add a right sidebar widget:** [step-by-step guide](/docs/HOW-TO-WIDGET.md), then [contract reference](/src/features/right-sidebar/README.md).
 - **Change a tool call display:** [step-by-step guide](/docs/HOW-TO-TOOL-PRESENTATION.md), then [contract reference](/src/features/conversation/README.md).
 - **Change Git, quotas, terminal, or todos on the server:** [backend capabilities](/server/features/README.md).
-- **Change manager ownership, supervision, or restart behavior:** [backend and manager architecture](/docs/ARCHITECTURE.md#backend-and-manager).
+- **Change manager runtime, supervision, or restart behavior:** [manager lifecycle](/docs/MANAGER-LIFECYCLE.md).
 - **Send a command to a Pi session or inspect its data:** [how to talk to Pi](/docs/HOW-TO-TALK-TO-PI.md), then the [upstream RPC reference]($(npm root -g)/@earendil-works/pi-coding-agent/docs/rpc.md).
 - **Run an isolated one-shot prompt without touching the session:** [how to run an isolated prompt](/docs/HOW-TO-RUN-ISOLATED-PROMPT.md).
 - **Change code loaded into Pi:** [Pi extensions](/pi-extensions/README.md).

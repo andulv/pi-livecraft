@@ -38,7 +38,7 @@ Use the [`src/features/` map](/src/features/README.md) to locate frontend owners
 
 `server/manager-supervisor.ts` starts the manager with the SHA-256 revision of the files declared in `server/manager-runtime-files.json`. It never replaces the manager because files changed or because it crashed: replacement happens only when the manager accepts a restart request and exits with the reserved code. After a crash, the supervisor stays alive and the backend reports the outage.
 
-`server/manager-runtime-monitor.ts` runs in the backend. It compares the running revision with the current declared files, emits `manager_status` through SSE, and coordinates the guarded restart. The restart is rejected while a session is starting or running, while manager work is in flight, or while another restart is pending. Once accepted, the manager closes its Pi children before the supervisor starts the replacement; closed idle sessions remain available in history.
+`server/manager-runtime-monitor.ts` runs in the backend. It compares the running revision with the current declared files, emits `manager_status` through SSE, and coordinates the guarded restart. The restart is rejected while a session is starting or running, while manager work is in flight, or while another restart is pending. Once accepted, the manager closes its Pi children before the supervisor starts the replacement; closed idle sessions remain available in history. The focused [manager lifecycle guide](/docs/MANAGER-LIFECYCLE.md) documents this contract and its validation.
 
 ## Shared contracts
 

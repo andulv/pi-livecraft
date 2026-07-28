@@ -8,7 +8,7 @@
 - Colocate feature CSS. Reserve `src/styles/` for global and responsive rules; `src/App.css` remains the ordered entry point.
 - `server/backend.ts` owns the web API and SSE stream and can restart without interrupting Pi.
 - `server/manager.ts` is the sole owner of `pi --mode rpc` processes; never move that ownership into the backend.
-- Manager runtime files are declared in `server/manager-runtime-files.json`; keep it aligned with runtime imports. Edits are detected without interrupting Pi and take effect only after the user requests the guarded restart. Do not restart the manager or supervisor yourself, bypass that flow, or change its lifecycle contract without explicit approval.
+- Manager runtime files are declared in `server/manager-runtime-files.json`; keep it aligned with runtime imports. Edits are detected without interrupting Pi and take effect only after the user requests the guarded restart. Read [`docs/MANAGER-LIFECYCLE.md`](/docs/MANAGER-LIFECYCLE.md); do not restart the manager or supervisor yourself, bypass that flow, or change its lifecycle contract without explicit approval.
 - Use Pi's public RPC protocol. Do not read internal files to reproduce an RPC capability.
 - The application listens only on `127.0.0.1`. Do not broaden exposure without explicit authentication and scoping.
 - Do not add a database, frontend router, state manager, or UI library without demonstrated need.

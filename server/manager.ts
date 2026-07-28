@@ -1,9 +1,9 @@
 /**
  * Single owner of all `pi --mode rpc` processes.
  *
- * Invariant: restarting the manager kills active Pi processes and loses
- * session state. Any change here requires explicit approval per AGENTS.md.
- * The backend communicates through ManagerClient; never spawn Pi directly.
+ * Invariant: a guarded restart closes owned Pi processes, while persisted
+ * sessions remain reopenable from history. The backend communicates through
+ * ManagerClient; never spawn Pi directly or bypass the supervised lifecycle.
  */
 import { randomUUID } from 'node:crypto'
 import { realpath, stat } from 'node:fs/promises'

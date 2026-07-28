@@ -113,7 +113,7 @@ The manager remains the sole owner of Pi processes, so browser and backend resta
 | Backend routes and capabilities | `node --watch` restart | Preserved |
 | Declared manager runtime files | Persistent notice, then guarded restart | Blocked during active work; Pi processes close, but sessions remain in history |
 
-Read [`docs/ARCHITECTURE.md`](/docs/ARCHITECTURE.md) before changing boundaries or process ownership.
+Read [`docs/ARCHITECTURE.md`](/docs/ARCHITECTURE.md) before changing boundaries, and [`docs/MANAGER-LIFECYCLE.md`](/docs/MANAGER-LIFECYCLE.md) before changing manager supervision or restart behavior.
 
 ## Project map
 
