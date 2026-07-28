@@ -22,7 +22,7 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
   repositoryRoot?: string | null
   scrollToBottomRequest: number
   toolExecutions: ToolExecution[]
-  /** Observed per-message generation durations keyed by ordinal of assistant messages with usage. */
+  /** Observed per-message generation durations keyed by ordinal of all assistant messages. */
   turnDurations?: ReadonlyMap<number, number>
   workspacePath: string
   onError: (cause: unknown) => void

@@ -75,10 +75,24 @@ test('skips assistant messages without usage and ignores non-assistant roles', (
     { role: 'user', content: 'not an assistant' },
     { role: 'assistant', content: 'with usage', usage: { input: 50, output: 5, cacheRead: 500, cost: { total: 0.005 } } },
   ]
-  // Only the third message has usage, so it's ordinal 1.
-  assert.deepEqual(turnDurationByMessage(messages, new Map([[1, 500]])), new Map([[2, 500]]))
-  // No matching ordinal in the map.
-  assert.deepEqual(turnDurationByMessage(messages, new Map([[2, 999]])), new Map())
+  // The first assistant (no usage) is ordinal 1; the third (with usage) is ordinal 2.
+  assert.deepEqual(turnDurationByMessage(messages, new Map([[1, 500]])), new Map())
+  assert.deepEqual(turnDurationByMessage(messages, new Map([[2, 999]])), new Map([[2, 999]]))
   // Empty durations map.
   assert.deepEqual(turnDurationByMessage(messages, new Map()), new Map())
+})
+
+test('preserves ordinal alignment when an assistant without usage sits between two with usage', () => {
+  const messages = [
+    { role: 'assistant', content: 'first', usage: { input: 10, output: 1, cacheRead: 100, cost: { total: 0.001 } } },
+    { role: 'assistant', content: 'no usage' },
+    { role: 'assistant', content: 'third', usage: { input: 30, output: 3, cacheRead: 300, cost: { total: 0.003 } } },
+  ]
+  assert.deepEqual(turnDurationByMessage(messages, new Map([[1, 500], [3, 2000]])), new Map([[0, 500], [2, 2000]]))
+  // Only the first assistant matched.
+  assert.deepEqual(turnDurationByMessage(messages, new Map([[1, 750]])), new Map([[0, 750]]))
+  // Only the third assistant matched.
+  assert.deepEqual(turnDurationByMessage(messages, new Map([[3, 999]])), new Map([[2, 999]]))
+  // No matching ordinal at all.
+  assert.deepEqual(turnDurationByMessage(messages, new Map([[2, 111]])), new Map())
 })
