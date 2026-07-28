@@ -5,7 +5,8 @@ import { Tooltip } from '../../components/Tooltip.tsx'
 import { getWorkspaceFile, getWorkspaceFilePath } from '../../api.ts'
 import { fileContextDraft } from './context-session.ts'
 import { canHighlightFile } from './file-preview.ts'
-import { editDiffDisplayLines, formatToolCallTooltip, formatToolData, intraLineDiff, parseEditDiff, readContentDisplay, readStartingLineNumber, toolCallPresentation, toolContentText, toolDataLength, toolEditChanges, toolFilePath, toolTextPreview, fileUrl, type EditDiffLine } from './tool-calls.ts'
+import { editDiffDisplayLines, formatToolCallTooltip, formatToolData, intraLineDiff, parseEditDiff, readContentDisplay, readStartingLineNumber, toolCallPresentation, toolDataLength, toolEditChanges, toolFilePath, toolTextPreview, fileUrl, type EditDiffLine } from './tool-presentation.ts'
+import { toolContentText } from './tool-protocol.ts'
 
 const LazyCodeHighlighter = lazy(() => import('./CodeHighlighter'))
 

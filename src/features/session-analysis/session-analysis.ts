@@ -1,7 +1,8 @@
 import type { JsonObject, SessionStats } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
 import { messageUsage, turnUsageByMessage, type MessageUsage } from '../conversation/message-usage.ts'
-import { toolCallsInMessage, toolContentText, toolDataLength, toolResultInMessage, type ToolExecution } from '../conversation/tool-calls.ts'
+import { toolDataLength } from '../conversation/tool-presentation.ts'
+import { toolCallsInMessage, toolContentText, toolResultInMessage, type ToolExecution } from '../conversation/tool-protocol.ts'
 
 export type SessionAnalysisTarget = { kind: 'message' | 'turn'; index: number } | { kind: 'tool'; id: string }
 
