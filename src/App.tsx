@@ -10,6 +10,7 @@ import { promptSessionTitle } from './features/composer/prompt-title.ts'
 import { ToastStack, type Toast } from './features/notifications/ToastStack.tsx'
 import { activityForPiEvent, sessionActivity, type Activity, type PiConnection } from './features/conversation/activity.ts'
 import { Conversation } from './features/conversation/Conversation.tsx'
+import { turnUsageByMessage } from './features/conversation/message-usage.ts'
 import { applyToolCallUpdate, applyToolExecutionUpdate, interruptToolCallGeneration, toolCallInUpdate, toolExecutionUpdateInEvent, type LiveMessage, type ToolExecution, type ToolResult } from './features/conversation/tool-calls.ts'
 import { AskUserQuestionDialog, ExtensionDialog } from './features/dialogs/Dialogs.tsx'
 import { isAgentSelector, isAskUserQuestionDialog, isBlockingDialog, type UiDialog } from './features/dialogs/dialog-protocol.ts'
@@ -340,6 +341,7 @@ function App() {
       const nextSnapshot = await getSnapshot(sessionId)
       if (version !== snapshotRefreshVersionRef.current || targetSessionId !== selectedIdRef.current) return nextSnapshot
       flushLiveUpdates()
+      turnMessageSeqRef.current = Math.max(turnMessageSeqRef.current, turnUsageByMessage(nextSnapshot.messages).size)
       setSnapshot(nextSnapshot)
       setSnapshotSessionId(sessionId)
       return nextSnapshot

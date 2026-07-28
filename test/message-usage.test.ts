@@ -59,6 +59,16 @@ test('maps observed per-message durations to their message index by ordinal', ()
   assert.deepEqual(turnDurationByMessage(messages, durations), new Map([[1, 1_250], [3, 830]]))
 })
 
+test('matches durations after historical turns', () => {
+  const messages = [
+    { role: 'assistant', content: 'history 1', usage: { input: 10, output: 1, cacheRead: 100, cost: { total: 0.001 } } },
+    { role: 'assistant', content: 'history 2', usage: { input: 20, output: 2, cacheRead: 200, cost: { total: 0.002 } } },
+    { role: 'assistant', content: 'current 1', usage: { input: 30, output: 3, cacheRead: 300, cost: { total: 0.003 } } },
+    { role: 'assistant', content: 'current 2', usage: { input: 40, output: 4, cacheRead: 400, cost: { total: 0.004 } } },
+  ]
+  assert.deepEqual(turnDurationByMessage(messages, new Map([[3, 1_250], [4, 830]])), new Map([[2, 1_250], [3, 830]]))
+})
+
 test('skips assistant messages without usage and ignores non-assistant roles', () => {
   const messages = [
     { role: 'assistant', content: 'no usage here' },

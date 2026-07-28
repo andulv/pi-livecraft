@@ -75,7 +75,7 @@ export function parseTerminalTemplate(raw: string, cwd: string): { command: stri
 export function defaultTerminalInvocation(workspacePath: string, platform = getDesktopPlatform(), env: NodeJS.ProcessEnv = process.env): { command: string; args: string[]; cwd?: string } {
   const wslDistribution = getWslDistributionName(env)
   return platform === 'wsl'
-    ? { command: 'wsl.exe', args: [...(wslDistribution ? ['-d', wslDistribution] : []), '--cd', workspacePath] }
+    ? { command: 'wt.exe', args: ['nt', '--', 'wsl.exe', ...(wslDistribution ? ['-d', wslDistribution] : []), '--cd', workspacePath] }
     : { command: 'x-terminal-emulator', args: [], cwd: workspacePath }
 }
 
