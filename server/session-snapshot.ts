@@ -28,6 +28,7 @@ export function visibleSessionMessages(messages: JsonObject[]): JsonObject[] {
 
 function messageFromEntry(entry: JsonObject): JsonObject[] {
   if (entry.type === 'message' && isObject(entry.message)) return [entry.message]
+  if (entry.type === 'compaction' && typeof entry.summary === 'string') return [{ role: 'custom', customType: 'compaction', content: entry.summary, display: true }]
   if (entry.type !== 'custom_message' || typeof entry.customType !== 'string') return []
   return [{ role: 'custom', customType: entry.customType, content: entry.content, display: entry.display, details: entry.details }]
 }

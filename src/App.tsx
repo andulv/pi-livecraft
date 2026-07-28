@@ -625,8 +625,9 @@ function App() {
   const handleComposerCommand = useCallback(async (command: JsonObject) => {
     const result = await sendPiCommand(selectedId, command)
     await refreshSnapshot(selectedId)
+    if (command.type === 'compact') showToast('notice', 'Session compacted.')
     return result
-  }, [refreshSnapshot, selectedId])
+  }, [refreshSnapshot, selectedId, showToast])
   /** Sends the current draft with the behavior supported by the active session. */
   const handleComposerSend = useCallback(async (message: string, images: JsonObject[], behavior: 'steer' | 'followUp') => {
     const command: JsonObject = { type: 'prompt', message, images }

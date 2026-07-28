@@ -143,6 +143,31 @@ test('accepts commands after an event emitted before Pi finishes starting', { ti
   }
 })
 
+test('completes a manual compact without timeout', { timeout: 10_000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
+  const port = 45_000 + (process.pid % 10_000)
+  await writeFakePi(directory)
+  const manager = spawn(process.execPath, ['server/manager.ts'], {
+    cwd: process.cwd(),
+    env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, PI_LIVECRAFT_MANAGER_PORT: String(port) },
+    stdio: 'ignore',
+  })
+  const client = await connectManager(port)
+  try {
+    const opened = await client.request('open', { cwd: process.cwd(), name: 'Active', sessionPath: join(directory, 'active.jsonl') })
+    const compactionStart = client.waitForEvent((event) => event.event === 'pi')
+    const compactResponse = await client.request('command', { sessionId: sessionId(opened), command: { type: 'compact' } })
+    assert.equal(compactResponse.ok, true)
+    const startEvent = await compactionStart
+    assert.equal(isObject(startEvent.data) && startEvent.data.type, 'compaction_start')
+  } finally {
+    client.close()
+    manager.kill('SIGTERM')
+    await once(manager, 'exit')
+    await rm(directory, { force: true, recursive: true })
+  }
+})
+
 test('restarts an exited Pi session when reopening it', { timeout: 10_000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
   const port = 45_000 + (process.pid % 10_000)
@@ -246,6 +271,14 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
     setTimeout(() => console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: {} })), 150)
     return
   }
+  if (!isolated && command.type === 'compact') {
+    console.log(JSON.stringify({ type: 'compaction_start' }))
+    setTimeout(() => {
+      console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: {} }))
+      setTimeout(() => console.log(JSON.stringify({ type: 'compaction_end' })), 5)
+    }, 50)
+    return
+  }
   if (isolated && command.type === 'get_available_models') {
     console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: { models: [
       { id: 'expensive', provider: 'test', reasoning: false, cost: { input: 1, output: 5 } },
@@ -303,6 +336,7 @@ interface ManagerEvent {
   kind: 'event'
   event: string
   sessionId: string
+  data?: unknown
 }
 
 async function connectManager(port: number): Promise<{ request: (action: string, fields: Record<string, unknown>) => Promise<ManagerResponse>; waitForEvent: (predicate: (event: ManagerEvent) => boolean) => Promise<ManagerEvent>; close: () => void }> {

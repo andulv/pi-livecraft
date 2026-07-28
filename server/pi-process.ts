@@ -84,7 +84,7 @@ export class PiProcess extends EventEmitter {
   }
 
   /** Associates a command with an RPC response and rejects the promise if Pi takes too long. */
-  request(command: JsonObject, timeoutMs = command.type === 'prompt' ? 10 * 60_000 : 30_000): Promise<JsonObject> {
+  request(command: JsonObject, timeoutMs = (command.type === 'prompt' || command.type === 'compact') ? 10 * 60_000 : 30_000): Promise<JsonObject> {
     const id = randomUUID()
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {

@@ -14,7 +14,21 @@ test('keeps the active conversation before and after compaction', () => {
   assert.deepEqual(messages, [
     { role: 'user', content: 'Original request' },
     { role: 'assistant', content: 'Original response' },
+    { role: 'custom', customType: 'compaction', content: 'Summary', display: true },
     { role: 'user', content: 'Continue' },
+  ])
+})
+
+test('filters compaction entries without a string summary', () => {
+  const messages = activeSessionMessages([
+    { type: 'message', id: 'user-1', parentId: null, message: { role: 'user', content: 'Hello' } },
+    { type: 'compaction', id: 'compact-1', parentId: 'user-1', summary: 42 },
+    { type: 'message', id: 'user-2', parentId: 'compact-1', message: { role: 'user', content: 'World' } },
+  ], 'user-2')
+
+  assert.deepEqual(messages, [
+    { role: 'user', content: 'Hello' },
+    { role: 'user', content: 'World' },
   ])
 })
 
