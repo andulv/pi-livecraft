@@ -14,7 +14,7 @@ server/backend.ts ─── JSON Lines over local TCP ──▶ server/manager.t
 
 ## Frontend
 
-`src/App.tsx` remains the cross-cutting orchestrator: it selects the workspace and session, receives the SSE stream, synchronizes snapshots, and connects the panels. Area-specific logic and rendering live in `src/features/`:
+`src/App.tsx` remains the cross-cutting orchestrator: it receives the SSE stream, applies effects that span features (dialogs, Git, quotas, notifications, and manager state), and connects the panels. Workspace/session lifecycle belongs to `useWorkspaceSessions`; selected-conversation snapshots, replay, streaming, and tool execution state belong to `useConversationRuntime`. Area-specific logic and rendering live in `src/features/`:
 
 - `composer/` — input, commands, and image preparation;
 - `conversation/` — history, activity, usage, and tool calls;
@@ -26,7 +26,7 @@ server/backend.ts ─── JSON Lines over local TCP ──▶ server/manager.t
 
 Use the [`src/features/` map](/src/features/README.md) to locate frontend ownership. Features with non-obvious contracts add a short README beside their code rather than expanding this system overview.
 
-`src/api.ts` is the frontend's only HTTP boundary. A component does not communicate directly with the manager or a Pi process.
+`src/api.ts` is the frontend's only HTTP and SSE boundary. It owns request encoding, error conversion, manager-event parsing and validation, and the `EventSource` subscription while leaving native reconnection intact. A component does not communicate directly with the manager or a Pi process.
 
 `src/App.css` orders the stylesheets. Global and responsive rules live in `src/styles/`; feature-specific rules are colocated with their feature.
 
