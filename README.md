@@ -23,7 +23,7 @@ Use your Pi sessions in a browser, with a more visual and interactive interface 
 
 Pi Livecraft connects a Pi conversation to a React application. That opens up interactions that are awkward in the usual terminal flow: analyze a session in charts and click a turn to jump back into the conversation, replay a command from its Bash tool call, or open a referenced file directly in Explorer.
 
-The analysis and jump-back navigation are included today. The Bash and file actions are examples of the small, personal additions Livecraft is made for. Ask Pi to change the client from the session already running inside it, then try most client changes without closing the Pi process. The agent-oriented docs point Pi to the right code and focused checks, making this loop practical.
+The analysis and jump-back navigation are included today. The Bash and file actions are examples of the small, personal additions Livecraft is made for. Ask Pi to change any part of the client from the session already running inside it, then try the result without losing the current session: frontend and backend updates keep Pi alive, while manager changes use a guarded restart and preserve the session in history. The agent-oriented docs point Pi to the right code and focused checks, making this loop practical.
 
 ## Quick start
 
