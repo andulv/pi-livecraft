@@ -51,4 +51,4 @@ Find the right guide for any task in the [documentation index](/docs/README.md).
 - Document every application function longer than four lines with English JSDoc, except obvious type guards, conversions, formatting, or local parsing. Explain purpose, contract, invariant, side effect, or rationale rather than paraphrasing code.
 - Keep TypeScript strict and run Oxlint before proposing a change.
 - Commit as `<gitmoji> concise imperative subject`, without a conventional prefix.
-- Before a visual change, inspect the component and its colocated CSS. Reuse the design tokens, control sizes, and spacing already established in the feature or its immediate neighbours. Check alignment, overflow, responsive behaviour, and both themes on the touched surface only.
+- Before creating or modifying a visual interface in Pi Livecraft, load the `livecraft-ui` skill. Do not load it for frontend changes that have no visual impact (state, API calls, data plumbing).
