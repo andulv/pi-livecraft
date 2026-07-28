@@ -238,11 +238,11 @@
 .tool-call-edit-line.removed { background: var(--danger-soft); color: var(--danger); }
 .tool-call-edit-line.removed > span,
 .tool-call-edit-line.removed > i { color: color-mix(in srgb, var(--danger) 60%, var(--surface)); }
-.tool-call-edit-line.removed .diff-seg-removed { background: color-mix(in srgb, var(--danger) 18%, var(--surface)); border-radius: 2px; color: var(--ink); }
+.tool-call-edit-line.removed .diff-seg-removed { background: color-mix(in srgb, var(--danger) 15%, var(--surface)); border-radius: 2px; color: var(--ink); }
 .tool-call-edit-line.added { background: color-mix(in srgb, var(--success) 13%, var(--surface)); color: var(--success); }
 .tool-call-edit-line.added > span,
 .tool-call-edit-line.added > i { color: var(--success); }
-.tool-call-edit-line.added .diff-seg-added { background: color-mix(in srgb, var(--success) 18%, var(--surface)); border-radius: 2px; color: var(--ink); }
+.tool-call-edit-line.added .diff-seg-added { background: color-mix(in srgb, var(--success) 15%, var(--surface)); border-radius: 2px; color: var(--ink); }
 .tool-call-loading { display: flex; align-items: center; gap: 8px; padding: 10px; color: var(--muted); }
 .tool-call-notice { margin: 10px 10px 0; color: var(--muted); font: 11px/1.5 ui-sans-serif, system-ui, sans-serif; }
 .tool-call-content > pre { margin: 0; border: 0; border-radius: 0; padding: 9px 10px; color: inherit; font: 11px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; white-space: pre-wrap; }
