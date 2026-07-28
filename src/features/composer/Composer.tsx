@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type FormEvent } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type FormEvent } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type { JsonObject, SessionSnapshot, SessionSummary } from '../../../shared/types.ts'
 import { maxComposerImages, prepareComposerImage, type ComposerImage } from './composer-images.ts'
@@ -87,6 +87,14 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
     textareaRef.current?.focus()
     onDraftApplied?.(draftRequest.id)
   }, [draftRequest, onDraftApplied])
+
+  // Place the caret at the end when the browser restores focus on refresh.
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current
+    if (textarea && document.activeElement === textarea) {
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+    }
+  }, [])
 
   /** Available commands filtered by the text after the slash. */
   const filteredCommands = allCommands.filter((command) =>
