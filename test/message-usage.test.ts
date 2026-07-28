@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatTurnCost, messageUsage, turnUsageByMessage } from '../src/features/conversation/message-usage.ts'
+import { formatTurnCost, messageUsage, turnDurationByMessage, turnUsageByMessage } from '../src/features/conversation/message-usage.ts'
 
 test('extracts per-response cost and token counters from Pi usage', () => {
   const usage = messageUsage({
@@ -46,4 +46,25 @@ test('hides metrics when Pi does not provide complete usage', () => {
     { role: 'user' },
     { role: 'assistant', usage: { input: 10 } },
   ]), new Map())
+})
+
+test('maps observed per-message durations to their message index by timestamp', () => {
+  const messages = [
+    { role: 'user', timestamp: 100, content: 'hello' },
+    { role: 'assistant', timestamp: 200, content: 'response' },
+    { role: 'user', timestamp: 300, content: 'continue' },
+    { role: 'assistant', timestamp: 400, content: 'done' },
+  ]
+  const durations = new Map([[200, 1_250], [400, 830]])
+  assert.deepEqual(turnDurationByMessage(messages, durations), new Map([[1, 1_250], [3, 830]]))
+})
+
+test('skips messages without a timestamp or without an observed duration', () => {
+  const messages = [
+    { role: 'assistant', content: 'no timestamp here' },
+    { role: 'assistant', timestamp: 500, content: 'unmeasured' },
+    { role: 'user', timestamp: 600, content: 'not an assistant' },
+  ]
+  assert.deepEqual(turnDurationByMessage(messages, new Map()), new Map())
+  assert.deepEqual(turnDurationByMessage(messages, new Map([[700, 500]])), new Map())
 })

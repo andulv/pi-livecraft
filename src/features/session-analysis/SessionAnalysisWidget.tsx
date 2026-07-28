@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { formatTokens, formatTurnCost } from '../conversation/message-usage.ts'
+import { formatDuration, formatTokens, formatTurnCost } from '../conversation/message-usage.ts'
 import type { AnalyzedToolCall, AnalyzedTurn, SessionAnalysis, SessionAnalysisTarget, ToolSummary } from './session-analysis.ts'
 
 type ToolRanking = 'duration' | 'failure' | 'output'
@@ -322,11 +322,6 @@ function formatAnalysisTokens(value: number, available: boolean): string {
 
 function formatCharacters(value: number): string {
   return value >= 1000 ? `${new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 }).format(value / 1000)}k char.` : `${value} char.`
-}
-
-function formatDuration(value: number): string {
-  if (value < 1000) return `${Math.round(value)} ms`
-  return `${new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 }).format(value / 1000)} s`
 }
 
 function formatPercent(value: number): string {

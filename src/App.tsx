@@ -86,6 +86,7 @@ function App() {
   const [conversationNavigation, setConversationNavigation] = useState<{ id: number; target: SessionAnalysisTarget }>()
   const [observedToolDurations, setObservedToolDurations] = useState<ReadonlyMap<string, number>>(new Map())
   const [observedRequestDurations, setObservedRequestDurations] = useState<ReadonlyMap<number, number>>(new Map())
+  const [observedTurnDurations, setObservedTurnDurations] = useState<ReadonlyMap<number, number>>(new Map())
   const [shortcuts, setShortcuts] = useState(() => readShortcuts())
   const [terminalCommand, setTerminalCommand] = useState(() => readTerminalCommand())
   const selectedIdRef = useRef(selectedId)
@@ -99,6 +100,7 @@ function App() {
   const gitRefreshVersionRef = useRef(0)
   const agentIntentsRef = useRef(new Map<string, AgentIntent>())
   const toolStartedAtRef = useRef(new Map<string, number>())
+  const turnMessageStartedAtRef = useRef(new Map<number, number>())
   const requestStartedAtRef = useRef<number | undefined>(undefined)
   const queueUpdateVersionRef = useRef(0)
   const liveMessagesRef = useRef<LiveMessage[]>([])
@@ -393,7 +395,9 @@ function App() {
     setConversationNavigation(undefined)
     setObservedToolDurations(new Map())
     setObservedRequestDurations(new Map())
+    setObservedTurnDurations(new Map())
     toolStartedAtRef.current.clear()
+    turnMessageStartedAtRef.current.clear()
     requestStartedAtRef.current = undefined
     void refreshSnapshot(selectedId)
   }, [clearLiveMessages, refreshSnapshot, selectedId])
@@ -534,6 +538,8 @@ function App() {
         return next?.kind === current?.kind ? current : next
       })
       if (event.type === 'message_start') {
+        const startedMessage = assistantMessageInEvent(event)
+        if (startedMessage && typeof startedMessage.timestamp === 'number') turnMessageStartedAtRef.current.set(startedMessage.timestamp, performance.now())
         flushLiveUpdates()
         setToolExecutions(interruptToolCallGeneration)
         const message = assistantMessageInEvent(event)
@@ -557,6 +563,18 @@ function App() {
         void refreshSessionQuotas(sessionId, true)
       }
       if (event.type === 'message_end' || event.type === 'agent_settled') {
+        if (event.type === 'message_end') {
+          const endedMessage = event.message
+          if (isObject(endedMessage) && typeof endedMessage.timestamp === 'number') {
+            const timestamp = endedMessage.timestamp
+            const startedAt = turnMessageStartedAtRef.current.get(timestamp)
+            if (startedAt !== undefined) {
+              setObservedTurnDurations((current) => new Map(current).set(timestamp, performance.now() - startedAt))
+              turnMessageStartedAtRef.current.delete(timestamp)
+            }
+          }
+        }
+        if (event.type === 'agent_settled') turnMessageStartedAtRef.current.clear()
         flushLiveUpdates()
         setToolExecutions(interruptToolCallGeneration)
         void refreshSnapshot(sessionId).then((nextSnapshot) => {
@@ -852,7 +870,7 @@ function App() {
           <>
             {(snapshotSessionId === selectedSession.id || loadingPhase === 'exiting') && (
               <>
-                <Conversation activity={displayedActivity} agentName={selectedSession.activeAgent} darkMode={activeTheme.mode === 'dark'} detailedView={conversationView === 'detailed'} key={selectedSession.id} liveMessages={liveMessages} messages={snapshot.messages} navigationRequest={conversationNavigation} onError={handleConversationError} onStartSession={handleContextSessionStart} pendingSteering={pendingSteering} repositoryRoot={gitSnapshot?.root} scrollToBottomRequest={scrollToBottomRequest} toolExecutions={toolExecutions} workspacePath={workspacePath} />
+                <Conversation activity={displayedActivity} agentName={selectedSession.activeAgent} darkMode={activeTheme.mode === 'dark'} detailedView={conversationView === 'detailed'} key={selectedSession.id} liveMessages={liveMessages} messages={snapshot.messages} navigationRequest={conversationNavigation} onError={handleConversationError} onStartSession={handleContextSessionStart} pendingSteering={pendingSteering} repositoryRoot={gitSnapshot?.root} scrollToBottomRequest={scrollToBottomRequest} toolExecutions={toolExecutions} turnDurations={observedTurnDurations} workspacePath={workspacePath} />
                 <Tooltip label={`${conversationViewDetail.label} — ${conversationViewDetail.description}`}><button aria-label={`${conversationViewDetail.label}. ${conversationViewDetail.description}. Click to toggle view.`} className={`chat-detail-toggle ${conversationView}`} onClick={() => setConversationView((current) => {
                     const next = current === 'simple' ? 'detailed' : 'simple'
                     window.localStorage.setItem('pi-livecraft.conversation-view', next)

@@ -33,6 +33,24 @@ export function turnUsageByMessage(messages: JsonObject[]): Map<number, MessageU
     return usage ? [[index, usage] as const] : []
   }))
 }
+
+/**
+ * Maps observed per-message durations to their message index.
+ * Durations are keyed by the assistant message's timestamp.
+ */
+export function turnDurationByMessage(messages: JsonObject[], durations: ReadonlyMap<number, number>): Map<number, number> {
+  return new Map(messages.flatMap((message, index) => {
+    if (message.role !== 'assistant' || typeof message.timestamp !== 'number') return []
+    const duration = durations.get(message.timestamp)
+    return duration !== undefined ? [[index, duration] as const] : []
+  }))
+}
+
+/** Formats an observed millisecond duration for display. */
+export function formatDuration(value: number): string {
+  if (value < 1000) return `${Math.round(value)} ms`
+  return `${new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 }).format(value / 1000)} s`
+}
 function isNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
