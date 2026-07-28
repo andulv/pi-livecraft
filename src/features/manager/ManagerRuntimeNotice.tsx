@@ -38,7 +38,7 @@ export function ManagerRuntimeNotice({ activeSession, status, onRestart, onError
   const title = restartFailed ? 'Manager restart failed'
     : unknown ? 'Manager version unavailable'
     : restarting ? 'Restarting the manager…'
-    : 'Manager update available'
+    : 'Manager needs update'
 
   const description = unknown
     ? status.error ?? 'The running manager version could not be verified.'
