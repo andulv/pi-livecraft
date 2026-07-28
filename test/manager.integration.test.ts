@@ -81,6 +81,11 @@ test('reconciles live Pi work before restarting the manager', { timeout: 10_000 
   const client = await connectManager(port)
   try {
     const opened = await client.request('open', { cwd: process.cwd(), name: 'Active', sessionPath: join(directory, 'active.jsonl') })
+    assert.equal((await client.request('command', { sessionId: sessionId(opened), command: { type: 'prompt', message: '/select' } })).ok, true)
+    const waitingSessions = await client.request('list', {})
+    assert.equal(sessionStatus(waitingSessions, sessionId(opened)), 'idle')
+    assert.equal((await client.request('command', { sessionId: sessionId(opened), command: { type: 'extension_ui_response', id: 'select-test', value: 'worker' } })).ok, true)
+
     const pendingCommand = client.request('command', { sessionId: sessionId(opened), command: { type: 'hold_test' } })
     await new Promise((resolve) => setTimeout(resolve, 25))
 
@@ -244,7 +249,11 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
     return
   }
   if (!isolated && command.type === 'prompt') {
-    streaming = command.message !== '/handled'
+    if (command.message === '/select') {
+      console.log(JSON.stringify({ type: 'extension_ui_request', id: 'select-test', method: 'select', title: 'Select an agent', options: ['worker'] }))
+    } else {
+      streaming = command.message !== '/handled'
+    }
     console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: {} }))
     return
   }

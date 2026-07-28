@@ -50,3 +50,4 @@ Find the right guide for any task in the [documentation index](/docs/README.md).
 - Keep code spacious and explicit.
 - Document every application function longer than four lines with English JSDoc, except obvious type guards, conversions, formatting, or local parsing. Explain purpose, contract, invariant, side effect, or rationale rather than paraphrasing code.
 - Keep TypeScript strict and run Oxlint before proposing a change.
+- Commit as `<gitmoji> concise imperative subject`, without a conventional prefix.

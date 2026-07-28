@@ -148,9 +148,9 @@ async function refreshSessionActivity(): Promise<boolean> {
       || typeof state.data.pendingMessageCount !== 'number'
       || !Number.isInteger(state.data.pendingMessageCount)
       || state.data.pendingMessageCount < 0) throw new Error('Pi returned an invalid session state')
-    const active = state.data.isStreaming || state.data.isCompacting || state.data.pendingMessageCount > 0 || session.pendingUi.size > 0
-    session.summary.status = active ? 'running' : 'idle'
-    return active
+    const running = state.data.isStreaming || state.data.isCompacting || state.data.pendingMessageCount > 0
+    session.summary.status = running ? 'running' : 'idle'
+    return running || session.pendingUi.size > 0
   }))
   return activity.some(Boolean)
 }
@@ -280,6 +280,7 @@ async function sendCommand(request: ManagerRequest): Promise<JsonObject> {
   }
 
   const startsAgent = request.command.type === 'prompt'
+    && (typeof request.command.message !== 'string' || !request.command.message.startsWith('/'))
   if (startsAgent) session.summary.status = 'running'
   try {
     return await session.pi.request(request.command)
