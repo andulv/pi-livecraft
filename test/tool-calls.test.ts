@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { applyToolCallUpdate, applyToolExecutionUpdate, assistantTurnParts, conversationMessageEntries, formatToolCallTooltip, formatToolData, interruptToolCallGeneration, intraLineDiff, isToolCallPending, parseEditDiff, readContentDisplay, sameAssistantMessage, sameMessage, toolCallInUpdate, toolCallPresentation, toolCallsInMessage, toolContentText, toolDataLength, toolEditChanges, toolExecutionUpdateInEvent, toolFilePath, toolResultInMessage, toolTextPreview, truncateToolText, fileUrl } from '../src/features/conversation/tool-calls.ts'
+import { applyToolCallUpdate, applyToolExecutionUpdate, assistantTurnParts, conversationMessageEntries, editDiffDisplayLines, formatToolCallTooltip, formatToolData, interruptToolCallGeneration, intraLineDiff, isToolCallPending, parseEditDiff, readContentDisplay, sameAssistantMessage, sameMessage, toolCallInUpdate, toolCallPresentation, toolCallsInMessage, toolContentText, toolDataLength, toolEditChanges, toolExecutionUpdateInEvent, toolFilePath, toolResultInMessage, toolTextPreview, truncateToolText, fileUrl } from '../src/features/conversation/tool-calls.ts'
 
 test('extracts tool calls and their resolved result from Pi messages', () => {
   const calls = toolCallsInMessage({
@@ -273,7 +273,7 @@ test('parses Pi edit diff lines with added, removed, and context line numbers', 
     { content: '  removed line', kind: 'removed', lineNumber: 3 },
     { content: '  added line', kind: 'added', lineNumber: 3 },
     { content: '  after change', kind: 'context', lineNumber: 4 },
-    { content: '      ...', kind: 'context', lineNumber: null },
+    { content: '...', kind: 'context', lineNumber: null },
   ])
 })
 
@@ -302,8 +302,36 @@ test('intraLineDiff detects single word change', () => {
 test('intraLineDiff handles pure insertion', () => {
   const segments = intraLineDiff('hello', 'hello world')
   assert.deepEqual(segments, [
-    { text: 'hello', kind: 'shared' },
-    { text: ' world', kind: 'added' },
+    { text: 'hello ', kind: 'shared' },
+    { text: 'world', kind: 'added' },
+  ])
+})
+
+test('matches Pi edit highlighting rules for tabs and multi-line changes', () => {
+  const displayLines = editDiffDisplayLines(parseEditDiff([
+    '-1 \tconst before = 1',
+    '+1 \tconst after = 1',
+    '-3 first removed',
+    '-4 second removed',
+    '+3 first added',
+    '+4 second added',
+  ].join('\n')))
+
+  assert.deepEqual(displayLines, [
+    { content: '   const before = 1', kind: 'removed', lineNumber: 1, segments: [
+      { text: '   const ', kind: 'shared' },
+      { text: 'before', kind: 'removed' },
+      { text: ' = 1', kind: 'shared' },
+    ] },
+    { content: '   const after = 1', kind: 'added', lineNumber: 1, segments: [
+      { text: '   const ', kind: 'shared' },
+      { text: 'after', kind: 'added' },
+      { text: ' = 1', kind: 'shared' },
+    ] },
+    { content: 'first removed', kind: 'removed', lineNumber: 3 },
+    { content: 'second removed', kind: 'removed', lineNumber: 4 },
+    { content: 'first added', kind: 'added', lineNumber: 3 },
+    { content: 'second added', kind: 'added', lineNumber: 4 },
   ])
 })
 
@@ -311,7 +339,8 @@ test('intraLineDiff handles pure deletion', () => {
   const segments = intraLineDiff('hello world', 'hello')
   assert.deepEqual(segments, [
     { text: 'hello', kind: 'shared' },
-    { text: ' world', kind: 'removed' },
+    { text: ' ', kind: 'removed', highlighted: false },
+    { text: 'world', kind: 'removed' },
   ])
 })
 

@@ -146,11 +146,9 @@ button:disabled, select:disabled { cursor: not-allowed; }
   .tool-call-edit-line.removed { background: var(--danger-soft); color: color-mix(in srgb, var(--danger) 80%, var(--surface)); }
   .tool-call-edit-line.removed > span,
   .tool-call-edit-line.removed > i { color: color-mix(in srgb, var(--danger) 60%, var(--surface)); }
-  .tool-call-edit-line.removed .diff-seg-removed { background: color-mix(in srgb, var(--danger) 22%, transparent); border-radius: 2px; }
   .tool-call-edit-line.added { background: color-mix(in srgb, var(--success) 13%, var(--canvas)); color: color-mix(in srgb, var(--success) 80%, var(--surface)); }
   .tool-call-edit-line.added > span,
   .tool-call-edit-line.added > i { color: var(--success); }
-  .tool-call-edit-line.added .diff-seg-added { background: color-mix(in srgb, var(--success) 22%, transparent); border-radius: 2px; }
   .tool-call-markdown :not(pre) > code { background: color-mix(in srgb, var(--ink) 12%, transparent); }
   .tool-call-markdown pre { background: color-mix(in srgb, var(--ink) 14%, transparent); border-color: color-mix(in srgb, var(--ink) 14%, transparent); }
   .spinner { border-color: color-mix(in srgb, var(--line-strong) 70%, var(--canvas)); }

@@ -1,4 +1,5 @@
 import type { JsonObject } from '../../../shared/types.ts'
+import { diffWords } from 'diff'
 import { isObject } from '../../../shared/is-object.ts'
 import { positiveInteger, type ToolCallPresentation } from './tool-call-presentations/shared.ts'
 import { toolCallPresentations } from './tool-call-presentations/index.ts'
@@ -254,78 +255,84 @@ export interface EditDiffLine {
 export interface IntraLineSegment {
   text: string
   kind: 'added' | 'removed' | 'shared'
+  highlighted?: boolean
 }
 
-/** Computes word-level diff segments between old and new text using LCS. */
+/** Computes word-level diff segments with the same algorithm as Pi's edit renderer. */
 export function intraLineDiff(oldText: string, newText: string): IntraLineSegment[] {
-  // Tokenize on word boundaries: runs of \w+, runs of \W+, each as a token
-  function tokenize(s: string): string[] {
-    const tokens: string[] = []
-    const re = /\w+|\W+/g
-    let m: RegExpExecArray | null
-    while ((m = re.exec(s)) !== null) tokens.push(m[0])
-    return tokens
-  }
-  const oldTokens = tokenize(oldText)
-  const newTokens = tokenize(newText)
-
-  // ponytail: O(m*n) word-level DP, switch to Myers if diffing >10K tokens
-  const m = oldTokens.length
-  const n = newTokens.length
-  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (oldTokens[i - 1] === newTokens[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1] + 1
-      } else {
-        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1])
-      }
-    }
-  }
-
-  // Backtrack to produce diff operations: '=' shared, '-' removed, '+' added
-  const ops: { kind: '=' | '-' | '+'; text: string }[] = []
-  let i = m
-  let j = n
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && oldTokens[i - 1] === newTokens[j - 1]) {
-      ops.push({ kind: '=', text: oldTokens[i - 1] })
-      i--
-      j--
-    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-      ops.push({ kind: '+', text: newTokens[j - 1] })
-      j--
-    } else {
-      ops.push({ kind: '-', text: oldTokens[i - 1] })
-      i--
-    }
-  }
-  ops.reverse()
-
-  // Merge consecutive same-kind ops into segments
   const segments: IntraLineSegment[] = []
-  for (const op of ops) {
-    const kind = op.kind === '=' ? 'shared' : op.kind === '-' ? 'removed' : 'added'
-    const last = segments[segments.length - 1]
-    if (last && last.kind === kind) {
-      last.text += op.text
-    } else {
-      segments.push({ text: op.text, kind })
+  let isFirstRemoved = true
+  let isFirstAdded = true
+
+  for (const part of diffWords(oldText, newText)) {
+    const kind: IntraLineSegment['kind'] = part.removed ? 'removed' : part.added ? 'added' : 'shared'
+    if (kind === 'shared') {
+      segments.push({ text: part.value, kind })
+      continue
     }
+
+    const isFirst = kind === 'removed' ? isFirstRemoved : isFirstAdded
+    if (kind === 'removed') isFirstRemoved = false
+    else isFirstAdded = false
+    if (!isFirst) {
+      segments.push({ text: part.value, kind })
+      continue
+    }
+
+    const leadingWhitespace = part.value.match(/^\s*/)?.[0] ?? ''
+    if (leadingWhitespace) segments.push({ text: leadingWhitespace, kind, highlighted: false })
+    const text = part.value.slice(leadingWhitespace.length)
+    if (text) segments.push({ text, kind })
   }
+
   return segments
 }
 
 /** Turns Pi's display-oriented edit diff into colorable lines with source and destination line numbers. */
 export function parseEditDiff(diff: string): EditDiffLine[] {
   return diff.split('\n').map((line) => {
-    const match = line.match(/^([+\- ])(\s*\d+)\s(.*)$/)
+    const match = line.match(/^([+\-\s])(\s*\d*)\s(.*)$/)
     if (match) {
+      const lineNumber = match[2].trim()
       const kind = match[1] === '+' ? 'added' : match[1] === '-' ? 'removed' : 'context' as const
-      return { content: match[3], kind, lineNumber: parseInt(match[2].trim(), 10) }
+      return { content: match[3], kind, lineNumber: lineNumber ? parseInt(lineNumber, 10) : null }
     }
     return { content: line, kind: 'context', lineNumber: null }
   })
+}
+
+export type EditDiffDisplayLine = EditDiffLine & { segments?: IntraLineSegment[] }
+
+/** Prepares Pi edit diff lines, limiting word highlights to single-line replacements. */
+export function editDiffDisplayLines(diffLines: EditDiffLine[]): EditDiffDisplayLine[] {
+  const lines = diffLines.map((line) => ({ ...line, content: line.content.replace(/\t/g, '   ') }))
+  const displayLines: EditDiffDisplayLine[] = []
+  let index = 0
+
+  while (index < lines.length) {
+    const line = lines[index]
+    if (line.kind !== 'removed') {
+      displayLines.push(line)
+      index++
+      continue
+    }
+
+    const removedLines: EditDiffLine[] = []
+    while (index < lines.length && lines[index].kind === 'removed') removedLines.push(lines[index++])
+    const addedLines: EditDiffLine[] = []
+    while (index < lines.length && lines[index].kind === 'added') addedLines.push(lines[index++])
+
+    if (removedLines.length === 1 && addedLines.length === 1) {
+      const segments = intraLineDiff(removedLines[0].content, addedLines[0].content)
+      displayLines.push({ ...removedLines[0], segments: segments.filter((segment) => segment.kind !== 'added') })
+      displayLines.push({ ...addedLines[0], segments: segments.filter((segment) => segment.kind !== 'removed') })
+      continue
+    }
+
+    displayLines.push(...removedLines, ...addedLines)
+  }
+
+  return displayLines
 }
 
 export function formatToolData(value: unknown): string {
