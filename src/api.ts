@@ -1,5 +1,31 @@
-import type { DirectoryListing, GitFileDiff, GitPushResult, GitResetResult, GitRevertResult, GitSnapshot, JsonObject, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary, TodoItem, WorkspaceFile } from '../shared/types.ts'
+import type { DirectoryListing, GitFileDiff, GitPushResult, GitResetResult, GitRevertResult, GitSnapshot, JsonObject, ManagerEvent, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary, TodoItem, WorkspaceFile } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
+
+const managerEventNames: readonly ManagerEvent['event'][] = ['session_created', 'session_exited', 'manager_connected', 'manager_disconnected', 'manager_status', 'pi']
+
+/** Parses and validates an event received from the backend SSE boundary. */
+export function parseManagerEvent(data: string): ManagerEvent | null {
+  try {
+    const value: unknown = JSON.parse(data)
+    if (!isObject(value) || value.kind !== 'event' || typeof value.event !== 'string' || typeof value.sessionId !== 'string') return null
+    if (!managerEventNames.includes(value.event as ManagerEvent['event'])) return null
+    if (value.sequence !== undefined && (!Number.isSafeInteger(value.sequence) || (value.sequence as number) < 0)) return null
+    return value as unknown as ManagerEvent
+  } catch {
+    return null
+  }
+}
+
+/** Subscribes to validated manager events while preserving EventSource reconnection. */
+export function subscribeManagerEvents(onEvent: (event: ManagerEvent) => void, onError: () => void): () => void {
+  const source = new EventSource('/api/events')
+  source.onmessage = ({ data }) => {
+    const event = parseManagerEvent(data)
+    if (event) onEvent(event)
+  }
+  source.onerror = onError
+  return () => source.close()
+}
 
 export async function listSessions(): Promise<SessionSummary[]> {
   return request<SessionSummary[]>('/api/sessions')

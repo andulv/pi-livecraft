@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import { Tooltip } from './components/Tooltip.tsx'
-import { commitChanges, createSession, discardChanges, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, improvePrompt, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, openTerminal, pushCommits, refreshQuotas, resetGitCommit, restartManager, revertGitCommit, sendPiCommand } from './api.ts'
+import { commitChanges, createSession, discardChanges, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, improvePrompt, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, openTerminal, pushCommits, refreshQuotas, resetGitCommit, restartManager, revertGitCommit, sendPiCommand, subscribeManagerEvents } from './api.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
-import type { GitSnapshot, JsonObject, ManagerEvent, ManagerRuntimeStatus, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary } from '../shared/types.ts'
+import type { GitSnapshot, JsonObject, ManagerRuntimeStatus, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 import { Composer } from './features/composer/Composer.tsx'
 import { promptSessionTitle } from './features/composer/prompt-title.ts'
@@ -449,10 +449,7 @@ function App() {
 
   // Pi event stream
   useEffect(() => {
-    const events = new EventSource('/api/events')
-    events.onmessage = ({ data }) => {
-      const event: unknown = JSON.parse(data)
-      if (!isManagerEvent(event)) return
+    const unsubscribe = subscribeManagerEvents((event) => {
       if (event.event === 'manager_connected' || event.event === 'manager_disconnected') {
         setPiConnection(event.event === 'manager_connected' ? 'connected' : 'disconnected')
         setActivity(null)
@@ -461,15 +458,14 @@ function App() {
       if (event.event === 'manager_connected' || event.event === 'session_created' || event.event === 'session_exited') void refreshSessions()
       if (event.event !== 'pi' || !isObject(event.data)) return
       handlePiEvent(event.sessionId, event.data, event.sequence)
-    }
-    events.onerror = () => {
+    }, () => {
       appliedPiEventSequenceRef.current = 0
       setPiConnection('connecting')
       setActivity(null)
       showToast('error', 'Connection to backend lost; retrying.')
-    }
+    })
     replayPiEventRef.current = handlePiEvent
-    return () => events.close()
+    return unsubscribe
 
     /** Translates received events into UI updates and possible UI responses. */
     function handlePiEvent(sessionId: string, event: JsonObject, sequence?: number): void {
@@ -1075,10 +1071,6 @@ function readActiveRightWidget(): RightWidget | null {
   if (isRightWidget(stored)) return stored
   if (stored === 'none') return null
   return window.localStorage.getItem('pi-livecraft.git-sidebar-collapsed') === 'true' ? null : 'git'
-}
-
-function isManagerEvent(value: unknown): value is ManagerEvent {
-  return isObject(value) && value.kind === 'event' && typeof value.event === 'string' && typeof value.sessionId === 'string'
 }
 
 function isManagerRuntimeStatus(value: unknown): value is ManagerRuntimeStatus {
