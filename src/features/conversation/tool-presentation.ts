@@ -185,6 +185,13 @@ export function toolFilePath(args: unknown): string | null {
   return isObject(args) && typeof args.path === 'string' && args.path.length > 0 ? args.path : null
 }
 
+/** Returns the text content sent to Pi for the write tool, or null when unavailable or not a write. */
+export function toolWriteContent(args: unknown): string | null {
+  return isObject(args) && typeof args.content === 'string' && args.content.length > 0
+    ? args.content
+    : null
+}
+
 /** Returns the starting line number for read tool content display (offset or 1). */
 export function readStartingLineNumber(args: unknown): number {
   if (!isObject(args)) return 1

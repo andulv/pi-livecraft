@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatToolData } from '../src/features/conversation/tool-presentation.ts'
+import { formatToolData, toolWriteContent } from '../src/features/conversation/tool-presentation.ts'
 import {
   applyToolCallUpdate,
   applyToolExecutionUpdate,
@@ -269,4 +269,17 @@ test('does not touch executions that are not running', () => {
   })
   assert.equal(toolContentText(updated[0]?.result?.content), 'done')
   assert.equal(updated[0]?.partialResult, undefined)
+})
+
+test('extracts write tool content and rejects non-string arguments', () => {
+  assert.equal(
+    toolWriteContent({ content: 'Hello', path: 'note.md' }),
+    'Hello',
+  )
+  assert.equal(toolWriteContent({ content: 'multiline\ntext', path: 'a' }), 'multiline\ntext')
+  assert.equal(toolWriteContent(null), null)
+  assert.equal(toolWriteContent({}), null)
+  assert.equal(toolWriteContent({ path: 'a' }), null)
+  assert.equal(toolWriteContent({ content: '' }), null)
+  assert.equal(toolWriteContent({ content: 42 }), null)
 })

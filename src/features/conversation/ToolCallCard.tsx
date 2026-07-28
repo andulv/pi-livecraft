@@ -2,7 +2,7 @@ import { lazy, memo, Suspense, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import { getWorkspaceFile, getWorkspaceFilePath } from '../../api.ts'
+import { getWorkspaceFilePath } from '../../api.ts'
 import { fileContextDraft } from './context-session.ts'
 import { canHighlightFile } from './file-preview.ts'
 import {
@@ -18,6 +18,7 @@ import {
   toolEditChanges,
   toolFilePath,
   toolTextPreview,
+  toolWriteContent,
   fileUrl,
   type EditDiffLine,
 } from './tool-presentation.ts'
@@ -135,9 +136,6 @@ export const ToolCallCard = memo(function ToolCallCard({
   const htmlFile = display.kind === 'html'
   const [expanded, setExpanded] = useState(name === 'edit')
   const [partialOutputExpanded, setPartialOutputExpanded] = useState(false)
-  const [writtenContent, setWrittenContent] = useState<string>()
-  const [writtenContentError, setWrittenContentError] = useState<string>()
-  const [loadingWrittenContent, setLoadingWrittenContent] = useState(false)
   const [htmlOpenError, setHtmlOpenError] = useState<string>()
   const [codeRendered, setCodeRendered] = useState(false)
   const [argsExpanded, setArgsExpanded] = useState(false)
@@ -163,13 +161,10 @@ export const ToolCallCard = memo(function ToolCallCard({
     hasResult ? outputLength : undefined,
   )
   const resolvedSizeLabel = `Input: ${inputLength} characters. Output: ${outputLength} characters.`
+  const writeContent = name === 'write' ? toolWriteContent(args) : null
   const content = htmlOpenError
-    ?? (!resultError ? undefined : writtenContentError)
-    ?? (name === 'write' && writtenContent === undefined && loadingWrittenContent
-      ? 'Loading file…'
-      : name === 'write'
-      ? writtenContent ?? displayedOutput
-      : displayedOutput)
+    ?? (name === 'write' && !resultError && writeContent ? writeContent : undefined)
+    ?? displayedOutput
   const hasCodePreview = display.kind === 'code' && hasResult && !expanded
     && canHighlightFile(content)
   const isNearViewport = useInView(cardRef, hasCodePreview)
@@ -181,37 +176,13 @@ export const ToolCallCard = memo(function ToolCallCard({
     ? `${streamingArgs.slice(0, maxPreviewChars)}…`
     : streamingArgs
   const renderingCode = display.kind === 'code' && canHighlightFile(content) && expanded
-    && !loadingWrittenContent && !writtenContentError && !codeRendered
+    && !codeRendered
 
   useEffect(() => {
-    if (name !== 'write' || !filePath || !hasResult || resultError) return
-    let cancelled = false
-    setWrittenContent(undefined)
-    setWrittenContentError(undefined)
-    setLoadingWrittenContent(true)
-    void getWorkspaceFile(workspacePath, filePath)
-      .then((file) => {
-        if (!cancelled) setWrittenContent(file.content)
-      })
-      .catch((cause: unknown) => {
-        if (!cancelled) setWrittenContentError(messageOf(cause))
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingWrittenContent(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [filePath, hasResult, name, resultError, workspacePath])
-
-  useEffect(() => {
-    if (
-      !expanded || display.kind !== 'code' || loadingWrittenContent || writtenContentError
-      || codeRendered
-    ) return
+    if (!expanded || display.kind !== 'code' || codeRendered) return
     const timeout = window.setTimeout(() => setCodeRendered(true), 0)
     return () => window.clearTimeout(timeout)
-  }, [codeRendered, display.kind, expanded, loadingWrittenContent, writtenContentError])
+  }, [codeRendered, display.kind, expanded])
 
   /** Opens HTML reads in the browser and expands other output in the history. */
   const activate = () => {
@@ -373,7 +344,7 @@ export const ToolCallCard = memo(function ToolCallCard({
                     content={content}
                     darkMode={darkMode}
                     onCollapse={() => setExpanded(false)}
-                    renderingCode={renderingCode || loadingWrittenContent}
+                    renderingCode={renderingCode}
                     resultDetails={resultDetails}
                     showEditDiff={!contentError}
                   />
