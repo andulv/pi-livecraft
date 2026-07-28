@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import type { JsonObject } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
 import { activityActionText, activityAgentName, type Activity } from './activity.ts'
-import { formatDuration, formatTokens, formatTurnCost, turnDurationByMessage, turnUsageByMessage, type MessageUsage } from './message-usage.ts'
+import { formatTokens, formatTurnCost, turnUsageByMessage, type MessageUsage } from './message-usage.ts'
 import { assistantTurnParts, conversationMessageEntries, toolCallsInMessage, toolResultInMessage, type LiveMessage, type ToolExecution } from './tool-calls.ts'
 import type { SessionAnalysisTarget } from '../session-analysis/session-analysis.ts'
 import { outputContextDraft } from './context-session.ts'
@@ -10,7 +10,7 @@ import { ContextSessionButton, Markdown, ToolCallCard } from './ToolCallCard.tsx
 import { resumesAutoScrollAfterDownwardScroll } from './conversation-scroll.ts'
 
 /** Assembles history, the live stream, and tool executions according to the selected detail level. */
-export function Conversation({ activity, agentName, messages, liveMessages, darkMode, detailedView, navigationRequest, pendingSteering, repositoryRoot, scrollToBottomRequest, toolExecutions, turnDurations, workspacePath, onError, onStartSession }: {
+export function Conversation({ activity, agentName, messages, liveMessages, darkMode, detailedView, navigationRequest, pendingSteering, repositoryRoot, scrollToBottomRequest, toolExecutions, workspacePath, onError, onStartSession }: {
   activity: Activity | null
   agentName?: string
   messages: JsonObject[]
@@ -22,14 +22,12 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
   repositoryRoot?: string | null
   scrollToBottomRequest: number
   toolExecutions: ToolExecution[]
-  /** Observed per-message generation durations keyed by ordinal of all assistant messages. */
-  turnDurations?: ReadonlyMap<number, number>
   workspacePath: string
   onError: (cause: unknown) => void
   onStartSession: (draft: string) => Promise<void>
 }) {
   const allMessages = messages
-  const { visibleMessages, usagesByMessage, turnDurationsByMessage, turnNumbers, toolCallIds, resultsByCallId } = useMemo(() => {
+  const { visibleMessages, usagesByMessage, turnNumbers, toolCallIds, resultsByCallId } = useMemo(() => {
     const visible = allMessages.filter(isVisibleConversationMessage)
     const calls = allMessages.flatMap(toolCallsInMessage)
     const results = new Map(allMessages.flatMap((message) => {
@@ -37,19 +35,17 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
       return result ? [[result.toolCallId, result] as const] : []
     }))
     const usagesByMessage = turnUsageByMessage(allMessages)
-    const turnDurationsByMessage = turnDurations ? turnDurationByMessage(allMessages, turnDurations) : new Map<number, number>()
     const turnNumbers = new Map<number, number>()
     let turnNum = 0
     for (const idx of [...usagesByMessage.keys()].sort((a, b) => a - b)) turnNumbers.set(idx, ++turnNum)
     return {
       visibleMessages: visible,
       usagesByMessage,
-      turnDurationsByMessage,
       turnNumbers,
       toolCallIds: new Set(calls.map((call) => call.id)),
       resultsByCallId: results,
     }
-  }, [allMessages, turnDurations])
+  }, [allMessages])
   const executionsByCallId = useMemo(() => new Map(toolExecutions.map((execution) => [execution.id, execution])), [toolExecutions])
   const liveToolCallIds = useMemo(() => new Set(liveMessages.flatMap(({ message }) => toolCallsInMessage(message)).map((call) => call.id)), [liveMessages])
   const messageEntries = useMemo(() => conversationMessageEntries(allMessages, liveMessages), [allMessages, liveMessages])
@@ -215,7 +211,7 @@ export function Conversation({ activity, agentName, messages, liveMessages, dark
               const result = resultsByCallId.get(call.id) ?? execution?.result
               return <ToolCallCard args={call.args} darkMode={darkMode} hasResult={result !== undefined} id={call.id} interrupted={execution?.status === 'interrupted'} key={call.id} name={call.name} onError={onError} onStartSession={onStartSession} partialResultContent={execution?.partialResult?.content} repositoryRoot={repositoryRoot} resultContent={result?.content} resultDetails={result?.details} resultError={result?.isError} streaming={execution?.status === 'generating'} targeted={highlightedTarget === `tool:${call.id}`} workspacePath={workspacePath} />
             })}
-            {usage && <TurnUsage durationMs={turnDurationsByMessage.get(index)} turnNumber={turnNumbers.get(index)} usage={usage} />}
+            {usage && <TurnUsage turnNumber={turnNumbers.get(index)} usage={usage} />}
           </div>
         }
 
@@ -281,10 +277,9 @@ function DefaultCustomMessage({ message }: { message: JsonObject & { customType?
 }
 
 /** Displays counters billed by Pi for a completed assistant response. */
-function TurnUsage({ durationMs, turnNumber, usage }: { durationMs?: number; turnNumber?: number; usage: MessageUsage }) {
+function TurnUsage({ turnNumber, usage }: { turnNumber?: number; usage: MessageUsage }) {
   return <dl className="turn-usage">
     {turnNumber !== undefined && <div><dt>Turn</dt><dd>{turnNumber}</dd></div>}
-    {durationMs !== undefined && <div><dt>Duration</dt><dd>{formatDuration(durationMs)}</dd></div>}
     <div><dt>Cost</dt><dd>{formatTurnCost(usage.cost)}</dd></div>
     <div><dt>Cache read</dt><dd>{formatTokens(usage.cacheRead)}</dd></div>
     <div><dt>Cache miss</dt><dd>{formatTokens(usage.cacheMiss)}</dd></div>

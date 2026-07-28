@@ -88,7 +88,6 @@ function App() {
   const [conversationNavigation, setConversationNavigation] = useState<{ id: number; target: SessionAnalysisTarget }>()
   const [observedToolDurations, setObservedToolDurations] = useState<ReadonlyMap<string, number>>(new Map())
   const [observedRequestDurations, setObservedRequestDurations] = useState<ReadonlyMap<number, number>>(new Map())
-  const [observedTurnDurations, setObservedTurnDurations] = useState<ReadonlyMap<number, number>>(new Map())
   const [shortcuts, setShortcuts] = useState(() => readShortcuts())
   const [terminalCommand, setTerminalCommand] = useState(() => readTerminalCommand())
   const selectedIdRef = useRef(selectedId)
@@ -102,14 +101,6 @@ function App() {
   const gitRefreshVersionRef = useRef(0)
   const agentIntentsRef = useRef(new Map<string, AgentIntent>())
   const toolStartedAtRef = useRef(new Map<string, number>())
-  const turnMessageStartedAtRef = useRef(new Map<number, number>())
-  const turnMessageSeqRef = useRef(0)
-  /** Stores performance.now() of the last message_end in the current agent cycle. */
-  const turnEndedAtRef = useRef<number | undefined>(undefined)
-  /** Accumulated pause time since the last message_end, in milliseconds. */
-  const turnPauseCumulativeRef = useRef(0)
-  /** performance.now() when the current blocking dialog started, if any. */
-  const turnPauseStartedAtRef = useRef<number | undefined>(undefined)
   const requestStartedAtRef = useRef<number | undefined>(undefined)
   const queueUpdateVersionRef = useRef(0)
   const liveMessagesRef = useRef<LiveMessage[]>([])
@@ -322,10 +313,6 @@ function App() {
 
   /** Clears an answered request immediately, then reconciles all pending requests with the manager. */
   const closeDialog = useCallback((closedDialog: UiDialog) => {
-    if (turnPauseStartedAtRef.current !== undefined) {
-      turnPauseCumulativeRef.current += performance.now() - turnPauseStartedAtRef.current
-      turnPauseStartedAtRef.current = undefined
-    }
     const requestId = closedDialog.request.id
     setDialog((current) => current?.sessionId === closedDialog.sessionId && current.request.id === requestId ? null : current)
     if (typeof requestId === 'string') {
@@ -360,7 +347,6 @@ function App() {
       const nextSnapshot = await getSnapshot(sessionId)
       if (version !== snapshotRefreshVersionRef.current || targetSessionId !== selectedIdRef.current) return nextSnapshot
       flushLiveUpdates()
-      turnMessageSeqRef.current = Math.max(turnMessageSeqRef.current, nextSnapshot.messages.filter(m => m.role === 'assistant').length)
       setSnapshot(nextSnapshot)
       setSnapshotSessionId(sessionId)
       return nextSnapshot
@@ -417,14 +403,8 @@ function App() {
     setConversationNavigation(undefined)
     setObservedToolDurations(new Map())
     setObservedRequestDurations(new Map())
-    setObservedTurnDurations(new Map())
     toolStartedAtRef.current.clear()
-    turnMessageStartedAtRef.current.clear()
-    turnMessageSeqRef.current = 0
     requestStartedAtRef.current = undefined
-    turnEndedAtRef.current = undefined
-    turnPauseCumulativeRef.current = 0
-    turnPauseStartedAtRef.current = undefined
     void refreshSnapshot(selectedId)
   }, [clearLiveMessages, refreshSnapshot, selectedId])
 
@@ -516,10 +496,7 @@ function App() {
           if (agentIntent?.value && !selectedAgent) showToast('error', 'Selected agent is no longer available.')
           return
         }
-        if (isBlockingDialog(event)) {
-          turnPauseStartedAtRef.current = performance.now()
-          setDialog({ sessionId, request: event })
-        }
+        if (isBlockingDialog(event)) setDialog({ sessionId, request: event })
       }
 
       if (sessionId !== selectedIdRef.current) return
@@ -567,8 +544,6 @@ function App() {
         return next?.kind === current?.kind ? current : next
       })
       if (event.type === 'message_start') {
-        turnMessageSeqRef.current += 1
-        turnMessageStartedAtRef.current.set(turnMessageSeqRef.current, performance.now())
         flushLiveUpdates()
         setToolExecutions(interruptToolCallGeneration)
         const message = assistantMessageInEvent(event)
@@ -592,25 +567,6 @@ function App() {
         void refreshSessionQuotas(sessionId, true)
       }
       if (event.type === 'message_end' || event.type === 'agent_settled') {
-        if (event.type === 'message_end') {
-          const ordinal = turnMessageSeqRef.current
-          const startedAt = turnMessageStartedAtRef.current.get(ordinal)
-          if (startedAt !== undefined) {
-            const now = performance.now()
-            const reference = turnEndedAtRef.current ?? startedAt
-            const elapsed = Math.max(0, now - reference - turnPauseCumulativeRef.current)
-            setObservedTurnDurations((current) => new Map(current).set(ordinal, elapsed))
-            turnEndedAtRef.current = now
-            turnPauseCumulativeRef.current = 0
-            turnMessageStartedAtRef.current.delete(ordinal)
-          }
-        }
-        if (event.type === 'agent_settled') {
-          turnMessageStartedAtRef.current.clear()
-          turnEndedAtRef.current = undefined
-          turnPauseCumulativeRef.current = 0
-          turnPauseStartedAtRef.current = undefined
-        }
         flushLiveUpdates()
         setToolExecutions(interruptToolCallGeneration)
         void refreshSnapshot(sessionId).then((nextSnapshot) => {
@@ -907,7 +863,7 @@ function App() {
           <>
             {(snapshotSessionId === selectedSession.id || loadingPhase === 'exiting') && (
               <>
-                <Conversation activity={displayedActivity} agentName={selectedSession.activeAgent} darkMode={activeTheme.mode === 'dark'} detailedView={conversationView === 'detailed'} key={selectedSession.id} liveMessages={liveMessages} messages={snapshot.messages} navigationRequest={conversationNavigation} onError={handleConversationError} onStartSession={handleContextSessionStart} pendingSteering={pendingSteering} repositoryRoot={gitSnapshot?.root} scrollToBottomRequest={scrollToBottomRequest} toolExecutions={toolExecutions} turnDurations={observedTurnDurations} workspacePath={workspacePath} />
+                <Conversation activity={displayedActivity} agentName={selectedSession.activeAgent} darkMode={activeTheme.mode === 'dark'} detailedView={conversationView === 'detailed'} key={selectedSession.id} liveMessages={liveMessages} messages={snapshot.messages} navigationRequest={conversationNavigation} onError={handleConversationError} onStartSession={handleContextSessionStart} pendingSteering={pendingSteering} repositoryRoot={gitSnapshot?.root} scrollToBottomRequest={scrollToBottomRequest} toolExecutions={toolExecutions} workspacePath={workspacePath} />
                 <Tooltip label={`${conversationViewDetail.label} — ${conversationViewDetail.description}`}><button aria-label={`${conversationViewDetail.label}. ${conversationViewDetail.description}. Click to toggle view.`} className={`chat-detail-toggle ${conversationView}`} onClick={() => setConversationView((current) => {
                     const next = current === 'simple' ? 'detailed' : 'simple'
                     window.localStorage.setItem('pi-livecraft.conversation-view', next)

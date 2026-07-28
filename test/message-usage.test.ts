@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatTurnCost, messageUsage, turnDurationByMessage, turnUsageByMessage } from '../src/features/conversation/message-usage.ts'
+import { formatTurnCost, messageUsage, turnUsageByMessage } from '../src/features/conversation/message-usage.ts'
 
 test('extracts per-response cost and token counters from Pi usage', () => {
   const usage = messageUsage({
@@ -46,53 +46,4 @@ test('hides metrics when Pi does not provide complete usage', () => {
     { role: 'user' },
     { role: 'assistant', usage: { input: 10 } },
   ]), new Map())
-})
-
-test('maps observed per-message durations to their message index by ordinal', () => {
-  const messages = [
-    { role: 'user', content: 'hello' },
-    { role: 'assistant', content: 'response', usage: { input: 100, output: 10, cacheRead: 1_000, cost: { total: 0.01 } } },
-    { role: 'user', content: 'continue' },
-    { role: 'assistant', content: 'done', usage: { input: 200, output: 20, cacheRead: 2_000, cost: { total: 0.02 } } },
-  ]
-  const durations = new Map([[1, 1_250], [2, 830]])
-  assert.deepEqual(turnDurationByMessage(messages, durations), new Map([[1, 1_250], [3, 830]]))
-})
-
-test('matches durations after historical turns', () => {
-  const messages = [
-    { role: 'assistant', content: 'history 1', usage: { input: 10, output: 1, cacheRead: 100, cost: { total: 0.001 } } },
-    { role: 'assistant', content: 'history 2', usage: { input: 20, output: 2, cacheRead: 200, cost: { total: 0.002 } } },
-    { role: 'assistant', content: 'current 1', usage: { input: 30, output: 3, cacheRead: 300, cost: { total: 0.003 } } },
-    { role: 'assistant', content: 'current 2', usage: { input: 40, output: 4, cacheRead: 400, cost: { total: 0.004 } } },
-  ]
-  assert.deepEqual(turnDurationByMessage(messages, new Map([[3, 1_250], [4, 830]])), new Map([[2, 1_250], [3, 830]]))
-})
-
-test('skips assistant messages without usage and ignores non-assistant roles', () => {
-  const messages = [
-    { role: 'assistant', content: 'no usage here' },
-    { role: 'user', content: 'not an assistant' },
-    { role: 'assistant', content: 'with usage', usage: { input: 50, output: 5, cacheRead: 500, cost: { total: 0.005 } } },
-  ]
-  // The first assistant (no usage) is ordinal 1; the third (with usage) is ordinal 2.
-  assert.deepEqual(turnDurationByMessage(messages, new Map([[1, 500]])), new Map())
-  assert.deepEqual(turnDurationByMessage(messages, new Map([[2, 999]])), new Map([[2, 999]]))
-  // Empty durations map.
-  assert.deepEqual(turnDurationByMessage(messages, new Map()), new Map())
-})
-
-test('preserves ordinal alignment when an assistant without usage sits between two with usage', () => {
-  const messages = [
-    { role: 'assistant', content: 'first', usage: { input: 10, output: 1, cacheRead: 100, cost: { total: 0.001 } } },
-    { role: 'assistant', content: 'no usage' },
-    { role: 'assistant', content: 'third', usage: { input: 30, output: 3, cacheRead: 300, cost: { total: 0.003 } } },
-  ]
-  assert.deepEqual(turnDurationByMessage(messages, new Map([[1, 500], [3, 2000]])), new Map([[0, 500], [2, 2000]]))
-  // Only the first assistant matched.
-  assert.deepEqual(turnDurationByMessage(messages, new Map([[1, 750]])), new Map([[0, 750]]))
-  // Only the third assistant matched.
-  assert.deepEqual(turnDurationByMessage(messages, new Map([[3, 999]])), new Map([[2, 999]]))
-  // No matching ordinal at all.
-  assert.deepEqual(turnDurationByMessage(messages, new Map([[2, 111]])), new Map())
 })
