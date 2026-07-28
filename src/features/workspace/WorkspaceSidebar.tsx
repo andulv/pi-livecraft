@@ -51,7 +51,7 @@ export function WorkspaceSidebar({ compactingSessionIds, completedSessionIds, is
     </div>
     <NewSessionButton onCreate={onCreate} onError={onError} />
     <nav className="session-list" aria-label="Recent Pi sessions">
-      {isRefreshing && <p className="session-list-loading" role="status">Loading sessions…</p>}
+      {isRefreshing && visibleSessions.length === 0 && <p className="session-list-loading" role="status">Loading sessions…</p>}
       {visibleSessions.map((recentSession) => {
         const activeSession = sessions.find((session) => session.sessionPath === recentSession.sessionPath && session.status !== 'exited')
         const indicator = sessionIndicator(activeSession, selectedId, compactingSessionIds, completedSessionIds)
