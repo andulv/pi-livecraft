@@ -645,10 +645,9 @@
 .tool-call-html-preview {
   display: block;
   width: 100%;
-  max-height: 360px;
+  max-height: 720px;
   border: 0;
   background: var(--surface);
-  pointer-events: none;
 }
 .tool-call-preview pre {
   margin: 0;
