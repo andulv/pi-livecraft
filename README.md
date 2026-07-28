@@ -27,24 +27,9 @@ The analysis and jump-back navigation are included today. The Bash and file acti
 
 ## Quick start
 
-Pi Livecraft is designed to run in development mode. You need **Node.js 24 or newer**, **npm**, and **Pi**. The target environments are Linux with a graphical desktop and WSL; native Windows is not a supported target.
+You need **Node.js 24+**, **npm**, and a configured **Pi**. Linux and WSL are supported.
 
-### 1. Install Pi
-
-Pi is required: Pi Livecraft provides the interface, but it does not bundle the agent. Install the [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) package, then launch Pi once to configure a provider:
-
-```bash
-npm install -g --ignore-scripts @earendil-works/pi-coding-agent
-pi
-```
-
-Use `/login` inside Pi, or follow the [Pi quickstart guide](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/quickstart.md) for API keys and alternative authentication modes. If `pi --version` already works and a provider is configured, you are ready.
-
-### 2. Create your repository
-
-Click **[Use this template](https://github.com/new?template_name=pi-livecraft&template_owner=sebastienservouze)**, choose a name and visibility, then clone the repository GitHub creates for you. Unlike a fork, your repository starts with its own history and is yours to reshape.
-
-### 3. Install and run
+Create a repository with **[Use this template](https://github.com/new?template_name=pi-livecraft&template_owner=sebastienservouze)**, then run:
 
 ```bash
 git clone https://github.com/YOUR-USERNAME/YOUR-REPOSITORY.git
@@ -53,11 +38,7 @@ npm install
 npm run dev
 ```
 
-`npm run dev` watches the frontend and backend while a stable supervisor keeps the manager running. Manager runtime changes are reported in the interface and take effect only after you choose **Restart manager**; `Ctrl+C` stops all three processes.
-
-Open [http://127.0.0.1:5173](http://127.0.0.1:5173).
-
-On Linux, opening a folder or terminal uses the desktop tools available in your environment (`xdg-open` and `x-terminal-emulator`). Under WSL, Pi Livecraft uses Windows Explorer and Windows Terminal; leave the terminal setting empty to use that platform default, or configure a command containing `{cwd}`.
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). That's it.
 
 > [!WARNING]
 > **Pi is not sandboxed.** It runs with your user permissions and can read files, modify code, and execute commands. Keep important work under version control and review Git actions before confirming them. Pi Livecraft limits network exposure by listening only on `127.0.0.1`.
@@ -72,11 +53,6 @@ On Linux, opening a folder or terminal uses the desktop tools available in your 
 - **Focused side tools:** keep todos and bounded workspace commands one click away.
 - **Pi-native controls:** use the models, thinking levels, and commands exposed by Pi.
 - **Personal controls:** command palette, editable shortcuts, persistent drafts, resizable panels, and light or dark themes.
-
-## Recommended extensions
-
-- **[pi-agents](https://github.com/sebastienservouze/pi-agents):** adds specialized agents with focused prompts, restricted tool sets, and isolated delegation. When available in Pi, its agent selector is automatically exposed in the Livecraft composer.
-- **[pi-auto-title](https://github.com/sebastienservouze/pi-auto-title):** automatically names sessions from their first prompt, making parallel workspace histories easier to scan.
 
 ## Make it yours
 
@@ -98,14 +74,21 @@ Pi remains the agent harness: it owns the session, model, tools, history, and ex
 
 A local backend sends commands to `pi --mode rpc` through Pi's public RPC protocol, then streams Pi's events back to the browser:
 
-```text
-React browser
-    │ HTTP + SSE
-    ▼
-server/backend.ts ─── local JSON Lines ──▶ server/manager.ts ─── Pi public RPC ──▶ pi --mode rpc
-                                               ▲
-                                               │ guarded lifecycle
-                                    server/manager-supervisor.ts
+```mermaid
+flowchart LR
+    subgraph Livecraft["Pi Livecraft"]
+        direction LR
+        Browser(["React browser"])
+        Backend["Backend<br/><code>server/backend.ts</code>"]
+        Manager["Manager<br/><code>server/manager.ts</code>"]
+        Supervisor["Supervisor<br/><code>server/manager-supervisor.ts</code>"]
+
+        Browser <-->|"HTTP + SSE"| Backend
+        Backend <-->|"Local JSON Lines"| Manager
+        Supervisor -.->|"guarded lifecycle"| Manager
+    end
+
+    Manager <-->|"Pi public RPC"| Pi(["Pi<br/><code>pi --mode rpc</code>"])
 ```
 
 The manager remains the sole owner of Pi processes, so browser and backend restarts preserve sessions. The supervisor records the manager runtime revision at launch but never restarts it after a code change or crash. Runtime changes produce a notice; replacement occurs only after the manager accepts a guarded restart and exits cleanly.
@@ -156,6 +139,11 @@ The Pi RPC integration test additionally requires a configured Pi installation.
 ## Built with Pi, for Pi ❤️
 
 Pi Livecraft is made specifically for the [Pi coding agent](https://pi.dev). It embraces Pi's extension system, live development workflow, and agent architecture instead of replacing or abstracting them away.
+
+## Recommended extensions
+
+- **[pi-agents](https://github.com/sebastienservouze/pi-agents):** adds specialized agents with focused prompts, restricted tool sets, and isolated delegation. When available in Pi, its agent selector is automatically exposed in the Livecraft composer.
+- **[pi-auto-title](https://github.com/sebastienservouze/pi-auto-title):** automatically names sessions from their first prompt, making parallel workspace histories easier to scan.
 
 ## Contributing
 
