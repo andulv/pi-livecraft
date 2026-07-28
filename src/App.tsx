@@ -233,9 +233,10 @@ function App() {
     if (selectedId) window.localStorage.setItem('pi-livecraft.selected-session', selectedId)
     else window.localStorage.removeItem('pi-livecraft.selected-session')
     setCompletedSessionIds((current) => {
-      if (!current.has(selectedId)) return current
+      const sessionKey = sessionsRef.current.find((session) => session.id === selectedId)?.sessionPath ?? selectedId
+      if (!current.has(sessionKey)) return current
       const next = new Set(current)
-      next.delete(selectedId)
+      next.delete(sessionKey)
       return next
     })
   }, [selectedId])
@@ -253,8 +254,9 @@ function App() {
       setSessions(nextSessions)
       setCompletedSessionIds((current) => {
         if (current.size === 0) return current
-        const sessionIds = new Set(nextSessions.map(s => s.id))
-        const next = new Set([...current].filter(id => sessionIds.has(id)))
+        const sessionKeys = new Set(nextSessions.flatMap((session) => [session.id, session.sessionPath].filter((key): key is string => Boolean(key))))
+        const recentKeys = new Set(nextRecentSessions.map((session) => session.sessionPath))
+        const next = new Set([...current].filter((key) => sessionKeys.has(key) || recentKeys.has(key)))
         return next.size === current.size ? current : next
       })
       setRecentSessions(nextRecentSessions)
@@ -401,7 +403,8 @@ function App() {
       if (event.type === 'agent_start') updateSessionStatus(sessionId, 'running')
       if (event.type === 'agent_settled') {
         updateSessionStatus(sessionId, 'idle')
-        if (sessionId !== selectedIdRef.current) setCompletedSessionIds((current) => new Set(current).add(sessionId))
+        const sessionKey = sessionsRef.current.find((session) => session.id === sessionId)?.sessionPath ?? sessionId
+        if (sessionId !== selectedIdRef.current) setCompletedSessionIds((current) => new Set(current).add(sessionKey))
       }
       if (event.type === 'compaction_start') setCompactingSessionIds((current) => new Set(current).add(sessionId))
       if (event.type === 'compaction_end') setCompactingSessionIds((current) => {

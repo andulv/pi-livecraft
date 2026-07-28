@@ -27,6 +27,10 @@ test('survives a page refresh: restored completed ids still show complete for id
 
   // Still idle, not selected, in restored set → complete indicator survives refresh.
   assert.equal(sessionIndicator({ ...session, status: 'idle' }, '', new Set(), restored), 'complete')
+
+  // Persisting the stable session path also survives a manager restart.
+  const restoredPath = new Set(['/sessions/session.jsonl'])
+  assert.equal(sessionIndicator({ ...session, status: 'idle', sessionPath: '/sessions/session.jsonl' }, '', new Set(), restoredPath), 'complete')
   // If the manager reports it as running (still working), 'working' takes priority.
   assert.equal(sessionIndicator({ ...session, status: 'running' }, '', new Set(), restored), 'working')
   // Selected sessions never show complete.

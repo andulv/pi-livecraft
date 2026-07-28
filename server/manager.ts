@@ -113,7 +113,10 @@ async function handleRequest(socket: Socket, value: unknown): Promise<void> {
       respond(socket, { kind: 'response', id: value.id, ok: true, data: { accepted: true } })
       setImmediate(() => void shutdown(restartExitCode))
       return
-    } else if (value.action === 'list') data = listSessions()
+    } else if (value.action === 'list') {
+      await refreshSessionActivity()
+      data = listSessions()
+    }
     else if (value.action === 'create') data = await createSession(value)
     else if (value.action === 'open') data = await openSession(value)
     else if (value.action === 'improve_prompt') data = await improvePrompt(value)
@@ -134,7 +137,7 @@ function listSessions(): SessionSummary[] {
   }))
 }
 
-/** Reconciles cached session activity with Pi's live state before a destructive restart. */
+/** Reconciles cached session activity with Pi's live state before reporting or acting on it. */
 async function refreshSessionActivity(): Promise<boolean> {
   const managedSessions = [...sessions.values()].filter(({ summary }) => summary.status !== 'exited')
   const activity = await Promise.all(managedSessions.map(async (session) => {

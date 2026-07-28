@@ -90,11 +90,15 @@ test('reconciles live Pi work before restarting the manager', { timeout: 10_000 
     assert.equal((await pendingCommand).ok, true)
 
     assert.equal((await client.request('command', { sessionId: sessionId(opened), command: { type: 'prompt', message: 'Test' } })).ok, true)
+    const activeSessions = await client.request('list', {})
+    assert.equal(sessionStatus(activeSessions, sessionId(opened)), 'running')
     const activeRestart = await client.request('restart', {})
     assert.equal(activeRestart.ok, false)
     assert.match(activeRestart.error ?? '', /Active Pi work/)
 
     assert.equal((await client.request('command', { sessionId: sessionId(opened), command: { type: 'prompt', message: '/handled' } })).ok, true)
+    const settledSessions = await client.request('list', {})
+    assert.equal(sessionStatus(settledSessions, sessionId(opened)), 'idle')
     const settledRestart = await client.request('restart', {})
     assert.equal(settledRestart.ok, true)
     await once(manager, 'exit')
@@ -352,6 +356,12 @@ async function connectWithRetry(port: number): Promise<Socket> {
 function sessionId(response: ManagerResponse): string {
   if (!isObject(response.data) || typeof response.data.id !== 'string') throw new Error('Invalid session response')
   return response.data.id
+}
+
+function sessionStatus(response: ManagerResponse, id: string): unknown {
+  if (!Array.isArray(response.data)) throw new Error('Invalid sessions response')
+  const session = response.data.find((value) => isObject(value) && value.id === id)
+  return isObject(session) ? session.status : undefined
 }
 
 function isManagerResponse(value: unknown): value is ManagerResponse {
