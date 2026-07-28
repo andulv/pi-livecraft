@@ -4,28 +4,32 @@
 
 **Craft your own Pi client while it runs.**
 
+Use your Pi sessions in a browser, with a more visual and interactive interface you can shape around the way you work.
+
 [![Built with Pi](https://img.shields.io/badge/Built%20with-Pi.dev-6C63FF?style=flat-square&logo=terminal&logoColor=white)](https://pi.dev)
 [![Version](https://img.shields.io/github/package-json/v/sebastienservouze/pi-livecraft?style=flat-square&label=version)](package.json)
 [![License](https://img.shields.io/github/license/sebastienservouze/pi-livecraft?style=flat-square)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/sebastienservouze/pi-livecraft?style=flat-square&logo=github)](https://github.com/sebastienservouze/pi-livecraft/stargazers)
 [![Use this template](https://img.shields.io/badge/Use_this_template-2ea44f?style=flat-square&logo=github)](https://github.com/new?template_name=pi-livecraft&template_owner=sebastienservouze)
 
-[Why Pi Livecraft?](#why-pi-livecraft) · [Quick start](#quick-start) · [Make it yours](#make-it-yours)
+[Why Pi Livecraft?](#why-pi-livecraft) · [Quick start](#quick-start) · [Make it yours](#make-it-yours) · [Docs](/docs/README.md)
 
 </div>
 
 <p align="center"><img src="./docs/assets/demo-pi-livecraft.gif" alt="Editing Pi Livecraft from a live Pi session" width="1200" /></p>
+<p align="center"><sub>Asking Pi to add a confetti celebration to the client from the session running inside it.</sub></p>
 
 ## Why Pi Livecraft?
 
-Pi is already powerful in a terminal. But a conversation does not have to remain a stream of text: its messages, tool calls, state, and live events can become the building blocks of a real interactive program.
+Pi works well in a terminal. Livecraft is another way to use the same sessions: in a browser, where custom tools, displays, and small workflows can have their own place.
 
-- **Turn conversations into workflows.** Attach actions to messages and tool calls, carry context from one step to the next, automate recurring sequences, and surface the right controls at the right moment.
-- **Give Pi an interface built for the task.** Use buttons, forms, previews, dashboards, and visualizations instead of translating every intent back into another prompt or shell command.
-- **Build on Pi instead of rebuilding it.** Keep Pi's sessions, models, tools, history, and extension system, then combine them with a React frontend and local backend to shape a focused application.
-- **Let the program evolve while you use it.** Ask Pi to modify the interface or workflow from an active session; frontend changes appear immediately and backend changes restart without closing the Pi process.
+Pi still owns the sessions, models, tools, history, and extensions. Livecraft adds the browser interface around them. A tool call can get a focused preview instead of raw output. A prompt you repeat can become a button. Context you keep checking can live in a panel. A recurring sequence can become a small workflow with the controls it needs.
 
-Pi Livecraft starts as a capable client, not a finished product you must accept as-is. Create your own repository from the template. Delete half of it. Add the oddly specific workflow only you need. The source code is the customization surface.
+The source code is the customization surface. When something feels awkward, ask Pi to change the client from the session already running inside it. The development setup applies most changes without closing the Pi process. Review the diff, try the result, then keep it, tweak it, or remove it.
+
+The documentation is part of that loop. It is written for agents as well as people. The guides point to the code that owns a feature, explain the boundaries to preserve, and name focused checks. This helps Pi make a small change without rediscovering the whole project each time.
+
+Pi Livecraft starts as a capable client, not a finished product you must accept as-is. Create your own repository from the template. Delete half of it. Add the oddly specific workflow only you need.
 
 ## Quick start
 
@@ -66,23 +70,23 @@ On Linux, opening a folder or terminal uses the desktop tools available in your 
 
 ## What is already included
 
-- **Session workspace** — create, switch, and reopen parallel Pi sessions across multiple workspaces, with active and newly completed sessions surfaced in the sidebar so you can monitor ongoing work and jump wherever attention is needed.
-- **Live execution** — inspect responses, activity, usage, rich tool calls, file previews, and extension dialogs as they happen.
-- **Session analysis** — track context, tokens, costs per turn, tool activity, and failures, then jump back to the relevant message or call.
-- **Provider quotas** — monitor OpenAI Codex windows and GitHub Copilot usage from the right rail.
-- **Git workspace** — review status, diffs, touched files, and unpushed commits; commit, push, or revert without changing context.
-- **Focused side tools** — keep todos and bounded workspace commands one click away.
-- **Pi-native controls** — use the models, thinking levels, and commands exposed by Pi.
-- **Personal controls** — command palette, editable shortcuts, persistent drafts, resizable panels, and light or dark themes.
+- **Session workspace:** create, switch, and reopen parallel Pi sessions across multiple workspaces, with active and newly completed sessions surfaced in the sidebar so you can monitor ongoing work and jump wherever attention is needed.
+- **Live execution:** inspect responses, activity, usage, rich tool calls, file previews, and extension dialogs as they happen.
+- **Session analysis:** track context, tokens, costs per turn, tool activity, and failures, then jump back to the relevant message or call.
+- **Provider quotas:** monitor OpenAI Codex windows and GitHub Copilot usage from the right rail.
+- **Git workspace:** review status, diffs, touched files, and unpushed commits; commit, push, or revert without changing context.
+- **Focused side tools:** keep todos and bounded workspace commands one click away.
+- **Pi-native controls:** use the models, thinking levels, and commands exposed by Pi.
+- **Personal controls:** command palette, editable shortcuts, persistent drafts, resizable panels, and light or dark themes.
 
 ## Recommended extensions
 
-- **[pi-agents](https://github.com/sebastienservouze/pi-agents)** — adds specialized agents with focused prompts, restricted tool sets, and isolated delegation. When available in Pi, its agent selector is automatically exposed in the Livecraft composer.
-- **[pi-auto-title](https://github.com/sebastienservouze/pi-auto-title)** — automatically names sessions from their first prompt, making parallel workspace histories easier to scan.
+- **[pi-agents](https://github.com/sebastienservouze/pi-agents):** adds specialized agents with focused prompts, restricted tool sets, and isolated delegation. When available in Pi, its agent selector is automatically exposed in the Livecraft composer.
+- **[pi-auto-title](https://github.com/sebastienservouze/pi-auto-title):** automatically names sessions from their first prompt, making parallel workspace histories easier to scan.
 
 ## Make it yours
 
-Pi Livecraft is a playground for improving your own Pi workflow. Start with a small friction — something you type repeatedly, context you keep looking up, or output you wish were easier to scan — and ask Pi to turn it into part of the application. Experiment freely, keep what helps, and gleefully remove the rest.
+Pi Livecraft is a playground for improving your own Pi workflow. Start with a small friction: something you type repeatedly, context you keep looking up, or output you wish were easier to scan. Ask Pi to turn it into part of the application, review the diff, and try it for a while. Keep what helps and gleefully remove the rest.
 
 A few ideas:
 
