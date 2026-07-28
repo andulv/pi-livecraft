@@ -9,7 +9,7 @@ class FakeManager {
   connected = true
   identity: ManagerRuntimeIdentity
   actions: ManagerRequest['action'][] = []
-  sessions: unknown[] = []
+  restartError: string | undefined
 
   constructor(identity: ManagerRuntimeIdentity) {
     this.identity = identity
@@ -18,28 +18,31 @@ class FakeManager {
   async request(request: Pick<ManagerRequest, 'action'>): Promise<unknown> {
     this.actions.push(request.action)
     if (request.action === 'status') return this.identity
-    if (request.action === 'list') return this.sessions
-    if (request.action === 'restart') return { accepted: true }
+    if (request.action === 'restart') {
+      if (this.restartError) throw new Error(this.restartError)
+      return { accepted: true }
+    }
     throw new Error(`Unexpected action: ${request.action}`)
   }
 }
 
-test('rejects restart while a Pi session is active', async () => {
+test('leaves active-work restart validation to the manager', async () => {
   const manager = new FakeManager({
     instanceId: 'manager-1',
     startedAt: new Date().toISOString(),
     runtimeRevision: 'sha256-v1:obsolete',
     supervised: true,
   })
-  manager.sessions = [{ status: 'running' }]
+  manager.restartError = 'Active Pi work must settle before restarting'
   const monitor = new ManagerRuntimeMonitor(manager as unknown as ManagerClient, () => undefined)
 
   try {
     monitor.start()
     monitor.connected()
     await waitForState(monitor, 'stale')
-    await assert.rejects(monitor.restart(), /active Pi sessions/i)
-    assert.equal(manager.actions.includes('restart'), false)
+    await assert.rejects(monitor.restart(), /Active Pi work/)
+    assert.equal(manager.actions.includes('list'), false)
+    assert.equal(manager.actions.includes('restart'), true)
   } finally {
     monitor.stop()
   }
@@ -70,7 +73,7 @@ test('marks an obsolete supervised manager as restartable and requests one resta
     await assert.rejects(monitor.restart(), /already in progress/)
     await restart
     assert.equal(monitor.status.state, 'restarting')
-    assert.deepEqual(manager.actions.slice(-3), ['status', 'list', 'restart'])
+    assert.deepEqual(manager.actions.slice(-2), ['status', 'restart'])
 
     manager.identity = { ...manager.identity, instanceId: 'manager-2', runtimeRevision: revision }
     monitor.connected()

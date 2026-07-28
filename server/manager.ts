@@ -93,6 +93,10 @@ async function handleRequest(socket: Socket, value: unknown): Promise<void> {
     respond(socket, { kind: 'response', id: '', ok: false, error: 'Invalid manager request' })
     return
   }
+  if (restartAccepted) {
+    respond(socket, { kind: 'response', id: value.id, ok: false, error: 'Pi manager restart is already in progress' })
+    return
+  }
 
   const tracksActivity = value.action === 'create' || value.action === 'open' || value.action === 'command' || value.action === 'improve_prompt' || value.action === 'run_prompt'
   if (tracksActivity) activeRequests += 1
@@ -101,8 +105,10 @@ async function handleRequest(socket: Socket, value: unknown): Promise<void> {
     if (value.action === 'status') data = runtimeIdentity
     else if (value.action === 'restart') {
       if (!supervised || restartExitCode === undefined) throw new Error('Pi manager is not supervised')
-      if (restartAccepted) throw new Error('Pi manager restart is already in progress')
-      if (activeRequests > 0 || [...sessions.values()].some(({ summary }) => summary.status === 'starting' || summary.status === 'running')) throw new Error('Active Pi work must settle before restarting')
+      if (activeRequests > 0) throw new Error('Active Pi work must settle before restarting')
+      const activePiWork = await refreshSessionActivity()
+      const activityStartedDuringCheck = activeRequests > 0 || [...sessions.values()].some(({ summary }) => summary.status === 'starting' || summary.status === 'running')
+      if (activePiWork || activityStartedDuringCheck) throw new Error('Active Pi work must settle before restarting')
       restartAccepted = true
       respond(socket, { kind: 'response', id: value.id, ok: true, data: { accepted: true } })
       setImmediate(() => void shutdown(restartExitCode))
@@ -126,6 +132,24 @@ function listSessions(): SessionSummary[] {
     ...summary,
     pendingUi: [...pendingUi.values()],
   }))
+}
+
+/** Reconciles cached session activity with Pi's live state before a destructive restart. */
+async function refreshSessionActivity(): Promise<boolean> {
+  const managedSessions = [...sessions.values()].filter(({ summary }) => summary.status !== 'exited')
+  const activity = await Promise.all(managedSessions.map(async (session) => {
+    const state = await session.pi.request({ type: 'get_state' }, 5_000)
+    if (!isObject(state.data)
+      || typeof state.data.isStreaming !== 'boolean'
+      || typeof state.data.isCompacting !== 'boolean'
+      || typeof state.data.pendingMessageCount !== 'number'
+      || !Number.isInteger(state.data.pendingMessageCount)
+      || state.data.pendingMessageCount < 0) throw new Error('Pi returned an invalid session state')
+    const active = state.data.isStreaming || state.data.isCompacting || state.data.pendingMessageCount > 0 || session.pendingUi.size > 0
+    session.summary.status = active ? 'running' : 'idle'
+    return active
+  }))
+  return activity.some(Boolean)
 }
 
 async function createSession(request: ManagerRequest): Promise<SessionSummary> {

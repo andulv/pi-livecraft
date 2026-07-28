@@ -36,8 +36,8 @@ The backend emits these states through the `manager_status` SSE event. `canResta
 ## Guarded restart
 
 1. The frontend calls `POST /api/manager/restart` through `src/api.ts`.
-2. The backend requires a connected, stale, supervised manager, rejects duplicate requests, and checks that no session is starting or running.
-3. The manager performs the authoritative check that no tracked request or active session work remains.
+2. The backend requires a connected, stale, supervised manager and rejects duplicate requests.
+3. The manager performs the authoritative check: no tracked request may remain, and each Pi process must report no streaming, compaction, queued message, or pending blocking UI.
 4. After acknowledging the request, the manager closes its TCP server and Pi children, escalating from `SIGTERM` to `SIGKILL` within bounded time, then exits with code `75`.
 5. Only that exit code lets the supervisor calculate a fresh revision and start the replacement.
 6. The monitor returns to `current` only after a different manager instance reconnects with the expected revision.

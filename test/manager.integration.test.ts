@@ -62,7 +62,7 @@ test('restarts a supervised manager only after an explicit request', { timeout: 
   }
 })
 
-test('rejects a restart while manager work is still in flight', { timeout: 10_000 }, async () => {
+test('reconciles live Pi work before restarting the manager', { timeout: 10_000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
   const port = 45_000 + (process.pid % 10_000)
   await writeFakePi(directory)
@@ -93,11 +93,18 @@ test('rejects a restart while manager work is still in flight', { timeout: 10_00
     const activeRestart = await client.request('restart', {})
     assert.equal(activeRestart.ok, false)
     assert.match(activeRestart.error ?? '', /Active Pi work/)
-    assert.equal((await client.request('status', {})).ok, true)
+
+    assert.equal((await client.request('command', { sessionId: sessionId(opened), command: { type: 'prompt', message: '/handled' } })).ok, true)
+    const settledRestart = await client.request('restart', {})
+    assert.equal(settledRestart.ok, true)
+    await once(manager, 'exit')
+    assert.equal(manager.exitCode, 75)
   } finally {
     client.close()
-    manager.kill('SIGTERM')
-    await once(manager, 'exit')
+    if (manager.exitCode === null) {
+      manager.kill('SIGTERM')
+      await once(manager, 'exit')
+    }
     await rm(directory, { force: true, recursive: true })
   }
 })
@@ -200,6 +207,7 @@ if (isolated) {
   throw new Error('Missing ask-user-question extension')
 }
 const emitStartupEvent = ${emitStartupEvent}
+let streaming = false
 readline.createInterface({ input: process.stdin }).on('line', (line) => {
   const command = JSON.parse(line)
   if (command.type === 'quit_test') process.exit(0)
@@ -231,7 +239,12 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
     ] } }))
     return
   }
-  const data = command.type === 'get_state' ? { sessionFile: sessionPath } : {}
+  if (!isolated && command.type === 'prompt') {
+    streaming = command.message !== '/handled'
+    console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: {} }))
+    return
+  }
+  const data = command.type === 'get_state' ? { sessionFile: sessionPath, isStreaming: streaming, isCompacting: false, pendingMessageCount: 0 } : {}
   if (command.type === 'get_state' && emitStartupEvent) {
     console.log(JSON.stringify({ type: 'extension_ui_request', method: 'notify', message: 'Starting' }))
     setTimeout(() => console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data })), 100)

@@ -1,6 +1,6 @@
 import { watchFile, unwatchFile } from 'node:fs'
 import { isObject } from '../shared/is-object.ts'
-import type { ManagerRuntimeIdentity, ManagerRuntimeStatus, SessionSummary } from '../shared/types.ts'
+import type { ManagerRuntimeIdentity, ManagerRuntimeStatus } from '../shared/types.ts'
 import type { ManagerClient } from './manager-client.ts'
 import { calculateManagerRuntimeRevision, managerRuntimeManifestPath } from './manager-runtime.ts'
 
@@ -62,19 +62,13 @@ export class ManagerRuntimeMonitor {
     if (this.#status.state !== 'restarting') this.#publish({ state: 'disconnected', canRestart: false })
   }
 
-  /** Requests one supervised restart after rejecting active sessions and duplicate actions. */
+  /** Requests one supervised restart while leaving active-work authority to the manager. */
   async restart(): Promise<void> {
     if (!this.#manager.connected) throw new Error('Pi manager is unavailable')
-    if (this.#status.state !== 'stale' || !this.#status.canRestart) throw new Error('Pi manager cannot be restarted in its current state')
     if (this.#restartRequested) throw new Error('Pi manager restart is already in progress')
+    if (this.#status.state !== 'stale' || !this.#status.canRestart) throw new Error('Pi manager cannot be restarted in its current state')
     this.#restartRequested = true
     try {
-      const value = await this.#manager.request({ action: 'list' })
-      if (!Array.isArray(value)) throw new Error('Pi manager returned an invalid session list')
-      const sessions = value.filter(hasSessionStatus)
-      if (sessions.length !== value.length) throw new Error('Pi manager returned an invalid session list')
-      if (sessions.some(({ status }) => status === 'running' || status === 'starting')) throw new Error('Wait for active Pi sessions before restarting the manager')
-
       this.#restartingInstanceId = this.#identity?.instanceId
       this.#publish({ state: 'restarting', canRestart: false })
       await this.#manager.request({ action: 'restart' }, 5_000)
@@ -186,11 +180,6 @@ function managerRuntimeIdentity(value: unknown): ManagerRuntimeIdentity | undefi
   if (!isObject(value) || typeof value.instanceId !== 'string' || typeof value.startedAt !== 'string' || typeof value.supervised !== 'boolean') return undefined
   if (value.runtimeRevision !== null && typeof value.runtimeRevision !== 'string') return undefined
   return { instanceId: value.instanceId, startedAt: value.startedAt, runtimeRevision: value.runtimeRevision, supervised: value.supervised }
-}
-
-function hasSessionStatus(value: unknown): value is Pick<SessionSummary, 'status'> {
-  if (!isObject(value)) return false
-  return value.status === 'starting' || value.status === 'idle' || value.status === 'running' || value.status === 'exited'
 }
 
 function errorMessage(error: unknown): string {
