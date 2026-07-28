@@ -253,6 +253,71 @@ export interface EditDiffLine {
   lineNumber: number | null
 }
 
+export interface IntraLineSegment {
+  text: string
+  kind: 'added' | 'removed' | 'shared'
+}
+
+/** Computes word-level diff segments between old and new text using LCS. */
+export function intraLineDiff(oldText: string, newText: string): IntraLineSegment[] {
+  // Tokenize on word boundaries: runs of \w+, runs of \W+, each as a token
+  function tokenize(s: string): string[] {
+    const tokens: string[] = []
+    const re = /\w+|\W+/g
+    let m: RegExpExecArray | null
+    while ((m = re.exec(s)) !== null) tokens.push(m[0])
+    return tokens
+  }
+  const oldTokens = tokenize(oldText)
+  const newTokens = tokenize(newText)
+
+  // ponytail: O(m*n) word-level DP, switch to Myers if diffing >10K tokens
+  const m = oldTokens.length
+  const n = newTokens.length
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (oldTokens[i - 1] === newTokens[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1] + 1
+      } else {
+        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1])
+      }
+    }
+  }
+
+  // Backtrack to produce diff operations: '=' shared, '-' removed, '+' added
+  const ops: { kind: '=' | '-' | '+'; text: string }[] = []
+  let i = m
+  let j = n
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldTokens[i - 1] === newTokens[j - 1]) {
+      ops.push({ kind: '=', text: oldTokens[i - 1] })
+      i--
+      j--
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      ops.push({ kind: '+', text: newTokens[j - 1] })
+      j--
+    } else {
+      ops.push({ kind: '-', text: oldTokens[i - 1] })
+      i--
+    }
+  }
+  ops.reverse()
+
+  // Merge consecutive same-kind ops into segments
+  const segments: IntraLineSegment[] = []
+  for (const op of ops) {
+    const kind = op.kind === '=' ? 'shared' : op.kind === '-' ? 'removed' : 'added'
+    const last = segments[segments.length - 1]
+    if (last && last.kind === kind) {
+      last.text += op.text
+    } else {
+      segments.push({ text: op.text, kind })
+    }
+  }
+  return segments
+}
+
 /** Turns Pi's display-oriented edit diff into colorable lines with source and destination line numbers. */
 export function parseEditDiff(diff: string): EditDiffLine[] {
   return diff.split('\n').map((line) => {

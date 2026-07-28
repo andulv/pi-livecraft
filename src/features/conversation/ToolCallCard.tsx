@@ -14,7 +14,7 @@ import { Tooltip } from '../../components/Tooltip.tsx'
 import { getWorkspaceFile, getWorkspaceFilePath } from '../../api.ts'
 import { fileContextDraft } from './context-session.ts'
 import { canHighlightFile } from './file-preview.ts'
-import { formatToolCallTooltip, formatToolData, parseEditDiff, readContentDisplay, toolCallPresentation, toolContentText, toolDataLength, toolEditChanges, toolFilePath, toolTextPreview, fileUrl, type EditDiffLine } from './tool-calls.ts'
+import { formatToolCallTooltip, formatToolData, intraLineDiff, parseEditDiff, readContentDisplay, toolCallPresentation, toolContentText, toolDataLength, toolEditChanges, toolFilePath, toolTextPreview, fileUrl, type EditDiffLine } from './tool-calls.ts'
 
 SyntaxHighlighter.registerLanguage('bash', bash)
 SyntaxHighlighter.registerLanguage('csharp', csharp)
@@ -235,17 +235,53 @@ function extractEditDiffString(details: unknown): string | undefined {
   return typeof d.diff === 'string' ? d.diff : undefined
 }
 
+/** Renders segments with intra-line highlights for changed words. */
+function DiffLineContent({ content, segments }: { content: string; segments?: { text: string; kind: 'added' | 'removed' | 'shared' }[] }) {
+  if (!segments || segments.length === 0) return <pre>{content}</pre>
+  return <pre>{segments.map((seg, i) => <span className={`diff-seg-${seg.kind}`} key={i}>{seg.text}</span>)}</pre>
+}
+
 /** Displays each replacement from an edit call, preferring Pi's line-numbered diff when available. */
 function ToolCallEditDiff({ changes, diffLines, onCollapse }: { changes: ReturnType<typeof toolEditChanges>; diffLines: EditDiffLine[]; onCollapse: () => void }) {
   if (diffLines.length > 0) {
+    // Pair consecutive removed→added groups for intra-line diffing.
+    const enriched: (EditDiffLine & { segments?: { text: string; kind: 'added' | 'removed' | 'shared' }[] })[] = []
+    let i = 0
+    while (i < diffLines.length) {
+      const line = diffLines[i]
+      if (line.kind === 'removed') {
+        const removedGroup: EditDiffLine[] = []
+        while (i < diffLines.length && diffLines[i].kind === 'removed') {
+          removedGroup.push(diffLines[i++])
+        }
+        const addedGroup: EditDiffLine[] = []
+        while (i < diffLines.length && diffLines[i].kind === 'added') {
+          addedGroup.push(diffLines[i++])
+        }
+        // Pair by index, compute intra-line diff for each pair
+        const pairCount = Math.min(removedGroup.length, addedGroup.length)
+        for (let p = 0; p < pairCount; p++) {
+          const segments = intraLineDiff(removedGroup[p].content, addedGroup[p].content)
+          enriched.push({ ...removedGroup[p], segments: segments.filter(s => s.kind !== 'added') })
+          enriched.push({ ...addedGroup[p], segments: segments.filter(s => s.kind !== 'removed') })
+        }
+        // Unpaired lines get full-line treatment (no segments)
+        for (let p = pairCount; p < removedGroup.length; p++) enriched.push(removedGroup[p])
+        for (let p = pairCount; p < addedGroup.length; p++) enriched.push(addedGroup[p])
+      } else {
+        enriched.push(line)
+        i++
+      }
+    }
+
     return <section className="tool-call-content tool-call-edit-diff" onClick={onCollapse}>
       <section className="tool-call-edit-change">
-        {diffLines.map((line, i) => {
+        {enriched.map((line, j) => {
           const sign = line.kind === 'added' ? '+' : line.kind === 'removed' ? '−' : ' '
-          return <div className={`tool-call-edit-line ${line.kind}`} key={i}>
+          return <div className={`tool-call-edit-line ${line.kind}`} key={j}>
             <span>{line.lineNumber ?? ''}</span>
             <i aria-hidden="true">{sign}</i>
-            <pre>{line.content}</pre>
+            <DiffLineContent content={line.content} segments={line.segments} />
           </div>
         })}
       </section>
@@ -253,11 +289,20 @@ function ToolCallEditDiff({ changes, diffLines, onCollapse }: { changes: ReturnT
   }
 
   return <section className="tool-call-content tool-call-edit-diff" onClick={onCollapse}>
-    {changes.map((change, index) => <section className="tool-call-edit-change" key={index}>
-      <h4>Change {index + 1}</h4>
-      <div className="tool-call-edit-line removed"><span /><i aria-hidden="true">−</i><pre>{change.oldText}</pre></div>
-      <div className="tool-call-edit-line added"><span /><i aria-hidden="true">+</i><pre>{change.newText}</pre></div>
-    </section>)}
+    {changes.map((change, index) => {
+      const segments = intraLineDiff(change.oldText, change.newText)
+      return <section className="tool-call-edit-change" key={index}>
+        <h4>Change {index + 1}</h4>
+        <div className="tool-call-edit-line removed">
+          <span /><i aria-hidden="true">−</i>
+          <pre>{segments.filter(s => s.kind !== 'added').map((seg, si) => <span className={`diff-seg-${seg.kind}`} key={si}>{seg.text}</span>)}</pre>
+        </div>
+        <div className="tool-call-edit-line added">
+          <span /><i aria-hidden="true">+</i>
+          <pre>{segments.filter(s => s.kind !== 'removed').map((seg, si) => <span className={`diff-seg-${seg.kind}`} key={si}>{seg.text}</span>)}</pre>
+        </div>
+      </section>
+    })}
   </section>
 }
 

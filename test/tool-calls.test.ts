@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { applyToolCallUpdate, applyToolExecutionUpdate, assistantTurnParts, conversationMessageEntries, formatToolCallTooltip, formatToolData, interruptToolCallGeneration, isToolCallPending, parseEditDiff, readContentDisplay, sameAssistantMessage, sameMessage, toolCallInUpdate, toolCallPresentation, toolCallsInMessage, toolContentText, toolDataLength, toolEditChanges, toolExecutionUpdateInEvent, toolFilePath, toolResultInMessage, toolTextPreview, truncateToolText, fileUrl } from '../src/features/conversation/tool-calls.ts'
+import { applyToolCallUpdate, applyToolExecutionUpdate, assistantTurnParts, conversationMessageEntries, formatToolCallTooltip, formatToolData, interruptToolCallGeneration, intraLineDiff, isToolCallPending, parseEditDiff, readContentDisplay, sameAssistantMessage, sameMessage, toolCallInUpdate, toolCallPresentation, toolCallsInMessage, toolContentText, toolDataLength, toolEditChanges, toolExecutionUpdateInEvent, toolFilePath, toolResultInMessage, toolTextPreview, truncateToolText, fileUrl } from '../src/features/conversation/tool-calls.ts'
 
 test('extracts tool calls and their resolved result from Pi messages', () => {
   const calls = toolCallsInMessage({
@@ -283,6 +283,48 @@ test('parses diff with only insertions and only deletions', () => {
 
   const onlyRemoved = parseEditDiff('-3 deprecated code')
   assert.deepEqual(onlyRemoved[0], { content: 'deprecated code', kind: 'removed', lineNumber: 3 })
+})
+
+test('intraLineDiff returns single shared segment for identical strings', () => {
+  const segments = intraLineDiff('hello', 'hello')
+  assert.deepEqual(segments, [{ text: 'hello', kind: 'shared' }])
+})
+
+test('intraLineDiff detects single word change', () => {
+  const segments = intraLineDiff('const x = 1', 'const x = 2')
+  assert.deepEqual(segments, [
+    { text: 'const x = ', kind: 'shared' },
+    { text: '1', kind: 'removed' },
+    { text: '2', kind: 'added' },
+  ])
+})
+
+test('intraLineDiff handles pure insertion', () => {
+  const segments = intraLineDiff('hello', 'hello world')
+  assert.deepEqual(segments, [
+    { text: 'hello', kind: 'shared' },
+    { text: ' world', kind: 'added' },
+  ])
+})
+
+test('intraLineDiff handles pure deletion', () => {
+  const segments = intraLineDiff('hello world', 'hello')
+  assert.deepEqual(segments, [
+    { text: 'hello', kind: 'shared' },
+    { text: ' world', kind: 'removed' },
+  ])
+})
+
+test('intraLineDiff handles completely different strings', () => {
+  const segments = intraLineDiff('abc', 'xyz')
+  assert.deepEqual(segments, [
+    { text: 'abc', kind: 'removed' },
+    { text: 'xyz', kind: 'added' },
+  ])
+})
+
+test('intraLineDiff returns empty array for empty inputs', () => {
+  assert.deepEqual(intraLineDiff('', ''), [])
 })
 
 test('carries details from Pi tool result messages in history', () => {
