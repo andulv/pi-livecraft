@@ -53,10 +53,10 @@
   color-scheme: dark;
 }
 
-* { box-sizing: border-box; scrollbar-color: var(--subtle) transparent; scrollbar-width: thin; }
+* { box-sizing: border-box; scrollbar-color: var(--accent-soft) transparent; scrollbar-width: thin; }
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
-*::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; background: var(--subtle) content-box; }
+*::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; background: var(--accent-soft) content-box; }
 *::-webkit-scrollbar-thumb:hover { background-color: var(--muted); }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
