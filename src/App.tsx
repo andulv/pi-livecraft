@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import { Tooltip } from './components/Tooltip.tsx'
-import { commitChanges, createSession, discardChanges, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, improvePrompt, openExplorer, openSession, openTerminal, pushCommits, refreshQuotas, resetGitCommit, restartManager, revertGitCommit, sendPiCommand, subscribeManagerEvents } from './api.ts'
+import { commitChanges, createSession, discardChanges, getGitFileDiff, getGitSnapshot, getQuotas, improvePrompt, openExplorer, openSession, openTerminal, pushCommits, refreshQuotas, resetGitCommit, restartManager, revertGitCommit, sendPiCommand, subscribeManagerEvents } from './api.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
-import type { GitSnapshot, JsonObject, ManagerRuntimeStatus, QuotaSnapshot, SessionSnapshot, SessionSummary } from '../shared/types.ts'
+import type { GitSnapshot, JsonObject, ManagerRuntimeStatus, QuotaSnapshot, SessionSummary } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 import { Composer } from './features/composer/Composer.tsx'
 import { ToastStack, type Toast } from './features/notifications/ToastStack.tsx'
-import { activityForPiEvent, sessionActivity, type Activity, type PiConnection } from './features/conversation/activity.ts'
+import { sessionActivity, type PiConnection } from './features/conversation/activity.ts'
 import { Conversation } from './features/conversation/Conversation.tsx'
-import type { LiveMessage } from './features/conversation/message-reconciliation.ts'
-import { applyToolCallUpdate, applyToolExecutionUpdate, interruptToolCallGeneration, toolCallInUpdate, toolExecutionUpdateInEvent, type ToolExecution, type ToolResult } from './features/conversation/tool-protocol.ts'
+import { useConversationRuntime } from './features/conversation/useConversationRuntime.ts'
 import { AskUserQuestionDialog, ExtensionDialog } from './features/dialogs/Dialogs.tsx'
 import { isAgentSelector, isAskUserQuestionDialog, isBlockingDialog, type UiDialog } from './features/dialogs/dialog-protocol.ts'
 import { clampRightSidebarWidth, isRightWidget, readRightSidebarWidth, type RightWidget } from './features/right-sidebar/right-sidebar.ts'
@@ -32,7 +31,6 @@ interface AgentIntent {
   value?: string
 }
 
-const emptySnapshot: SessionSnapshot = { state: null, messages: [], models: [], commands: [], stats: null, liveEvents: [] }
 const emptyAgentOptions: string[] = []
 const conversationViewDetails = {
   simple: { label: 'Simplified view', description: 'Messages only, without tool calls' },
@@ -44,14 +42,8 @@ function App() {
   const [compactingSessionIds, setCompactingSessionIds] = useState<ReadonlySet<string>>(new Set())
 
   // Conversation and Pi lifecycle
-  const [snapshot, setSnapshot] = useState<SessionSnapshot>(emptySnapshot)
-  const [snapshotSessionId, setSnapshotSessionId] = useState('')
-  const [liveMessages, setLiveMessages] = useState<LiveMessage[]>([])
-  const [pendingSteering, setPendingSteering] = useState<string[]>([])
-  const [activity, setActivity] = useState<Activity | null>(null)
   const [piConnection, setPiConnection] = useState<PiConnection>('connecting')
   const [managerRuntimeStatus, setManagerRuntimeStatus] = useState<ManagerRuntimeStatus>({ state: 'disconnected', canRestart: false })
-  const [toolExecutions, setToolExecutions] = useState<ToolExecution[]>([])
   const [conversationView, setConversationView] = useState<'detailed' | 'simple'>(() => {
     const stored = window.localStorage.getItem('pi-livecraft.conversation-view')
     if (stored === 'detailed' || stored === 'simple-expanded') return 'detailed'
@@ -87,37 +79,25 @@ function App() {
   const [composerDraftRequest, setComposerDraftRequest] = useState<{ id: string; message: string; sessionId: string }>()
   const [scrollToBottomRequest, setScrollToBottomRequest] = useState(0)
   const [conversationNavigation, setConversationNavigation] = useState<{ id: number; target: SessionAnalysisTarget }>()
-  const [observedToolDurations, setObservedToolDurations] = useState<ReadonlyMap<string, number>>(new Map())
-  const [observedRequestDurations, setObservedRequestDurations] = useState<ReadonlyMap<number, number>>(new Map())
   const [shortcuts, setShortcuts] = useState(() => readShortcuts())
   const [terminalCommand, setTerminalCommand] = useState(() => readTerminalCommand())
 
   // Workspace and session synchronization
   const selectedIdRef = useRef(window.localStorage.getItem('pi-livecraft.selected-session') ?? '')
-  const snapshotRefreshVersionRef = useRef(0)
-  const appliedPiEventSequenceRef = useRef(0)
   const replayPiEventRef = useRef<(sessionId: string, event: JsonObject, sequence?: number) => void>(() => undefined)
+  const replayPiEvent = useCallback((sessionId: string, event: JsonObject, sequence?: number): void => {
+    replayPiEventRef.current(sessionId, event, sequence)
+  }, [])
 
   // UI and capability synchronization
   const loadingTimerRef = useRef<number>(0)
   const gitRefreshVersionRef = useRef(0)
   const agentIntentsRef = useRef(new Map<string, AgentIntent>())
 
-  // Conversation timing and streaming
-  const toolStartedAtRef = useRef(new Map<string, number>())
-  const requestStartedAtRef = useRef<number | undefined>(undefined)
-  const queueUpdateVersionRef = useRef(0)
-  const liveMessagesRef = useRef<LiveMessage[]>([])
-  const liveMessageIndexRef = useRef(-1)
-  const pendingLiveMessagesRef = useRef<LiveMessage[] | undefined>(undefined)
-  const liveUpdateFrameRef = useRef<number | undefined>(undefined)
+  // Conversation timing and quotas
   const quotaAutoRefreshAtRef = useRef(new Map<string, number>())
   const quotasRef = useRef(quotas)
-  const model = isObject(snapshot.state?.model) ? snapshot.state.model : undefined
-  const currentQuotaProvider = quotaProviderForModel(model?.provider)
-  const currentQuotaProviderRef = useRef(currentQuotaProvider)
   quotasRef.current = quotas
-  currentQuotaProviderRef.current = currentQuotaProvider
 
   const dismissingRef = useRef(new Set<string>())
 
@@ -192,41 +172,30 @@ function App() {
   const startAndSelectSession = useCallback((start: () => Promise<SessionSummary>, initialMessage?: string, draftMessage?: string) =>
     startWorkspaceSession(start, { draftMessage, initialMessage }), [startWorkspaceSession])
 
+  const {
+    activity,
+    addOptimisticUserMessage,
+    addPendingSteering,
+    clearActivity,
+    handlePiEvent,
+    liveMessages,
+    observedRequestDurations,
+    observedToolDurations,
+    pendingSteering,
+    refreshSnapshot,
+    removeLiveMessage,
+    removePendingSteering,
+    resetEventSequence,
+    snapshot,
+    snapshotSessionId,
+    toolExecutions,
+  } = useConversationRuntime(selectedId, handleWorkspaceError, replayPiEvent)
+  const model = isObject(snapshot.state?.model) ? snapshot.state.model : undefined
+  const currentQuotaProvider = quotaProviderForModel(model?.provider)
+  const currentQuotaProviderRef = useRef(currentQuotaProvider)
+  currentQuotaProviderRef.current = currentQuotaProvider
+
   const visibleToasts = toasts.filter((toast) => toast.sessionId === null || toast.sessionId === selectedId)
-
-  // Conversation streaming
-  /** Applies the latest streamed assistant messages at most once per rendered frame. */
-  const flushLiveUpdates = useCallback(() => {
-    if (liveUpdateFrameRef.current !== undefined) window.cancelAnimationFrame(liveUpdateFrameRef.current)
-    liveUpdateFrameRef.current = undefined
-    const pending = pendingLiveMessagesRef.current
-    pendingLiveMessagesRef.current = undefined
-    if (pending) {
-      liveMessagesRef.current = pending
-      setLiveMessages(pending)
-    }
-  }, [])
-
-  /** Queues a complete public-RPC assistant message without rendering every SSE delta. */
-  const queueLiveMessage = useCallback((message: JsonObject) => {
-    const index = liveMessageIndexRef.current
-    if (index < 0) return
-    const next = [...(pendingLiveMessagesRef.current ?? liveMessagesRef.current)]
-    next[index] = { ...next[index], message }
-    pendingLiveMessagesRef.current = next
-    if (liveUpdateFrameRef.current !== undefined) return
-    liveUpdateFrameRef.current = window.requestAnimationFrame(flushLiveUpdates)
-  }, [flushLiveUpdates])
-
-  /** Clears streamed assistant messages when the displayed session changes. */
-  const clearLiveMessages = useCallback(() => {
-    if (liveUpdateFrameRef.current !== undefined) window.cancelAnimationFrame(liveUpdateFrameRef.current)
-    liveUpdateFrameRef.current = undefined
-    pendingLiveMessagesRef.current = undefined
-    liveMessagesRef.current = []
-    liveMessageIndexRef.current = -1
-    setLiveMessages([])
-  }, [])
 
   // Right sidebar preferences
   const updateRightSidebarWidth = useCallback((width: number) => {
@@ -300,36 +269,6 @@ function App() {
     }
   }, [workspacePath])
 
-  // Session snapshot and Pi capabilities
-  /** Synchronizes the session snapshot and reconciles streamed assistant messages. */
-  const refreshSnapshot = useCallback(async (sessionId: string) => {
-    if (!sessionId) {
-      setSnapshot(emptySnapshot)
-      setSnapshotSessionId('')
-      return
-    }
-    const version = ++snapshotRefreshVersionRef.current
-    const targetSessionId = sessionId
-    try {
-      const nextSnapshot = await getSnapshot(sessionId)
-      if (version !== snapshotRefreshVersionRef.current || targetSessionId !== selectedIdRef.current) return nextSnapshot
-      flushLiveUpdates()
-      setSnapshot(nextSnapshot)
-      setSnapshotSessionId(sessionId)
-      const latestLiveSequence = nextSnapshot.liveEvents.at(-1)?.sequence ?? 0
-      if (latestLiveSequence > appliedPiEventSequenceRef.current) {
-        clearLiveMessages()
-        setActivity(null)
-        setToolExecutions([])
-        appliedPiEventSequenceRef.current = 0
-        for (const liveEvent of nextSnapshot.liveEvents) replayPiEventRef.current(sessionId, liveEvent.data, liveEvent.sequence)
-      }
-      return nextSnapshot
-    } catch (cause) {
-      if (version === snapshotRefreshVersionRef.current && targetSessionId === selectedIdRef.current) showToast('error', messageOf(cause))
-    }
-  }, [clearLiveMessages, flushLiveUpdates, showToast])
-
   /** Refreshes quotas, allowing manual clicks to bypass automatic throttling. */
   const refreshSessionQuotas = useCallback(async (sessionId: string, automatic: boolean): Promise<void> => {
     if (!sessionId) throw new Error('An open Pi session is required to refresh quotas.')
@@ -369,190 +308,83 @@ function App() {
   useEffect(() => { void getQuotas().then(setQuotas).catch(() => undefined) }, [])
 
   // Selected session synchronization
-  useEffect(() => {
-    clearLiveMessages()
-    appliedPiEventSequenceRef.current = 0
-    setSnapshot(emptySnapshot)
-    setSnapshotSessionId('')
-    setPendingSteering([])
-    queueUpdateVersionRef.current += 1
-    setActivity(null)
-    setToolExecutions([])
-    setConversationNavigation(undefined)
-    setObservedToolDurations(new Map())
-    setObservedRequestDurations(new Map())
-    toolStartedAtRef.current.clear()
-    requestStartedAtRef.current = undefined
-    void refreshSnapshot(selectedId)
-  }, [clearLiveMessages, refreshSnapshot, selectedId])
+  useEffect(() => setConversationNavigation(undefined), [selectedId])
 
   // Pi event stream
-  useEffect(() => {
-    const unsubscribe = subscribeManagerEvents((event) => {
-      if (event.event === 'manager_connected' || event.event === 'manager_disconnected') {
-        setPiConnection(event.event === 'manager_connected' ? 'connected' : 'disconnected')
-        setActivity(null)
-      }
-      if (event.event === 'manager_status' && isManagerRuntimeStatus(event.data)) setManagerRuntimeStatus(event.data)
-      if (event.event === 'manager_connected' || event.event === 'session_created' || event.event === 'session_exited') void refreshSessions()
-      if (event.event !== 'pi' || !isObject(event.data)) return
-      handlePiEvent(event.sessionId, event.data, event.sequence)
-    }, () => {
-      appliedPiEventSequenceRef.current = 0
-      setPiConnection('connecting')
-      setActivity(null)
-      showToast('error', 'Connection to backend lost; retrying.')
-    })
-    replayPiEventRef.current = handlePiEvent
-    return unsubscribe
-
-    /** Translates received events into UI updates and possible UI responses. */
-    function handlePiEvent(sessionId: string, event: JsonObject, sequence?: number): void {
-      if (event.type === 'session_info_changed') {
-        const name = typeof event.name === 'string' && event.name.trim() ? event.name.trim() : 'New session'
-        renameSession(sessionId, name)
-      }
-      if (event.type === 'agent_start') updateSession(sessionId, { status: 'running' })
-      if (event.type === 'agent_settled') {
-        updateSession(sessionId, { status: 'idle' })
-        markSessionCompleted(sessionId)
-      }
-      if (event.type === 'compaction_start') setCompactingSessionIds((current) => new Set(current).add(sessionId))
-      if (event.type === 'compaction_end') setCompactingSessionIds((current) => {
-        if (!current.has(sessionId)) return current
-        const next = new Set(current)
-        next.delete(sessionId)
-        return next
-      })
-      if (event.type === 'auto_retry_end' && event.success === false && typeof event.finalError === 'string') {
-        showToast('error', `Provider connection failed after retries: ${event.finalError}`, sessionId)
-      }
-      if (event.type === 'tool_execution_end') void refreshGit()
-      if (event.type === 'extension_ui_request' && event.method === 'setStatus' && event.statusKey === 'agent') {
-        updateSession(sessionId, { activeAgent: typeof event.activeAgent === 'string' ? event.activeAgent : undefined })
-      }
-      if (event.type === 'extension_ui_request' && event.method === 'setStatus' && event.statusKey === 'pi-livecraft.quotas') {
-        void getQuotas().then(setQuotas).catch(() => undefined)
-      }
-
-      if (event.type === 'extension_ui_request' && isBlockingDialog(event) && !isAgentSelector(event)) {
-        if (typeof event.id === 'string') addPendingRequest(sessionId, event)
-        if (sessionId === selectedIdRef.current) setActivity(null)
-      }
-
-      if (event.type === 'extension_ui_request') {
-        if (event.method === 'notify' || (event.method === 'setStatus' && event.statusKey === 'agent')) selectCreatedSession(sessionId)
-        if (event.method === 'notify' && typeof event.message === 'string') showToast('notice', event.message, sessionId)
-        const agentIntent = agentIntentsRef.current.get(sessionId)
-        if (isAgentSelector(event)) {
-          const options = event.options.filter((option): option is string => typeof option === 'string')
-          if (agentIntent) {
-            setAgentOptions((current) => ({ ...current, [sessionId]: options }))
-            agentIntentsRef.current.delete(sessionId)
-          }
-
-          const selectedAgent = agentIntent?.value && options.includes(agentIntent.value) ? agentIntent.value : undefined
-          const response = selectedAgent ? { value: selectedAgent } : { cancelled: true }
-          void sendPiCommand(sessionId, { type: 'extension_ui_response', id: event.id, ...response })
-            .then(() => refreshSnapshot(sessionId))
-            .catch((cause) => showToast('error', messageOf(cause)))
-          if (agentIntent?.value && !selectedAgent) showToast('error', 'Selected agent is no longer available.')
-          return
-        }
-        if (isBlockingDialog(event)) setDialog({ sessionId, request: event })
-      }
-
-      if (sessionId !== selectedIdRef.current) return
-      if (sequence !== undefined) {
-        if (sequence <= appliedPiEventSequenceRef.current) return
-        appliedPiEventSequenceRef.current = sequence
-      }
-      if (event.type === 'queue_update' && Array.isArray(event.steering)) {
-        const steering = event.steering.filter((message): message is string => typeof message === 'string')
-        const version = ++queueUpdateVersionRef.current
-        setPendingSteering((current) => steering.length > current.length ? steering : current)
-        void refreshSnapshot(sessionId).finally(() => {
-          if (version === queueUpdateVersionRef.current && sessionId === selectedIdRef.current) setPendingSteering(steering)
-        })
-      }
-      if (event.type === 'agent_start') requestStartedAtRef.current = performance.now()
-      const streamedToolCall = toolCallInUpdate(event)
-      if (streamedToolCall) {
-        flushLiveUpdates()
-        setToolExecutions((current) => applyToolCallUpdate(current, streamedToolCall, crypto.randomUUID()))
-      }
-      const toolExecutionUpdate = toolExecutionUpdateInEvent(event)
-      if (toolExecutionUpdate) setToolExecutions((current) => applyToolExecutionUpdate(current, toolExecutionUpdate))
-      if (event.type === 'tool_execution_start' && typeof event.toolCallId === 'string' && typeof event.toolName === 'string') {
-        toolStartedAtRef.current.set(event.toolCallId, performance.now())
-        startToolExecution({ id: event.toolCallId, name: event.toolName, args: event.args })
-      }
-      if (event.type === 'tool_execution_end' && typeof event.toolCallId === 'string' && typeof event.toolName === 'string') {
-        const id = event.toolCallId
-        const startedAt = toolStartedAtRef.current.get(id)
-        if (startedAt !== undefined) {
-          setObservedToolDurations((current) => new Map(current).set(id, performance.now() - startedAt))
-          toolStartedAtRef.current.delete(id)
-        }
-        const eventResult = event.result
-        const details = isObject(eventResult) ? eventResult.details : undefined
-        const result: ToolResult = {
-          toolCallId: id,
-          toolName: event.toolName,
-          content: event.result,
-          isError: event.isError === true,
-          details,
-        }
-        setToolExecutions((current) => current.map((execution) => execution.id === id ? { ...execution, result } : execution))
-        void refreshSnapshot(sessionId)
-      }
-      setActivity((current) => {
-        const next = activityForPiEvent(current, event)
-        return next?.kind === current?.kind ? current : next
-      })
-      if (event.type === 'message_start') {
-        flushLiveUpdates()
-        setToolExecutions(interruptToolCallGeneration)
-        const message = assistantMessageInEvent(event)
-        if (message) {
-          const next = [...liveMessagesRef.current, { id: crypto.randomUUID(), message }]
-          liveMessagesRef.current = next
-          liveMessageIndexRef.current = next.length - 1
-          setLiveMessages(next)
-        }
-      }
-      if (event.type === 'message_update' && isObject(event.assistantMessageEvent)) {
-        const message = assistantMessageInEvent(event)
-        if (message) queueLiveMessage(message)
-        if (event.assistantMessageEvent.type === 'error') setToolExecutions(interruptToolCallGeneration)
-      }
-      const settledRequestDuration = event.type === 'agent_settled' && requestStartedAtRef.current !== undefined
-        ? performance.now() - requestStartedAtRef.current
-        : undefined
-      if (event.type === 'agent_settled') {
-        requestStartedAtRef.current = undefined
-        void refreshSessionQuotas(sessionId, true)
-      }
-      if (event.type === 'message_end' || event.type === 'agent_settled') {
-        flushLiveUpdates()
-        setToolExecutions(interruptToolCallGeneration)
-        void refreshSnapshot(sessionId).then((nextSnapshot) => {
-          if (!nextSnapshot || settledRequestDuration === undefined) return
-          const requestTimestamp = lastUserTimestamp(nextSnapshot.messages)
-          if (requestTimestamp !== undefined) setObservedRequestDurations((current) => new Map(current).set(requestTimestamp, settledRequestDuration))
-        })
-        if (event.type === 'agent_settled') setFocusComposerRequest((current) => current + 1)
-      }
-
-      /** Replaces an existing execution to keep a single state per tool call. */
-      function startToolExecution(call: { id: string; name: string; args: unknown }): void {
-        setToolExecutions((current) => [
-          ...current.filter((execution) => execution.id !== call.id),
-          { ...call, status: 'running' },
-        ])
-      }
+  /** Routes a live or replayed Pi event through cross-feature effects before the conversation runtime. */
+  const handleManagerPiEvent = useCallback((sessionId: string, event: JsonObject, sequence?: number): void => {
+    if (event.type === 'session_info_changed') {
+      const name = typeof event.name === 'string' && event.name.trim() ? event.name.trim() : 'New session'
+      renameSession(sessionId, name)
     }
-  }, [addPendingRequest, flushLiveUpdates, markSessionCompleted, queueLiveMessage, refreshGit, refreshSessionQuotas, refreshSessions, refreshSnapshot, renameSession, selectCreatedSession, showToast, updateSession])
+    if (event.type === 'agent_start') updateSession(sessionId, { status: 'running' })
+    if (event.type === 'agent_settled') {
+      updateSession(sessionId, { status: 'idle' })
+      markSessionCompleted(sessionId)
+    }
+    if (event.type === 'compaction_start') setCompactingSessionIds((current) => new Set(current).add(sessionId))
+    if (event.type === 'compaction_end') setCompactingSessionIds((current) => {
+      if (!current.has(sessionId)) return current
+      const next = new Set(current)
+      next.delete(sessionId)
+      return next
+    })
+    if (event.type === 'auto_retry_end' && event.success === false && typeof event.finalError === 'string') {
+      showToast('error', `Provider connection failed after retries: ${event.finalError}`, sessionId)
+    }
+    if (event.type === 'tool_execution_end') void refreshGit()
+    if (event.type === 'extension_ui_request' && event.method === 'setStatus' && event.statusKey === 'agent') {
+      updateSession(sessionId, { activeAgent: typeof event.activeAgent === 'string' ? event.activeAgent : undefined })
+    }
+    if (event.type === 'extension_ui_request' && event.method === 'setStatus' && event.statusKey === 'pi-livecraft.quotas') {
+      void getQuotas().then(setQuotas).catch(() => undefined)
+    }
+    if (event.type === 'extension_ui_request' && isBlockingDialog(event) && !isAgentSelector(event)) {
+      if (typeof event.id === 'string') addPendingRequest(sessionId, event)
+      if (sessionId === selectedIdRef.current) clearActivity()
+    }
+    if (event.type === 'extension_ui_request') {
+      if (event.method === 'notify' || (event.method === 'setStatus' && event.statusKey === 'agent')) selectCreatedSession(sessionId)
+      if (event.method === 'notify' && typeof event.message === 'string') showToast('notice', event.message, sessionId)
+      const agentIntent = agentIntentsRef.current.get(sessionId)
+      if (isAgentSelector(event)) {
+        const options = event.options.filter((option): option is string => typeof option === 'string')
+        if (agentIntent) {
+          setAgentOptions((current) => ({ ...current, [sessionId]: options }))
+          agentIntentsRef.current.delete(sessionId)
+        }
+        const selectedAgent = agentIntent?.value && options.includes(agentIntent.value) ? agentIntent.value : undefined
+        const response = selectedAgent ? { value: selectedAgent } : { cancelled: true }
+        void sendPiCommand(sessionId, { type: 'extension_ui_response', id: event.id, ...response })
+          .then(() => refreshSnapshot(sessionId))
+          .catch((cause) => showToast('error', messageOf(cause)))
+        if (agentIntent?.value && !selectedAgent) showToast('error', 'Selected agent is no longer available.')
+        return
+      }
+      if (isBlockingDialog(event)) setDialog({ sessionId, request: event })
+    }
+
+    const selected = sessionId === selectedIdRef.current
+    if (selected && event.type === 'agent_settled') void refreshSessionQuotas(sessionId, true)
+    handlePiEvent(sessionId, event, sequence)
+    if (selected && event.type === 'agent_settled') setFocusComposerRequest((current) => current + 1)
+  }, [addPendingRequest, clearActivity, handlePiEvent, markSessionCompleted, refreshGit, refreshSessionQuotas, refreshSnapshot, renameSession, selectCreatedSession, showToast, updateSession])
+  replayPiEventRef.current = handleManagerPiEvent
+
+  useEffect(() => subscribeManagerEvents((managerEvent) => {
+    if (managerEvent.event === 'manager_connected' || managerEvent.event === 'manager_disconnected') {
+      setPiConnection(managerEvent.event === 'manager_connected' ? 'connected' : 'disconnected')
+      clearActivity()
+    }
+    if (managerEvent.event === 'manager_status' && isManagerRuntimeStatus(managerEvent.data)) setManagerRuntimeStatus(managerEvent.data)
+    if (managerEvent.event === 'manager_connected' || managerEvent.event === 'session_created' || managerEvent.event === 'session_exited') void refreshSessions()
+    if (managerEvent.event === 'pi' && isObject(managerEvent.data)) handleManagerPiEvent(managerEvent.sessionId, managerEvent.data, managerEvent.sequence)
+  }, () => {
+    resetEventSequence()
+    setPiConnection('connecting')
+    clearActivity()
+    showToast('error', 'Connection to backend lost; retrying.')
+  }), [clearActivity, handleManagerPiEvent, refreshSessions, resetEventSequence, showToast])
 
   // Agent capabilities
   useEffect(() => {
@@ -606,14 +438,8 @@ function App() {
     const command: JsonObject = { type: 'prompt', message, images }
     const isSteering = selectedSessionStatus === 'running' && behavior === 'steer'
     if (selectedSessionStatus === 'running') command.streamingBehavior = behavior
-    if (isSteering) setPendingSteering((current) => [...current, message])
-    const optimisticId = !isSteering ? crypto.randomUUID() : undefined
-    if (optimisticId) {
-      flushLiveUpdates()
-      const next = [...liveMessagesRef.current, { id: optimisticId, message: { role: 'user', content: message, timestamp: Date.now() } }]
-      liveMessagesRef.current = next
-      setLiveMessages(next)
-    }
+    if (isSteering) addPendingSteering(message)
+    const optimisticId = !isSteering ? addOptimisticUserMessage(message) : undefined
     try {
       await sendPiCommand(selectedId, command)
       const sentSession = sessions.find((session) => session.id === selectedId)
@@ -622,17 +448,11 @@ function App() {
       await refreshSessions()
       setScrollToBottomRequest((current) => current + 1)
     } catch (cause) {
-      if (optimisticId) {
-        liveMessagesRef.current = liveMessagesRef.current.filter((lm) => lm.id !== optimisticId)
-        setLiveMessages(liveMessagesRef.current)
-      }
-      if (isSteering) setPendingSteering((current) => {
-        const index = current.lastIndexOf(message)
-        return index < 0 ? current : current.toSpliced(index, 1)
-      })
+      if (optimisticId) removeLiveMessage(optimisticId)
+      if (isSteering) removePendingSteering(message)
       throw cause
     }
-  }, [flushLiveUpdates, nameSessionFromFirstPrompt, refreshSessions, selectedId, selectedSessionStatus, sessions, snapshot.messages])
+  }, [addOptimisticUserMessage, addPendingSteering, nameSessionFromFirstPrompt, refreshSessions, removeLiveMessage, removePendingSteering, selectedId, selectedSessionStatus, sessions, snapshot.messages])
   const handleComposerAbort = useCallback(() => sendPiCommand(selectedId, { type: 'abort' }), [selectedId])
   const handlePromptImprovement = useCallback((prompt: string, direction?: string) => improvePrompt(selectedId, prompt, direction), [selectedId])
   const handleComposerSelectOpened = useCallback(() => setRequestedSelect(null), [])
@@ -952,20 +772,6 @@ function isManagerRuntimeStatus(value: unknown): value is ManagerRuntimeStatus {
   return value.state === 'checking' || value.state === 'current' || value.state === 'stale' || value.state === 'restarting' || value.state === 'disconnected' || value.state === 'unknown'
 }
 
-/** Returns the timestamp of the most recent user message, if any. */
-function lastUserTimestamp(messages: JsonObject[]): number | undefined {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index]
-    if (message?.role === 'user' && typeof message.timestamp === 'number') return message.timestamp
-  }
-  return undefined
-}
-
-/** Reads the complete assistant message carried by a public Pi stream event. */
-function assistantMessageInEvent(event: JsonObject): JsonObject | null {
-  const message = event.message
-  return isObject(message) && message.role === 'assistant' ? message : null
-}
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
 }

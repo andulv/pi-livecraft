@@ -1,0 +1,257 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { getSnapshot } from '../../api.ts'
+import { isObject } from '../../../shared/is-object.ts'
+import type { JsonObject, SessionSnapshot } from '../../../shared/types.ts'
+import { activityForPiEvent, type Activity } from './activity.ts'
+import { advanceEventSequence } from './event-sequence.ts'
+import type { LiveMessage } from './message-reconciliation.ts'
+import { applyToolCallUpdate, applyToolExecutionUpdate, interruptToolCallGeneration, toolCallInUpdate, toolExecutionUpdateInEvent, type ToolExecution, type ToolResult } from './tool-protocol.ts'
+
+const emptySnapshot: SessionSnapshot = { state: null, messages: [], models: [], commands: [], stats: null, liveEvents: [] }
+
+/** Owns the selected conversation snapshot, live stream, replay, tools, and timing state. */
+export function useConversationRuntime(selectedId: string, onError: (cause: unknown) => void, replayEvent: (sessionId: string, event: JsonObject, sequence?: number) => void) {
+  const [snapshot, setSnapshot] = useState<SessionSnapshot>(emptySnapshot)
+  const [snapshotSessionId, setSnapshotSessionId] = useState('')
+  const [liveMessages, setLiveMessages] = useState<LiveMessage[]>([])
+  const [pendingSteering, setPendingSteering] = useState<string[]>([])
+  const [activity, setActivity] = useState<Activity | null>(null)
+  const [toolExecutions, setToolExecutions] = useState<ToolExecution[]>([])
+  const [observedToolDurations, setObservedToolDurations] = useState<ReadonlyMap<string, number>>(new Map())
+  const [observedRequestDurations, setObservedRequestDurations] = useState<ReadonlyMap<number, number>>(new Map())
+  const selectedIdRef = useRef(selectedId)
+  const snapshotRefreshVersionRef = useRef(0)
+  const appliedPiEventSequenceRef = useRef(0)
+  const toolStartedAtRef = useRef(new Map<string, number>())
+  const requestStartedAtRef = useRef<number | undefined>(undefined)
+  const queueUpdateVersionRef = useRef(0)
+  const liveMessagesRef = useRef<LiveMessage[]>([])
+  const liveMessageIndexRef = useRef(-1)
+  const pendingLiveMessagesRef = useRef<LiveMessage[] | undefined>(undefined)
+  const liveUpdateFrameRef = useRef<number | undefined>(undefined)
+  selectedIdRef.current = selectedId
+
+  /** Applies the latest streamed assistant messages at most once per rendered frame. */
+  const flushLiveUpdates = useCallback(() => {
+    if (liveUpdateFrameRef.current !== undefined) window.cancelAnimationFrame(liveUpdateFrameRef.current)
+    liveUpdateFrameRef.current = undefined
+    const pending = pendingLiveMessagesRef.current
+    pendingLiveMessagesRef.current = undefined
+    if (pending) {
+      liveMessagesRef.current = pending
+      setLiveMessages(pending)
+    }
+  }, [])
+
+  /** Queues a complete public-RPC assistant message without rendering every SSE delta. */
+  const queueLiveMessage = useCallback((message: JsonObject) => {
+    const index = liveMessageIndexRef.current
+    if (index < 0) return
+    const next = [...(pendingLiveMessagesRef.current ?? liveMessagesRef.current)]
+    next[index] = { ...next[index], message }
+    pendingLiveMessagesRef.current = next
+    if (liveUpdateFrameRef.current !== undefined) return
+    liveUpdateFrameRef.current = window.requestAnimationFrame(flushLiveUpdates)
+  }, [flushLiveUpdates])
+
+  /** Clears streamed assistant messages when the displayed session changes. */
+  const clearLiveMessages = useCallback(() => {
+    if (liveUpdateFrameRef.current !== undefined) window.cancelAnimationFrame(liveUpdateFrameRef.current)
+    liveUpdateFrameRef.current = undefined
+    pendingLiveMessagesRef.current = undefined
+    liveMessagesRef.current = []
+    liveMessageIndexRef.current = -1
+    setLiveMessages([])
+  }, [])
+
+  /** Synchronizes the selected snapshot and replays newer buffered manager events. */
+  const refreshSnapshot = useCallback(async (sessionId: string) => {
+    if (!sessionId) {
+      setSnapshot(emptySnapshot)
+      setSnapshotSessionId('')
+      return
+    }
+    const version = ++snapshotRefreshVersionRef.current
+    try {
+      const nextSnapshot = await getSnapshot(sessionId)
+      if (version !== snapshotRefreshVersionRef.current || sessionId !== selectedIdRef.current) return nextSnapshot
+      flushLiveUpdates()
+      setSnapshot(nextSnapshot)
+      setSnapshotSessionId(sessionId)
+      const latestLiveSequence = nextSnapshot.liveEvents.at(-1)?.sequence ?? 0
+      if (latestLiveSequence > appliedPiEventSequenceRef.current) {
+        clearLiveMessages()
+        setActivity(null)
+        setToolExecutions([])
+        appliedPiEventSequenceRef.current = 0
+        for (const liveEvent of nextSnapshot.liveEvents) replayEvent(sessionId, liveEvent.data, liveEvent.sequence)
+      }
+      return nextSnapshot
+    } catch (cause) {
+      if (version === snapshotRefreshVersionRef.current && sessionId === selectedIdRef.current) onError(cause)
+    }
+  }, [clearLiveMessages, flushLiveUpdates, onError, replayEvent])
+
+  /** Applies a selected-session Pi event once, preserving stream sequence and replay order. */
+  const handlePiEvent = useCallback((sessionId: string, event: JsonObject, sequence?: number): void => {
+    if (sessionId !== selectedIdRef.current) return
+    const nextSequence = advanceEventSequence(appliedPiEventSequenceRef.current, sequence)
+    if (nextSequence === null) return
+    appliedPiEventSequenceRef.current = nextSequence
+    if (event.type === 'queue_update' && Array.isArray(event.steering)) {
+      const steering = event.steering.filter((message): message is string => typeof message === 'string')
+      const version = ++queueUpdateVersionRef.current
+      setPendingSteering((current) => steering.length > current.length ? steering : current)
+      void refreshSnapshot(sessionId).finally(() => {
+        if (version === queueUpdateVersionRef.current && sessionId === selectedIdRef.current) setPendingSteering(steering)
+      })
+    }
+    if (event.type === 'agent_start') requestStartedAtRef.current = performance.now()
+    const streamedToolCall = toolCallInUpdate(event)
+    if (streamedToolCall) {
+      flushLiveUpdates()
+      setToolExecutions((current) => applyToolCallUpdate(current, streamedToolCall, crypto.randomUUID()))
+    }
+    const toolExecutionUpdate = toolExecutionUpdateInEvent(event)
+    if (toolExecutionUpdate) setToolExecutions((current) => applyToolExecutionUpdate(current, toolExecutionUpdate))
+    if (event.type === 'tool_execution_start' && typeof event.toolCallId === 'string' && typeof event.toolName === 'string') {
+      const { args, toolCallId: id, toolName: name } = event
+      toolStartedAtRef.current.set(id, performance.now())
+      setToolExecutions((current) => [
+        ...current.filter((execution) => execution.id !== id),
+        { id, name, args, status: 'running' },
+      ])
+    }
+    if (event.type === 'tool_execution_end' && typeof event.toolCallId === 'string' && typeof event.toolName === 'string') {
+      const id = event.toolCallId
+      const startedAt = toolStartedAtRef.current.get(id)
+      if (startedAt !== undefined) {
+        setObservedToolDurations((current) => new Map(current).set(id, performance.now() - startedAt))
+        toolStartedAtRef.current.delete(id)
+      }
+      const details = isObject(event.result) ? event.result.details : undefined
+      const result: ToolResult = {
+        toolCallId: id,
+        toolName: event.toolName,
+        content: event.result,
+        isError: event.isError === true,
+        details,
+      }
+      setToolExecutions((current) => current.map((execution) => execution.id === id ? { ...execution, result } : execution))
+      void refreshSnapshot(sessionId)
+    }
+    setActivity((current) => {
+      const next = activityForPiEvent(current, event)
+      return next?.kind === current?.kind ? current : next
+    })
+    if (event.type === 'message_start') {
+      flushLiveUpdates()
+      setToolExecutions(interruptToolCallGeneration)
+      const message = assistantMessageInEvent(event)
+      if (message) {
+        const next = [...liveMessagesRef.current, { id: crypto.randomUUID(), message }]
+        liveMessagesRef.current = next
+        liveMessageIndexRef.current = next.length - 1
+        setLiveMessages(next)
+      }
+    }
+    if (event.type === 'message_update' && isObject(event.assistantMessageEvent)) {
+      const message = assistantMessageInEvent(event)
+      if (message) queueLiveMessage(message)
+      if (event.assistantMessageEvent.type === 'error') setToolExecutions(interruptToolCallGeneration)
+    }
+    const settledRequestDuration = event.type === 'agent_settled' && requestStartedAtRef.current !== undefined
+      ? performance.now() - requestStartedAtRef.current
+      : undefined
+    if (event.type === 'agent_settled') requestStartedAtRef.current = undefined
+    if (event.type === 'message_end' || event.type === 'agent_settled') {
+      flushLiveUpdates()
+      setToolExecutions(interruptToolCallGeneration)
+      void refreshSnapshot(sessionId).then((nextSnapshot) => {
+        if (!nextSnapshot || settledRequestDuration === undefined) return
+        const requestTimestamp = lastUserTimestamp(nextSnapshot.messages)
+        if (requestTimestamp !== undefined) setObservedRequestDurations((current) => new Map(current).set(requestTimestamp, settledRequestDuration))
+      })
+    }
+  }, [flushLiveUpdates, queueLiveMessage, refreshSnapshot])
+
+  useEffect(() => {
+    clearLiveMessages()
+    appliedPiEventSequenceRef.current = 0
+    setSnapshot(emptySnapshot)
+    setSnapshotSessionId('')
+    setPendingSteering([])
+    queueUpdateVersionRef.current += 1
+    setActivity(null)
+    setToolExecutions([])
+    setObservedToolDurations(new Map())
+    setObservedRequestDurations(new Map())
+    toolStartedAtRef.current.clear()
+    requestStartedAtRef.current = undefined
+    void refreshSnapshot(selectedId)
+  }, [clearLiveMessages, refreshSnapshot, selectedId])
+
+  const addPendingSteering = useCallback((message: string): void => {
+    setPendingSteering((current) => [...current, message])
+  }, [])
+
+  /** Removes the most recently queued optimistic steering message after a send failure. */
+  const removePendingSteering = useCallback((message: string): void => {
+    setPendingSteering((current) => {
+      const index = current.lastIndexOf(message)
+      return index < 0 ? current : current.toSpliced(index, 1)
+    })
+  }, [])
+
+  /** Adds an optimistic user message and returns its removable identity. */
+  const addOptimisticUserMessage = useCallback((message: string): string => {
+    flushLiveUpdates()
+    const id = crypto.randomUUID()
+    const next = [...liveMessagesRef.current, { id, message: { role: 'user', content: message, timestamp: Date.now() } }]
+    liveMessagesRef.current = next
+    setLiveMessages(next)
+    return id
+  }, [flushLiveUpdates])
+
+  const removeLiveMessage = useCallback((id: string): void => {
+    liveMessagesRef.current = liveMessagesRef.current.filter((message) => message.id !== id)
+    setLiveMessages(liveMessagesRef.current)
+  }, [])
+
+  const clearActivity = useCallback((): void => setActivity(null), [])
+  const resetEventSequence = useCallback((): void => { appliedPiEventSequenceRef.current = 0 }, [])
+
+  return {
+    activity,
+    addOptimisticUserMessage,
+    addPendingSteering,
+    clearActivity,
+    handlePiEvent,
+    liveMessages,
+    observedRequestDurations,
+    observedToolDurations,
+    pendingSteering,
+    refreshSnapshot,
+    removeLiveMessage,
+    removePendingSteering,
+    resetEventSequence,
+    snapshot,
+    snapshotSessionId,
+    toolExecutions,
+  }
+}
+
+/** Returns the timestamp of the most recent user message, if any. */
+function lastUserTimestamp(messages: JsonObject[]): number | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    if (message?.role === 'user' && typeof message.timestamp === 'number') return message.timestamp
+  }
+  return undefined
+}
+
+/** Reads the complete assistant message carried by a public Pi stream event. */
+function assistantMessageInEvent(event: JsonObject): JsonObject | null {
+  const message = event.message
+  return isObject(message) && message.role === 'assistant' ? message : null
+}
