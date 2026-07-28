@@ -8,6 +8,11 @@ export function getDesktopPlatform(platform = process.platform, env: NodeJS.Proc
   return env.WSL_DISTRO_NAME || env.WSL_INTEROP ? 'wsl' : 'linux'
 }
 
+/** Returns the WSL distribution running the backend when its name is available. */
+export function getWslDistributionName(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  return env.WSL_DISTRO_NAME || undefined
+}
+
 /** Opens the workspace directory using the native file browser for the current Linux environment. */
 export async function openExplorer(workspacePath: string, platform = getDesktopPlatform()): Promise<void> {
   const command = platform === 'wsl' ? 'explorer.exe' : 'xdg-open'

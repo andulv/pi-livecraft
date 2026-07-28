@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { getDesktopPlatform, type DesktopPlatform } from '../../system-integration.ts'
+import { getDesktopPlatform, getWslDistributionName, type DesktopPlatform } from '../../system-integration.ts'
 
 const maxTemplateLength = 2000
 
@@ -72,9 +72,10 @@ export function parseTerminalTemplate(raw: string, cwd: string): { command: stri
 }
 
 /** Returns the platform-specific terminal invocation used when no custom template is set. */
-export function defaultTerminalInvocation(workspacePath: string, platform = getDesktopPlatform()): { command: string; args: string[]; cwd?: string } {
+export function defaultTerminalInvocation(workspacePath: string, platform = getDesktopPlatform(), env: NodeJS.ProcessEnv = process.env): { command: string; args: string[]; cwd?: string } {
+  const wslDistribution = getWslDistributionName(env)
   return platform === 'wsl'
-    ? { command: 'wt.exe', args: ['-d', workspacePath] }
+    ? { command: 'wsl.exe', args: [...(wslDistribution ? ['-d', wslDistribution] : []), '--cd', workspacePath] }
     : { command: 'x-terminal-emulator', args: [], cwd: workspacePath }
 }
 
