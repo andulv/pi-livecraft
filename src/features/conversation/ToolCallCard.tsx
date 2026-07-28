@@ -19,7 +19,7 @@ import {
   toolFilePath,
   toolTextPreview,
   toolWriteContent,
-  fileUrl,
+  stripScripts,
   type EditDiffLine,
 } from './tool-presentation.ts'
 import { toolContentText } from './tool-protocol.ts'
@@ -132,15 +132,9 @@ export const ToolCallCard = memo(function ToolCallCard({
   const pending = !hasResult
   const active = pending && !interrupted
   const filePath = name === 'read' || name === 'write' ? toolFilePath(args) : null
-  const rawDisplay = filePath ? readContentDisplay({ path: filePath }) : { kind: 'text' as const }
-  const isWrite = name === 'write'
-  const display = isWrite && rawDisplay.kind === 'html'
-    ? ({ kind: 'code' as const, language: 'markup' })
-    : rawDisplay
-  const htmlFile = display.kind === 'html'
+  const display = filePath ? readContentDisplay({ path: filePath }) : { kind: 'text' as const }
   const [expanded, setExpanded] = useState(name === 'edit')
   const [partialOutputExpanded, setPartialOutputExpanded] = useState(false)
-  const [htmlOpenError, setHtmlOpenError] = useState<string>()
   const [codeRendered, setCodeRendered] = useState(false)
   const [argsExpanded, setArgsExpanded] = useState(false)
   const cardRef = useRef<HTMLElement>(null)
@@ -166,9 +160,7 @@ export const ToolCallCard = memo(function ToolCallCard({
   )
   const resolvedSizeLabel = `Input: ${inputLength} characters. Output: ${outputLength} characters.`
   const writeContent = name === 'write' ? toolWriteContent(args) : null
-  const content = htmlOpenError
-    ?? (name === 'write' && !resultError && writeContent ? writeContent : undefined)
-    ?? displayedOutput
+  const content = name === 'write' && !resultError && writeContent ? writeContent : displayedOutput
   const hasCodePreview = display.kind === 'code' && hasResult && !expanded
     && canHighlightFile(content)
   const isNearViewport = useInView(cardRef, hasCodePreview)
@@ -188,24 +180,8 @@ export const ToolCallCard = memo(function ToolCallCard({
     return () => window.clearTimeout(timeout)
   }, [codeRendered, display.kind, expanded])
 
-  /** Opens HTML reads in the browser and expands other output in the history. */
-  const activate = () => {
-    if (filePath && htmlFile) {
-      const tab = window.open('', '_blank')
-      if (tab) tab.opener = null
-      setHtmlOpenError(undefined)
-      void getWorkspaceFilePath(workspacePath, filePath)
-        .then(({ path }) => {
-          if (tab) tab.location.href = fileUrl(path)
-        })
-        .catch((cause: unknown) => {
-          tab?.close()
-          setHtmlOpenError(messageOf(cause))
-        })
-      return
-    }
-    setExpanded((isExpanded) => !isExpanded)
-  }
+  /** Expands or collapses the tool call output. */
+  const activate = () => setExpanded((isExpanded) => !isExpanded)
 
   const hasBody = streaming || interrupted || hasResult || Boolean(partialOutput)
 
@@ -219,7 +195,7 @@ export const ToolCallCard = memo(function ToolCallCard({
     >
       <Tooltip label={tooltip}>
         <button
-          aria-expanded={htmlFile ? undefined : hasResult ? expanded : undefined}
+          aria-expanded={hasResult ? expanded : undefined}
           className='tool-call-heading'
           disabled={!hasResult}
           onClick={activate}
@@ -341,7 +317,7 @@ export const ToolCallCard = memo(function ToolCallCard({
           )}
           {hasResult && (
             <div className={animateLiveChanges ? 'tool-call-result entering' : 'tool-call-result'}>
-              {expanded && !htmlFile
+              {expanded
                 ? (
                   <ToolCallContent
                     call={{ name, args }}
@@ -356,12 +332,12 @@ export const ToolCallCard = memo(function ToolCallCard({
                 : (
                   <ToolCallPreview
                     call={{ name, args }}
-                    content={display.kind === 'svg'
+                    content={display.kind === 'svg' || display
+                          .kind === 'html'
                       ? content
                       : preview
                         .text}
                     darkMode={darkMode}
-                    htmlFile={htmlFile}
                     isNearViewport={isNearViewport}
                     onClick={activate}
                     remainingLineCount={preview
@@ -399,12 +375,11 @@ function NumberedPre({ content, startLine }: { content: string; startLine: numbe
   )
 }
 
-/** Displays a clickable preview for code files and resolved SVGs. */
+/** Displays a clickable preview for code files, HTML files, and resolved SVGs. */
 function ToolCallPreview({
   call,
   content,
   darkMode,
-  htmlFile,
   isNearViewport,
   onClick,
   remainingLineCount,
@@ -412,18 +387,14 @@ function ToolCallPreview({
   call: { name: string; args: unknown }
   content: string
   darkMode: boolean
-  htmlFile: boolean
   isNearViewport: boolean
   onClick: () => void
   remainingLineCount: number
 }) {
-  const rawDisplay = call.name === 'read' || call.name === 'write'
+  const display = call.name === 'read' || call.name === 'write'
     ? readContentDisplay(call.args)
     : { kind: 'text' as const }
-  const display = call.name === 'write' && rawDisplay.kind === 'html'
-    ? ({ kind: 'code' as const, language: 'markup' })
-    : rawDisplay
-  const remainingLabel = display.kind === 'svg'
+  const remainingLabel = display.kind === 'svg' || display.kind === 'html'
     ? 'Click to view full code'
     : `Click to view ${remainingLineCount} more ${remainingLineCount === 1 ? 'line' : 'lines'}`
   const highlightedCode = display.kind === 'code' && canHighlightFile(content)
@@ -435,9 +406,20 @@ function ToolCallPreview({
     ? <NumberedPre content={content} startLine={startLine} />
     : <pre>{content}</pre>
 
+  const htmlPreview = display.kind === 'html'
+
   return (
     <button className='tool-call-preview' onClick={onClick} type='button'>
-      {svgPreview
+      {htmlPreview
+        ? (
+          <iframe
+            className='tool-call-html-preview'
+            sandbox=''
+            srcDoc={stripScripts(content)}
+            title={`HTML preview of ${filePath ?? 'file'}`}
+          />
+        )
+        : svgPreview
         ? (
           <img
             alt={`SVG preview of ${filePath ?? 'file'}`}
@@ -465,7 +447,6 @@ function ToolCallPreview({
         )
         : plainPreview}
       {remainingLineCount > 0 && <span>{remainingLabel}</span>}
-      {htmlFile && <span>Click to open in browser</span>}
     </button>
   )
 }
@@ -504,7 +485,7 @@ function ToolCallContent({
   const rawContentDisplay = call.name === 'read' || call.name === 'write'
     ? readContentDisplay(call.args)
     : { kind: 'text' as const }
-  const display = call.name === 'write' && rawContentDisplay.kind === 'html'
+  const display = rawContentDisplay.kind === 'html'
     ? ({ kind: 'code' as const, language: 'markup' })
     : rawContentDisplay
   const isReadOrWrite = call.name === 'read' || call.name === 'write'
@@ -628,8 +609,4 @@ function ToolCallEditDiff(
       })}
     </section>
   )
-}
-
-function messageOf(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause)
 }

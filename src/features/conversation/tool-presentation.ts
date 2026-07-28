@@ -192,6 +192,19 @@ export function toolWriteContent(args: unknown): string | null {
     : null
 }
 
+/** Removes executable HTML hooks before rendering a sandboxed preview. */
+export function stripScripts(html: string): string {
+  return html
+    .replace(/<script\b[^>]*>(?:[\s\S]*?<\/script\s*>|[\s\S]*)/gi, '')
+    .replace(/<script\b[^>]*\/\s*>/gi, '')
+    .replace(/<\/script\s*>/gi, '')
+    .replace(/\s+on[a-z][\w:-]*\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(
+      /\s+(?:href|src|action|formaction|poster|xlink:href)\s*=\s*(?:"\s*javascript:[^"]*"|'\s*javascript:[^']*'|javascript:[^\s>]+)/gi,
+      '',
+    )
+}
+
 /** Returns the starting line number for read tool content display (offset or 1). */
 export function readStartingLineNumber(args: unknown): number {
   if (!isObject(args)) return 1

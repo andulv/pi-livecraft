@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatToolData, toolWriteContent } from '../src/features/conversation/tool-presentation.ts'
+import {
+  formatToolData,
+  stripScripts,
+  toolWriteContent,
+} from '../src/features/conversation/tool-presentation.ts'
 import {
   applyToolCallUpdate,
   applyToolExecutionUpdate,
@@ -282,4 +286,15 @@ test('extracts write tool content and rejects non-string arguments', () => {
   assert.equal(toolWriteContent({ path: 'a' }), null)
   assert.equal(toolWriteContent({ content: '' }), null)
   assert.equal(toolWriteContent({ content: 42 }), null)
+})
+
+test('strips executable HTML from the inline preview', () => {
+  assert.equal(
+    stripScripts(
+      '<button onclick="run()">Open</button><script>run()</script>'
+        + '<script src="app.js"></script><a href="javascript:run()">Run</a>'
+        + '<img onerror=run() src="image.png">',
+    ),
+    '<button>Open</button><a>Run</a><img src="image.png">',
+  )
 })
