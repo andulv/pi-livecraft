@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import { Tooltip } from './components/Tooltip.tsx'
-import { commitChanges, createSession, discardChanges, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, improvePrompt, listDirectories, listRecentSessions, listSessions, openExplorer, openSession, openTerminal, pushCommits, refreshQuotas, resetGitCommit, restartManager, revertGitCommit, sendPiCommand, subscribeManagerEvents } from './api.ts'
+import { commitChanges, createSession, discardChanges, getGitFileDiff, getGitSnapshot, getQuotas, getSnapshot, improvePrompt, openExplorer, openSession, openTerminal, pushCommits, refreshQuotas, resetGitCommit, restartManager, revertGitCommit, sendPiCommand, subscribeManagerEvents } from './api.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
-import type { GitSnapshot, JsonObject, ManagerRuntimeStatus, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary } from '../shared/types.ts'
+import type { GitSnapshot, JsonObject, ManagerRuntimeStatus, QuotaSnapshot, SessionSnapshot, SessionSummary } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 import { Composer } from './features/composer/Composer.tsx'
-import { promptSessionTitle } from './features/composer/prompt-title.ts'
 import { ToastStack, type Toast } from './features/notifications/ToastStack.tsx'
 import { activityForPiEvent, sessionActivity, type Activity, type PiConnection } from './features/conversation/activity.ts'
 import { Conversation } from './features/conversation/Conversation.tsx'
@@ -18,8 +17,8 @@ import { clampRightSidebarWidth, isRightWidget, readRightSidebarWidth, type Righ
 import { RightSidebar } from './features/right-sidebar/RightSidebar.tsx'
 import { quotaProviderForModel } from './features/quotas/quota-display.ts'
 import { DirectoryPicker } from './features/workspace/DirectoryPicker.tsx'
-import { recentWorkspaces } from './features/workspace/recent-workspaces.ts'
-import { pickSessionOnOpen, sidebarSessions } from './features/workspace/sidebar-sessions.ts'
+import { sidebarSessions } from './features/workspace/sidebar-sessions.ts'
+import { useWorkspaceSessions } from './features/workspace/useWorkspaceSessions.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
 import { CommandPalette, type PaletteCommand } from './features/commands/CommandPalette.tsx'
 import { commandDefinitions, defaultShortcuts, lastAssistantText, migrateLegacyShortcut, rightWidgetFromCommand, shortcutFromEvent, type CommandId } from './features/commands/command-registry.ts'
@@ -42,16 +41,7 @@ const conversationViewDetails = {
 /** Orchestrates workspace state, Pi events, and UI panels. */
 function App() {
   // Workspace and sessions
-  const [sessions, setSessions] = useState<SessionSummary[]>([])
-  const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
-  const [sentSessions, setSentSessions] = useState<RecentSession[]>([])
-  const [completedSessionIds, setCompletedSessionIds] = useState<ReadonlySet<string>>(() => readCompletedSessionIds())
-  const [isRefreshingSessions, setIsRefreshingSessions] = useState(true)
   const [compactingSessionIds, setCompactingSessionIds] = useState<ReadonlySet<string>>(new Set())
-  const [workspacePath, setWorkspacePath] = useState(() => window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.')
-  const [recentWorkspacePaths, setRecentWorkspacePaths] = useState(() => recentWorkspaces(window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.', readRecentWorkspaces()))
-  const [directoryPickerOpen, setDirectoryPickerOpen] = useState(false)
-  const [selectedId, setSelectedId] = useState(() => window.localStorage.getItem('pi-livecraft.selected-session') ?? '')
 
   // Conversation and Pi lifecycle
   const [snapshot, setSnapshot] = useState<SessionSnapshot>(emptySnapshot)
@@ -89,7 +79,6 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   // Transient UI requests and measurements
-  const [creatingSession, setCreatingSession] = useState(false)
   type LoadingPhase = 'hidden' | 'entering' | 'visible' | 'exiting'
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>('hidden')
   const [requestedSelect, setRequestedSelect] = useState<'agent' | 'model' | 'thinking' | null>(null)
@@ -104,12 +93,7 @@ function App() {
   const [terminalCommand, setTerminalCommand] = useState(() => readTerminalCommand())
 
   // Workspace and session synchronization
-  const selectedIdRef = useRef(selectedId)
-  const sessionsRef = useRef(sessions)
-  const sentSessionsRef = useRef(sentSessions)
-  const completedSessionIdsRef = useRef(completedSessionIds)
-  const creatingSessionRef = useRef(false)
-  const refreshVersionRef = useRef(0)
+  const selectedIdRef = useRef(window.localStorage.getItem('pi-livecraft.selected-session') ?? '')
   const snapshotRefreshVersionRef = useRef(0)
   const appliedPiEventSequenceRef = useRef(0)
   const replayPiEventRef = useRef<(sessionId: string, event: JsonObject, sequence?: number) => void>(() => undefined)
@@ -128,15 +112,10 @@ function App() {
   const pendingLiveMessagesRef = useRef<LiveMessage[] | undefined>(undefined)
   const liveUpdateFrameRef = useRef<number | undefined>(undefined)
   const quotaAutoRefreshAtRef = useRef(new Map<string, number>())
-  const autoSelectOnRefreshRef = useRef(true)
   const quotasRef = useRef(quotas)
   const model = isObject(snapshot.state?.model) ? snapshot.state.model : undefined
   const currentQuotaProvider = quotaProviderForModel(model?.provider)
   const currentQuotaProviderRef = useRef(currentQuotaProvider)
-  selectedIdRef.current = selectedId
-  sessionsRef.current = sessions
-  sentSessionsRef.current = sentSessions
-  completedSessionIdsRef.current = completedSessionIds
   quotasRef.current = quotas
   currentQuotaProviderRef.current = currentQuotaProvider
 
@@ -162,6 +141,56 @@ function App() {
 
   /** Removes a toast after explicit dismissal or automatic timeout. */
   const dismissToast = useCallback((id: string) => startDismissal(id), [startDismissal])
+
+  const handleSessionsRefreshed = useCallback((nextSessions: SessionSummary[]): void => {
+    const pending = nextSessions.flatMap((session) =>
+      session.pendingUi.map((request) => ({ sessionId: session.id, request })),
+    ).find(({ request }) => !isAgentSelector(request))
+    setDialog((current) => pending ?? (current && nextSessions.some(({ id }) => id === current.sessionId) ? current : null))
+  }, [])
+  const handleWorkspaceSelected = useCallback((): void => {
+    setGitSnapshot(null)
+    setActiveRightWidget(null)
+  }, [])
+  const handleSessionDraft = useCallback((sessionId: string, message: string): void => {
+    setComposerDraftRequest({ id: crypto.randomUUID(), message, sessionId })
+  }, [])
+  const handleInitialMessageSent = useCallback((): void => setScrollToBottomRequest((current) => current + 1), [])
+  const handleWorkspaceError = useCallback((cause: unknown): void => showToast('error', messageOf(cause)), [showToast])
+  const {
+    addPendingRequest,
+    completedSessionIds,
+    creatingSession,
+    directoryPickerOpen,
+    isRefreshingSessions,
+    markSessionCompleted,
+    nameSessionFromFirstPrompt,
+    recentSessions,
+    recentWorkspacePaths,
+    refreshSessions,
+    removePendingRequest,
+    renameSession,
+    selectCreatedSession,
+    selectedId,
+    sentSessions,
+    sessions,
+    setDirectoryPickerOpen,
+    setSelectedId,
+    selectWorkspace,
+    startAndSelectSession: startWorkspaceSession,
+    updateSession,
+    workspacePath,
+  } = useWorkspaceSessions({
+    onDraftMessage: handleSessionDraft,
+    onError: handleWorkspaceError,
+    onInitialMessageSent: handleInitialMessageSent,
+    onSessionsRefreshed: handleSessionsRefreshed,
+    onWorkspaceSelected: handleWorkspaceSelected,
+  })
+  selectedIdRef.current = selectedId
+
+  const startAndSelectSession = useCallback((start: () => Promise<SessionSummary>, initialMessage?: string, draftMessage?: string) =>
+    startWorkspaceSession(start, { draftMessage, initialMessage }), [startWorkspaceSession])
 
   const visibleToasts = toasts.filter((toast) => toast.sessionId === null || toast.sessionId === selectedId)
 
@@ -250,104 +279,14 @@ function App() {
     root.style.setProperty('--shadow-soft', shadows['shadow-soft'])
   }, [activeTheme])
 
-  // Workspaces and sessions
-  useEffect(() => {
-    if (window.localStorage.getItem('pi-livecraft.workspace-path') !== null) return
-    let active = true
-    void listDirectories('.').then(({ path }) => {
-      if (!active || window.localStorage.getItem('pi-livecraft.workspace-path') !== null) return
-      setWorkspacePath(path)
-      setRecentWorkspacePaths(recentWorkspaces(path, readRecentWorkspaces()))
-    }).catch(() => undefined)
-    return () => { active = false }
-  }, [])
-
-  useEffect(() => {
-    if (selectedId) window.localStorage.setItem('pi-livecraft.selected-session', selectedId)
-    else window.localStorage.removeItem('pi-livecraft.selected-session')
-    setCompletedSessionIds((current) => {
-      const sessionKey = sessionsRef.current.find((session) => session.id === selectedId)?.sessionPath ?? selectedId
-      if (!current.has(sessionKey)) return current
-      const next = new Set(current)
-      next.delete(sessionKey)
-      return next
-    })
-  }, [selectedId])
-
-  useEffect(() => {
-    writeCompletedSessionIds(completedSessionIds)
-  }, [completedSessionIds])
-
-  /** Reloads sessions and their UI requests while discarding stale responses. */
-  const refreshSessions = useCallback(async (cwd = workspacePath) => {
-    const version = ++refreshVersionRef.current
-    const shouldAutoSelect = autoSelectOnRefreshRef.current
-    setIsRefreshingSessions(true)
-    try {
-      const [nextSessions, nextRecentSessions] = await Promise.all([listSessions(), listRecentSessions(cwd)])
-      if (version !== refreshVersionRef.current) return
-      const autoSelectId = shouldAutoSelect
-        ? pickSessionOnOpen(sidebarSessions(nextRecentSessions, cwd, sentSessionsRef.current), nextSessions, completedSessionIdsRef.current)
-        : undefined
-      const recentNames = new Map(nextRecentSessions.map((session) => [session.sessionPath, session.name]))
-      setSessions(nextSessions.map((session) => {
-        const recentName = session.sessionPath ? recentNames.get(session.sessionPath) : undefined
-        const previousName = sessionsRef.current.find((current) => current.id === session.id)?.name
-        return recentName ? { ...session, name: recentName } : previousName && previousName !== 'Nouvelle session' ? { ...session, name: previousName } : session
-      }))
-      setCompletedSessionIds((current) => {
-        if (current.size === 0) return current
-        const sessionKeys = new Set(nextSessions.flatMap((session) => [session.id, session.sessionPath].filter((key): key is string => Boolean(key))))
-        const recentKeys = new Set(nextRecentSessions.map((session) => session.sessionPath))
-        const next = new Set([...current].filter((key) => sessionKeys.has(key) || recentKeys.has(key)))
-        return next.size === current.size ? current : next
-      })
-      setRecentSessions(nextRecentSessions)
-      setSentSessions((current) => current.filter((sent) => !nextRecentSessions.some((recent) => recent.id === sent.id || recent.sessionPath === sent.sessionPath)))
-      if (shouldAutoSelect) {
-        autoSelectOnRefreshRef.current = false
-        setSelectedId(autoSelectId ?? '')
-      } else {
-        setSelectedId((current) => nextSessions.some((session) => session.id === current) ? current : '')
-      }
-      const pending = nextSessions.flatMap((session) =>
-        session.pendingUi.map((request) => ({ sessionId: session.id, request })),
-      ).find(({ request }) => !isAgentSelector(request))
-      setDialog((current) => pending ?? (current && nextSessions.some(({ id }) => id === current.sessionId) ? current : null))
-    } catch (cause) {
-      if (version === refreshVersionRef.current) showToast('error', messageOf(cause))
-    } finally {
-      if (version === refreshVersionRef.current) setIsRefreshingSessions(false)
-    }
-  }, [showToast, workspacePath])
-
-  /** Selects a workspace, optionally preserving an explicit session over automatic selection. */
-  const selectWorkspace = useCallback((path: string, targetSessionId?: string): void => {
-    window.localStorage.setItem('pi-livecraft.workspace-path', path)
-    const nextRecentWorkspacePaths = recentWorkspaces(path, recentWorkspacePaths)
-    window.localStorage.setItem('pi-livecraft.recent-workspace-paths', JSON.stringify(nextRecentWorkspacePaths))
-    setRecentWorkspacePaths(nextRecentWorkspacePaths)
-    setGitSnapshot(null)
-    setActiveRightWidget(null)
-    setWorkspacePath(path)
-    setSelectedId(targetSessionId ?? '')
-    setDirectoryPickerOpen(false)
-    autoSelectOnRefreshRef.current = targetSessionId === undefined
-    void refreshSessions(path)
-  }, [recentWorkspacePaths, refreshSessions])
-
   // Dialogs
   /** Clears an answered request immediately, then reconciles all pending requests with the manager. */
   const closeDialog = useCallback((closedDialog: UiDialog) => {
     const requestId = closedDialog.request.id
     setDialog((current) => current?.sessionId === closedDialog.sessionId && current.request.id === requestId ? null : current)
-    if (typeof requestId === 'string') {
-      setSessions((current) => current.map((session) => session.id === closedDialog.sessionId
-        ? { ...session, pendingUi: session.pendingUi.filter((request) => request.id !== requestId) }
-        : session))
-    }
+    if (typeof requestId === 'string') removePendingRequest(closedDialog.sessionId, requestId)
     void refreshSessions()
-  }, [refreshSessions])
+  }, [refreshSessions, removePendingRequest])
 
   // Workspace capabilities
   /** Refreshes Git state for the current directory. Throws when requested so callers can handle the error. */
@@ -426,7 +365,6 @@ function App() {
   }, [refreshSnapshot, showToast])
 
   // Initial application synchronization
-  useEffect(() => void refreshSessions(), [refreshSessions])
   useEffect(() => void refreshGit(), [refreshGit])
   useEffect(() => { void getQuotas().then(setQuotas).catch(() => undefined) }, [])
 
@@ -472,19 +410,12 @@ function App() {
     function handlePiEvent(sessionId: string, event: JsonObject, sequence?: number): void {
       if (event.type === 'session_info_changed') {
         const name = typeof event.name === 'string' && event.name.trim() ? event.name.trim() : 'New session'
-        setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, name } : session))
-        const sessionPath = sessionsRef.current.find((session) => session.id === sessionId)?.sessionPath
-        setRecentSessions((current) => current.map((recent) =>
-          sessionPath && recent.sessionPath === sessionPath ? { ...recent, name } : recent))
-        setSentSessions((current) => current.map((sent) =>
-          sent.id === sessionId || (sessionPath && sent.sessionPath === sessionPath) ? { ...sent, name } : sent))
+        renameSession(sessionId, name)
       }
-      if (event.type === 'agent_start') updateSessionStatus(sessionId, 'running')
+      if (event.type === 'agent_start') updateSession(sessionId, { status: 'running' })
       if (event.type === 'agent_settled') {
-        updateSessionStatus(sessionId, 'idle')
-        const completedSession = sessionsRef.current.find((session) => session.id === sessionId)
-        const sessionKey = completedSession?.sessionPath ?? sessionId
-        if (sessionId !== selectedIdRef.current) setCompletedSessionIds((current) => new Set(current).add(sessionKey))
+        updateSession(sessionId, { status: 'idle' })
+        markSessionCompleted(sessionId)
       }
       if (event.type === 'compaction_start') setCompactingSessionIds((current) => new Set(current).add(sessionId))
       if (event.type === 'compaction_end') setCompactingSessionIds((current) => {
@@ -498,26 +429,19 @@ function App() {
       }
       if (event.type === 'tool_execution_end') void refreshGit()
       if (event.type === 'extension_ui_request' && event.method === 'setStatus' && event.statusKey === 'agent') {
-        updateSessionAgent(sessionId, typeof event.activeAgent === 'string' ? event.activeAgent : undefined)
+        updateSession(sessionId, { activeAgent: typeof event.activeAgent === 'string' ? event.activeAgent : undefined })
       }
       if (event.type === 'extension_ui_request' && event.method === 'setStatus' && event.statusKey === 'pi-livecraft.quotas') {
         void getQuotas().then(setQuotas).catch(() => undefined)
       }
 
       if (event.type === 'extension_ui_request' && isBlockingDialog(event) && !isAgentSelector(event)) {
-        if (typeof event.id === 'string') {
-          setSessions((current) => current.map((session) => session.id === sessionId
-            ? { ...session, pendingUi: [...session.pendingUi.filter((request) => request.id !== event.id), event] }
-            : session))
-        }
+        if (typeof event.id === 'string') addPendingRequest(sessionId, event)
         if (sessionId === selectedIdRef.current) setActivity(null)
       }
 
       if (event.type === 'extension_ui_request') {
-        if (creatingSessionRef.current && (event.method === 'notify' || (event.method === 'setStatus' && event.statusKey === 'agent'))) {
-          setSelectedId(sessionId)
-          creatingSessionRef.current = false
-        }
+        if (event.method === 'notify' || (event.method === 'setStatus' && event.statusKey === 'agent')) selectCreatedSession(sessionId)
         if (event.method === 'notify' && typeof event.message === 'string') showToast('notice', event.message, sessionId)
         const agentIntent = agentIntentsRef.current.get(sessionId)
         if (isAgentSelector(event)) {
@@ -628,7 +552,7 @@ function App() {
         ])
       }
     }
-  }, [flushLiveUpdates, queueLiveMessage, refreshGit, refreshSessionQuotas, refreshSessions, refreshSnapshot, showToast])
+  }, [addPendingRequest, flushLiveUpdates, markSessionCompleted, queueLiveMessage, refreshGit, refreshSessionQuotas, refreshSessions, refreshSnapshot, renameSession, selectCreatedSession, showToast, updateSession])
 
   // Agent capabilities
   useEffect(() => {
@@ -637,14 +561,6 @@ function App() {
       requestAgent(selectedId)
     }
   }, [agentBusy, agentOptions, requestAgent, selectedId, snapshot.commands, snapshotSessionId])
-
-  function updateSessionStatus(sessionId: string, status: SessionSummary['status']): void {
-    setSessions((current) => current.map((session) => (session.id === sessionId ? { ...session, status } : session)))
-  }
-
-  function updateSessionAgent(sessionId: string, activeAgent: string | undefined): void {
-    setSessions((current) => current.map((session) => (session.id === sessionId ? { ...session, activeAgent } : session)))
-  }
 
   // Selected session and loading state
   const selectedSession = sessions.find((session) => session.id === selectedId)
@@ -702,12 +618,7 @@ function App() {
       await sendPiCommand(selectedId, command)
       const sentSession = sessions.find((session) => session.id === selectedId)
       const shouldNameSession = sentSession?.name === 'Nouvelle session' && !snapshot.messages.some((entry) => entry.role === 'user')
-      if (sentSession && shouldNameSession) {
-        const name = promptSessionTitle(message)
-        setSessions((current) => current.map((session) => session.id === selectedId ? { ...session, name } : session))
-        const sessionPath = sentSession.sessionPath
-        if (sessionPath) setSentSessions((current) => [{ id: sentSession.id, cwd: sentSession.cwd, name, sessionPath, updatedAt: Date.now() }, ...current.filter((session) => session.id !== sentSession.id && session.sessionPath !== sessionPath)])
-      }
+      if (sentSession && shouldNameSession) nameSessionFromFirstPrompt(sentSession, message)
       await refreshSessions()
       setScrollToBottomRequest((current) => current + 1)
     } catch (cause) {
@@ -721,7 +632,7 @@ function App() {
       })
       throw cause
     }
-  }, [flushLiveUpdates, refreshSessions, selectedId, selectedSessionStatus, sessions, snapshot.messages])
+  }, [flushLiveUpdates, nameSessionFromFirstPrompt, refreshSessions, selectedId, selectedSessionStatus, sessions, snapshot.messages])
   const handleComposerAbort = useCallback(() => sendPiCommand(selectedId, { type: 'abort' }), [selectedId])
   const handlePromptImprovement = useCallback((prompt: string, direction?: string) => improvePrompt(selectedId, prompt, direction), [selectedId])
   const handleComposerSelectOpened = useCallback(() => setRequestedSelect(null), [])
@@ -734,34 +645,6 @@ function App() {
     : null, [observedRequestDurations, observedToolDurations, selectedSession, snapshot.messages, snapshot.stats, snapshotSessionId, toolExecutions])
   const questionnaire = dialog && isAskUserQuestionDialog(dialog.request) ? dialog : null
   const questionnaireInComposer = questionnaire?.sessionId === selectedId && snapshotSessionId === selectedId
-
-  /** Launches and selects a session, then sends a message or prepares a draft depending on the source action. */
-  const startAndSelectSession = useCallback(async (start: () => Promise<SessionSummary>, initialMessage?: string, draftMessage?: string): Promise<void> => {
-    creatingSessionRef.current = true
-    setCreatingSession(true)
-    setSelectedId('')
-    try {
-      const session = await start()
-      await refreshSessions()
-      setSelectedId(session.id)
-      if (draftMessage) setComposerDraftRequest({ id: crypto.randomUUID(), message: draftMessage, sessionId: session.id })
-      if (initialMessage) {
-        await sendPiCommand(session.id, { type: 'prompt', message: initialMessage })
-        const name = promptSessionTitle(initialMessage)
-        setSessions((current) => current.map((currentSession) => currentSession.id === session.id ? { ...currentSession, name } : currentSession))
-        const sessionPath = session.sessionPath
-        if (sessionPath) setSentSessions((current) => [{ id: session.id, cwd: session.cwd, name, sessionPath, updatedAt: Date.now() }, ...current.filter((recentSession) => recentSession.id !== session.id && recentSession.sessionPath !== sessionPath)])
-        await refreshSessions()
-        setScrollToBottomRequest((current) => current + 1)
-      }
-      creatingSessionRef.current = false
-      setCreatingSession(false)
-    } catch (cause) {
-      creatingSessionRef.current = false
-      setCreatingSession(false)
-      showToast('error', messageOf(cause))
-    }
-  }, [refreshSessions, showToast])
 
   const handleContextSessionStart = useCallback((draft: string) => startAndSelectSession(() => createSession(workspacePath), undefined, draft), [startAndSelectSession, workspacePath])
 
@@ -810,7 +693,7 @@ function App() {
       return
     }
     if (id === 'open-explorer') { void openExplorer(workspacePath).catch((cause) => showToast('error', messageOf(cause))); return }
-  }, [gitSnapshot?.repository, openRightWidget, recentSessions, recentWorkspacePaths, selectWorkspace, selectedId, sentSessions, sessionAnalysis, showToast, snapshot.messages, startAndSelectSession, terminalCommand, workspacePath])
+  }, [gitSnapshot?.repository, openRightWidget, recentSessions, recentWorkspacePaths, selectWorkspace, selectedId, sentSessions, sessionAnalysis, setDirectoryPickerOpen, setSelectedId, showToast, snapshot.messages, startAndSelectSession, terminalCommand, workspacePath])
 
   const paletteCommands: PaletteCommand[] = useMemo(() => {
     const visibleIds = sidebarSessions(recentSessions, workspacePath, sentSessions).map((session) => session.id)
@@ -1051,16 +934,6 @@ function readShortcuts(): Partial<Record<CommandId, string>> {
   } catch { return defaultShortcuts }
 }
 
-/** Reads the persisted list of recent workspace paths from localStorage. */
-function readRecentWorkspaces(): string[] {
-  try {
-    const value: unknown = JSON.parse(window.localStorage.getItem('pi-livecraft.recent-workspace-paths') ?? '[]')
-    return Array.isArray(value) ? value.filter((path): path is string => typeof path === 'string') : []
-  } catch {
-    return []
-  }
-}
-
 function readTerminalCommand(): string {
   const stored = window.localStorage.getItem('pi-livecraft.terminal-command')
   return stored && stored.trim() && stored.includes('{cwd}') ? stored : ''
@@ -1093,33 +966,6 @@ function assistantMessageInEvent(event: JsonObject): JsonObject | null {
   const message = event.message
   return isObject(message) && message.role === 'assistant' ? message : null
 }
-const COMPLETED_SESSIONS_KEY = 'pi-livecraft.completed-sessions'
-const MAX_COMPLETED_SESSIONS = 30
-
-/** Restores completed-session identifiers persisted across same-tab refreshes. */
-function readCompletedSessionIds(): ReadonlySet<string> {
-  try {
-    const stored = sessionStorage.getItem(COMPLETED_SESSIONS_KEY)
-    if (!stored) return new Set()
-    const parsed: unknown = JSON.parse(stored)
-    if (!Array.isArray(parsed)) return new Set()
-    const ids = parsed.filter((id): id is string => typeof id === 'string' && id.length > 0)
-    return new Set(ids.slice(0, MAX_COMPLETED_SESSIONS))
-  } catch {
-    return new Set()
-  }
-}
-
-/** Persists completed-session identifiers so they survive a page refresh within the same tab. */
-function writeCompletedSessionIds(ids: ReadonlySet<string>): void {
-  try {
-    if (ids.size === 0) sessionStorage.removeItem(COMPLETED_SESSIONS_KEY)
-    else sessionStorage.setItem(COMPLETED_SESSIONS_KEY, JSON.stringify([...ids].slice(0, MAX_COMPLETED_SESSIONS)))
-  } catch {
-    // sessionStorage may be unavailable
-  }
-}
-
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
 }
