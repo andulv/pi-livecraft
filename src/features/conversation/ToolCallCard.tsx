@@ -340,6 +340,7 @@ export const ToolCallCard = memo(function ToolCallCard({
                     darkMode={darkMode}
                     isNearViewport={isNearViewport}
                     onClick={activate}
+                    showHtmlPreview={!contentError}
                     remainingLineCount={preview
                       .remainingLineCount}
                   />
@@ -383,6 +384,7 @@ function ToolCallPreview({
   isNearViewport,
   onClick,
   remainingLineCount,
+  showHtmlPreview,
 }: {
   call: { name: string; args: unknown }
   content: string
@@ -390,6 +392,7 @@ function ToolCallPreview({
   isNearViewport: boolean
   onClick: () => void
   remainingLineCount: number
+  showHtmlPreview: boolean
 }) {
   const display = call.name === 'read' || call.name === 'write'
     ? readContentDisplay(call.args)
@@ -406,7 +409,7 @@ function ToolCallPreview({
     ? <NumberedPre content={content} startLine={startLine} />
     : <pre>{content}</pre>
 
-  const htmlPreview = display.kind === 'html'
+  const htmlPreview = display.kind === 'html' && showHtmlPreview
 
   return (
     <button className='tool-call-preview' onClick={onClick} type='button'>
