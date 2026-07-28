@@ -19,3 +19,6 @@
 .rail-tab:disabled { color: var(--subtle); cursor: not-allowed; }
 .rail-tab small { position: absolute; top: 5px; right: 4px; display: grid; place-items: center; min-width: 14px; height: 14px; border-radius: 9px; padding: 0 3px; background: var(--accent-soft); color: var(--accent-hover); font: 8px ui-sans-serif, system-ui, sans-serif; }
 .rail-tab[aria-expanded='true'] small { background: var(--surface); box-shadow: 0 1px 3px rgb(0 0 0 / 12%); }
+.rail-action-badge { position: absolute; top: 6px; right: 5px; display: grid; place-items: center; width: 11px; height: 11px; border: 1px solid var(--line); border-radius: 2px; background: var(--surface-raised); color: var(--muted); font: 7px ui-sans-serif, system-ui, sans-serif; line-height: 1; }
+.rail-tab:hover:not(:disabled) .rail-action-badge,
+.rail-tab:focus-visible .rail-action-badge { color: var(--subtle); border-color: var(--line-strong); }
