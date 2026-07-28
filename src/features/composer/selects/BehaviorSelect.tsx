@@ -7,10 +7,10 @@ export function BehaviorSelect({ behavior, onChange }: {
 }) {
   return (
     <ComposerSelect
-      ariaLabel="Next message behavior"
+      ariaLabel='Next message behavior'
       onValueChange={(value) => onChange(value as 'steer' | 'followUp')}
       options={[{ label: 'Steer', value: 'steer' }, { label: 'Follow up', value: 'followUp' }]}
-      tone="behavior"
+      tone='behavior'
       value={behavior}
     />
   )

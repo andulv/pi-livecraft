@@ -22,7 +22,17 @@ test('parses a valid manager event', () => {
 
 test('rejects malformed or unknown manager events', () => {
   assert.equal(parseManagerEvent('{'), null)
-  assert.equal(parseManagerEvent(JSON.stringify({ kind: 'response', event: 'pi', sessionId: 'session-1' })), null)
-  assert.equal(parseManagerEvent(JSON.stringify({ kind: 'event', event: 'unknown', sessionId: 'session-1' })), null)
-  assert.equal(parseManagerEvent(JSON.stringify({ kind: 'event', event: 'pi', sessionId: 'session-1', sequence: -1 })), null)
+  assert.equal(
+    parseManagerEvent(JSON.stringify({ kind: 'response', event: 'pi', sessionId: 'session-1' })),
+    null,
+  )
+  assert.equal(
+    parseManagerEvent(JSON.stringify({ kind: 'event', event: 'unknown', sessionId: 'session-1' })),
+    null,
+  )
+  assert.equal(
+    parseManagerEvent(JSON
+      .stringify({ kind: 'event', event: 'pi', sessionId: 'session-1', sequence: -1 })),
+    null,
+  )
 })

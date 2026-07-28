@@ -49,7 +49,10 @@ export function toolCallsInMessage(message: JsonObject): ToolCall[] {
 export function toolCallInUpdate(event: JsonObject): ToolCallUpdate | null {
   if (event.type !== 'message_update' || !isObject(event.assistantMessageEvent)) return null
   const update = event.assistantMessageEvent
-  if (update.type !== 'toolcall_start' && update.type !== 'toolcall_delta' && update.type !== 'toolcall_end') return null
+  if (
+    update.type !== 'toolcall_start' && update.type !== 'toolcall_delta'
+    && update.type !== 'toolcall_end'
+  ) return null
   if (!Number.isSafeInteger(update.contentIndex) || (update.contentIndex as number) < 0) return null
 
   const call = update.type === 'toolcall_end'
@@ -61,16 +64,26 @@ export function toolCallInUpdate(event: JsonObject): ToolCallUpdate | null {
     call,
     contentIndex: update.contentIndex as number,
     delta: update.type === 'toolcall_delta' && typeof update.delta === 'string' ? update.delta : '',
-    phase: update.type === 'toolcall_start' ? 'start' : update.type === 'toolcall_delta' ? 'delta' : 'end',
+    phase: update.type === 'toolcall_start'
+      ? 'start'
+      : update.type === 'toolcall_delta'
+      ? 'delta'
+      : 'end',
   }
 }
 
 /** Applies a streaming step while preserving raw JSON and the call's final identity. */
-export function applyToolCallUpdate(executions: ToolExecution[], update: ToolCallUpdate, draftId: string): ToolExecution[] {
+export function applyToolCallUpdate(
+  executions: ToolExecution[],
+  update: ToolCallUpdate,
+  draftId: string,
+): ToolExecution[] {
   if (update.phase === 'start') {
-    const previousInterrupted = executions.map((execution) => execution.status === 'generating' && execution.contentIndex === update.contentIndex
-      ? { ...execution, status: 'interrupted' as const }
-      : execution)
+    const previousInterrupted = executions.map((execution) =>
+      execution.status === 'generating' && execution.contentIndex === update.contentIndex
+        ? { ...execution, status: 'interrupted' as const }
+        : execution
+    )
     return [...previousInterrupted, {
       ...update.call,
       contentIndex: update.contentIndex,
@@ -81,7 +94,9 @@ export function applyToolCallUpdate(executions: ToolExecution[], update: ToolCal
 
   let matched = false
   const updated = executions.map((execution) => {
-    if (matched || execution.status !== 'generating' || execution.contentIndex !== update.contentIndex) return execution
+    if (
+      matched || execution.status !== 'generating' || execution.contentIndex !== update.contentIndex
+    ) return execution
     matched = true
     if (update.phase === 'end') return { ...execution, ...update.call, status: 'running' as const }
 
@@ -103,14 +118,19 @@ export function applyToolCallUpdate(executions: ToolExecution[], update: ToolCal
 
 /** Freezes calls whose generation produced no end event. */
 export function interruptToolCallGeneration(executions: ToolExecution[]): ToolExecution[] {
-  return executions.map((execution) => execution.status === 'generating'
-    ? { ...execution, status: 'interrupted' }
-    : execution)
+  return executions.map((execution) =>
+    execution.status === 'generating'
+      ? { ...execution, status: 'interrupted' }
+      : execution
+  )
 }
 
 /** Extracts a validated tool execution update that carries a partial result from Pi. */
 export function toolExecutionUpdateInEvent(event: JsonObject): ToolExecutionUpdate | null {
-  if (event.type !== 'tool_execution_update' || typeof event.toolCallId !== 'string' || typeof event.toolName !== 'string') return null
+  if (
+    event.type !== 'tool_execution_update' || typeof event.toolCallId !== 'string'
+    || typeof event.toolName !== 'string'
+  ) return null
   const partial = event.partialResult
   if (!isObject(partial)) return null
   return {
@@ -127,16 +147,23 @@ export function toolExecutionUpdateInEvent(event: JsonObject): ToolExecutionUpda
 }
 
 /** Replaces the matching execution's partial result without touching executions that are already settled. */
-export function applyToolExecutionUpdate(executions: ToolExecution[], update: ToolExecutionUpdate): ToolExecution[] {
+export function applyToolExecutionUpdate(
+  executions: ToolExecution[],
+  update: ToolExecutionUpdate,
+): ToolExecution[] {
   return executions.map((execution) => {
-    if (execution.id !== update.toolCallId || execution.status !== 'running' || execution.result) return execution
+    if (execution.id !== update.toolCallId || execution.status !== 'running' || execution.result)
+      return execution
     return { ...execution, partialResult: update.partialResult }
   })
 }
 
 /** Picks out a validated tool result from a toolResult message, or returns null. */
 export function toolResultInMessage(message: JsonObject): ToolResult | null {
-  if (message.role !== 'toolResult' || typeof message.toolCallId !== 'string' || typeof message.toolName !== 'string') return null
+  if (
+    message.role !== 'toolResult' || typeof message.toolCallId !== 'string'
+    || typeof message.toolName !== 'string'
+  ) return null
   return {
     toolCallId: message.toolCallId,
     toolName: message.toolName,
@@ -155,11 +182,18 @@ export function toolContentText(content: unknown): string {
   if (typeof content === 'string') return content
   if (isObject(content) && 'content' in content) return toolContentText(content.content)
   if (!Array.isArray(content)) return ''
-  return content.flatMap((part) => isObject(part) && part.type === 'text' && typeof part.text === 'string' ? [part.text] : []).join('\n')
+  return content
+    .flatMap((part) =>
+      isObject(part) && part.type === 'text' && typeof part.text === 'string' ? [part.text] : []
+    )
+    .join('\n')
 }
 
 function toolCallFromValue(value: unknown): ToolCall | null {
-  if (!isObject(value) || value.type !== 'toolCall' || typeof value.id !== 'string' || typeof value.name !== 'string') return null
+  if (
+    !isObject(value) || value.type !== 'toolCall' || typeof value.id !== 'string'
+    || typeof value.name !== 'string'
+  ) return null
   return { id: value.id, name: value.name, args: value.arguments }
 }
 

@@ -20,5 +20,9 @@ SyntaxHighlighter.registerLanguage('typescript', typescript)
 type Props = Omit<SyntaxHighlighterProps, 'style'> & { darkMode: boolean }
 
 export default function CodeHighlighter({ children, darkMode, ...props }: Props) {
-  return <SyntaxHighlighter {...props} style={darkMode ? oneDark : oneLight}>{children}</SyntaxHighlighter>
+  return (
+    <SyntaxHighlighter {...props} style={darkMode ? oneDark : oneLight}>
+      {children}
+    </SyntaxHighlighter>
+  )
 }

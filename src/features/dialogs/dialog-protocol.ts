@@ -1,4 +1,7 @@
-import { askUserQuestionProtocol, parseAskUserQuestionRequest } from '../../../shared/ask-user-question.ts'
+import {
+  askUserQuestionProtocol,
+  parseAskUserQuestionRequest,
+} from '../../../shared/ask-user-question.ts'
 import type { JsonObject } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
 
@@ -16,7 +19,9 @@ export function isAskUserQuestionDialog(value: JsonObject): boolean {
     && parseAskUserQuestionRequest(payload) !== null
 }
 
-export function isAgentSelector(value: JsonObject): value is JsonObject & { id: string; options: unknown[] } {
+export function isAgentSelector(
+  value: JsonObject,
+): value is JsonObject & { id: string; options: unknown[] } {
   return value.method === 'select'
     && value.title === 'Select an agent'
     && typeof value.id === 'string'
@@ -24,9 +29,14 @@ export function isAgentSelector(value: JsonObject): value is JsonObject & { id: 
 }
 
 export function isBlockingDialog(value: JsonObject): boolean {
-  return value.method === 'select' || value.method === 'confirm' || value.method === 'input' || value.method === 'editor'
+  return value.method === 'select' || value.method === 'confirm' || value.method === 'input'
+    || value.method === 'editor'
 }
 
 function safeJsonParse(value: string): unknown {
-  try { return JSON.parse(value) } catch { return null }
+  try {
+    return JSON.parse(value)
+  } catch {
+    return null
+  }
 }

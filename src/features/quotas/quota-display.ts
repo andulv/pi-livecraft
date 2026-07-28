@@ -15,7 +15,10 @@ export function quotaProviderForModel(provider: unknown): QuotaProvider | undefi
 }
 
 /** Summarizes the main window of the active provider for the compact rail. */
-export function railQuota(quotas: QuotaSnapshot | null, provider: QuotaProvider | undefined): RailQuota | undefined {
+export function railQuota(
+  quotas: QuotaSnapshot | null,
+  provider: QuotaProvider | undefined,
+): RailQuota | undefined {
   if (!quotas || !provider) return undefined
   if (provider === 'openai') {
     const window = quotas.openai.data.find(({ period }) => period === '5h') ?? quotas.openai.data[0]
@@ -37,5 +40,8 @@ export function railQuota(quotas: QuotaSnapshot | null, provider: QuotaProvider 
 }
 
 function formatPercent(value: number): string {
-  return `${new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 }).format(Math.max(0, Math.min(100, value)))} %`
+  return `${
+    new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 }).format(Math
+      .max(0, Math.min(100, value)))
+  } %`
 }

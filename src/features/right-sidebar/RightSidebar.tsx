@@ -1,12 +1,28 @@
-import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import {
+  useEffect,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import type { GitFileDiff, GitPushResult, GitResetResult, GitRevertResult, GitSnapshot, QuotaSnapshot } from '../../../shared/types.ts'
+import type {
+  GitFileDiff,
+  GitPushResult,
+  GitResetResult,
+  GitRevertResult,
+  GitSnapshot,
+  QuotaSnapshot,
+} from '../../../shared/types.ts'
 import { getTodos } from '../../api.ts'
 import { GitWidget } from '../git/GitWidget.tsx'
 import { QuotaWidget } from '../quotas/QuotaWidget.tsx'
 import { railQuota, type QuotaProvider } from '../quotas/quota-display.ts'
 import { SessionAnalysisWidget } from '../session-analysis/SessionAnalysisWidget.tsx'
-import type { SessionAnalysis, SessionAnalysisTarget } from '../session-analysis/session-analysis.ts'
+import type {
+  SessionAnalysis,
+  SessionAnalysisTarget,
+} from '../session-analysis/session-analysis.ts'
 import { TodoWidget } from '../todo/TodoWidget.tsx'
 import { maxRightSidebarWidth, minRightSidebarWidth, type RightWidget } from './right-sidebar.ts'
 import { WidgetLayout } from './WidgetLayout.tsx'
@@ -20,7 +36,29 @@ export interface RailAction {
 }
 
 /** Coordinates the sidebar panels, their common rail, and resizing. */
-export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onAnalysisNavigate, onResize, snapshot, quotas, width, workspacePath, railActions, onCommit, onDiscard, onFileSelect, onPush, onQuotaRefresh, onRefresh, onReset, onRevert, onTodoSendPrompt, onTodoStartSession, onWidgetSelect }: {
+export function RightSidebar({
+  activeWidget,
+  analysis,
+  currentQuotaProvider,
+  onAnalysisNavigate,
+  onResize,
+  snapshot,
+  quotas,
+  width,
+  workspacePath,
+  railActions,
+  onCommit,
+  onDiscard,
+  onFileSelect,
+  onPush,
+  onQuotaRefresh,
+  onRefresh,
+  onReset,
+  onRevert,
+  onTodoSendPrompt,
+  onTodoStartSession,
+  onWidgetSelect,
+}: {
   activeWidget: RightWidget | null
   analysis: SessionAnalysis | null
   currentQuotaProvider: QuotaProvider | undefined
@@ -49,14 +87,19 @@ export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onA
   useEffect(() => {
     let cancelled = false
     setTodoOpenCount(null)
-    void getTodos(workspacePath).then((todos) => {
-      if (!cancelled) setTodoOpenCount(todos.filter((todo) => !todo.completed).length)
-    }).catch(() => {
-      if (!cancelled) setTodoOpenCount(null)
-    })
-    return () => { cancelled = true }
+    void getTodos(workspacePath)
+      .then((todos) => {
+        if (!cancelled) setTodoOpenCount(todos.filter((todo) => !todo.completed).length)
+      })
+      .catch(() => {
+        if (!cancelled) setTodoOpenCount(null)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [workspacePath])
-  const collapsed = activeWidget === null || (activeWidget === 'analysis' && !analysis) || (activeWidget === 'git' && !snapshot)
+  const collapsed = activeWidget === null || (activeWidget === 'analysis' && !analysis)
+    || (activeWidget === 'git' && !snapshot)
   const quotaSummary = railQuota(quotas, currentQuotaProvider)
 
   /** Installs temporary listeners needed for panel pointer resizing. */
@@ -66,7 +109,8 @@ export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onA
     const initialWidth = width
     handle.setPointerCapture(event.pointerId)
 
-    const resize = (moveEvent: PointerEvent): void => onResize(initialWidth + initialX - moveEvent.clientX)
+    const resize = (moveEvent: PointerEvent): void =>
+      onResize(initialWidth + initialX - moveEvent.clientX)
     const stop = (): void => {
       handle.removeEventListener('pointermove', resize)
       handle.removeEventListener('pointerup', stop)
@@ -96,50 +140,167 @@ export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onA
     }
   }
 
-  return <aside className="right-sidebar" aria-label="Workspace tools">
-    {!collapsed && <div className="right-sidebar-panel">
-      <div
-        aria-controls={activeWidget ? `${activeWidget}-panel` : undefined}
-        aria-label="Resize sidebar panel"
-        aria-orientation="vertical"
-        aria-valuemax={maxRightSidebarWidth}
-        aria-valuemin={minRightSidebarWidth}
-        aria-valuenow={width}
-        className="right-sidebar-resize-handle"
-        onKeyDown={resizeWithKeyboard}
-        onPointerDown={startResize}
-        role="separator"
-        tabIndex={0}
-      />
-      <section aria-label={panelLabel(activeWidget)} className="right-sidebar-content" id={`${activeWidget}-panel`}>
-        {activeWidget === 'analysis' && analysis && <WidgetLayout header={<div><strong>Session analysis</strong><span>{analysis.requests.length} request{analysis.requests.length > 1 ? 's' : ''} analyzed</span></div>}><SessionAnalysisWidget analysis={analysis} onNavigate={onAnalysisNavigate} /></WidgetLayout>}
-        {activeWidget === 'git' && snapshot && <GitWidget onCommit={onCommit} onDiscard={onDiscard} onFileSelect={onFileSelect} onPush={onPush} onRefresh={onRefresh} onReset={onReset} onRevert={onRevert} snapshot={snapshot} />}
-        {activeWidget === 'quotas' && <QuotaWidget onRefresh={onQuotaRefresh} quotas={quotas} />}
-        {activeWidget === 'todo' && <TodoWidget onOpenCountChange={setTodoOpenCount} onSendPrompt={onTodoSendPrompt} onStartSession={onTodoStartSession} workspacePath={workspacePath} />}
-      </section>
-    </div>}
-    <div className="right-sidebar-rail">
-      {analysis && <Tooltip label="Session analysis"><button aria-controls={activeWidget === 'analysis' ? 'analysis-panel' : undefined} aria-expanded={activeWidget === 'analysis'} aria-label={activeWidget === 'analysis' ? 'Collapse session analysis' : 'Expand session analysis'} className="rail-tab" onClick={() => onWidgetSelect('analysis')} type="button">
-        <span aria-hidden="true">∑</span>
-        {analysis.failedToolCalls > 0 && <small>{analysis.failedToolCalls}</small>}
-      </button></Tooltip>}
-      {snapshot && <Tooltip label="Git"><button aria-controls={activeWidget === 'git' ? 'git-panel' : undefined} aria-expanded={activeWidget === 'git'} aria-label={activeWidget === 'git' ? 'Collapse Git panel' : 'Expand Git panel'} className="rail-tab" onClick={() => onWidgetSelect('git')} type="button">
-        <span aria-hidden="true">⎇</span>
-        {(hasChanges || snapshot.ahead > 0) && <small>{snapshot.files.length + snapshot.ahead}</small>}
-      </button></Tooltip>}
-      <Tooltip label={quotaSummary?.label ?? 'Quotas'}><button aria-controls={activeWidget === 'quotas' ? 'quotas-panel' : undefined} aria-expanded={activeWidget === 'quotas'} aria-label={`${activeWidget === 'quotas' ? 'Collapse' : 'Expand'} quota panel${quotaSummary ? `. ${quotaSummary.label}` : ''}`} className="rail-tab" onClick={() => onWidgetSelect('quotas')} type="button">
-        <span aria-hidden="true" className="quota-rail-value">{quotaSummary?.value ?? '%'}</span>
-        {quotaSummary?.stale && <small>!</small>}
-      </button></Tooltip>
-      <Tooltip label="Todo"><button aria-controls={activeWidget === 'todo' ? 'todo-panel' : undefined} aria-expanded={activeWidget === 'todo'} aria-label={activeWidget === 'todo' ? 'Collapse the task panel' : 'Expand the task panel'} className="rail-tab" onClick={() => onWidgetSelect('todo')} type="button">
-        <span aria-hidden="true">☑</span>
-        {todoOpenCount !== null && todoOpenCount > 0 && <small aria-label={`${todoOpenCount} tasks remaining`}>{todoOpenCount}</small>}
-      </button></Tooltip>
-      {railActions.map((action) => <Tooltip key={action.key} label={action.label}><button aria-label={action.label} className="rail-tab" disabled={action.disabled} onClick={action.onClick} type="button">{action.icon}</button></Tooltip>)}
-    </div>
-  </aside>
+  return (
+    <aside className='right-sidebar' aria-label='Workspace tools'>
+      {!collapsed && (
+        <div className='right-sidebar-panel'>
+          <div
+            aria-controls={activeWidget ? `${activeWidget}-panel` : undefined}
+            aria-label='Resize sidebar panel'
+            aria-orientation='vertical'
+            aria-valuemax={maxRightSidebarWidth}
+            aria-valuemin={minRightSidebarWidth}
+            aria-valuenow={width}
+            className='right-sidebar-resize-handle'
+            onKeyDown={resizeWithKeyboard}
+            onPointerDown={startResize}
+            role='separator'
+            tabIndex={0}
+          />
+          <section
+            aria-label={panelLabel(activeWidget)}
+            className='right-sidebar-content'
+            id={`${activeWidget}-panel`}
+          >
+            {activeWidget === 'analysis' && analysis && (
+              <WidgetLayout
+                header={
+                  <div>
+                    <strong>Session analysis</strong>
+                    <span>
+                      {analysis
+                        .requests
+                        .length} request{analysis
+                          .requests
+                          .length > 1
+                        ? 's'
+                        : ''} analyzed
+                    </span>
+                  </div>
+                }
+              >
+                <SessionAnalysisWidget analysis={analysis} onNavigate={onAnalysisNavigate} />
+              </WidgetLayout>
+            )}
+            {activeWidget === 'git' && snapshot && (
+              <GitWidget
+                onCommit={onCommit}
+                onDiscard={onDiscard}
+                onFileSelect={onFileSelect}
+                onPush={onPush}
+                onRefresh={onRefresh}
+                onReset={onReset}
+                onRevert={onRevert}
+                snapshot={snapshot}
+              />
+            )}
+            {activeWidget === 'quotas' && (
+              <QuotaWidget onRefresh={onQuotaRefresh} quotas={quotas} />
+            )}
+            {activeWidget === 'todo' && (
+              <TodoWidget
+                onOpenCountChange={setTodoOpenCount}
+                onSendPrompt={onTodoSendPrompt}
+                onStartSession={onTodoStartSession}
+                workspacePath={workspacePath}
+              />
+            )}
+          </section>
+        </div>
+      )}
+      <div className='right-sidebar-rail'>
+        {analysis && (
+          <Tooltip label='Session analysis'>
+            <button
+              aria-controls={activeWidget === 'analysis' ? 'analysis-panel' : undefined}
+              aria-expanded={activeWidget === 'analysis'}
+              aria-label={activeWidget === 'analysis'
+                ? 'Collapse session analysis'
+                : 'Expand session analysis'}
+              className='rail-tab'
+              onClick={() => onWidgetSelect('analysis')}
+              type='button'
+            >
+              <span aria-hidden='true'>∑</span>
+              {analysis.failedToolCalls > 0 && <small>{analysis.failedToolCalls}</small>}
+            </button>
+          </Tooltip>
+        )}
+        {snapshot && (
+          <Tooltip label='Git'>
+            <button
+              aria-controls={activeWidget === 'git' ? 'git-panel' : undefined}
+              aria-expanded={activeWidget === 'git'}
+              aria-label={activeWidget === 'git' ? 'Collapse Git panel' : 'Expand Git panel'}
+              className='rail-tab'
+              onClick={() => onWidgetSelect('git')}
+              type='button'
+            >
+              <span aria-hidden='true'>⎇</span>
+              {(hasChanges || snapshot.ahead > 0) && (
+                <small>{snapshot.files.length + snapshot.ahead}</small>
+              )}
+            </button>
+          </Tooltip>
+        )}
+        <Tooltip label={quotaSummary?.label ?? 'Quotas'}>
+          <button
+            aria-controls={activeWidget === 'quotas' ? 'quotas-panel' : undefined}
+            aria-expanded={activeWidget === 'quotas'}
+            aria-label={`${activeWidget === 'quotas' ? 'Collapse' : 'Expand'} quota panel${
+              quotaSummary ? `. ${quotaSummary.label}` : ''
+            }`}
+            className='rail-tab'
+            onClick={() => onWidgetSelect('quotas')}
+            type='button'
+          >
+            <span aria-hidden='true' className='quota-rail-value'>
+              {quotaSummary?.value ?? '%'}
+            </span>
+            {quotaSummary?.stale && <small>!</small>}
+          </button>
+        </Tooltip>
+        <Tooltip label='Todo'>
+          <button
+            aria-controls={activeWidget === 'todo' ? 'todo-panel' : undefined}
+            aria-expanded={activeWidget === 'todo'}
+            aria-label={activeWidget === 'todo'
+              ? 'Collapse the task panel'
+              : 'Expand the task panel'}
+            className='rail-tab'
+            onClick={() => onWidgetSelect('todo')}
+            type='button'
+          >
+            <span aria-hidden='true'>☑</span>
+            {todoOpenCount !== null && todoOpenCount > 0 && (
+              <small aria-label={`${todoOpenCount} tasks remaining`}>{todoOpenCount}</small>
+            )}
+          </button>
+        </Tooltip>
+        {railActions.map((action) => (
+          <Tooltip key={action.key} label={action.label}>
+            <button
+              aria-label={action.label}
+              className='rail-tab'
+              disabled={action.disabled}
+              onClick={action.onClick}
+              type='button'
+            >
+              {action.icon}
+            </button>
+          </Tooltip>
+        ))}
+      </div>
+    </aside>
+  )
 }
 
 function panelLabel(activeWidget: RightWidget | null): string {
-  return activeWidget === 'analysis' ? 'Session analysis' : activeWidget === 'todo' ? 'Workspace tasks' : activeWidget === 'quotas' ? 'Provider quotas' : 'Git information'
+  return activeWidget === 'analysis'
+    ? 'Session analysis'
+    : activeWidget === 'todo'
+    ? 'Workspace tasks'
+    : activeWidget === 'quotas'
+    ? 'Provider quotas'
+    : 'Git information'
 }

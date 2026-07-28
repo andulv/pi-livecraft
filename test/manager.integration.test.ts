@@ -7,60 +7,72 @@ import { connect, type Socket } from 'node:net'
 import test from 'node:test'
 import { isObject } from '../shared/is-object.ts'
 
-test('keeps supervision alive without relaunching a manager that crashes', { timeout: 10_000 }, async (t) => {
-  const supervisor = spawn(process.execPath, ['server/manager-supervisor.ts'], {
-    cwd: process.cwd(),
-    env: { ...process.env, PI_LIVECRAFT_MANAGER_PORT: 'invalid' },
-    stdio: ['ignore', 'ignore', 'pipe'],
-  })
-  t.after(() => supervisor.kill('SIGKILL'))
-  let errors = ''
-  supervisor.stderr.on('data', (chunk: Buffer) => { errors += chunk.toString('utf8') })
+test(
+  'keeps supervision alive without relaunching a manager that crashes',
+  { timeout: 10_000 },
+  async (t) => {
+    const supervisor = spawn(process.execPath, ['server/manager-supervisor.ts'], {
+      cwd: process.cwd(),
+      env: { ...process.env, PI_LIVECRAFT_MANAGER_PORT: 'invalid' },
+      stdio: ['ignore', 'ignore', 'pipe'],
+    })
+    t.after(() => supervisor.kill('SIGKILL'))
+    let errors = ''
+    supervisor.stderr.on('data', (chunk: Buffer) => {
+      errors += chunk.toString('utf8')
+    })
 
-  await waitFor(() => errors.includes('PI_LIVECRAFT_MANAGER_PORT must be a valid port'))
-  await new Promise((resolve) => setTimeout(resolve, 200))
-  assert.equal(supervisor.exitCode, null)
-  assert.equal(errors.match(/PI_LIVECRAFT_MANAGER_PORT must be a valid port/g)?.length, 1)
-
-  supervisor.kill('SIGTERM')
-  await once(supervisor, 'exit')
-})
-
-test('restarts a supervised manager only after an explicit request', { timeout: 10_000 }, async () => {
-  const port = 45_000 + (process.pid % 10_000)
-  const supervisor = spawn(process.execPath, ['server/manager-supervisor.ts'], {
-    cwd: process.cwd(),
-    env: { ...process.env, PI_LIVECRAFT_MANAGER_PORT: String(port) },
-    stdio: 'ignore',
-  })
-  const firstClient = await connectManager(port)
-  try {
-    const firstStatus = await firstClient.request('status', {})
-    assert.equal(firstStatus.ok, true)
-    assert.equal(isObject(firstStatus.data) && firstStatus.data.supervised, true)
-    const firstInstanceId = isObject(firstStatus.data) ? firstStatus.data.instanceId : undefined
-    assert.equal(typeof firstInstanceId, 'string')
-
-    const restart = await firstClient.request('restart', {})
-    assert.equal(restart.ok, true)
-    firstClient.close()
+    await waitFor(() => errors.includes('PI_LIVECRAFT_MANAGER_PORT must be a valid port'))
     await new Promise((resolve) => setTimeout(resolve, 200))
+    assert.equal(supervisor.exitCode, null)
+    assert.equal(errors.match(/PI_LIVECRAFT_MANAGER_PORT must be a valid port/g)?.length, 1)
 
-    const secondClient = await connectManager(port)
-    try {
-      const secondStatus = await secondClient.request('status', {})
-      const secondInstanceId = isObject(secondStatus.data) ? secondStatus.data.instanceId : undefined
-      assert.equal(typeof secondInstanceId, 'string')
-      assert.notEqual(secondInstanceId, firstInstanceId)
-    } finally {
-      secondClient.close()
-    }
-  } finally {
-    firstClient.close()
     supervisor.kill('SIGTERM')
     await once(supervisor, 'exit')
-  }
-})
+  },
+)
+
+test(
+  'restarts a supervised manager only after an explicit request',
+  { timeout: 10_000 },
+  async () => {
+    const port = 45_000 + (process.pid % 10_000)
+    const supervisor = spawn(process.execPath, ['server/manager-supervisor.ts'], {
+      cwd: process.cwd(),
+      env: { ...process.env, PI_LIVECRAFT_MANAGER_PORT: String(port) },
+      stdio: 'ignore',
+    })
+    const firstClient = await connectManager(port)
+    try {
+      const firstStatus = await firstClient.request('status', {})
+      assert.equal(firstStatus.ok, true)
+      assert.equal(isObject(firstStatus.data) && firstStatus.data.supervised, true)
+      const firstInstanceId = isObject(firstStatus.data) ? firstStatus.data.instanceId : undefined
+      assert.equal(typeof firstInstanceId, 'string')
+
+      const restart = await firstClient.request('restart', {})
+      assert.equal(restart.ok, true)
+      firstClient.close()
+      await new Promise((resolve) => setTimeout(resolve, 200))
+
+      const secondClient = await connectManager(port)
+      try {
+        const secondStatus = await secondClient.request('status', {})
+        const secondInstanceId = isObject(secondStatus.data)
+          ? secondStatus.data.instanceId
+          : undefined
+        assert.equal(typeof secondInstanceId, 'string')
+        assert.notEqual(secondInstanceId, firstInstanceId)
+      } finally {
+        secondClient.close()
+      }
+    } finally {
+      firstClient.close()
+      supervisor.kill('SIGTERM')
+      await once(supervisor, 'exit')
+    }
+  },
+)
 
 test('reconciles live Pi work before restarting the manager', { timeout: 10_000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
@@ -80,13 +92,34 @@ test('reconciles live Pi work before restarting the manager', { timeout: 10_000 
   })
   const client = await connectManager(port)
   try {
-    const opened = await client.request('open', { cwd: process.cwd(), name: 'Active', sessionPath: join(directory, 'active.jsonl') })
-    assert.equal((await client.request('command', { sessionId: sessionId(opened), command: { type: 'prompt', message: '/select' } })).ok, true)
+    const opened = await client.request('open', {
+      cwd: process.cwd(),
+      name: 'Active',
+      sessionPath: join(directory, 'active.jsonl'),
+    })
+    assert.equal(
+      (await client.request('command', {
+        sessionId: sessionId(opened),
+        command: { type: 'prompt', message: '/select' },
+      }))
+        .ok,
+      true,
+    )
     const waitingSessions = await client.request('list', {})
     assert.equal(sessionStatus(waitingSessions, sessionId(opened)), 'idle')
-    assert.equal((await client.request('command', { sessionId: sessionId(opened), command: { type: 'extension_ui_response', id: 'select-test', value: 'worker' } })).ok, true)
+    assert.equal(
+      (await client.request('command', {
+        sessionId: sessionId(opened),
+        command: { type: 'extension_ui_response', id: 'select-test', value: 'worker' },
+      }))
+        .ok,
+      true,
+    )
 
-    const pendingCommand = client.request('command', { sessionId: sessionId(opened), command: { type: 'hold_test' } })
+    const pendingCommand = client.request('command', {
+      sessionId: sessionId(opened),
+      command: { type: 'hold_test' },
+    })
     await new Promise((resolve) => setTimeout(resolve, 25))
 
     const restart = await client.request('restart', {})
@@ -94,14 +127,28 @@ test('reconciles live Pi work before restarting the manager', { timeout: 10_000 
     assert.match(restart.error ?? '', /Active Pi work/)
     assert.equal((await pendingCommand).ok, true)
 
-    assert.equal((await client.request('command', { sessionId: sessionId(opened), command: { type: 'prompt', message: 'Test' } })).ok, true)
+    assert.equal(
+      (await client.request('command', {
+        sessionId: sessionId(opened),
+        command: { type: 'prompt', message: 'Test' },
+      }))
+        .ok,
+      true,
+    )
     const activeSessions = await client.request('list', {})
     assert.equal(sessionStatus(activeSessions, sessionId(opened)), 'running')
     const activeRestart = await client.request('restart', {})
     assert.equal(activeRestart.ok, false)
     assert.match(activeRestart.error ?? '', /Active Pi work/)
 
-    assert.equal((await client.request('command', { sessionId: sessionId(opened), command: { type: 'prompt', message: '/handled' } })).ok, true)
+    assert.equal(
+      (await client.request('command', {
+        sessionId: sessionId(opened),
+        command: { type: 'prompt', message: '/handled' },
+      }))
+        .ok,
+      true,
+    )
     const settledSessions = await client.request('list', {})
     assert.equal(sessionStatus(settledSessions, sessionId(opened)), 'idle')
     const settledRestart = await client.request('restart', {})
@@ -118,30 +165,45 @@ test('reconciles live Pi work before restarting the manager', { timeout: 10_000 
   }
 })
 
-test('accepts commands after an event emitted before Pi finishes starting', { timeout: 10_000 }, async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
-  const port = 45_000 + (process.pid % 10_000)
-  await writeFakePi(directory, true)
-  const manager = spawn(process.execPath, ['server/manager.ts'], {
-    cwd: process.cwd(),
-    env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, PI_LIVECRAFT_MANAGER_PORT: String(port) },
-    stdio: 'ignore',
-  })
-  const client = await connectManager(port)
-  try {
-    const startupEvent = client.waitForEvent((event) => event.event === 'pi')
-    const opening = client.request('open', { cwd: process.cwd(), name: 'Archived', sessionPath: join(directory, 'archived.jsonl') })
-    const event = await startupEvent
-    const command = await client.request('command', { sessionId: event.sessionId, command: { type: 'get_commands' } })
-    assert.equal(command.ok, true)
-    await opening
-  } finally {
-    client.close()
-    manager.kill('SIGTERM')
-    await once(manager, 'exit')
-    await rm(directory, { force: true, recursive: true })
-  }
-})
+test(
+  'accepts commands after an event emitted before Pi finishes starting',
+  { timeout: 10_000 },
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
+    const port = 45_000 + (process.pid % 10_000)
+    await writeFakePi(directory, true)
+    const manager = spawn(process.execPath, ['server/manager.ts'], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        PATH: `${directory}:${process.env.PATH}`,
+        PI_LIVECRAFT_MANAGER_PORT: String(port),
+      },
+      stdio: 'ignore',
+    })
+    const client = await connectManager(port)
+    try {
+      const startupEvent = client.waitForEvent((event) => event.event === 'pi')
+      const opening = client.request('open', {
+        cwd: process.cwd(),
+        name: 'Archived',
+        sessionPath: join(directory, 'archived.jsonl'),
+      })
+      const event = await startupEvent
+      const command = await client.request('command', {
+        sessionId: event.sessionId,
+        command: { type: 'get_commands' },
+      })
+      assert.equal(command.ok, true)
+      await opening
+    } finally {
+      client.close()
+      manager.kill('SIGTERM')
+      await once(manager, 'exit')
+      await rm(directory, { force: true, recursive: true })
+    }
+  },
+)
 
 test('completes a manual compact without timeout', { timeout: 10_000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
@@ -149,14 +211,25 @@ test('completes a manual compact without timeout', { timeout: 10_000 }, async ()
   await writeFakePi(directory)
   const manager = spawn(process.execPath, ['server/manager.ts'], {
     cwd: process.cwd(),
-    env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, PI_LIVECRAFT_MANAGER_PORT: String(port) },
+    env: {
+      ...process.env,
+      PATH: `${directory}:${process.env.PATH}`,
+      PI_LIVECRAFT_MANAGER_PORT: String(port),
+    },
     stdio: 'ignore',
   })
   const client = await connectManager(port)
   try {
-    const opened = await client.request('open', { cwd: process.cwd(), name: 'Active', sessionPath: join(directory, 'active.jsonl') })
+    const opened = await client.request('open', {
+      cwd: process.cwd(),
+      name: 'Active',
+      sessionPath: join(directory, 'active.jsonl'),
+    })
     const compactionStart = client.waitForEvent((event) => event.event === 'pi')
-    const compactResponse = await client.request('command', { sessionId: sessionId(opened), command: { type: 'compact' } })
+    const compactResponse = await client.request('command', {
+      sessionId: sessionId(opened),
+      command: { type: 'compact' },
+    })
     assert.equal(compactResponse.ok, true)
     const startEvent = await compactionStart
     assert.equal(isObject(startEvent.data) && startEvent.data.type, 'compaction_start')
@@ -174,18 +247,33 @@ test('restarts an exited Pi session when reopening it', { timeout: 10_000 }, asy
   await writeFakePi(directory)
   const manager = spawn(process.execPath, ['server/manager.ts'], {
     cwd: process.cwd(),
-    env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, PI_LIVECRAFT_MANAGER_PORT: String(port) },
+    env: {
+      ...process.env,
+      PATH: `${directory}:${process.env.PATH}`,
+      PI_LIVECRAFT_MANAGER_PORT: String(port),
+    },
     stdio: 'ignore',
   })
   const client = await connectManager(port)
   try {
-    const first = await client.request('open', { cwd: process.cwd(), name: 'Archived', sessionPath: join(directory, 'archived.jsonl') })
+    const first = await client.request('open', {
+      cwd: process.cwd(),
+      name: 'Archived',
+      sessionPath: join(directory, 'archived.jsonl'),
+    })
     assert.equal(first.ok, true)
 
-    const stopped = await client.request('command', { sessionId: sessionId(first), command: { type: 'quit_test' } })
+    const stopped = await client.request('command', {
+      sessionId: sessionId(first),
+      command: { type: 'quit_test' },
+    })
     assert.equal(stopped.ok, false)
 
-    const reopened = await client.request('open', { cwd: process.cwd(), name: 'Archived', sessionPath: join(directory, 'archived.jsonl') })
+    const reopened = await client.request('open', {
+      cwd: process.cwd(),
+      name: 'Archived',
+      sessionPath: join(directory, 'archived.jsonl'),
+    })
     assert.equal(reopened.ok, true)
     assert.notEqual(sessionId(reopened), sessionId(first))
   } finally {
@@ -202,14 +290,28 @@ test('improves a prompt with the cheapest isolated model', { timeout: 10_000 }, 
   await writeFakePi(directory)
   const manager = spawn(process.execPath, ['server/manager.ts'], {
     cwd: process.cwd(),
-    env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, PI_LIVECRAFT_MANAGER_PORT: String(port) },
+    env: {
+      ...process.env,
+      PATH: `${directory}:${process.env.PATH}`,
+      PI_LIVECRAFT_MANAGER_PORT: String(port),
+    },
     stdio: 'ignore',
   })
   const client = await connectManager(port)
   try {
-    const opened = await client.request('open', { cwd: process.cwd(), name: 'Active', sessionPath: join(directory, 'active.jsonl') })
-    const improved = await client.request('improve_prompt', { sessionId: sessionId(opened), prompt: 'Fix it' })
-    assert.deepEqual(improved.data, { prompt: 'Fix the failing behavior and validate the result.', cost: 0.0042 })
+    const opened = await client.request('open', {
+      cwd: process.cwd(),
+      name: 'Active',
+      sessionPath: join(directory, 'active.jsonl'),
+    })
+    const improved = await client.request('improve_prompt', {
+      sessionId: sessionId(opened),
+      prompt: 'Fix it',
+    })
+    assert.deepEqual(improved.data, {
+      prompt: 'Fix the failing behavior and validate the result.',
+      cost: 0.0042,
+    })
   } finally {
     client.close()
     manager.kill('SIGTERM')
@@ -224,14 +326,29 @@ test('improves a prompt with a direction preset', { timeout: 10_000 }, async () 
   await writeFakePi(directory)
   const manager = spawn(process.execPath, ['server/manager.ts'], {
     cwd: process.cwd(),
-    env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, PI_LIVECRAFT_MANAGER_PORT: String(port) },
+    env: {
+      ...process.env,
+      PATH: `${directory}:${process.env.PATH}`,
+      PI_LIVECRAFT_MANAGER_PORT: String(port),
+    },
     stdio: 'ignore',
   })
   const client = await connectManager(port)
   try {
-    const opened = await client.request('open', { cwd: process.cwd(), name: 'Active', sessionPath: join(directory, 'active.jsonl') })
-    const improved = await client.request('improve_prompt', { sessionId: sessionId(opened), prompt: 'Fix it', direction: 'concise' })
-    assert.deepEqual(improved.data, { prompt: 'Fix the failing behavior and validate the result.', cost: 0.0042 })
+    const opened = await client.request('open', {
+      cwd: process.cwd(),
+      name: 'Active',
+      sessionPath: join(directory, 'active.jsonl'),
+    })
+    const improved = await client.request('improve_prompt', {
+      sessionId: sessionId(opened),
+      prompt: 'Fix it',
+      direction: 'concise',
+    })
+    assert.deepEqual(improved.data, {
+      prompt: 'Fix the failing behavior and validate the result.',
+      cost: 0.0042,
+    })
   } finally {
     client.close()
     manager.kill('SIGTERM')
@@ -242,11 +359,15 @@ test('improves a prompt with a direction preset', { timeout: 10_000 }, async () 
 
 async function writeFakePi(directory: string, emitStartupEvent = false): Promise<void> {
   const path = join(directory, 'pi')
-  await writeFile(path, `#!/usr/bin/env node
+  await writeFile(
+    path,
+    `#!/usr/bin/env node
 import readline from 'node:readline'
 const isolated = process.argv.includes('--no-session')
 const sessionPath = process.argv[process.argv.indexOf('--session') + 1]
-const expectedExtension = ${JSON.stringify(join(process.cwd(), 'pi-extensions/ask-user-question.ts'))}
+const expectedExtension = ${
+      JSON.stringify(join(process.cwd(), 'pi-extensions/ask-user-question.ts'))
+    }
 const extensionIndex = process.argv.indexOf('--extension')
 if (isolated) {
   for (const flag of ['--no-tools', '--no-extensions', '--no-skills', '--no-prompt-templates', '--no-themes', '--no-context-files']) {
@@ -320,7 +441,8 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   }
   console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data }))
 })
-`)
+`,
+  )
   await chmod(path, 0o755)
 }
 
@@ -339,7 +461,15 @@ interface ManagerEvent {
   data?: unknown
 }
 
-async function connectManager(port: number): Promise<{ request: (action: string, fields: Record<string, unknown>) => Promise<ManagerResponse>; waitForEvent: (predicate: (event: ManagerEvent) => boolean) => Promise<ManagerEvent>; close: () => void }> {
+async function connectManager(
+  port: number,
+): Promise<
+  {
+    request: (action: string, fields: Record<string, unknown>) => Promise<ManagerResponse>
+    waitForEvent: (predicate: (event: ManagerEvent) => boolean) => Promise<ManagerEvent>
+    close: () => void
+  }
+> {
   const socket = await connectWithRetry(port)
   let buffer = ''
   let requestId = 0
@@ -419,7 +549,8 @@ async function connectWithRetry(port: number): Promise<Socket> {
 }
 
 function sessionId(response: ManagerResponse): string {
-  if (!isObject(response.data) || typeof response.data.id !== 'string') throw new Error('Invalid session response')
+  if (!isObject(response.data) || typeof response.data.id !== 'string')
+    throw new Error('Invalid session response')
   return response.data.id
 }
 
@@ -430,11 +561,13 @@ function sessionStatus(response: ManagerResponse, id: string): unknown {
 }
 
 function isManagerResponse(value: unknown): value is ManagerResponse {
-  return isObject(value) && value.kind === 'response' && typeof value.id === 'string' && typeof value.ok === 'boolean'
+  return isObject(value) && value.kind === 'response' && typeof value.id === 'string'
+    && typeof value.ok === 'boolean'
 }
 
 function isManagerEvent(value: unknown): value is ManagerEvent {
-  return isObject(value) && value.kind === 'event' && typeof value.event === 'string' && typeof value.sessionId === 'string'
+  return isObject(value) && value.kind === 'event' && typeof value.event === 'string'
+    && typeof value.sessionId === 'string'
 }
 function once(process: ReturnType<typeof spawn>, event: 'exit'): Promise<void> {
   return new Promise((resolve) => process.once(event, () => resolve()))

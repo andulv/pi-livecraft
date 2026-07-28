@@ -1,5 +1,12 @@
 import { spawn } from 'node:child_process'
-import type { GitCommit, GitFileChange, GitFileDiff, GitResetResult, GitRevertResult, GitSnapshot } from '../../../shared/types.ts'
+import type {
+  GitCommit,
+  GitFileChange,
+  GitFileDiff,
+  GitResetResult,
+  GitRevertResult,
+  GitSnapshot,
+} from '../../../shared/types.ts'
 
 interface GitCommandResult {
   exitCode: number
@@ -10,7 +17,8 @@ interface GitCommandResult {
 /** Aggregates Git state, file statistics, and the number of commits waiting to be pushed. */
 export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
   const repository = await runGit(cwd, ['rev-parse', '--is-inside-work-tree'], [0, 128])
-  if (repository.exitCode !== 0 || repository.stdout.trim() !== 'true') return { repository: false, root: null, branch: null, files: [], ahead: 0, commits: [] }
+  if (repository.exitCode !== 0 || repository.stdout.trim() !== 'true')
+    return { repository: false, root: null, branch: null, files: [], ahead: 0, commits: [] }
 
   const [root, status, unstaged, staged, branch, upstream] = await Promise.all([
     runGit(cwd, ['rev-parse', '--show-toplevel']),
@@ -23,11 +31,27 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
 
   const changes = parseGitStatus(status.stdout)
   const counts = mergeNumstats(unstaged.stdout, staged.stdout)
-  await Promise.all(changes.filter((change) => change.status === 'added' && !counts.has(change.path)).map(async (change) => {
-    const result = await runGit(cwd, ['diff', '--no-index', '--numstat', '-z', '--', '/dev/null', change.path], [0, 1])
-    const [count] = parseNumstat(result.stdout)
-    if (count) counts.set(change.path, { additions: count.additions, deletions: count.deletions })
-  }))
+  await Promise.all(
+    changes.filter((change) => change.status === 'added' && !counts.has(change.path)).map(
+      async (change) => {
+        const result = await runGit(cwd, [
+          'diff',
+          '--no-index',
+          '--numstat',
+          '-z',
+          '--',
+          '/dev/null',
+          change.path,
+        ], [0, 1])
+        const [count] = parseNumstat(result.stdout)
+        if (count)
+          counts.set(change.path, {
+            additions: count.additions,
+            deletions: count.deletions,
+          })
+      },
+    ),
+  )
 
   const commits = upstream.exitCode === 0 ? await unpushedCommits(cwd) : []
 
@@ -45,18 +69,34 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
 }
 
 /** Returns the unified diff for a modified or added file in the tree or an unpushed commit. */
-export async function getGitFileDiff(cwd: string, path: string, commitHash?: string): Promise<GitFileDiff> {
+export async function getGitFileDiff(
+  cwd: string,
+  path: string,
+  commitHash?: string,
+): Promise<GitFileDiff> {
   const snapshot = await getGitSnapshot(cwd)
   if (commitHash) {
     const commit = snapshot.commits.find(({ hash }) => hash === commitHash)
     const file = commit?.files.find((change) => change.path === path)
-    if (!file || (file.status !== 'added' && file.status !== 'modified')) throw new Error('This file cannot be displayed.')
-    const result = await runGit(cwd, ['diff-tree', '--no-commit-id', '--root', '--first-parent', '-m', '-p', commitHash, '--', path])
+    if (!file || (file.status !== 'added' && file.status !== 'modified'))
+      throw new Error('This file cannot be displayed.')
+    const result = await runGit(cwd, [
+      'diff-tree',
+      '--no-commit-id',
+      '--root',
+      '--first-parent',
+      '-m',
+      '-p',
+      commitHash,
+      '--',
+      path,
+    ])
     return { path, diff: result.stdout }
   }
 
   const file = snapshot.files.find((change) => change.path === path)
-  if (!file || (file.status !== 'added' && file.status !== 'modified')) throw new Error('This file cannot be displayed.')
+  if (!file || (file.status !== 'added' && file.status !== 'modified'))
+    throw new Error('This file cannot be displayed.')
 
   const trackedDiff = await runGit(cwd, ['diff', 'HEAD', '--', path], [0, 128])
   if (trackedDiff.stdout) return { path, diff: trackedDiff.stdout }
@@ -80,8 +120,26 @@ async function unpushedCommits(cwd: string): Promise<GitCommit[]> {
 
   await Promise.all(commits.map(async (commit) => {
     const [status, stats] = await Promise.all([
-      runGit(cwd, ['diff-tree', '--no-commit-id', '--name-status', '-r', '-m', '--first-parent', '-z', commit.hash]),
-      runGit(cwd, ['diff-tree', '--no-commit-id', '--numstat', '-r', '-m', '--first-parent', '-z', commit.hash]),
+      runGit(cwd, [
+        'diff-tree',
+        '--no-commit-id',
+        '--name-status',
+        '-r',
+        '-m',
+        '--first-parent',
+        '-z',
+        commit.hash,
+      ]),
+      runGit(cwd, [
+        'diff-tree',
+        '--no-commit-id',
+        '--numstat',
+        '-r',
+        '-m',
+        '--first-parent',
+        '-z',
+        commit.hash,
+      ]),
     ])
     const counts = mergeNumstats(stats.stdout)
     commit.files = parseGitNameStatus(status.stdout).map((change) => {
@@ -97,8 +155,10 @@ async function unpushedCommits(cwd: string): Promise<GitCommit[]> {
 export async function resetGitCommit(cwd: string, hash: string): Promise<GitResetResult> {
   const snapshot = await getGitSnapshot(cwd)
   if (!snapshot.repository) throw new Error('The current directory is not a Git repository.')
-  if (snapshot.files.length > 0) throw new Error('The repository must be clean before resetting a commit.')
-  if (snapshot.commits[0]?.hash !== hash) throw new Error('Only the latest unpushed commit can be reset.')
+  if (snapshot.files.length > 0)
+    throw new Error('The repository must be clean before resetting a commit.')
+  if (snapshot.commits[0]?.hash !== hash)
+    throw new Error('Only the latest unpushed commit can be reset.')
 
   await runGit(cwd, ['reset', `${hash}^`])
   return { hash }
@@ -108,8 +168,10 @@ export async function resetGitCommit(cwd: string, hash: string): Promise<GitRese
 export async function revertGitCommit(cwd: string, hash: string): Promise<GitRevertResult> {
   const snapshot = await getGitSnapshot(cwd)
   if (!snapshot.repository) throw new Error('The current directory is not a Git repository.')
-  if (snapshot.files.length > 0) throw new Error('The repository must be clean before reverting a commit.')
-  if (!snapshot.commits.some((commit) => commit.hash === hash)) throw new Error('This commit cannot be reverted.')
+  if (snapshot.files.length > 0)
+    throw new Error('The repository must be clean before reverting a commit.')
+  if (!snapshot.commits.some((commit) => commit.hash === hash))
+    throw new Error('This commit cannot be reverted.')
 
   await runGit(cwd, ['revert', '--no-edit', hash])
   return { hash }
@@ -204,7 +266,9 @@ export function parseGitStatus(output: string): Omit<GitFileChange, 'additions' 
 }
 
 /** Parses git diff --name-status -z output into file change records, tracking renames. */
-export function parseGitNameStatus(output: string): Omit<GitFileChange, 'additions' | 'deletions'>[] {
+export function parseGitNameStatus(
+  output: string,
+): Omit<GitFileChange, 'additions' | 'deletions'>[] {
   const fields = output.split('\0')
   const changes: Omit<GitFileChange, 'additions' | 'deletions'>[] = []
 
@@ -224,21 +288,33 @@ export function parseGitNameStatus(output: string): Omit<GitFileChange, 'additio
 }
 
 /** Merges multiple git diff --numstat -z outputs into combined additions and deletions per file. */
-export function mergeNumstats(...outputs: string[]): Map<string, Pick<GitFileChange, 'additions' | 'deletions'>> {
+export function mergeNumstats(
+  ...outputs: string[]
+): Map<string, Pick<GitFileChange, 'additions' | 'deletions'>> {
   const counts = new Map<string, Pick<GitFileChange, 'additions' | 'deletions'>>()
   for (const output of outputs) {
     for (const count of parseNumstat(output)) {
       const current = counts.get(count.path)
       counts.set(count.path, {
-        additions: current?.additions !== null && current?.additions !== undefined && count.additions !== null ? current.additions + count.additions : count.additions,
-        deletions: current?.deletions !== null && current?.deletions !== undefined && count.deletions !== null ? current.deletions + count.deletions : count.deletions,
+        additions: current
+                ?.additions !== null && current?.additions !== undefined && count
+              .additions !== null
+          ? current.additions + count.additions
+          : count.additions,
+        deletions: current
+                ?.deletions !== null && current?.deletions !== undefined && count
+              .deletions !== null
+          ? current.deletions + count.deletions
+          : count.deletions,
       })
     }
   }
   return counts
 }
 
-function parseNumstat(output: string): (Pick<GitFileChange, 'additions' | 'deletions'> & { path: string })[] {
+function parseNumstat(
+  output: string,
+): (Pick<GitFileChange, 'additions' | 'deletions'> & { path: string })[] {
   const fields = output.split('\0')
   const counts: (Pick<GitFileChange, 'additions' | 'deletions'> & { path: string })[] = []
   for (let index = 0; index < fields.length - 1; index += 1) {
@@ -251,7 +327,12 @@ function parseNumstat(output: string): (Pick<GitFileChange, 'additions' | 'delet
     }
     const oldPath = fields[++index]
     const newPath = fields[++index]
-    if (oldPath && newPath) counts.push({ path: newPath, additions: numberOrNull(additions), deletions: numberOrNull(deletions) })
+    if (oldPath && newPath)
+      counts.push({
+        path: newPath,
+        additions: numberOrNull(additions),
+        deletions: numberOrNull(deletions),
+      })
   }
   return counts
 }
@@ -268,13 +349,21 @@ function numberOrNull(value: string): number | null {
   return Number.isNaN(number) ? null : number
 }
 
-async function runGit(cwd: string, args: string[], allowedExitCodes = [0]): Promise<GitCommandResult> {
+async function runGit(
+  cwd: string,
+  args: string[],
+  allowedExitCodes = [0],
+): Promise<GitCommandResult> {
   return new Promise((resolve, reject) => {
     const process = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
     let stdout = ''
     let stderr = ''
-    process.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8') })
-    process.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8') })
+    process.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString('utf8')
+    })
+    process.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString('utf8')
+    })
     process.once('error', reject)
     process.once('close', (exitCode) => {
       const result = { exitCode: exitCode ?? 1, stdout, stderr }

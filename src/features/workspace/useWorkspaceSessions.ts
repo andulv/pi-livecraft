@@ -22,16 +22,30 @@ const COMPLETED_SESSIONS_KEY = 'pi-livecraft.completed-sessions'
 const MAX_COMPLETED_SESSIONS = 30
 
 /** Owns workspace selection, session lists, persistence, and session creation. */
-export function useWorkspaceSessions({ onDraftMessage, onError, onInitialMessageSent, onSessionsRefreshed, onWorkspaceSelected }: WorkspaceSessionsOptions) {
+export function useWorkspaceSessions(
+  { onDraftMessage, onError, onInitialMessageSent, onSessionsRefreshed, onWorkspaceSelected }:
+    WorkspaceSessionsOptions,
+) {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
   const [sentSessions, setSentSessions] = useState<RecentSession[]>([])
-  const [completedSessionIds, setCompletedSessionIds] = useState<ReadonlySet<string>>(readCompletedSessionIds)
+  const [completedSessionIds, setCompletedSessionIds] = useState<ReadonlySet<string>>(
+    readCompletedSessionIds,
+  )
   const [isRefreshingSessions, setIsRefreshingSessions] = useState(true)
-  const [workspacePath, setWorkspacePath] = useState(() => window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.')
-  const [recentWorkspacePaths, setRecentWorkspacePaths] = useState(() => recentWorkspaces(window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.', readRecentWorkspaces()))
+  const [workspacePath, setWorkspacePath] = useState(() =>
+    window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.'
+  )
+  const [recentWorkspacePaths, setRecentWorkspacePaths] = useState(() =>
+    recentWorkspaces(
+      window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.',
+      readRecentWorkspaces(),
+    )
+  )
   const [directoryPickerOpen, setDirectoryPickerOpen] = useState(false)
-  const [selectedId, setSelectedId] = useState(() => window.localStorage.getItem('pi-livecraft.selected-session') ?? '')
+  const [selectedId, setSelectedId] = useState(() =>
+    window.localStorage.getItem('pi-livecraft.selected-session') ?? ''
+  )
   const [creatingSession, setCreatingSession] = useState(false)
   const sessionsRef = useRef(sessions)
   const sentSessionsRef = useRef(sentSessions)
@@ -48,19 +62,26 @@ export function useWorkspaceSessions({ onDraftMessage, onError, onInitialMessage
   useEffect(() => {
     if (window.localStorage.getItem('pi-livecraft.workspace-path') !== null) return
     let active = true
-    void listDirectories('.').then(({ path }) => {
-      if (!active || window.localStorage.getItem('pi-livecraft.workspace-path') !== null) return
-      setWorkspacePath(path)
-      setRecentWorkspacePaths(recentWorkspaces(path, readRecentWorkspaces()))
-    }).catch(() => undefined)
-    return () => { active = false }
+    void listDirectories('.')
+      .then(({ path }) => {
+        if (!active || window.localStorage.getItem('pi-livecraft.workspace-path') !== null) return
+        setWorkspacePath(path)
+        setRecentWorkspacePaths(recentWorkspaces(path, readRecentWorkspaces()))
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
   }, [])
 
   useEffect(() => {
     if (selectedId) window.localStorage.setItem('pi-livecraft.selected-session', selectedId)
     else window.localStorage.removeItem('pi-livecraft.selected-session')
     setCompletedSessionIds((current) => {
-      const sessionKey = sessionsRef.current.find((session) => session.id === selectedId)?.sessionPath ?? selectedId
+      const sessionKey = sessionsRef
+        .current
+        .find((session) => session.id === selectedId)
+        ?.sessionPath ?? selectedId
       if (!current.has(sessionKey)) return current
       const next = new Set(current)
       next.delete(sessionKey)
@@ -76,32 +97,59 @@ export function useWorkspaceSessions({ onDraftMessage, onError, onInitialMessage
     const shouldAutoSelect = autoSelectOnRefreshRef.current
     setIsRefreshingSessions(true)
     try {
-      const [nextSessions, nextRecentSessions] = await Promise.all([listSessions(), listRecentSessions(cwd)])
+      const [nextSessions, nextRecentSessions] = await Promise.all([
+        listSessions(),
+        listRecentSessions(cwd),
+      ])
       if (version !== refreshVersionRef.current) return
       const autoSelectId = shouldAutoSelect
-        ? pickSessionOnOpen(sidebarSessions(nextRecentSessions, cwd, sentSessionsRef.current), nextSessions, completedSessionIdsRef.current)
+        ? pickSessionOnOpen(
+          sidebarSessions(nextRecentSessions, cwd, sentSessionsRef.current),
+          nextSessions,
+          completedSessionIdsRef.current,
+        )
         : undefined
-      const recentNames = new Map(nextRecentSessions.map((session) => [session.sessionPath, session.name]))
+      const recentNames = new Map(
+        nextRecentSessions.map((session) => [session.sessionPath, session.name]),
+      )
       const namedSessions = nextSessions.map((session) => {
         const recentName = session.sessionPath ? recentNames.get(session.sessionPath) : undefined
         const previousName = sessionsRef.current.find((current) => current.id === session.id)?.name
-        return recentName ? { ...session, name: recentName } : previousName && previousName !== 'Nouvelle session' ? { ...session, name: previousName } : session
+        return recentName
+          ? { ...session, name: recentName }
+          : previousName && previousName !== 'Nouvelle session'
+          ? { ...session, name: previousName }
+          : session
       })
       setSessions(namedSessions)
       setCompletedSessionIds((current) => {
         if (current.size === 0) return current
-        const sessionKeys = new Set(nextSessions.flatMap((session) => [session.id, session.sessionPath].filter((key): key is string => Boolean(key))))
+        const sessionKeys = new Set(
+          nextSessions.flatMap((session) =>
+            [session.id, session.sessionPath].filter((key): key is string => Boolean(key))
+          ),
+        )
         const recentKeys = new Set(nextRecentSessions.map((session) => session.sessionPath))
-        const next = new Set([...current].filter((key) => sessionKeys.has(key) || recentKeys.has(key)))
+        const next = new Set(
+          [...current].filter((key) => sessionKeys.has(key) || recentKeys.has(key)),
+        )
         return next.size === current.size ? current : next
       })
       setRecentSessions(nextRecentSessions)
-      setSentSessions((current) => current.filter((sent) => !nextRecentSessions.some((recent) => recent.id === sent.id || recent.sessionPath === sent.sessionPath)))
+      setSentSessions((current) =>
+        current.filter((sent) =>
+          !nextRecentSessions.some((recent) =>
+            recent.id === sent.id || recent.sessionPath === sent.sessionPath
+          )
+        )
+      )
       if (shouldAutoSelect) {
         autoSelectOnRefreshRef.current = false
         setSelectedId(autoSelectId ?? '')
       } else {
-        setSelectedId((current) => nextSessions.some((session) => session.id === current) ? current : '')
+        setSelectedId((current) =>
+          nextSessions.some((session) => session.id === current) ? current : ''
+        )
       }
       onSessionsRefreshed(nextSessions)
     } catch (cause) {
@@ -117,7 +165,10 @@ export function useWorkspaceSessions({ onDraftMessage, onError, onInitialMessage
   const selectWorkspace = useCallback((path: string, targetSessionId?: string): void => {
     window.localStorage.setItem('pi-livecraft.workspace-path', path)
     const nextRecentWorkspacePaths = recentWorkspaces(path, recentWorkspacePaths)
-    window.localStorage.setItem('pi-livecraft.recent-workspace-paths', JSON.stringify(nextRecentWorkspacePaths))
+    window.localStorage.setItem(
+      'pi-livecraft.recent-workspace-paths',
+      JSON.stringify(nextRecentWorkspacePaths),
+    )
     setRecentWorkspacePaths(nextRecentWorkspacePaths)
     onWorkspaceSelected()
     setWorkspacePath(path)
@@ -128,68 +179,128 @@ export function useWorkspaceSessions({ onDraftMessage, onError, onInitialMessage
   }, [onWorkspaceSelected, recentWorkspacePaths, refreshSessions])
 
   /** Stores the optimistic title shared by first prompts in new and existing sessions. */
-  const nameSessionFromFirstPrompt = useCallback((session: SessionSummary, message: string): void => {
-    const name = promptSessionTitle(message)
-    setSessions((current) => current.map((candidate) => candidate.id === session.id ? { ...candidate, name } : candidate))
-    const sessionPath = session.sessionPath
-    if (!sessionPath) return
-    setSentSessions((current) => [{ id: session.id, cwd: session.cwd, name, sessionPath, updatedAt: Date.now() }, ...current.filter((recent) => recent.id !== session.id && recent.sessionPath !== sessionPath)])
-  }, [])
+  const nameSessionFromFirstPrompt = useCallback(
+    (session: SessionSummary, message: string): void => {
+      const name = promptSessionTitle(message)
+      setSessions((current) =>
+        current.map((candidate) => candidate.id === session.id ? { ...candidate, name } : candidate)
+      )
+      const sessionPath = session.sessionPath
+      if (!sessionPath) return
+      setSentSessions((current) => [
+        {
+          id: session.id,
+          cwd: session.cwd,
+          name,
+          sessionPath,
+          updatedAt: Date.now(),
+        },
+        ...current.filter((recent) =>
+          recent.id !== session.id && recent.sessionPath !== sessionPath
+        ),
+      ])
+    },
+    [],
+  )
 
   /** Launches and selects a session, then sends or prepares its optional first prompt. */
-  const startAndSelectSession = useCallback(async (start: () => Promise<SessionSummary>, options: StartSessionOptions = {}): Promise<void> => {
-    creatingSessionRef.current = true
-    setCreatingSession(true)
-    setSelectedId('')
-    try {
-      const session = await start()
-      await refreshSessions()
-      setSelectedId(session.id)
-      if (options.draftMessage) onDraftMessage(session.id, options.draftMessage)
-      if (options.initialMessage) {
-        await sendPiCommand(session.id, { type: 'prompt', message: options.initialMessage })
-        nameSessionFromFirstPrompt(session, options.initialMessage)
+  const startAndSelectSession = useCallback(
+    async (
+      start: () => Promise<SessionSummary>,
+      options: StartSessionOptions = {},
+    ): Promise<void> => {
+      creatingSessionRef.current = true
+      setCreatingSession(true)
+      setSelectedId('')
+      try {
+        const session = await start()
         await refreshSessions()
-        onInitialMessageSent()
+        setSelectedId(session.id)
+        if (options.draftMessage) onDraftMessage(session.id, options.draftMessage)
+        if (options.initialMessage) {
+          await sendPiCommand(session.id, { type: 'prompt', message: options.initialMessage })
+          nameSessionFromFirstPrompt(session, options.initialMessage)
+          await refreshSessions()
+          onInitialMessageSent()
+        }
+      } catch (cause) {
+        onError(cause)
+      } finally {
+        creatingSessionRef.current = false
+        setCreatingSession(false)
       }
-    } catch (cause) {
-      onError(cause)
-    } finally {
-      creatingSessionRef.current = false
-      setCreatingSession(false)
-    }
-  }, [nameSessionFromFirstPrompt, onDraftMessage, onError, onInitialMessageSent, refreshSessions])
+    },
+    [nameSessionFromFirstPrompt, onDraftMessage, onError, onInitialMessageSent, refreshSessions],
+  )
 
-  const updateSession = useCallback((sessionId: string, update: Partial<Pick<SessionSummary, 'activeAgent' | 'name' | 'status'>>): void => {
-    setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, ...update } : session))
-  }, [])
+  const updateSession = useCallback(
+    (
+      sessionId: string,
+      update: Partial<Pick<SessionSummary, 'activeAgent' | 'name' | 'status'>>,
+    ): void => {
+      setSessions((current) =>
+        current.map((session) => session.id === sessionId ? { ...session, ...update } : session)
+      )
+    },
+    [],
+  )
 
   /** Applies a manager-provided name consistently across live and recent session lists. */
   const renameSession = useCallback((sessionId: string, name: string): void => {
     const sessionPath = sessionsRef.current.find((session) => session.id === sessionId)?.sessionPath
-    setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, name } : session))
+    setSessions((current) =>
+      current.map((session) => session.id === sessionId ? { ...session, name } : session)
+    )
     if (!sessionPath) return
-    setRecentSessions((current) => current.map((session) => session.sessionPath === sessionPath ? { ...session, name } : session))
-    setSentSessions((current) => current.map((session) => session.id === sessionId || session.sessionPath === sessionPath ? { ...session, name } : session))
+    setRecentSessions((current) =>
+      current.map((session) => session.sessionPath === sessionPath ? { ...session, name } : session)
+    )
+    setSentSessions((current) =>
+      current.map((session) =>
+        session.id === sessionId || session.sessionPath === sessionPath
+          ? { ...session, name }
+          : session
+      )
+    )
   }, [])
 
   /** Adds or replaces a pending UI request for a session. */
   const addPendingRequest = useCallback((sessionId: string, request: JsonObject): void => {
-    setSessions((current) => current.map((session) => session.id === sessionId
-      ? { ...session, pendingUi: [...session.pendingUi.filter((pending) => pending.id !== request.id), request] }
-      : session))
+    setSessions((current) =>
+      current.map((session) =>
+        session.id === sessionId
+          ? {
+            ...session,
+            pendingUi: [
+              ...session
+                .pendingUi
+                .filter((pending) => pending.id !== request.id),
+              request,
+            ],
+          }
+          : session
+      )
+    )
   }, [])
 
   /** Removes an answered UI request before the next manager reconciliation. */
   const removePendingRequest = useCallback((sessionId: string, requestId: string): void => {
-    setSessions((current) => current.map((session) => session.id === sessionId
-      ? { ...session, pendingUi: session.pendingUi.filter((request) => request.id !== requestId) }
-      : session))
+    setSessions((current) =>
+      current.map((session) =>
+        session.id === sessionId
+          ? {
+            ...session,
+            pendingUi: session.pendingUi.filter((request) => request.id !== requestId),
+          }
+          : session
+      )
+    )
   }, [])
 
   const markSessionCompleted = useCallback((sessionId: string): void => {
     if (sessionId === selectedIdRef.current) return
-    const sessionKey = sessionsRef.current.find((session) => session.id === sessionId)?.sessionPath ?? sessionId
+    const sessionKey = sessionsRef.current.find((session) => session.id === sessionId)?.sessionPath
+      ?? sessionId
     setCompletedSessionIds((current) => new Set(current).add(sessionKey))
   }, [])
 
@@ -228,8 +339,12 @@ export function useWorkspaceSessions({ onDraftMessage, onError, onInitialMessage
 /** Reads the persisted list of recent workspace paths from localStorage. */
 function readRecentWorkspaces(): string[] {
   try {
-    const value: unknown = JSON.parse(window.localStorage.getItem('pi-livecraft.recent-workspace-paths') ?? '[]')
-    return Array.isArray(value) ? value.filter((path): path is string => typeof path === 'string') : []
+    const value: unknown = JSON.parse(
+      window.localStorage.getItem('pi-livecraft.recent-workspace-paths') ?? '[]',
+    )
+    return Array.isArray(value)
+      ? value.filter((path): path is string => typeof path === 'string')
+      : []
   } catch {
     return []
   }
@@ -253,7 +368,10 @@ function readCompletedSessionIds(): ReadonlySet<string> {
 function writeCompletedSessionIds(ids: ReadonlySet<string>): void {
   try {
     if (ids.size === 0) sessionStorage.removeItem(COMPLETED_SESSIONS_KEY)
-    else sessionStorage.setItem(COMPLETED_SESSIONS_KEY, JSON.stringify([...ids].slice(0, MAX_COMPLETED_SESSIONS)))
+    else sessionStorage.setItem(
+        COMPLETED_SESSIONS_KEY,
+        JSON.stringify([...ids].slice(0, MAX_COMPLETED_SESSIONS)),
+      )
   } catch {
     // sessionStorage may be unavailable
   }

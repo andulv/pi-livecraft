@@ -28,12 +28,19 @@ export class QuotaService {
     this.#refresh ??= (async () => {
       this.#cache.setRefreshing(true)
       try {
-        await this.#manager.request({ action: 'command', sessionId, command: { type: 'prompt', message: `/livecraft-quotas${automatic ? ' auto' : ''}` } }, 60_000)
+        await this.#manager.request({
+          action: 'command',
+          sessionId,
+          command: { type: 'prompt', message: `/livecraft-quotas${automatic ? ' auto' : ''}` },
+        }, 60_000)
       } finally {
         this.#cache.setRefreshing(false)
       }
       return this.#cache.snapshot(false)
-    })().finally(() => { this.#refresh = undefined })
+    })()
+      .finally(() => {
+        this.#refresh = undefined
+      })
     return this.#refresh
   }
 
@@ -42,8 +49,11 @@ export class QuotaService {
     try {
       const sessions = await this.#manager.request({ action: 'list' })
       if (!Array.isArray(sessions)) return
-      const idleSession = sessions.find((session) => isObject(session) && session.status === 'idle' && typeof session.id === 'string')
-      if (isObject(idleSession) && typeof idleSession.id === 'string') await this.refresh(idleSession.id, true)
+      const idleSession = sessions.find((session) =>
+        isObject(session) && session.status === 'idle' && typeof session.id === 'string'
+      )
+      if (isObject(idleSession) && typeof idleSession.id === 'string')
+        await this.refresh(idleSession.id, true)
     } catch {
       // A manual refresh remains possible once the manager is available.
     }

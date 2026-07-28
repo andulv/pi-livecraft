@@ -2,7 +2,12 @@ import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-a
 import { isObject } from '../shared/is-object.ts'
 import { parseCopilotUsage, parseOpenAiUsage } from '../shared/quota-parsers.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
-import type { CopilotQuotaWindow, OpenAiQuotaWindow, QuotaProviderReport, QuotaReport } from '../shared/types.ts'
+import type {
+  CopilotQuotaWindow,
+  OpenAiQuotaWindow,
+  QuotaProviderReport,
+  QuotaReport,
+} from '../shared/types.ts'
 
 const statusKey = 'pi-livecraft.quotas'
 const timeoutMs = 15_000
@@ -21,11 +26,19 @@ export default function registerQuotas(pi: ExtensionAPI): void {
       return Promise.resolve()
     }
     lastRefreshAt = now
-    pendingRefresh ??= publishQuotaReport(ctx).then((report) => { lastReport = report }).finally(() => { pendingRefresh = undefined })
+    pendingRefresh ??= publishQuotaReport(ctx)
+      .then((report) => {
+        lastReport = report
+      })
+      .finally(() => {
+        pendingRefresh = undefined
+      })
     return pendingRefresh
   }
 
-  pi.on('session_start', (_event, ctx) => { void refresh(ctx, true) })
+  pi.on('session_start', (_event, ctx) => {
+    void refresh(ctx, true)
+  })
   pi.registerCommand('livecraft-quotas', {
     description: 'Refresh Pi Livecraft quotas',
     handler: async (args, ctx) => refresh(ctx, args.trim() === 'auto'),
@@ -46,7 +59,9 @@ async function publishQuotaReport(ctx: ExtensionContext): Promise<QuotaReport> {
 }
 
 /** Resolves OAuth through Pi before calling the Codex usage endpoint. */
-async function fetchOpenAiQuotas(ctx: ExtensionContext): Promise<QuotaProviderReport<OpenAiQuotaWindow>> {
+async function fetchOpenAiQuotas(
+  ctx: ExtensionContext,
+): Promise<QuotaProviderReport<OpenAiQuotaWindow>> {
   try {
     const auth = await ctx.modelRegistry.getProviderAuth('openai-codex')
     const credential = await readCredential(ctx, 'openai-codex')
@@ -67,7 +82,9 @@ async function fetchOpenAiQuotas(ctx: ExtensionContext): Promise<QuotaProviderRe
 }
 
 /** Uses the GitHub OAuth token held by Pi, not the Copilot proxy token. */
-async function fetchCopilotQuotas(ctx: ExtensionContext): Promise<QuotaProviderReport<CopilotQuotaWindow>> {
+async function fetchCopilotQuotas(
+  ctx: ExtensionContext,
+): Promise<QuotaProviderReport<CopilotQuotaWindow>> {
   try {
     await ctx.modelRegistry.getProviderAuth('github-copilot')
     const credential = await readCredential(ctx, 'github-copilot')
@@ -117,6 +134,7 @@ function failure<T>(error: string): QuotaProviderReport<T> {
 
 function fetchError(error: unknown, fallback: string): string {
   if (error instanceof Error && error.name === 'TimeoutError') return 'The quota request timed out.'
-  if (error instanceof Error && /^HTTP \d{3}$/.test(error.message)) return `${fallback} (${error.message})`
+  if (error instanceof Error && /^HTTP \d{3}$/.test(error.message))
+    return `${fallback} (${error.message})`
   return fallback
 }

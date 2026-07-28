@@ -33,24 +33,40 @@ export class PiProcess extends EventEmitter {
   #stderr = ''
 
   /** Starts Pi in RPC mode and connects its JSONL stream to this instance's lifecycle. */
-  constructor(cwd: string, sessionId: string, sessionPath?: string, options: PiProcessOptions = {}) {
+  constructor(
+    cwd: string,
+    sessionId: string,
+    sessionPath?: string,
+    options: PiProcessOptions = {},
+  ) {
     super()
     const args = options.isolated
       ? [
-          '--mode', 'rpc', '--no-session',
-          ...(options.tools ? options.tools.flatMap((name) => ['--tool', name]) : ['--no-tools']),
-          ...(options.extensions ? options.extensions.flatMap((path) => ['--extension', path]) : ['--no-extensions']),
-          '--no-skills', '--no-prompt-templates', '--no-themes',
-          ...(options.includeContextFiles === false ? ['--no-context-files'] : []),
-          '--thinking', options.thinkingLevel ?? 'off',
-          '--system-prompt', options.systemPrompt ?? '',
-        ]
+        '--mode',
+        'rpc',
+        '--no-session',
+        ...(options.tools ? options.tools.flatMap((name) => ['--tool', name]) : ['--no-tools']),
+        ...(options.extensions
+          ? options.extensions.flatMap((path) => ['--extension', path])
+          : ['--no-extensions']),
+        '--no-skills',
+        '--no-prompt-templates',
+        '--no-themes',
+        ...(options.includeContextFiles === false ? ['--no-context-files'] : []),
+        '--thinking',
+        options.thinkingLevel ?? 'off',
+        '--system-prompt',
+        options.systemPrompt ?? '',
+      ]
       : [
-          '--mode', 'rpc',
-          '--extension', fileURLToPath(new URL('../pi-extensions/ask-user-question.ts', import.meta.url)),
-          '--extension', fileURLToPath(new URL('../pi-extensions/quotas.ts', import.meta.url)),
-          ...(sessionPath ? ['--session', sessionPath] : ['--session-id', sessionId]),
-        ]
+        '--mode',
+        'rpc',
+        '--extension',
+        fileURLToPath(new URL('../pi-extensions/ask-user-question.ts', import.meta.url)),
+        '--extension',
+        fileURLToPath(new URL('../pi-extensions/quotas.ts', import.meta.url)),
+        ...(sessionPath ? ['--session', sessionPath] : ['--session-id', sessionId]),
+      ]
 
     this.child = spawn('pi', args, {
       cwd,
@@ -78,13 +94,18 @@ export class PiProcess extends EventEmitter {
     this.child.on('exit', (code, signal) => {
       activeChildren.delete(this.child)
       const detail = this.#stderr.trim()
-      this.#fail(new Error(`Pi exited (${signal ?? code ?? 'unknown'})${detail ? `: ${detail}` : ''}`))
+      this.#fail(
+        new Error(`Pi exited (${signal ?? code ?? 'unknown'})${detail ? `: ${detail}` : ''}`),
+      )
       this.emit('exit', { code, signal, detail })
     })
   }
 
   /** Associates a command with an RPC response and rejects the promise if Pi takes too long. */
-  request(command: JsonObject, timeoutMs = (command.type === 'prompt' || command.type === 'compact') ? 10 * 60_000 : 30_000): Promise<JsonObject> {
+  request(
+    command: JsonObject,
+    timeoutMs = (command.type === 'prompt' || command.type === 'compact') ? 10 * 60_000 : 30_000,
+  ): Promise<JsonObject> {
     const id = randomUUID()
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -113,7 +134,8 @@ export class PiProcess extends EventEmitter {
       if (pending) {
         clearTimeout(pending.timeout)
         this.#pending.delete(value.id)
-        if (value.success === false) pending.reject(new Error(String(value.error ?? 'Pi RPC command failed')))
+        if (value.success === false)
+          pending.reject(new Error(String(value.error ?? 'Pi RPC command failed')))
         else pending.resolve(value)
         return
       }
@@ -136,9 +158,14 @@ export class PiProcess extends EventEmitter {
 export async function terminateAllPiProcesses(graceMs = 2_000): Promise<void> {
   const children = [...activeChildren]
   if (children.length === 0) return
-  const exited = Promise.all(children.map((child) => new Promise<void>((resolve) => child.once('exit', () => resolve()))))
+  const exited = Promise.all(
+    children.map((child) => new Promise<void>((resolve) => child.once('exit', () => resolve()))),
+  )
   for (const child of children) child.kill('SIGTERM')
   await Promise.race([exited, new Promise<void>((resolve) => setTimeout(resolve, graceMs))])
   for (const child of activeChildren) child.kill('SIGKILL')
-  await Promise.race([exited, new Promise<void>((resolve) => setTimeout(resolve, Math.min(750, graceMs)))])
+  await Promise.race([
+    exited,
+    new Promise<void>((resolve) => setTimeout(resolve, Math.min(750, graceMs))),
+  ])
 }

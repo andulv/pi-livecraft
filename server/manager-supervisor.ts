@@ -34,7 +34,11 @@ async function launch(): Promise<void> {
       if (stopping) process.exit(0)
       if (code === restartExitCode) void launch()
       else {
-        console.error(`Pi manager stopped unexpectedly (${signal ?? code ?? 'unknown'}); restart Pi Livecraft to recover.`)
+        console.error(
+          `Pi manager stopped unexpectedly (${
+            signal ?? code ?? 'unknown'
+          }); restart Pi Livecraft to recover.`,
+        )
         failureHold = setInterval(() => undefined, 60_000)
       }
     })

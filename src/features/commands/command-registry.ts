@@ -2,7 +2,24 @@ import type { JsonObject } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
 import { rightWidgetDefinitions, type RightWidget } from '../right-sidebar/right-sidebar.ts'
 
-type CoreCommandId = 'new-session' | 'send' | 'abort' | 'open-thinking' | 'open-model' | 'open-agent' | 'copy-last-response' | 'open-palette' | 'open-settings' | 'open-terminal' | 'open-directory-picker' | 'workspace-previous' | 'focus-composer' | 'next-session' | 'previous-session' | 'toggle-conversation-view' | 'open-explorer'
+type CoreCommandId =
+  | 'new-session'
+  | 'send'
+  | 'abort'
+  | 'open-thinking'
+  | 'open-model'
+  | 'open-agent'
+  | 'copy-last-response'
+  | 'open-palette'
+  | 'open-settings'
+  | 'open-terminal'
+  | 'open-directory-picker'
+  | 'workspace-previous'
+  | 'focus-composer'
+  | 'next-session'
+  | 'previous-session'
+  | 'toggle-conversation-view'
+  | 'open-explorer'
 export type WidgetCommandId = `open-widget-${RightWidget}`
 export type CommandId = CoreCommandId | WidgetCommandId
 
@@ -30,7 +47,10 @@ export const commandDefinitions: CommandDefinition[] = [
   { id: 'previous-session', label: 'Previous session' },
   { id: 'toggle-conversation-view', label: 'Toggle conversation view' },
   { id: 'open-explorer', label: 'Open folder in explorer' },
-  ...rightWidgetDefinitions.map(({ id, label }) => ({ id: rightWidgetCommandId(id), label: `Open ${label}` })),
+  ...rightWidgetDefinitions.map(({ id, label }) => ({
+    id: rightWidgetCommandId(id),
+    label: `Open ${label}`,
+  })),
 ]
 
 export const defaultShortcuts: Partial<Record<CommandId, string>> = {
@@ -66,10 +86,24 @@ export function rightWidgetFromCommand(commandId: CommandId): RightWidget | null
 }
 
 /** Preserves the exact modifiers pressed while producing a stable shortcut value. */
-export function shortcutFromEvent(event: { key: string; metaKey?: boolean; ctrlKey?: boolean; altKey?: boolean; shiftKey?: boolean }): string {
+export function shortcutFromEvent(
+  event: {
+    key: string
+    metaKey?: boolean
+    ctrlKey?: boolean
+    altKey?: boolean
+    shiftKey?: boolean
+  },
+): string {
   const key = event.key.toLowerCase() === ' ' ? 'space' : event.key.toLowerCase()
   if (['alt', 'control', 'meta', 'shift'].includes(key)) return ''
-  const modifiers = [event.ctrlKey ? 'ctrl' : '', event.metaKey ? 'meta' : '', event.altKey ? 'alt' : '', event.shiftKey ? 'shift' : ''].filter(Boolean)
+  const modifiers = [
+    event.ctrlKey ? 'ctrl' : '',
+    event.metaKey ? 'meta' : '',
+    event.altKey ? 'alt' : '',
+    event.shiftKey ? 'shift' : '',
+  ]
+    .filter(Boolean)
   return [...modifiers, key].join('+')
 }
 
@@ -85,8 +119,10 @@ export function shortcutConflicts(shortcuts: Partial<Record<CommandId, string>>)
   for (const [id, shortcut] of Object.entries(shortcuts) as [CommandId, string | undefined][]) {
     if (!shortcut) continue
     const previous = seen.get(shortcut)
-    if (previous) { conflicts.add(previous); conflicts.add(id) }
-    else seen.set(shortcut, id)
+    if (previous) {
+      conflicts.add(previous)
+      conflicts.add(id)
+    } else seen.set(shortcut, id)
   }
   return conflicts
 }
@@ -99,7 +135,11 @@ export function lastAssistantText(messages: JsonObject[]): string {
     const content = message.content ?? message.output
     if (typeof content === 'string' && content.trim()) return content
     if (Array.isArray(content)) {
-      const text = content.filter(isObject).filter((part) => part.type === 'text' && typeof part.text === 'string').map((part) => String(part.text)).join('')
+      const text = content
+        .filter(isObject)
+        .filter((part) => part.type === 'text' && typeof part.text === 'string')
+        .map((part) => String(part.text))
+        .join('')
       if (text.trim()) return text
     }
   }

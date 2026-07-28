@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { externalWorkspacePath, getDesktopPlatform, getWslDistributionName } from '../server/system-integration.ts'
+import {
+  externalWorkspacePath,
+  getDesktopPlatform,
+  getWslDistributionName,
+} from '../server/system-integration.ts'
 
 test('detects Linux and WSL from the runtime environment', () => {
   assert.equal(getDesktopPlatform('linux', {}), 'linux')

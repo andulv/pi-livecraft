@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { ensureCompactCommand, isCompactCommandDraft } from '../src/features/composer/composer-utils.ts'
+import {
+  ensureCompactCommand,
+  isCompactCommandDraft,
+} from '../src/features/composer/composer-utils.ts'
 
 test('detects /compact with no arguments', () => {
   assert.equal(isCompactCommandDraft('/compact'), true)

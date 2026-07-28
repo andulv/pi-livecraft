@@ -5,7 +5,18 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import test from 'node:test'
-import { commitChanges, discardChanges, discardFileChanges, getGitFileDiff, getGitSnapshot, mergeNumstats, parseGitStatus, pushCommits, resetGitCommit, revertGitCommit } from '../server/features/git/git.ts'
+import {
+  commitChanges,
+  discardChanges,
+  discardFileChanges,
+  getGitFileDiff,
+  getGitSnapshot,
+  mergeNumstats,
+  parseGitStatus,
+  pushCommits,
+  resetGitCommit,
+  revertGitCommit,
+} from '../server/features/git/git.ts'
 
 const execFile = promisify(execFileCallback)
 
@@ -38,7 +49,12 @@ test('reports untracked files and their line additions from a worktree', async (
 
     assert.equal(snapshot.repository, true)
     assert.equal(snapshot.root, directory)
-    assert.deepEqual(snapshot.files, [{ path: 'new-file.ts', status: 'added', additions: 2, deletions: 0 }])
+    assert.deepEqual(snapshot.files, [{
+      path: 'new-file.ts',
+      status: 'added',
+      additions: 2,
+      deletions: 0,
+    }])
     assert.deepEqual(snapshot.commits, [])
   } finally {
     await rm(directory, { force: true, recursive: true })
@@ -80,7 +96,9 @@ test('reports, resets, and reverts unpushed commits', async () => {
     await execFile('git', ['commit', '--quiet', '-m', 'Initial commit'], { cwd: directory })
     await execFile('git', ['branch', '-M', 'main'], { cwd: directory })
     await execFile('git', ['remote', 'add', 'origin', remote], { cwd: directory })
-    await execFile('git', ['push', '--quiet', '--set-upstream', 'origin', 'main'], { cwd: directory })
+    await execFile('git', ['push', '--quiet', '--set-upstream', 'origin', 'main'], {
+      cwd: directory,
+    })
     await writeFile(join(directory, 'tracked.ts'), 'initial\nchanged\n')
     await writeFile(join(directory, 'unpushed.ts'), 'local only\n')
     await execFile('git', ['add', 'tracked.ts', 'unpushed.ts'], { cwd: directory })
@@ -93,7 +111,10 @@ test('reports, resets, and reverts unpushed commits', async () => {
 
     assert.equal(snapshot.ahead, 2)
     assert.deepEqual(snapshot.commits.map(({ hash: _hash, ...commit }) => commit), [
-      { subject: 'Second local commit', files: [{ path: 'second.ts', status: 'added', additions: 1, deletions: 0 }] },
+      {
+        subject: 'Second local commit',
+        files: [{ path: 'second.ts', status: 'added', additions: 1, deletions: 0 }],
+      },
       {
         subject: 'Local commit',
         files: [
@@ -108,7 +129,10 @@ test('reports, resets, and reverts unpushed commits', async () => {
     const diff = await getGitFileDiff(directory, 'tracked.ts', commit?.hash)
     assert.match(diff.diff, /\+changed/)
 
-    await assert.rejects(resetGitCommit(directory, commit?.hash ?? ''), /Only the latest unpushed commit/)
+    await assert.rejects(
+      resetGitCommit(directory, commit?.hash ?? ''),
+      /Only the latest unpushed commit/,
+    )
     await resetGitCommit(directory, snapshot.commits[0]?.hash ?? '')
     const reset = await getGitSnapshot(directory)
     const tracked = await execFile('git', ['show', 'HEAD:tracked.ts'], { cwd: directory })
@@ -148,7 +172,9 @@ test('commits without pushing, pushes separately, and discards changes', async (
     await execFile('git', ['commit', '--quiet', '-m', 'Initial'], { cwd: directory })
     await execFile('git', ['branch', '-M', 'main'], { cwd: directory })
     await execFile('git', ['remote', 'add', 'origin', remote], { cwd: directory })
-    await execFile('git', ['push', '--quiet', '--set-upstream', 'origin', 'main'], { cwd: directory })
+    await execFile('git', ['push', '--quiet', '--set-upstream', 'origin', 'main'], {
+      cwd: directory,
+    })
 
     // Commit only — does not push
     await writeFile(join(directory, 'initial.ts'), 'hello\nworld\n')

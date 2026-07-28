@@ -6,25 +6,44 @@ import { QuotaCache } from '../server/features/quotas/quota-cache.ts'
 import { quotaProviderForModel, railQuota } from '../src/features/quotas/quota-display.ts'
 
 test('normalizes the Codex five-hour and weekly windows', () => {
-  assert.deepEqual(parseOpenAiUsage({
-    rate_limit: {
-      primary_window: { used_percent: 24.5, reset_at: 1_800_000_000, limit_window_seconds: 18_000 },
-      secondary_window: { percent_left: 31, reset_at: 1_900_000_000, limit_window_seconds: 604_800 },
-    },
-  }), [
-    { period: '5h', remainingPercent: 75.5, resetsAt: 1_800_000_000_000 },
-    { period: '7d', remainingPercent: 31, resetsAt: 1_900_000_000_000 },
-  ])
+  assert.deepEqual(
+    parseOpenAiUsage({
+      rate_limit: {
+        primary_window: {
+          used_percent: 24.5,
+          reset_at: 1_800_000_000,
+          limit_window_seconds: 18_000,
+        },
+        secondary_window: {
+          percent_left: 31,
+          reset_at: 1_900_000_000,
+          limit_window_seconds: 604_800,
+        },
+      },
+    }),
+    [
+      { period: '5h', remainingPercent: 75.5, resetsAt: 1_800_000_000_000 },
+      { period: '7d', remainingPercent: 31, resetsAt: 1_900_000_000_000 },
+    ],
+  )
 })
 
 test('keeps only finite monthly Copilot quotas', () => {
-  assert.deepEqual(parseCopilotUsage({
-    quota_reset_date: '2030-01-01T00:00:00Z',
-    quota_snapshots: {
-      premium_interactions: { entitlement: 300, remaining: 125, unlimited: false },
-      chat: { entitlement: 0, remaining: 0, unlimited: true },
-    },
-  }), [{ name: 'Premium interactions', used: 175, limit: 300, resetsAt: Date.parse('2030-01-01T00:00:00Z') }])
+  assert.deepEqual(
+    parseCopilotUsage({
+      quota_reset_date: '2030-01-01T00:00:00Z',
+      quota_snapshots: {
+        premium_interactions: { entitlement: 300, remaining: 125, unlimited: false },
+        chat: { entitlement: 0, remaining: 0, unlimited: true },
+      },
+    }),
+    [{
+      name: 'Premium interactions',
+      used: 175,
+      limit: 300,
+      resetsAt: Date.parse('2030-01-01T00:00:00Z'),
+    }],
+  )
 })
 
 test('throttles automatic quota refreshes for 30 seconds but never manual ones', () => {
@@ -35,7 +54,13 @@ test('throttles automatic quota refreshes for 30 seconds but never manual ones',
 
 test('shows the primary quota for the provider selected by the model', () => {
   const quotas = {
-    openai: { data: [{ period: '7d' as const, remainingPercent: 20 }, { period: '5h' as const, remainingPercent: 74.6 }], stale: false },
+    openai: {
+      data: [{ period: '7d' as const, remainingPercent: 20 }, {
+        period: '5h' as const,
+        remainingPercent: 74.6,
+      }],
+      stale: false,
+    },
     copilot: { data: [{ name: 'Premium interactions', used: 75, limit: 300 }], stale: true },
     refreshing: false,
     sessionRequired: false,
@@ -45,19 +70,31 @@ test('shows the primary quota for the provider selected by the model', () => {
   assert.equal(quotaProviderForModel('github-copilot'), 'copilot')
   assert.equal(quotaProviderForModel('anthropic'), undefined)
   const formattedPercent = new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 })
-  assert.deepEqual(railQuota(quotas, 'openai'), { label: `OpenAI Codex quota: ${formattedPercent.format(74.6)} % remaining`, stale: false, value: '75%' })
-  assert.deepEqual(railQuota(quotas, 'copilot'), { label: `GitHub Copilot quota: ${formattedPercent.format(75)} % remaining`, stale: true, value: '75%' })
+  assert.deepEqual(railQuota(quotas, 'openai'), {
+    label: `OpenAI Codex quota: ${formattedPercent.format(74.6)} % remaining`,
+    stale: false,
+    value: '75%',
+  })
+  assert.deepEqual(railQuota(quotas, 'copilot'), {
+    label: `GitHub Copilot quota: ${formattedPercent.format(75)} % remaining`,
+    stale: true,
+    value: '75%',
+  })
 })
 
 test('retains a stale provider snapshot when its next refresh fails', () => {
   const cache = new QuotaCache()
   cache.receiveManagerEvent(statusEvent({
-    protocol: 'pi-livecraft.quotas', version: 1, refreshedAt: 100,
+    protocol: 'pi-livecraft.quotas',
+    version: 1,
+    refreshedAt: 100,
     openai: { ok: true, data: [{ period: '5h', remainingPercent: 80 }] },
     copilot: { ok: true, data: [] },
   }))
   cache.receiveManagerEvent(statusEvent({
-    protocol: 'pi-livecraft.quotas', version: 1, refreshedAt: 200,
+    protocol: 'pi-livecraft.quotas',
+    version: 1,
+    refreshedAt: 200,
     openai: { ok: false, error: 'OpenAI indisponible' },
     copilot: { ok: true, data: [] },
   }))

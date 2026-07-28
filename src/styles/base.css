@@ -53,14 +53,36 @@
   color-scheme: dark;
 }
 
-* { box-sizing: border-box; scrollbar-color: color-mix(in srgb, var(--accent) 30%, var(--surface)) transparent; scrollbar-width: thin; }
-*::-webkit-scrollbar { width: 10px; height: 10px; }
-*::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
-*::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; background: color-mix(in srgb, var(--accent) 30%, var(--surface)) content-box; }
-*::-webkit-scrollbar-thumb:hover { background-color: var(--muted); }
-button, input, select, textarea { font: inherit; }
-button { cursor: pointer; }
-button:disabled, select:disabled { cursor: not-allowed; }
+* {
+  box-sizing: border-box;
+  scrollbar-color: color-mix(in srgb, var(--accent) 30%, var(--surface))
+    transparent;
+  scrollbar-width: thin;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track, *::-webkit-scrollbar-corner {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 30%, var(--surface)) content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted);
+}
+button, input, select, textarea {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:disabled, select:disabled {
+  cursor: not-allowed;
+}
 
 .app-shell {
   display: grid;
@@ -70,10 +92,22 @@ button:disabled, select:disabled { cursor: not-allowed; }
   background: var(--canvas);
   color: var(--ink);
 }
-.app-shell.right-sidebar-visible { grid-template-columns: 296px minmax(0, 1fr) calc(var(--right-sidebar-width, 300px) + 48px); }
-.app-shell.right-sidebar-collapsed { grid-template-columns: 296px minmax(0, 1fr) 48px; }
+.app-shell.right-sidebar-visible {
+  grid-template-columns:
+    296px minmax(0, 1fr) calc(var(--right-sidebar-width, 300px) + 48px);
+}
+.app-shell.right-sidebar-collapsed {
+  grid-template-columns: 296px minmax(0, 1fr) 48px;
+}
 
-.workspace { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0; background: var(--surface-raised); }
+.workspace {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface-raised);
+}
 
 /* ── Dark mode overrides (colour values derived from palette variables) ── */
 
@@ -83,107 +117,284 @@ button:disabled, select:disabled { cursor: not-allowed; }
 
   /* ── sidebar / workspace ── */
   .sidebar-action:hover,
-  .sidebar-action:focus-visible { background: color-mix(in srgb, var(--ink) 6%, transparent); }
-  .session-item:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
-  .session-item.selected { border-color: color-mix(in srgb, var(--ink) 10%, transparent); }
+  .sidebar-action:focus-visible {
+    background: color-mix(in srgb, var(--ink) 6%, transparent);
+  }
+  .session-item:hover {
+    background: color-mix(in srgb, var(--ink) 5%, transparent);
+  }
+  .session-item.selected {
+    border-color: color-mix(in srgb, var(--ink) 10%, transparent);
+  }
   .new-session {
-    box-shadow: 0 4px 0 color-mix(in srgb, var(--accent-hover) 35%, black),
+    box-shadow:
+      0 4px 0 color-mix(in srgb, var(--accent-hover) 35%, black),
       0 8px 14px rgb(0 0 0 / 18%);
   }
   .new-session:hover {
-    box-shadow: 0 3px 0 color-mix(in srgb, var(--accent-hover) 25%, black),
+    box-shadow:
+      0 3px 0 color-mix(in srgb, var(--accent-hover) 25%, black),
       0 6px 12px rgb(0 0 0 / 20%);
   }
 
   /* ── composer ── */
   .composer:focus-within {
     border-color: color-mix(in srgb, var(--line-strong) 70%, var(--canvas));
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent), var(--shadow-soft);
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent),
+      var(--shadow-soft);
   }
-  .composer-image { background: color-mix(in srgb, var(--surface) 70%, var(--canvas)); }
-  .composer textarea::placeholder { color: var(--muted); }
-  .composer-footer { background: var(--surface-raised); }
+  .composer-image {
+    background: color-mix(in srgb, var(--surface) 70%, var(--canvas));
+  }
+  .composer textarea::placeholder {
+    color: var(--muted);
+  }
+  .composer-footer {
+    background: var(--surface-raised);
+  }
   .composer-select:hover,
-  .icon-button:hover:not(:disabled) { border-color: color-mix(in srgb, var(--line-strong) 70%, var(--canvas)); }
+  .icon-button:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--line-strong) 70%, var(--canvas));
+  }
   .composer-select.agent:hover,
-  .composer-select.agent[data-state='open'] { border-color: color-mix(in srgb, var(--accent) 40%, var(--canvas)); }
+  .composer-select.agent[data-state="open"] {
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--canvas));
+  }
   .composer-select.model:hover,
-  .composer-select.model[data-state='open'] { border-color: color-mix(in srgb, var(--secondary) 40%, var(--canvas)); }
+  .composer-select.model[data-state="open"] {
+    border-color: color-mix(in srgb, var(--secondary) 40%, var(--canvas));
+  }
   .composer-select.thinking:hover,
-  .composer-select.thinking[data-state='open'] { border-color: color-mix(in srgb, var(--warning) 50%, var(--canvas)); }
-  .composer-toggle:hover { border-color: color-mix(in srgb, var(--line-strong) 70%, var(--canvas)); }
-  .composer-toggle.active { border-color: color-mix(in srgb, var(--accent) 40%, var(--canvas)); color: var(--accent-hover); }
-  .composer-select.command .composer-select-icon { color: var(--accent); }
-  .composer-select.behavior .composer-select-icon { color: var(--secondary); }
-  .composer-select-content { box-shadow: 0 15px 32px rgb(0 0 0 / 50%); }
-  .composer-select-content.model { border-color: color-mix(in srgb, var(--secondary) 40%, var(--canvas)); }
-  .composer-select-content.thinking { border-color: color-mix(in srgb, var(--warning) 50%, var(--canvas)); }
-  .composer-select-content.agent { border-color: color-mix(in srgb, var(--accent) 40%, var(--canvas)); }
-  .composer-select-option[data-highlighted] { background: color-mix(in srgb, var(--surface) 70%, var(--canvas)); }
-  .composer-select-option[data-state='checked'] { color: var(--accent-hover); }
-  .icon-button.send { box-shadow: 0 2px 0 color-mix(in srgb, var(--accent-hover) 35%, black); }
+  .composer-select.thinking[data-state="open"] {
+    border-color: color-mix(in srgb, var(--warning) 50%, var(--canvas));
+  }
+  .composer-toggle:hover {
+    border-color: color-mix(in srgb, var(--line-strong) 70%, var(--canvas));
+  }
+  .composer-toggle.active {
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--canvas));
+    color: var(--accent-hover);
+  }
+  .composer-select.command .composer-select-icon {
+    color: var(--accent);
+  }
+  .composer-select.behavior .composer-select-icon {
+    color: var(--secondary);
+  }
+  .composer-select-content {
+    box-shadow: 0 15px 32px rgb(0 0 0 / 50%);
+  }
+  .composer-select-content.model {
+    border-color: color-mix(in srgb, var(--secondary) 40%, var(--canvas));
+  }
+  .composer-select-content.thinking {
+    border-color: color-mix(in srgb, var(--warning) 50%, var(--canvas));
+  }
+  .composer-select-content.agent {
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--canvas));
+  }
+  .composer-select-option[data-highlighted] {
+    background: color-mix(in srgb, var(--surface) 70%, var(--canvas));
+  }
+  .composer-select-option[data-state="checked"] {
+    color: var(--accent-hover);
+  }
+  .icon-button.send {
+    box-shadow: 0 2px 0 color-mix(in srgb, var(--accent-hover) 35%, black);
+  }
 
   /* ── conversation ── */
-  .chat-detail-toggle.active { border-color: var(--accent); color: var(--accent-hover); }
+  .chat-detail-toggle.active {
+    border-color: var(--accent);
+    color: var(--accent-hover);
+  }
   .slash-command-item:hover,
-  .slash-command-item.selected { color: var(--accent-hover); }
-  .content pre { background: var(--surface); }
-  .reasoning pre { background: var(--surface); }
-  .content :not(pre) > code { background: var(--surface-raised); }
-  .user .content pre { background: color-mix(in srgb, var(--canvas) 80%, var(--ink)); }
-  .tool-call { border-color: var(--line-strong); background: color-mix(in srgb, var(--surface) 60%, var(--canvas)); color: color-mix(in srgb, var(--ink) 80%, var(--muted)); }
-  .tool-call.error { border-color: color-mix(in srgb, var(--danger) 40%, var(--canvas)); color: color-mix(in srgb, var(--danger) 80%, var(--surface)); }
-  .tool-call-heading:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
-  .tool-call-content { border-top-color: color-mix(in srgb, var(--ink) 14%, transparent); background: color-mix(in srgb, var(--accent) 2%, color-mix(in srgb, var(--surface) 95%, var(--canvas))); }
-  .tool-call-raw-args { border-top-color: color-mix(in srgb, var(--ink) 14%, transparent); background: color-mix(in srgb, var(--accent) 2%, color-mix(in srgb, var(--surface) 95%, var(--canvas))); }
-  .tool-call-writing { border-top-color: color-mix(in srgb, var(--ink) 10%, transparent); background: color-mix(in srgb, var(--ink) 10%, transparent); }
-  .tool-call-preview { background: color-mix(in srgb, var(--accent) 2%, color-mix(in srgb, var(--surface) 95%, var(--canvas))); }
-  .tool-call-preview:hover { background: color-mix(in srgb, var(--accent) 4%, color-mix(in srgb, var(--surface) 91%, var(--canvas))); }
-  .tool-call-edit-change { border-color: color-mix(in srgb, var(--ink) 18%, transparent); }
-  .tool-call-edit-change h4 { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  .slash-command-item.selected {
+    color: var(--accent-hover);
+  }
+  .content pre {
+    background: var(--surface);
+  }
+  .reasoning pre {
+    background: var(--surface);
+  }
+  .content :not(pre) > code {
+    background: var(--surface-raised);
+  }
+  .user .content pre {
+    background: color-mix(in srgb, var(--canvas) 80%, var(--ink));
+  }
+  .tool-call {
+    border-color: var(--line-strong);
+    background: color-mix(in srgb, var(--surface) 60%, var(--canvas));
+    color: color-mix(in srgb, var(--ink) 80%, var(--muted));
+  }
+  .tool-call.error {
+    border-color: color-mix(in srgb, var(--danger) 40%, var(--canvas));
+    color: color-mix(in srgb, var(--danger) 80%, var(--surface));
+  }
+  .tool-call-heading:not(:disabled):hover {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+  .tool-call-content {
+    border-top-color: color-mix(in srgb, var(--ink) 14%, transparent);
+    background: color-mix(
+      in srgb,
+      var(--accent) 2%,
+      color-mix(in srgb, var(--surface) 95%, var(--canvas))
+    );
+  }
+  .tool-call-raw-args {
+    border-top-color: color-mix(in srgb, var(--ink) 14%, transparent);
+    background: color-mix(
+      in srgb,
+      var(--accent) 2%,
+      color-mix(in srgb, var(--surface) 95%, var(--canvas))
+    );
+  }
+  .tool-call-writing {
+    border-top-color: color-mix(in srgb, var(--ink) 10%, transparent);
+    background: color-mix(in srgb, var(--ink) 10%, transparent);
+  }
+  .tool-call-preview {
+    background: color-mix(
+      in srgb,
+      var(--accent) 2%,
+      color-mix(in srgb, var(--surface) 95%, var(--canvas))
+    );
+  }
+  .tool-call-preview:hover {
+    background: color-mix(
+      in srgb,
+      var(--accent) 4%,
+      color-mix(in srgb, var(--surface) 91%, var(--canvas))
+    );
+  }
+  .tool-call-edit-change {
+    border-color: color-mix(in srgb, var(--ink) 18%, transparent);
+  }
+  .tool-call-edit-change h4 {
+    background: color-mix(in srgb, var(--ink) 8%, transparent);
+  }
   .tool-call-edit-line > span,
-  .tool-call-edit-line > i { color: var(--subtle); }
-  .tool-call-edit-line.removed { background: var(--danger-soft); color: color-mix(in srgb, var(--danger) 80%, var(--surface)); }
+  .tool-call-edit-line > i {
+    color: var(--subtle);
+  }
+  .tool-call-edit-line.removed {
+    background: var(--danger-soft);
+    color: color-mix(in srgb, var(--danger) 80%, var(--surface));
+  }
   .tool-call-edit-line.removed > span,
-  .tool-call-edit-line.removed > i { color: color-mix(in srgb, var(--danger) 60%, var(--surface)); }
-  .tool-call-edit-line.added { background: color-mix(in srgb, var(--success) 13%, var(--canvas)); color: color-mix(in srgb, var(--success) 80%, var(--surface)); }
+  .tool-call-edit-line.removed > i {
+    color: color-mix(in srgb, var(--danger) 60%, var(--surface));
+  }
+  .tool-call-edit-line.added {
+    background: color-mix(in srgb, var(--success) 13%, var(--canvas));
+    color: color-mix(in srgb, var(--success) 80%, var(--surface));
+  }
   .tool-call-edit-line.added > span,
-  .tool-call-edit-line.added > i { color: var(--success); }
-  .tool-call-markdown :not(pre) > code { background: color-mix(in srgb, var(--ink) 12%, transparent); }
-  .tool-call-markdown pre { background: color-mix(in srgb, var(--ink) 14%, transparent); border-color: color-mix(in srgb, var(--ink) 14%, transparent); }
-  .spinner { border-color: color-mix(in srgb, var(--line-strong) 70%, var(--canvas)); }
-  .message.system.error { background: var(--danger-soft); }
+  .tool-call-edit-line.added > i {
+    color: var(--success);
+  }
+  .tool-call-markdown :not(pre) > code {
+    background: color-mix(in srgb, var(--ink) 12%, transparent);
+  }
+  .tool-call-markdown pre {
+    background: color-mix(in srgb, var(--ink) 14%, transparent);
+    border-color: color-mix(in srgb, var(--ink) 14%, transparent);
+  }
+  .spinner {
+    border-color: color-mix(in srgb, var(--line-strong) 70%, var(--canvas));
+  }
+  .message.system.error {
+    background: var(--danger-soft);
+  }
 
   /* ── dialogs ── */
-  .ask-user-question-heading { background: var(--sidebar); }
-  .ask-user-question-tabs button:hover { background: color-mix(in srgb, var(--surface) 70%, var(--canvas)); }
-  .ask-user-question-tabs button.active { border-color: var(--accent); color: var(--accent-hover); }
-  .ask-user-question-tabs button.answered:not(.active) { color: var(--accent-hover); }
-  .ask-user-question-tabs b { background: color-mix(in srgb, var(--success) 13%, var(--canvas)); color: var(--success); }
-  .ask-user-question-actions { background: var(--sidebar); }
+  .ask-user-question-heading {
+    background: var(--sidebar);
+  }
+  .ask-user-question-tabs button:hover {
+    background: color-mix(in srgb, var(--surface) 70%, var(--canvas));
+  }
+  .ask-user-question-tabs button.active {
+    border-color: var(--accent);
+    color: var(--accent-hover);
+  }
+  .ask-user-question-tabs button.answered:not(.active) {
+    color: var(--accent-hover);
+  }
+  .ask-user-question-tabs b {
+    background: color-mix(in srgb, var(--success) 13%, var(--canvas));
+    color: var(--success);
+  }
+  .ask-user-question-actions {
+    background: var(--sidebar);
+  }
   .ask-user-question textarea,
-  .modal textarea { background: var(--surface); }
-  .ask-user-question-backdrop { background: rgb(0 0 0 / 40%); }
-  .modal-backdrop { background: rgb(0 0 0 / 55%); }
+  .modal textarea {
+    background: var(--surface);
+  }
+  .ask-user-question-backdrop {
+    background: rgb(0 0 0 / 40%);
+  }
+  .modal-backdrop {
+    background: rgb(0 0 0 / 55%);
+  }
 
   /* ── git sidebar ── */
   .git-refresh:hover,
-  .git-back:hover { background: color-mix(in srgb, var(--surface) 70%, var(--canvas)); }
-  .git-file-item:hover { background: var(--surface-raised); }
+  .git-back:hover {
+    background: color-mix(in srgb, var(--surface) 70%, var(--canvas));
+  }
+  .git-file-item:hover {
+    background: var(--surface-raised);
+  }
   .git-diff-line > span,
-  .git-diff-line > i { color: var(--subtle); }
-  .git-diff-line.added { background: color-mix(in srgb, var(--success) 13%, var(--canvas)); color: var(--success); }
+  .git-diff-line > i {
+    color: var(--subtle);
+  }
+  .git-diff-line.added {
+    background: color-mix(in srgb, var(--success) 13%, var(--canvas));
+    color: var(--success);
+  }
   .git-diff-line.added > span,
-  .git-diff-line.added > i { color: var(--success); }
-  .git-diff-line.removed { background: var(--danger-soft); color: color-mix(in srgb, var(--danger) 80%, var(--surface)); }
+  .git-diff-line.added > i {
+    color: var(--success);
+  }
+  .git-diff-line.removed {
+    background: var(--danger-soft);
+    color: color-mix(in srgb, var(--danger) 80%, var(--surface));
+  }
   .git-diff-line.removed > span,
-  .git-diff-line.removed > i { color: color-mix(in srgb, var(--danger) 60%, var(--surface)); }
-  .git-diff-line.hunk { background: color-mix(in srgb, var(--accent) 10%, var(--canvas)); color: var(--accent-hover); }
-  .git-commits h2 small { color: var(--accent-hover); }
-  .git-commits summary:hover { background: var(--surface-raised); }
-  .git-commit-action:hover:not(:disabled) { background: var(--surface-raised); }
-  .git-reset:hover:not(:disabled) { background: var(--danger-soft); }
-  .git-actions button:hover { background: var(--accent-hover); }
-  .rail-tab:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
-  .rail-tab small { color: var(--accent-hover); }
+  .git-diff-line.removed > i {
+    color: color-mix(in srgb, var(--danger) 60%, var(--surface));
+  }
+  .git-diff-line.hunk {
+    background: color-mix(in srgb, var(--accent) 10%, var(--canvas));
+    color: var(--accent-hover);
+  }
+  .git-commits h2 small {
+    color: var(--accent-hover);
+  }
+  .git-commits summary:hover {
+    background: var(--surface-raised);
+  }
+  .git-commit-action:hover:not(:disabled) {
+    background: var(--surface-raised);
+  }
+  .git-reset:hover:not(:disabled) {
+    background: var(--danger-soft);
+  }
+  .git-actions button:hover {
+    background: var(--accent-hover);
+  }
+  .rail-tab:hover:not(:disabled) {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .rail-tab small {
+    color: var(--accent-hover);
+  }
 }

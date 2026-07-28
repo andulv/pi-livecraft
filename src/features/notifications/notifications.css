@@ -1,4 +1,7 @@
-.composer-area { position: relative; min-width: 0; }
+.composer-area {
+  position: relative;
+  min-width: 0;
+}
 .toast-stack {
   position: absolute;
   z-index: 30;
@@ -42,7 +45,9 @@
   background: var(--danger-soft);
   color: var(--danger);
 }
-.toast-message { overflow-wrap: anywhere; }
+.toast-message {
+  overflow-wrap: anywhere;
+}
 .toast-dismiss {
   flex: 0 0 auto;
   width: 20px;
@@ -55,16 +60,43 @@
   color: currentColor;
   font-size: 17px;
   line-height: 1;
-  opacity: .7;
+  opacity: 0.7;
 }
-.toast-dismiss:hover { background: color-mix(in srgb, var(--subtle) 35%, transparent); opacity: 1; }
-.toast-dismiss:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; opacity: 1; }
-@keyframes toast-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes toast-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-4px); } }
+.toast-dismiss:hover {
+  background: color-mix(in srgb, var(--subtle) 35%, transparent);
+  opacity: 1;
+}
+.toast-dismiss:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+  opacity: 1;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
 .toast.dismissing {
   animation: toast-out 160ms ease-in forwards;
   pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .toast { animation: none; }
+  .toast {
+    animation: none;
+  }
 }

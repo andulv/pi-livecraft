@@ -2,7 +2,10 @@ import { isObject } from '../../../shared/is-object.ts'
 import type { JsonObject } from '../../../shared/types.ts'
 import { toolCallsInMessage, type ToolCall } from './tool-protocol.ts'
 
-export type AssistantTurnPart = { kind: 'message'; message: JsonObject } | { kind: 'tool'; call: ToolCall }
+export type AssistantTurnPart = { kind: 'message'; message: JsonObject } | {
+  kind: 'tool'
+  call: ToolCall
+}
 
 export interface LiveMessage {
   id: string
@@ -16,10 +19,14 @@ export type ConversationMessageEntry =
 /** Matches assistant messages by role, timestamp when available, and serialized content. */
 export function sameAssistantMessage(left: JsonObject, right: JsonObject): boolean {
   if (left.role !== 'assistant' || right.role !== 'assistant') return false
-  if (typeof left.timestamp === 'number' && typeof right.timestamp === 'number' && left.timestamp !== right.timestamp) return false
+  if (
+    typeof left.timestamp === 'number' && typeof right.timestamp === 'number'
+    && left.timestamp !== right.timestamp
+  ) return false
   const leftContent = left.content ?? left.output
   const rightContent = right.content ?? right.output
-  return leftContent !== undefined && rightContent !== undefined && JSON.stringify(leftContent) === JSON.stringify(rightContent)
+  return leftContent !== undefined && rightContent !== undefined
+    && JSON.stringify(leftContent) === JSON.stringify(rightContent)
 }
 
 /** Extracts the concatenated text from a user message's content, or null when no text is present. */
@@ -29,7 +36,9 @@ function extractUserText(message: JsonObject): string | null {
   if (typeof content === 'string') return content
   if (Array.isArray(content)) {
     const text = content
-      .filter((part): part is { type: string; text: string } => isObject(part) && part.type === 'text' && typeof part.text === 'string')
+      .filter((part): part is { type: string; text: string } =>
+        isObject(part) && part.type === 'text' && typeof part.text === 'string'
+      )
       .map((part) => part.text)
       .join('')
     return text || null
@@ -48,7 +57,10 @@ export function sameMessage(left: JsonObject, right: JsonObject): boolean {
 }
 
 /** Merges history and streamed messages while retaining each streamed message's React identity. */
-export function conversationMessageEntries(historyMessages: JsonObject[], liveMessages: LiveMessage[]): ConversationMessageEntry[] {
+export function conversationMessageEntries(
+  historyMessages: JsonObject[],
+  liveMessages: LiveMessage[],
+): ConversationMessageEntry[] {
   const unmatchedLive = [...liveMessages]
   const historyEntries = historyMessages.map((message, historyIndex): ConversationMessageEntry => {
     const liveIndex = unmatchedLive.findIndex((live) => sameMessage(message, live.message))
@@ -60,10 +72,16 @@ export function conversationMessageEntries(historyMessages: JsonObject[], liveMe
       historyIndex,
     }
   })
-  return [...historyEntries, ...unmatchedLive.map(({ id, message }) => ({ key: id, message, source: 'live' as const }))]
+  return [
+    ...historyEntries,
+    ...unmatchedLive.map(({ id, message }) => ({ key: id, message, source: 'live' as const })),
+  ]
 }
 
 /** Returns assistant content before the tool calls belonging to that message. */
 export function assistantTurnParts(message: JsonObject): AssistantTurnPart[] {
-  return [{ kind: 'message', message }, ...toolCallsInMessage(message).map((call) => ({ kind: 'tool' as const, call }))]
+  return [
+    { kind: 'message', message },
+    ...toolCallsInMessage(message).map((call) => ({ kind: 'tool' as const, call })),
+  ]
 }

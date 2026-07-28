@@ -16,10 +16,27 @@ test('prioritizes attention and clears completed sessions when they are consulte
   const noneCompacting = new Set<string>()
 
   assert.equal(sessionIndicator(session, '', noneCompacting, completed), 'working')
-  assert.equal(sessionIndicator({ ...session, status: 'starting' }, '', noneCompacting, completed), 'working')
-  assert.equal(sessionIndicator({ ...session, pendingUi: [{ method: 'confirm' }] }, '', noneCompacting, completed), 'waiting')
-  assert.equal(sessionIndicator({ ...session, status: 'idle' }, '', noneCompacting, completed), 'complete')
-  assert.equal(sessionIndicator({ ...session, status: 'idle' }, session.id, noneCompacting, completed), null)
+  assert.equal(
+    sessionIndicator({ ...session, status: 'starting' }, '', noneCompacting, completed),
+    'working',
+  )
+  assert.equal(
+    sessionIndicator(
+      { ...session, pendingUi: [{ method: 'confirm' }] },
+      '',
+      noneCompacting,
+      completed,
+    ),
+    'waiting',
+  )
+  assert.equal(
+    sessionIndicator({ ...session, status: 'idle' }, '', noneCompacting, completed),
+    'complete',
+  )
+  assert.equal(
+    sessionIndicator({ ...session, status: 'idle' }, session.id, noneCompacting, completed),
+    null,
+  )
 })
 
 test('survives a page refresh: restored completed ids still show complete for idle, non-selected sessions', () => {
@@ -27,15 +44,32 @@ test('survives a page refresh: restored completed ids still show complete for id
   const restored = new Set([session.id])
 
   // Still idle, not selected, in restored set → complete indicator survives refresh.
-  assert.equal(sessionIndicator({ ...session, status: 'idle' }, '', new Set(), restored), 'complete')
+  assert.equal(
+    sessionIndicator({ ...session, status: 'idle' }, '', new Set(), restored),
+    'complete',
+  )
 
   // Persisting the stable session path also survives a manager restart.
   const restoredPath = new Set(['/sessions/session.jsonl'])
-  assert.equal(sessionIndicator({ ...session, status: 'idle', sessionPath: '/sessions/session.jsonl' }, '', new Set(), restoredPath), 'complete')
+  assert.equal(
+    sessionIndicator(
+      { ...session, status: 'idle', sessionPath: '/sessions/session.jsonl' },
+      '',
+      new Set(),
+      restoredPath,
+    ),
+    'complete',
+  )
   // If the manager reports it as running (still working), 'working' takes priority.
-  assert.equal(sessionIndicator({ ...session, status: 'running' }, '', new Set(), restored), 'working')
+  assert.equal(
+    sessionIndicator({ ...session, status: 'running' }, '', new Set(), restored),
+    'working',
+  )
   // Selected sessions never show complete.
-  assert.equal(sessionIndicator({ ...session, status: 'idle' }, session.id, new Set(), restored), null)
+  assert.equal(
+    sessionIndicator({ ...session, status: 'idle' }, session.id, new Set(), restored),
+    null,
+  )
 })
 
 test('prioritizes compacting over working and complete', () => {
@@ -44,7 +78,16 @@ test('prioritizes compacting over working and complete', () => {
   const noneCompacting = new Set<string>()
 
   assert.equal(sessionIndicator(session, '', compacting, completed), 'compacting')
-  assert.equal(sessionIndicator({ ...session, status: 'idle' }, '', compacting, completed), 'compacting')
-  assert.equal(sessionIndicator({ ...session, status: 'idle' }, session.id, compacting, completed), 'compacting')
-  assert.equal(sessionIndicator({ ...session, status: 'idle' }, '', noneCompacting, completed), 'complete')
+  assert.equal(
+    sessionIndicator({ ...session, status: 'idle' }, '', compacting, completed),
+    'compacting',
+  )
+  assert.equal(
+    sessionIndicator({ ...session, status: 'idle' }, session.id, compacting, completed),
+    'compacting',
+  )
+  assert.equal(
+    sessionIndicator({ ...session, status: 'idle' }, '', noneCompacting, completed),
+    'complete',
+  )
 })

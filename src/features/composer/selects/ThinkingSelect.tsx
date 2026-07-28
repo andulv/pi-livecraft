@@ -16,12 +16,13 @@ export function ThinkingSelect({ thinking, onCommand, onError, open, onOpenChang
 }) {
   return (
     <ComposerSelect
-      ariaLabel="Thinking level"
+      ariaLabel='Thinking level'
       onOpenChange={onOpenChange}
       open={open}
-      onValueChange={(value) => void onCommand({ type: 'set_thinking_level', level: value }).catch(onError)}
+      onValueChange={(value) =>
+        void onCommand({ type: 'set_thinking_level', level: value }).catch(onError)}
       options={thinkingLevels.map((level) => ({ label: capitalizeLabel(level), value: level }))}
-      tone="thinking"
+      tone='thinking'
       triggerRef={triggerRef}
       value={thinking}
     />

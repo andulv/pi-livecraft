@@ -7,14 +7,32 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { ManagerClient } from './manager-client.ts'
 import { ManagerRuntimeMonitor } from './manager-runtime-monitor.ts'
 import { listRecentPiSessions, loadPiSession } from './pi-session-store.ts'
-import { commitChanges, discardChanges, discardFileChanges, getGitFileDiff, getGitSnapshot, pushCommits, resetGitCommit, revertGitCommit } from './features/git/git.ts'
+import {
+  commitChanges,
+  discardChanges,
+  discardFileChanges,
+  getGitFileDiff,
+  getGitSnapshot,
+  pushCommits,
+  resetGitCommit,
+  revertGitCommit,
+} from './features/git/git.ts'
 import { QuotaService } from './features/quotas/quota-service.ts'
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
-import { loadWorkspaceTodos, parseTodoItems, saveWorkspaceTodos } from './features/todos/todo-store.ts'
+import {
+  loadWorkspaceTodos,
+  parseTodoItems,
+  saveWorkspaceTodos,
+} from './features/todos/todo-store.ts'
 import { readWorkspaceFile, WorkspaceFileError } from './workspace-file.ts'
 import { activeSessionMessages, LiveSessionEvents } from './session-snapshot.ts'
 import { externalWorkspacePath, openExplorer } from './system-integration.ts'
-import type { DirectoryListing, JsonObject, ManagerEvent, SessionSnapshot } from '../shared/types.ts'
+import type {
+  DirectoryListing,
+  JsonObject,
+  ManagerEvent,
+  SessionSnapshot,
+} from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 
 const host = '127.0.0.1'
@@ -73,7 +91,10 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   const url = new URL(request.url ?? '/', `http://${host}`)
 
   if (method === 'GET' && url.pathname === '/api/health') {
-    sendJson(response, manager.connected ? 200 : 503, { ok: true, managerConnected: manager.connected })
+    sendJson(response, manager.connected ? 200 : 503, {
+      ok: true,
+      managerConnected: manager.connected,
+    })
     return
   }
 
@@ -83,8 +104,27 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
     })
-    response.write(`retry: 500\n\ndata: ${JSON.stringify({ kind: 'event', event: manager.connected ? 'manager_connected' : 'manager_disconnected', sessionId: '' })}\n\n`)
-    response.write(`data: ${JSON.stringify({ kind: 'event', event: 'manager_status', sessionId: '', data: managerRuntime.status })}\n\n`)
+    response.write(
+      `retry: 500\n\ndata: ${
+        JSON.stringify({
+          kind: 'event',
+          event: manager.connected
+            ? 'manager_connected'
+            : 'manager_disconnected',
+          sessionId: '',
+        })
+      }\n\n`,
+    )
+    response.write(
+      `data: ${
+        JSON.stringify({
+          kind: 'event',
+          event: 'manager_status',
+          sessionId: '',
+          data: managerRuntime.status,
+        })
+      }\n\n`,
+    )
     eventClients.add(response)
     request.on('close', () => eventClients.delete(response))
     return
@@ -113,7 +153,8 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
 
   if (method === 'POST' && url.pathname === '/api/quotas/refresh') {
     const body = await readJsonBody(request)
-    if (typeof body.sessionId !== 'string' || !body.sessionId) throw new HttpError(409, 'An open Pi session is required to refresh quotas.')
+    if (typeof body.sessionId !== 'string' || !body.sessionId)
+      throw new HttpError(409, 'An open Pi session is required to refresh quotas.')
     sendJson(response, 200, await quotas.refresh(body.sessionId, body.automatic === true))
     return
   }
@@ -147,7 +188,11 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
     const path = url.searchParams.get('path')
     if (!path) throw new HttpError(400, 'File path is required')
-    sendJson(response, 200, await getGitFileDiff(cwd, path, url.searchParams.get('commit') ?? undefined))
+    sendJson(
+      response,
+      200,
+      await getGitFileDiff(cwd, path, url.searchParams.get('commit') ?? undefined),
+    )
     return
   }
 
@@ -157,7 +202,13 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     if (!path) throw new HttpError(400, 'File path is required')
     try {
       const file = await readWorkspaceFile(cwd, path)
-      sendJson(response, 200, url.pathname === '/api/files' ? file : { absolutePath: file.path, path: await externalWorkspacePath(file.path) })
+      sendJson(
+        response,
+        200,
+        url.pathname === '/api/files'
+          ? file
+          : { absolutePath: file.path, path: await externalWorkspacePath(file.path) },
+      )
     } catch (error) {
       if (error instanceof WorkspaceFileError) throw new HttpError(error.status, error.message)
       throw error
@@ -189,8 +240,11 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   if (method === 'POST' && url.pathname === '/api/terminal') {
     const body = await readJsonBody(request)
     if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
-    const template = typeof body.template === 'string' && body.template.trim() ? body.template : undefined
-    if (template !== undefined && template.length > 2000) throw new HttpError(400, 'Terminal command template is too long')
+    const template = typeof body.template === 'string' && body.template.trim()
+      ? body.template
+      : undefined
+    if (template !== undefined && template.length > 2000)
+      throw new HttpError(400, 'Terminal command template is too long')
     try {
       await openTerminalApplication(await resolveWorkingDirectory(body.cwd), template)
       sendJson(response, 200, { ok: true })
@@ -231,7 +285,8 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
 
   if (method === 'POST' && url.pathname === '/api/git/reset') {
     const body = await readJsonBody(request)
-    if (typeof body.cwd !== 'string' || typeof body.hash !== 'string') throw new HttpError(400, 'Working directory and commit hash are required')
+    if (typeof body.cwd !== 'string' || typeof body.hash !== 'string')
+      throw new HttpError(400, 'Working directory and commit hash are required')
     const cwd = await resolveWorkingDirectory(body.cwd)
     sendJson(response, 200, await resetGitCommit(cwd, body.hash))
     return
@@ -239,7 +294,8 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
 
   if (method === 'POST' && url.pathname === '/api/git/revert') {
     const body = await readJsonBody(request)
-    if (typeof body.cwd !== 'string' || typeof body.hash !== 'string') throw new HttpError(400, 'Working directory and commit hash are required')
+    if (typeof body.cwd !== 'string' || typeof body.hash !== 'string')
+      throw new HttpError(400, 'Working directory and commit hash are required')
     const cwd = await resolveWorkingDirectory(body.cwd)
     sendJson(response, 200, await revertGitCommit(cwd, body.hash))
     return
@@ -250,8 +306,18 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     const cwd = await resolveWorkingDirectory(typeof body.cwd === 'string' ? body.cwd : '~/.pi')
     if (typeof body.sessionPath === 'string') {
       const session = await loadPiSession(body.sessionPath)
-      if (session.cwd !== cwd) throw new HttpError(400, 'Pi session does not belong to this working directory')
-      sendJson(response, 201, await manager.request({ action: 'open', cwd, name: session.name, sessionPath: session.sessionPath }))
+      if (session.cwd !== cwd)
+        throw new HttpError(400, 'Pi session does not belong to this working directory')
+      sendJson(
+        response,
+        201,
+        await manager.request({
+          action: 'open',
+          cwd,
+          name: session.name,
+          sessionPath: session.sessionPath,
+        }),
+      )
       return
     }
     const session = await manager.request({ action: 'create', cwd })
@@ -281,7 +347,9 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     return
   }
 
-  const promptImprovementMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/prompt-improvement$/)
+  const promptImprovementMatch = url.pathname.match(
+    /^\/api\/sessions\/([^/]+)\/prompt-improvement$/,
+  )
   if (method === 'POST' && promptImprovementMatch) {
     const body = await readJsonBody(request)
     if (typeof body.prompt !== 'string' || !body.prompt.trim() || body.prompt.length > 100_000) {
@@ -313,9 +381,15 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       systemPrompt: typeof body.systemPrompt === 'string' ? body.systemPrompt : undefined,
       thinkingLevel: typeof body.thinkingLevel === 'string' ? body.thinkingLevel : undefined,
       model: isModelBody(body.model),
-      extensions: Array.isArray(body.extensions) ? body.extensions.filter((e: unknown): e is string => typeof e === 'string') : undefined,
-      tools: Array.isArray(body.tools) ? body.tools.filter((t: unknown): t is string => typeof t === 'string') : undefined,
-      includeContextFiles: typeof body.includeContextFiles === 'boolean' ? body.includeContextFiles : undefined,
+      extensions: Array.isArray(body.extensions)
+        ? body.extensions.filter((e: unknown): e is string => typeof e === 'string')
+        : undefined,
+      tools: Array.isArray(body.tools)
+        ? body.tools.filter((t: unknown): t is string => typeof t === 'string')
+        : undefined,
+      includeContextFiles: typeof body.includeContextFiles === 'boolean'
+        ? body.includeContextFiles
+        : undefined,
     }, 5 * 60_000)
     sendJson(response, 200, data)
     return
@@ -324,7 +398,8 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   const commandMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/commands$/)
   if (method === 'POST' && commandMatch) {
     const command = await readJsonBody(request)
-    if (typeof command.type !== 'string' || command.type.length > 100) throw new HttpError(400, 'A valid Pi command type is required')
+    if (typeof command.type !== 'string' || command.type.length > 100)
+      throw new HttpError(400, 'A valid Pi command type is required')
     const data = await manager.request(
       { action: 'command', sessionId: decodeURIComponent(commandMatch[1]), command },
       10 * 60_000,
@@ -360,14 +435,19 @@ function arrayData(response: JsonObject, key: string): JsonObject[] {
 async function resolveWorkingDirectory(input: string): Promise<string> {
   const trimmed = input.trim()
   if (!trimmed) throw new HttpError(400, 'Working directory is required')
-  const expanded = trimmed === '~' ? homedir() : trimmed.startsWith('~/') ? resolve(homedir(), trimmed.slice(2)) : trimmed
+  const expanded = trimmed === '~'
+    ? homedir()
+    : trimmed.startsWith('~/')
+    ? resolve(homedir(), trimmed.slice(2))
+    : trimmed
   let canonical: string
   try {
     canonical = await realpath(expanded)
   } catch {
     throw new HttpError(400, 'Working directory does not exist')
   }
-  if (!(await stat(canonical)).isDirectory()) throw new HttpError(400, 'Working directory must be a directory')
+  if (!(await stat(canonical)).isDirectory())
+    throw new HttpError(400, 'Working directory must be a directory')
   return canonical
 }
 
@@ -403,7 +483,11 @@ async function readJsonBody(request: IncomingMessage): Promise<JsonObject> {
 }
 
 /** Serves the frontend build while preventing an HTTP path from escaping the distribution directory. */
-async function serveStatic(pathname: string, method: string, response: ServerResponse): Promise<void> {
+async function serveStatic(
+  pathname: string,
+  method: string,
+  response: ServerResponse,
+): Promise<void> {
   const requestedPath = pathname === '/' ? 'index.html' : pathname.slice(1)
   let filePath = resolve(distDirectory, requestedPath)
   if (!filePath.startsWith(`${resolve(distDirectory)}${sep}`)) throw new HttpError(404, 'Not found')
@@ -446,7 +530,8 @@ function contentType(filePath: string): string {
   return types[extname(filePath)] ?? 'application/octet-stream'
 }
 function isModelBody(value: unknown): { provider: string; modelId: string } | undefined {
-  if (!isObject(value) || typeof value.provider !== 'string' || typeof value.modelId !== 'string') return undefined
+  if (!isObject(value) || typeof value.provider !== 'string' || typeof value.modelId !== 'string')
+    return undefined
   return { provider: value.provider, modelId: value.modelId }
 }
 
@@ -457,7 +542,8 @@ function errorMessage(error: unknown): string {
 /** Reads and validates a port from the environment, using the supplied default when unset. */
 function readPort(primary: string, fallback: number): number {
   const value = Number(process.env[primary] ?? fallback)
-  if (!Number.isInteger(value) || value < 1 || value > 65_535) throw new Error(`${primary} must be a valid port`)
+  if (!Number.isInteger(value) || value < 1 || value > 65_535)
+    throw new Error(`${primary} must be a valid port`)
   return value
 }
 

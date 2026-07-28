@@ -7,27 +7,44 @@ export function parseOpenAiUsage(value: unknown): OpenAiQuotaWindow[] {
   const rateLimit = object(root?.rate_limit) ?? object(root?.rate_limits)
   if (!rateLimit) return []
   const candidates = [
-    object(rateLimit.primary_window) ?? object(rateLimit.primary) ?? object(rateLimit.five_hour_limit) ?? object(rateLimit.five_hour),
-    object(rateLimit.secondary_window) ?? object(rateLimit.secondary) ?? object(rateLimit.weekly_limit) ?? object(rateLimit.weekly),
+    object(rateLimit.primary_window) ?? object(rateLimit.primary) ?? object(
+      rateLimit.five_hour_limit,
+    ) ?? object(rateLimit.five_hour),
+    object(rateLimit.secondary_window) ?? object(rateLimit.secondary) ?? object(
+      rateLimit.weekly_limit,
+    ) ?? object(rateLimit.weekly),
   ]
-  return candidates.flatMap((window, index): OpenAiQuotaWindow[] => {
-    if (!window) return []
-    const seconds = numberField(window, 'limit_window_seconds')
-    const period: OpenAiQuotaWindow['period'] = seconds && seconds >= 6 * 24 * 60 * 60 ? '7d' : index === 0 ? '5h' : '7d'
-    const used = numberField(window, 'used_percent') ?? percentUsedFromRemaining(window)
-    if (used === undefined) return []
-    const resetsAt = dateValue(window.reset_at ?? window.reset_time_ms)
-    return [{ period, remainingPercent: clamp(100 - used), ...(resetsAt ? { resetsAt } : {}) }]
-  }).filter((window, index, windows) => windows.findIndex(({ period }) => period === window.period) === index)
+  return candidates
+    .flatMap((window, index): OpenAiQuotaWindow[] => {
+      if (!window) return []
+      const seconds = numberField(window, 'limit_window_seconds')
+      const period: OpenAiQuotaWindow['period'] = seconds && seconds >= 6 * 24 * 60 * 60
+        ? '7d'
+        : index === 0
+        ? '5h'
+        : '7d'
+      const used = numberField(window, 'used_percent') ?? percentUsedFromRemaining(window)
+      if (used === undefined) return []
+      const resetsAt = dateValue(window.reset_at ?? window.reset_time_ms)
+      return [{ period, remainingPercent: clamp(100 - used), ...(resetsAt ? { resetsAt } : {}) }]
+    })
+    .filter((window, index, windows) =>
+      windows.findIndex(({ period }) => period === window.period) === index
+    )
 }
 
 /** Extracts monthly quota buckets from GitHub Copilot's opaque quota response. */
 export function parseCopilotUsage(value: unknown): CopilotQuotaWindow[] {
   const root = object(value)
   const snapshots = object(root?.quota_snapshots)
-  const resetsAt = dateValue(root?.quota_reset_date ?? root?.quota_reset_date_utc ?? root?.limited_user_reset_date)
+  const resetsAt = dateValue(
+    root?.quota_reset_date ?? root?.quota_reset_date_utc ?? root?.limited_user_reset_date,
+  )
   if (snapshots) {
-    const labels: [string, string][] = [['premium_interactions', 'Premium interactions'], ['chat', 'Chat'], ['completions', 'Completions']]
+    const labels: [string, string][] = [['premium_interactions', 'Premium interactions'], [
+      'chat',
+      'Chat',
+    ], ['completions', 'Completions']]
     return labels.flatMap(([key, name]) => {
       const quota = object(snapshots[key])
       if (!quota || quota.unlimited === true) return []
@@ -44,7 +61,9 @@ export function parseCopilotUsage(value: unknown): CopilotQuotaWindow[] {
   return ([['chat', 'Chat'], ['completions', 'Completions']] as const).flatMap(([key, name]) => {
     const limit = numberField(limits, key)
     const left = numberField(remaining, key)
-    return limit && left !== undefined ? [{ name, used: Math.max(0, limit - left), limit, ...(resetsAt ? { resetsAt } : {}) }] : []
+    return limit && left !== undefined
+      ? [{ name, used: Math.max(0, limit - left), limit, ...(resetsAt ? { resetsAt } : {}) }]
+      : []
   })
 }
 
@@ -54,7 +73,10 @@ function percentUsedFromRemaining(value: Record<string, unknown>): number | unde
 }
 
 function dateValue(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) return value < 10_000_000_000 ? value * 1000 : value
+  if (typeof value === 'number' && Number.isFinite(value))
+    return value < 10_000_000_000
+      ? value * 1000
+      : value
   if (typeof value !== 'string' || !value) return undefined
   const parsed = Date.parse(value)
   return Number.isNaN(parsed) ? undefined : parsed

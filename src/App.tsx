@@ -1,9 +1,33 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import { Tooltip } from './components/Tooltip.tsx'
-import { commitChanges, createSession, discardChanges, getGitFileDiff, getGitSnapshot, getQuotas, improvePrompt, openExplorer, openSession, openTerminal, pushCommits, refreshQuotas, resetGitCommit, restartManager, revertGitCommit, sendPiCommand, subscribeManagerEvents } from './api.ts'
+import {
+  commitChanges,
+  createSession,
+  discardChanges,
+  getGitFileDiff,
+  getGitSnapshot,
+  getQuotas,
+  improvePrompt,
+  openExplorer,
+  openSession,
+  openTerminal,
+  pushCommits,
+  refreshQuotas,
+  resetGitCommit,
+  restartManager,
+  revertGitCommit,
+  sendPiCommand,
+  subscribeManagerEvents,
+} from './api.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
-import type { GitSnapshot, JsonObject, ManagerRuntimeStatus, QuotaSnapshot, SessionSummary } from '../shared/types.ts'
+import type {
+  GitSnapshot,
+  JsonObject,
+  ManagerRuntimeStatus,
+  QuotaSnapshot,
+  SessionSummary,
+} from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 import { Composer } from './features/composer/Composer.tsx'
 import { ToastStack, type Toast } from './features/notifications/ToastStack.tsx'
@@ -11,8 +35,18 @@ import { sessionActivity, type PiConnection } from './features/conversation/acti
 import { Conversation } from './features/conversation/Conversation.tsx'
 import { useConversationRuntime } from './features/conversation/useConversationRuntime.ts'
 import { AskUserQuestionDialog, ExtensionDialog } from './features/dialogs/Dialogs.tsx'
-import { isAgentSelector, isAskUserQuestionDialog, isBlockingDialog, type UiDialog } from './features/dialogs/dialog-protocol.ts'
-import { clampRightSidebarWidth, isRightWidget, readRightSidebarWidth, type RightWidget } from './features/right-sidebar/right-sidebar.ts'
+import {
+  isAgentSelector,
+  isAskUserQuestionDialog,
+  isBlockingDialog,
+  type UiDialog,
+} from './features/dialogs/dialog-protocol.ts'
+import {
+  clampRightSidebarWidth,
+  isRightWidget,
+  readRightSidebarWidth,
+  type RightWidget,
+} from './features/right-sidebar/right-sidebar.ts'
 import { RightSidebar } from './features/right-sidebar/RightSidebar.tsx'
 import { quotaProviderForModel } from './features/quotas/quota-display.ts'
 import { DirectoryPicker } from './features/workspace/DirectoryPicker.tsx'
@@ -20,11 +54,35 @@ import { sidebarSessions } from './features/workspace/sidebar-sessions.ts'
 import { useWorkspaceSessions } from './features/workspace/useWorkspaceSessions.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
 import { CommandPalette, type PaletteCommand } from './features/commands/CommandPalette.tsx'
-import { commandDefinitions, defaultShortcuts, lastAssistantText, migrateLegacyShortcut, rightWidgetFromCommand, shortcutFromEvent, type CommandId } from './features/commands/command-registry.ts'
+import {
+  commandDefinitions,
+  defaultShortcuts,
+  lastAssistantText,
+  migrateLegacyShortcut,
+  rightWidgetFromCommand,
+  shortcutFromEvent,
+  type CommandId,
+} from './features/commands/command-registry.ts'
 import { SettingsPanel } from './features/settings/SettingsPanel.tsx'
 import { ManagerRuntimeNotice } from './features/manager/ManagerRuntimeNotice.tsx'
-import { allThemes, applyThemePalette, deleteTheme, duplicateTheme, persistThemePreferences, readThemePreferences, renameTheme, resolveActiveTheme, setActiveTheme, shadowForMode, updateThemeColor, type ThemeVariable } from './features/settings/themes.ts'
-import { analyzeSession, type SessionAnalysisTarget } from './features/session-analysis/session-analysis.ts'
+import {
+  allThemes,
+  applyThemePalette,
+  deleteTheme,
+  duplicateTheme,
+  persistThemePreferences,
+  readThemePreferences,
+  renameTheme,
+  resolveActiveTheme,
+  setActiveTheme,
+  shadowForMode,
+  updateThemeColor,
+  type ThemeVariable,
+} from './features/settings/themes.ts'
+import {
+  analyzeSession,
+  type SessionAnalysisTarget,
+} from './features/session-analysis/session-analysis.ts'
 import './features/commands/commands.css'
 
 interface AgentIntent {
@@ -43,12 +101,17 @@ function App() {
 
   // Conversation and Pi lifecycle
   const [piConnection, setPiConnection] = useState<PiConnection>('connecting')
-  const [managerRuntimeStatus, setManagerRuntimeStatus] = useState<ManagerRuntimeStatus>({ state: 'disconnected', canRestart: false })
+  const [managerRuntimeStatus, setManagerRuntimeStatus] = useState<ManagerRuntimeStatus>({
+    state: 'disconnected',
+    canRestart: false,
+  })
   const [conversationView, setConversationView] = useState<'detailed' | 'simple'>(() => {
     const stored = window.localStorage.getItem('pi-livecraft.conversation-view')
     if (stored === 'detailed' || stored === 'simple-expanded') return 'detailed'
     if (stored === 'simple') return 'simple'
-    return window.localStorage.getItem('pi-livecraft.detailed-view') === 'false' ? 'simple' : 'detailed'
+    return window.localStorage.getItem('pi-livecraft.detailed-view') === 'false'
+      ? 'simple'
+      : 'detailed'
   })
   const conversationViewDetail = conversationViewDetails[conversationView]
 
@@ -61,8 +124,16 @@ function App() {
   // Workspace tools and right sidebar
   const [gitSnapshot, setGitSnapshot] = useState<GitSnapshot | null>(null)
   const [quotas, setQuotas] = useState<QuotaSnapshot | null>(null)
-  const [activeRightWidget, setActiveRightWidget] = useState<RightWidget | null>(readActiveRightWidget)
-  const [rightSidebarWidth, setRightSidebarWidth] = useState(() => readRightSidebarWidth(window.localStorage.getItem('pi-livecraft.right-sidebar-width') ?? window.localStorage.getItem('pi-livecraft.git-sidebar-width')))
+  const [activeRightWidget, setActiveRightWidget] = useState<RightWidget | null>(
+    readActiveRightWidget,
+  )
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(() =>
+    readRightSidebarWidth(
+      window.localStorage.getItem('pi-livecraft.right-sidebar-width') ?? window
+        .localStorage
+        .getItem('pi-livecraft.git-sidebar-width'),
+    )
+  )
 
   // Preferences and commands
   const [themePreferences, setThemePreferences] = useState(() => readThemePreferences())
@@ -73,21 +144,32 @@ function App() {
   // Transient UI requests and measurements
   type LoadingPhase = 'hidden' | 'entering' | 'visible' | 'exiting'
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>('hidden')
-  const [requestedSelect, setRequestedSelect] = useState<'agent' | 'model' | 'thinking' | null>(null)
+  const [requestedSelect, setRequestedSelect] = useState<'agent' | 'model' | 'thinking' | null>(
+    null,
+  )
   const [submitRequest, setSubmitRequest] = useState(0)
   const [focusComposerRequest, setFocusComposerRequest] = useState(0)
-  const [composerDraftRequest, setComposerDraftRequest] = useState<{ id: string; message: string; sessionId: string }>()
+  const [composerDraftRequest, setComposerDraftRequest] = useState<
+    { id: string; message: string; sessionId: string }
+  >()
   const [scrollToBottomRequest, setScrollToBottomRequest] = useState(0)
-  const [conversationNavigation, setConversationNavigation] = useState<{ id: number; target: SessionAnalysisTarget }>()
+  const [conversationNavigation, setConversationNavigation] = useState<
+    { id: number; target: SessionAnalysisTarget }
+  >()
   const [shortcuts, setShortcuts] = useState(() => readShortcuts())
   const [terminalCommand, setTerminalCommand] = useState(() => readTerminalCommand())
 
   // Workspace and session synchronization
   const selectedIdRef = useRef(window.localStorage.getItem('pi-livecraft.selected-session') ?? '')
-  const replayPiEventRef = useRef<(sessionId: string, event: JsonObject, sequence?: number) => void>(() => undefined)
-  const replayPiEvent = useCallback((sessionId: string, event: JsonObject, sequence?: number): void => {
-    replayPiEventRef.current(sessionId, event, sequence)
-  }, [])
+  const replayPiEventRef = useRef<
+    (sessionId: string, event: JsonObject, sequence?: number) => void
+  >(() => undefined)
+  const replayPiEvent = useCallback(
+    (sessionId: string, event: JsonObject, sequence?: number): void => {
+      replayPiEventRef.current(sessionId, event, sequence)
+    },
+    [],
+  )
 
   // UI and capability synchronization
   const loadingTimerRef = useRef<number>(0)
@@ -106,27 +188,37 @@ function App() {
   const startDismissal = useCallback((id: string) => {
     if (dismissingRef.current.has(id)) return
     dismissingRef.current.add(id)
-    setToasts((current) => current.map((toast) => toast.id === id ? { ...toast, dismissing: true } : toast))
+    setToasts((current) =>
+      current.map((toast) => toast.id === id ? { ...toast, dismissing: true } : toast)
+    )
     window.setTimeout(() => {
       setToasts((current) => current.filter((toast) => toast.id !== id))
       dismissingRef.current.delete(id)
     }, 160)
   }, [])
 
-  const showToast = useCallback((kind: Toast['kind'], message: string, sessionId: string | null = selectedIdRef.current) => {
-    const toast = { id: crypto.randomUUID(), kind, message, sessionId }
-    setToasts((current) => [...current, toast])
-    if (kind !== 'error') window.setTimeout(() => startDismissal(toast.id), 3000)
-  }, [startDismissal])
+  const showToast = useCallback(
+    (kind: Toast['kind'], message: string, sessionId: string | null = selectedIdRef.current) => {
+      const toast = { id: crypto.randomUUID(), kind, message, sessionId }
+      setToasts((current) => [...current, toast])
+      if (kind !== 'error') window.setTimeout(() => startDismissal(toast.id), 3000)
+    },
+    [startDismissal],
+  )
 
   /** Removes a toast after explicit dismissal or automatic timeout. */
   const dismissToast = useCallback((id: string) => startDismissal(id), [startDismissal])
 
   const handleSessionsRefreshed = useCallback((nextSessions: SessionSummary[]): void => {
-    const pending = nextSessions.flatMap((session) =>
-      session.pendingUi.map((request) => ({ sessionId: session.id, request })),
-    ).find(({ request }) => !isAgentSelector(request))
-    setDialog((current) => pending ?? (current && nextSessions.some(({ id }) => id === current.sessionId) ? current : null))
+    const pending = nextSessions
+      .flatMap((session) =>
+        session.pendingUi.map((request) => ({ sessionId: session.id, request }))
+      )
+      .find(({ request }) => !isAgentSelector(request))
+    setDialog((current) =>
+      pending
+        ?? (current && nextSessions.some(({ id }) => id === current.sessionId) ? current : null)
+    )
   }, [])
   const handleWorkspaceSelected = useCallback((): void => {
     setGitSnapshot(null)
@@ -135,8 +227,14 @@ function App() {
   const handleSessionDraft = useCallback((sessionId: string, message: string): void => {
     setComposerDraftRequest({ id: crypto.randomUUID(), message, sessionId })
   }, [])
-  const handleInitialMessageSent = useCallback((): void => setScrollToBottomRequest((current) => current + 1), [])
-  const handleWorkspaceError = useCallback((cause: unknown): void => showToast('error', messageOf(cause)), [showToast])
+  const handleInitialMessageSent = useCallback(
+    (): void => setScrollToBottomRequest((current) => current + 1),
+    [],
+  )
+  const handleWorkspaceError = useCallback(
+    (cause: unknown): void => showToast('error', messageOf(cause)),
+    [showToast],
+  )
   const {
     addPendingRequest,
     completedSessionIds,
@@ -169,8 +267,11 @@ function App() {
   })
   selectedIdRef.current = selectedId
 
-  const startAndSelectSession = useCallback((start: () => Promise<SessionSummary>, initialMessage?: string, draftMessage?: string) =>
-    startWorkspaceSession(start, { draftMessage, initialMessage }), [startWorkspaceSession])
+  const startAndSelectSession = useCallback(
+    (start: () => Promise<SessionSummary>, initialMessage?: string, draftMessage?: string) =>
+      startWorkspaceSession(start, { draftMessage, initialMessage }),
+    [startWorkspaceSession],
+  )
 
   const {
     activity,
@@ -195,7 +296,9 @@ function App() {
   const currentQuotaProviderRef = useRef(currentQuotaProvider)
   currentQuotaProviderRef.current = currentQuotaProvider
 
-  const visibleToasts = toasts.filter((toast) => toast.sessionId === null || toast.sessionId === selectedId)
+  const visibleToasts = toasts.filter((toast) =>
+    toast.sessionId === null || toast.sessionId === selectedId
+  )
 
   // Right sidebar preferences
   const updateRightSidebarWidth = useCallback((width: number) => {
@@ -227,9 +330,12 @@ function App() {
     setThemePreferences((current) => renameTheme(current, id, name))
   }, [])
 
-  const updateSelectedThemeColor = useCallback((id: string, variable: ThemeVariable, color: string) => {
-    setThemePreferences((current) => updateThemeColor(current, id, variable, color))
-  }, [])
+  const updateSelectedThemeColor = useCallback(
+    (id: string, variable: ThemeVariable, color: string) => {
+      setThemePreferences((current) => updateThemeColor(current, id, variable, color))
+    },
+    [],
+  )
 
   const deleteSelectedTheme = useCallback((id: string) => {
     setThemePreferences((current) => deleteTheme(current, id))
@@ -252,7 +358,11 @@ function App() {
   /** Clears an answered request immediately, then reconciles all pending requests with the manager. */
   const closeDialog = useCallback((closedDialog: UiDialog) => {
     const requestId = closedDialog.request.id
-    setDialog((current) => current?.sessionId === closedDialog.sessionId && current.request.id === requestId ? null : current)
+    setDialog((current) =>
+      current?.sessionId === closedDialog.sessionId && current.request.id === requestId
+        ? null
+        : current
+    )
     if (typeof requestId === 'string') removePendingRequest(closedDialog.sessionId, requestId)
     void refreshSessions()
   }, [refreshSessions, removePendingRequest])
@@ -270,24 +380,33 @@ function App() {
   }, [workspacePath])
 
   /** Refreshes quotas, allowing manual clicks to bypass automatic throttling. */
-  const refreshSessionQuotas = useCallback(async (sessionId: string, automatic: boolean): Promise<void> => {
-    if (!sessionId) throw new Error('An open Pi session is required to refresh quotas.')
-    if (automatic) {
-      const provider = currentQuotaProviderRef.current
-      if (!provider) return
-      const lastRefreshAt = Math.max(quotasRef.current?.[provider].updatedAt ?? 0, quotaAutoRefreshAtRef.current.get(sessionId) ?? 0)
-      const now = Date.now()
-      if (!quotaRefreshAllowed(lastRefreshAt, true, now)) return
-      quotaAutoRefreshAtRef.current.set(sessionId, now)
-    }
-    try {
-      setQuotas((current) => current && { ...current, refreshing: true })
-      setQuotas(await refreshQuotas(sessionId, automatic))
-    } catch (cause) {
-      if (!automatic) showToast('error', messageOf(cause))
-      setQuotas(await getQuotas().catch(() => quotasRef.current))
-    }
-  }, [showToast])
+  const refreshSessionQuotas = useCallback(
+    async (sessionId: string, automatic: boolean): Promise<void> => {
+      if (!sessionId) throw new Error('An open Pi session is required to refresh quotas.')
+      if (automatic) {
+        const provider = currentQuotaProviderRef.current
+        if (!provider) return
+        const lastRefreshAt = Math.max(
+          quotasRef
+            .current
+            ?.[provider]
+            .updatedAt ?? 0,
+          quotaAutoRefreshAtRef.current.get(sessionId) ?? 0,
+        )
+        const now = Date.now()
+        if (!quotaRefreshAllowed(lastRefreshAt, true, now)) return
+        quotaAutoRefreshAtRef.current.set(sessionId, now)
+      }
+      try {
+        setQuotas((current) => current && { ...current, refreshing: true })
+        setQuotas(await refreshQuotas(sessionId, automatic))
+      } catch (cause) {
+        if (!automatic) showToast('error', messageOf(cause))
+        setQuotas(await getQuotas().catch(() => quotasRef.current))
+      }
+    },
+    [showToast],
+  )
 
   /** Requests agent selection while avoiding concurrent requests for a session. */
   const requestAgent = useCallback((sessionId: string, value?: string) => {
@@ -305,91 +424,160 @@ function App() {
 
   // Initial application synchronization
   useEffect(() => void refreshGit(), [refreshGit])
-  useEffect(() => { void getQuotas().then(setQuotas).catch(() => undefined) }, [])
+  useEffect(() => {
+    void getQuotas().then(setQuotas).catch(() => undefined)
+  }, [])
 
   // Selected session synchronization
   useEffect(() => setConversationNavigation(undefined), [selectedId])
 
   // Pi event stream
   /** Routes a live or replayed Pi event through cross-feature effects before the conversation runtime. */
-  const handleManagerPiEvent = useCallback((sessionId: string, event: JsonObject, sequence?: number): void => {
-    if (event.type === 'session_info_changed') {
-      const name = typeof event.name === 'string' && event.name.trim() ? event.name.trim() : 'New session'
-      renameSession(sessionId, name)
-    }
-    if (event.type === 'agent_start') updateSession(sessionId, { status: 'running' })
-    if (event.type === 'agent_settled') {
-      updateSession(sessionId, { status: 'idle' })
-      markSessionCompleted(sessionId)
-    }
-    if (event.type === 'compaction_start') setCompactingSessionIds((current) => new Set(current).add(sessionId))
-    if (event.type === 'compaction_end') setCompactingSessionIds((current) => {
-      if (!current.has(sessionId)) return current
-      const next = new Set(current)
-      next.delete(sessionId)
-      return next
-    })
-    if (event.type === 'auto_retry_end' && event.success === false && typeof event.finalError === 'string') {
-      showToast('error', `Provider connection failed after retries: ${event.finalError}`, sessionId)
-    }
-    if (event.type === 'tool_execution_end') void refreshGit()
-    if (event.type === 'extension_ui_request' && event.method === 'setStatus' && event.statusKey === 'agent') {
-      updateSession(sessionId, { activeAgent: typeof event.activeAgent === 'string' ? event.activeAgent : undefined })
-    }
-    if (event.type === 'extension_ui_request' && event.method === 'setStatus' && event.statusKey === 'pi-livecraft.quotas') {
-      void getQuotas().then(setQuotas).catch(() => undefined)
-    }
-    if (event.type === 'extension_ui_request' && isBlockingDialog(event) && !isAgentSelector(event)) {
-      if (typeof event.id === 'string') addPendingRequest(sessionId, event)
-      if (sessionId === selectedIdRef.current) clearActivity()
-    }
-    if (event.type === 'extension_ui_request') {
-      if (event.method === 'notify' || (event.method === 'setStatus' && event.statusKey === 'agent')) selectCreatedSession(sessionId)
-      if (event.method === 'notify' && typeof event.message === 'string') showToast('notice', event.message, sessionId)
-      const agentIntent = agentIntentsRef.current.get(sessionId)
-      if (isAgentSelector(event)) {
-        const options = event.options.filter((option): option is string => typeof option === 'string')
-        if (agentIntent) {
-          setAgentOptions((current) => ({ ...current, [sessionId]: options }))
-          agentIntentsRef.current.delete(sessionId)
-        }
-        const selectedAgent = agentIntent?.value && options.includes(agentIntent.value) ? agentIntent.value : undefined
-        const response = selectedAgent ? { value: selectedAgent } : { cancelled: true }
-        void sendPiCommand(sessionId, { type: 'extension_ui_response', id: event.id, ...response })
-          .then(() => refreshSnapshot(sessionId))
-          .catch((cause) => showToast('error', messageOf(cause)))
-        if (agentIntent?.value && !selectedAgent) showToast('error', 'Selected agent is no longer available.')
-        return
+  const handleManagerPiEvent = useCallback(
+    (sessionId: string, event: JsonObject, sequence?: number): void => {
+      if (event.type === 'session_info_changed') {
+        const name = typeof event.name === 'string' && event.name.trim()
+          ? event.name.trim()
+          : 'New session'
+        renameSession(sessionId, name)
       }
-      if (isBlockingDialog(event)) setDialog({ sessionId, request: event })
-    }
+      if (event.type === 'agent_start') updateSession(sessionId, { status: 'running' })
+      if (event.type === 'agent_settled') {
+        updateSession(sessionId, { status: 'idle' })
+        markSessionCompleted(sessionId)
+      }
+      if (event.type === 'compaction_start')
+        setCompactingSessionIds((current) => new Set(current).add(sessionId))
+      if (event.type === 'compaction_end')
+        setCompactingSessionIds((current) => {
+          if (!current.has(sessionId)) return current
+          const next = new Set(current)
+          next.delete(sessionId)
+          return next
+        })
+      if (
+        event.type === 'auto_retry_end' && event.success === false && typeof event
+            .finalError === 'string'
+      ) {
+        showToast(
+          'error',
+          `Provider connection failed after retries: ${event.finalError}`,
+          sessionId,
+        )
+      }
+      if (event.type === 'tool_execution_end') void refreshGit()
+      if (
+        event.type === 'extension_ui_request' && event.method === 'setStatus'
+        && event.statusKey === 'agent'
+      ) {
+        updateSession(sessionId, {
+          activeAgent: typeof event.activeAgent === 'string' ? event.activeAgent : undefined,
+        })
+      }
+      if (
+        event.type === 'extension_ui_request' && event.method === 'setStatus'
+        && event.statusKey === 'pi-livecraft.quotas'
+      ) {
+        void getQuotas().then(setQuotas).catch(() => undefined)
+      }
+      if (
+        event.type === 'extension_ui_request' && isBlockingDialog(event) && !isAgentSelector(event)
+      ) {
+        if (typeof event.id === 'string') addPendingRequest(sessionId, event)
+        if (sessionId === selectedIdRef.current) clearActivity()
+      }
+      if (event.type === 'extension_ui_request') {
+        if (
+          event.method === 'notify' || (event.method === 'setStatus' && event.statusKey === 'agent')
+        ) selectCreatedSession(sessionId)
+        if (event.method === 'notify' && typeof event.message === 'string')
+          showToast('notice', event.message, sessionId)
+        const agentIntent = agentIntentsRef.current.get(sessionId)
+        if (isAgentSelector(event)) {
+          const options = event.options.filter((option): option is string =>
+            typeof option === 'string'
+          )
+          if (agentIntent) {
+            setAgentOptions((current) => ({ ...current, [sessionId]: options }))
+            agentIntentsRef.current.delete(sessionId)
+          }
+          const selectedAgent = agentIntent?.value && options.includes(agentIntent.value)
+            ? agentIntent.value
+            : undefined
+          const response = selectedAgent ? { value: selectedAgent } : { cancelled: true }
+          void sendPiCommand(sessionId, {
+            type: 'extension_ui_response',
+            id: event.id,
+            ...response,
+          })
+            .then(() => refreshSnapshot(sessionId))
+            .catch((cause) => showToast('error', messageOf(cause)))
+          if (agentIntent?.value && !selectedAgent)
+            showToast(
+              'error',
+              'Selected agent is no longer available.',
+            )
+          return
+        }
+        if (isBlockingDialog(event)) setDialog({ sessionId, request: event })
+      }
 
-    const selected = sessionId === selectedIdRef.current
-    if (selected && event.type === 'agent_settled') void refreshSessionQuotas(sessionId, true)
-    handlePiEvent(sessionId, event, sequence)
-    if (selected && event.type === 'agent_settled') setFocusComposerRequest((current) => current + 1)
-  }, [addPendingRequest, clearActivity, handlePiEvent, markSessionCompleted, refreshGit, refreshSessionQuotas, refreshSnapshot, renameSession, selectCreatedSession, showToast, updateSession])
+      const selected = sessionId === selectedIdRef.current
+      if (selected && event.type === 'agent_settled') void refreshSessionQuotas(sessionId, true)
+      handlePiEvent(sessionId, event, sequence)
+      if (selected && event.type === 'agent_settled')
+        setFocusComposerRequest((current) => current + 1)
+    },
+    [
+      addPendingRequest,
+      clearActivity,
+      handlePiEvent,
+      markSessionCompleted,
+      refreshGit,
+      refreshSessionQuotas,
+      refreshSnapshot,
+      renameSession,
+      selectCreatedSession,
+      showToast,
+      updateSession,
+    ],
+  )
   replayPiEventRef.current = handleManagerPiEvent
 
-  useEffect(() => subscribeManagerEvents((managerEvent) => {
-    if (managerEvent.event === 'manager_connected' || managerEvent.event === 'manager_disconnected') {
-      setPiConnection(managerEvent.event === 'manager_connected' ? 'connected' : 'disconnected')
+  useEffect(() =>
+    subscribeManagerEvents((managerEvent) => {
+      if (
+        managerEvent.event === 'manager_connected' || managerEvent.event === 'manager_disconnected'
+      ) {
+        setPiConnection(managerEvent.event === 'manager_connected' ? 'connected' : 'disconnected')
+        clearActivity()
+      }
+      if (managerEvent.event === 'manager_status' && isManagerRuntimeStatus(managerEvent.data))
+        setManagerRuntimeStatus(managerEvent.data)
+      if (
+        managerEvent.event === 'manager_connected' || managerEvent.event === 'session_created'
+        || managerEvent.event === 'session_exited'
+      ) void refreshSessions()
+      if (managerEvent.event === 'pi' && isObject(managerEvent.data))
+        handleManagerPiEvent(
+          managerEvent.sessionId,
+          managerEvent.data,
+          managerEvent.sequence,
+        )
+    }, () => {
+      resetEventSequence()
+      setPiConnection('connecting')
       clearActivity()
-    }
-    if (managerEvent.event === 'manager_status' && isManagerRuntimeStatus(managerEvent.data)) setManagerRuntimeStatus(managerEvent.data)
-    if (managerEvent.event === 'manager_connected' || managerEvent.event === 'session_created' || managerEvent.event === 'session_exited') void refreshSessions()
-    if (managerEvent.event === 'pi' && isObject(managerEvent.data)) handleManagerPiEvent(managerEvent.sessionId, managerEvent.data, managerEvent.sequence)
-  }, () => {
-    resetEventSequence()
-    setPiConnection('connecting')
-    clearActivity()
-    showToast('error', 'Connection to backend lost; retrying.')
-  }), [clearActivity, handleManagerPiEvent, refreshSessions, resetEventSequence, showToast])
+      showToast('error', 'Connection to backend lost; retrying.')
+    }), [clearActivity, handleManagerPiEvent, refreshSessions, resetEventSequence, showToast])
 
   // Agent capabilities
   useEffect(() => {
     const exposesAgentCommand = snapshot.commands.some((command) => command.name === 'agent')
-    if (snapshotSessionId === selectedId && exposesAgentCommand && !agentOptions[selectedId] && !agentBusy[selectedId]) {
+    if (
+      snapshotSessionId === selectedId && exposesAgentCommand && !agentOptions[selectedId]
+      && !agentBusy[selectedId]
+    ) {
       requestAgent(selectedId)
     }
   }, [agentBusy, agentOptions, requestAgent, selectedId, snapshot.commands, snapshotSessionId])
@@ -420,12 +608,18 @@ function App() {
   const displayedActivity = selectedSession?.id && compactingSessionIds.has(selectedSession.id)
     ? { kind: 'compacting' as const }
     : selectedSession
-      ? sessionActivity(activity, selectedSession.status, piConnection)
-      : null
+    ? sessionActivity(activity, selectedSession.status, piConnection)
+    : null
 
   // Composer and session lifecycle
-  const handleConversationError = useCallback((cause: unknown) => showToast('error', messageOf(cause)), [showToast])
-  const handleComposerAgentChange = useCallback((agent: string) => requestAgent(selectedId, agent), [requestAgent, selectedId])
+  const handleConversationError = useCallback(
+    (cause: unknown) => showToast('error', messageOf(cause)),
+    [showToast],
+  )
+  const handleComposerAgentChange = useCallback(
+    (agent: string) => requestAgent(selectedId, agent),
+    [requestAgent, selectedId],
+  )
   /** Executes a composer command and synchronizes capabilities affected by it. */
   const handleComposerCommand = useCallback(async (command: JsonObject) => {
     const result = await sendPiCommand(selectedId, command)
@@ -434,39 +628,73 @@ function App() {
     return result
   }, [refreshSnapshot, selectedId, showToast])
   /** Sends the current draft with the behavior supported by the active session. */
-  const handleComposerSend = useCallback(async (message: string, images: JsonObject[], behavior: 'steer' | 'followUp') => {
-    const command: JsonObject = { type: 'prompt', message, images }
-    const isSteering = selectedSessionStatus === 'running' && behavior === 'steer'
-    if (selectedSessionStatus === 'running') command.streamingBehavior = behavior
-    if (isSteering) addPendingSteering(message)
-    const optimisticId = !isSteering ? addOptimisticUserMessage(message) : undefined
-    try {
-      await sendPiCommand(selectedId, command)
-      const sentSession = sessions.find((session) => session.id === selectedId)
-      const shouldNameSession = sentSession?.name === 'Nouvelle session' && !snapshot.messages.some((entry) => entry.role === 'user')
-      if (sentSession && shouldNameSession) nameSessionFromFirstPrompt(sentSession, message)
-      await refreshSessions()
-      setScrollToBottomRequest((current) => current + 1)
-    } catch (cause) {
-      if (optimisticId) removeLiveMessage(optimisticId)
-      if (isSteering) removePendingSteering(message)
-      throw cause
-    }
-  }, [addOptimisticUserMessage, addPendingSteering, nameSessionFromFirstPrompt, refreshSessions, removeLiveMessage, removePendingSteering, selectedId, selectedSessionStatus, sessions, snapshot.messages])
-  const handleComposerAbort = useCallback(() => sendPiCommand(selectedId, { type: 'abort' }), [selectedId])
-  const handlePromptImprovement = useCallback((prompt: string, direction?: string) => improvePrompt(selectedId, prompt, direction), [selectedId])
+  const handleComposerSend = useCallback(
+    async (message: string, images: JsonObject[], behavior: 'steer' | 'followUp') => {
+      const command: JsonObject = { type: 'prompt', message, images }
+      const isSteering = selectedSessionStatus === 'running' && behavior === 'steer'
+      if (selectedSessionStatus === 'running') command.streamingBehavior = behavior
+      if (isSteering) addPendingSteering(message)
+      const optimisticId = !isSteering ? addOptimisticUserMessage(message) : undefined
+      try {
+        await sendPiCommand(selectedId, command)
+        const sentSession = sessions.find((session) => session.id === selectedId)
+        const shouldNameSession = sentSession?.name === 'Nouvelle session' && !snapshot
+          .messages
+          .some((entry) => entry.role === 'user')
+        if (sentSession && shouldNameSession) nameSessionFromFirstPrompt(sentSession, message)
+        await refreshSessions()
+        setScrollToBottomRequest((current) => current + 1)
+      } catch (cause) {
+        if (optimisticId) removeLiveMessage(optimisticId)
+        if (isSteering) removePendingSteering(message)
+        throw cause
+      }
+    },
+    [
+      addOptimisticUserMessage,
+      addPendingSteering,
+      nameSessionFromFirstPrompt,
+      refreshSessions,
+      removeLiveMessage,
+      removePendingSteering,
+      selectedId,
+      selectedSessionStatus,
+      sessions,
+      snapshot.messages,
+    ],
+  )
+  const handleComposerAbort = useCallback(() => sendPiCommand(selectedId, { type: 'abort' }), [
+    selectedId,
+  ])
+  const handlePromptImprovement = useCallback(
+    (prompt: string, direction?: string) => improvePrompt(selectedId, prompt, direction),
+    [selectedId],
+  )
   const handleComposerSelectOpened = useCallback(() => setRequestedSelect(null), [])
-  const sessionAnalysis = useMemo(() => selectedSession && snapshotSessionId === selectedSession.id
-    ? analyzeSession(snapshot.messages, snapshot.stats, selectedSession.status === 'running', {
-      requestDurations: observedRequestDurations,
-      toolDurations: observedToolDurations,
-      toolExecutions,
-    })
-    : null, [observedRequestDurations, observedToolDurations, selectedSession, snapshot.messages, snapshot.stats, snapshotSessionId, toolExecutions])
+  const sessionAnalysis = useMemo(() =>
+    selectedSession && snapshotSessionId === selectedSession.id
+      ? analyzeSession(snapshot.messages, snapshot.stats, selectedSession.status === 'running', {
+        requestDurations: observedRequestDurations,
+        toolDurations: observedToolDurations,
+        toolExecutions,
+      })
+      : null, [
+    observedRequestDurations,
+    observedToolDurations,
+    selectedSession,
+    snapshot.messages,
+    snapshot.stats,
+    snapshotSessionId,
+    toolExecutions,
+  ])
   const questionnaire = dialog && isAskUserQuestionDialog(dialog.request) ? dialog : null
-  const questionnaireInComposer = questionnaire?.sessionId === selectedId && snapshotSessionId === selectedId
+  const questionnaireInComposer = questionnaire?.sessionId === selectedId
+    && snapshotSessionId === selectedId
 
-  const handleContextSessionStart = useCallback((draft: string) => startAndSelectSession(() => createSession(workspacePath), undefined, draft), [startAndSelectSession, workspacePath])
+  const handleContextSessionStart = useCallback(
+    (draft: string) => startAndSelectSession(() => createSession(workspacePath), undefined, draft),
+    [startAndSelectSession, workspacePath],
+  )
 
   const markComposerDraftApplied = useCallback((id: string) => {
     setComposerDraftRequest((current) => current?.id === id ? undefined : current)
@@ -477,26 +705,72 @@ function App() {
   const executeCommand = useCallback((id: CommandId): void => {
     const rightWidget = rightWidgetFromCommand(id)
     if (rightWidget) {
-      if ((rightWidget === 'analysis' && !sessionAnalysis) || (rightWidget === 'git' && !gitSnapshot?.repository)) return
+      if (
+        (rightWidget === 'analysis' && !sessionAnalysis)
+        || (rightWidget === 'git' && !gitSnapshot?.repository)
+      ) return
       openRightWidget(rightWidget)
       return
     }
-    if (id === 'open-palette') { setCommandPaletteOpen(true); return }
-    if (id === 'open-settings') { setSettingsOpen(true); return }
-    if (id === 'open-terminal') { void openTerminal(workspacePath, terminalCommand).catch((cause) => showToast('error', messageOf(cause))); return }
-    if (id === 'new-session') { void startAndSelectSession(() => createSession(workspacePath)).catch((cause) => showToast('error', messageOf(cause))); return }
-    if (id === 'send') { setSubmitRequest((current) => current + 1); return }
-    if (id === 'abort' && selectedId) { void sendPiCommand(selectedId, { type: 'abort' }).catch((cause) => showToast('error', messageOf(cause))); return }
-    if (id === 'open-agent' || id === 'open-model' || id === 'open-thinking') { setRequestedSelect(id === 'open-agent' ? 'agent' : id === 'open-model' ? 'model' : 'thinking'); return }
-    if (id === 'copy-last-response') {
-      const text = lastAssistantText(snapshot.messages)
-      if (!text) { showToast('notice', 'No assistant response to copy.'); return }
-      void navigator.clipboard.writeText(text).then(() => showToast('notice', 'Last response copied.')).catch((cause) => showToast('error', messageOf(cause)))
+    if (id === 'open-palette') {
+      setCommandPaletteOpen(true)
       return
     }
-    if (id === 'open-directory-picker') { setDirectoryPickerOpen(true); return }
-    if (id === 'workspace-previous' && recentWorkspacePaths.length > 1) { selectWorkspace(recentWorkspacePaths[1]); return }
-    if (id === 'focus-composer') { setFocusComposerRequest((current) => current + 1); return }
+    if (id === 'open-settings') {
+      setSettingsOpen(true)
+      return
+    }
+    if (id === 'open-terminal') {
+      void openTerminal(workspacePath, terminalCommand).catch((cause) =>
+        showToast('error', messageOf(cause))
+      )
+      return
+    }
+    if (id === 'new-session') {
+      void startAndSelectSession(() => createSession(workspacePath)).catch((cause) =>
+        showToast('error', messageOf(cause))
+      )
+      return
+    }
+    if (id === 'send') {
+      setSubmitRequest((current) => current + 1)
+      return
+    }
+    if (id === 'abort' && selectedId) {
+      void sendPiCommand(selectedId, { type: 'abort' }).catch((cause) =>
+        showToast('error', messageOf(cause))
+      )
+      return
+    }
+    if (id === 'open-agent' || id === 'open-model' || id === 'open-thinking') {
+      setRequestedSelect(id === 'open-agent' ? 'agent' : id === 'open-model' ? 'model' : 'thinking')
+      return
+    }
+    if (id === 'copy-last-response') {
+      const text = lastAssistantText(snapshot.messages)
+      if (!text) {
+        showToast('notice', 'No assistant response to copy.')
+        return
+      }
+      void navigator
+        .clipboard
+        .writeText(text)
+        .then(() => showToast('notice', 'Last response copied.'))
+        .catch((cause) => showToast('error', messageOf(cause)))
+      return
+    }
+    if (id === 'open-directory-picker') {
+      setDirectoryPickerOpen(true)
+      return
+    }
+    if (id === 'workspace-previous' && recentWorkspacePaths.length > 1) {
+      selectWorkspace(recentWorkspacePaths[1])
+      return
+    }
+    if (id === 'focus-composer') {
+      setFocusComposerRequest((current) => current + 1)
+      return
+    }
     if (id === 'next-session' || id === 'previous-session') {
       const visible = sidebarSessions(recentSessions, workspacePath, sentSessions)
       const currentIndex = visible.findIndex((session) => session.id === selectedId)
@@ -512,38 +786,89 @@ function App() {
       })
       return
     }
-    if (id === 'open-explorer') { void openExplorer(workspacePath).catch((cause) => showToast('error', messageOf(cause))); return }
-  }, [gitSnapshot?.repository, openRightWidget, recentSessions, recentWorkspacePaths, selectWorkspace, selectedId, sentSessions, sessionAnalysis, setDirectoryPickerOpen, setSelectedId, showToast, snapshot.messages, startAndSelectSession, terminalCommand, workspacePath])
+    if (id === 'open-explorer') {
+      void openExplorer(workspacePath).catch((cause) => showToast('error', messageOf(cause)))
+      return
+    }
+  }, [
+    gitSnapshot?.repository,
+    openRightWidget,
+    recentSessions,
+    recentWorkspacePaths,
+    selectWorkspace,
+    selectedId,
+    sentSessions,
+    sessionAnalysis,
+    setDirectoryPickerOpen,
+    setSelectedId,
+    showToast,
+    snapshot.messages,
+    startAndSelectSession,
+    terminalCommand,
+    workspacePath,
+  ])
 
   const paletteCommands: PaletteCommand[] = useMemo(() => {
-    const visibleIds = sidebarSessions(recentSessions, workspacePath, sentSessions).map((session) => session.id)
+    const visibleIds = sidebarSessions(recentSessions, workspacePath, sentSessions).map((session) =>
+      session.id
+    )
     const selectedIndex = selectedId ? visibleIds.indexOf(selectedId) : -1
     return commandDefinitions.map((definition) => {
       const rightWidget = rightWidgetFromCommand(definition.id)
-      const unavailableWidget = (rightWidget === 'analysis' && !sessionAnalysis) || (rightWidget === 'git' && !gitSnapshot?.repository)
+      const unavailableWidget = (rightWidget === 'analysis' && !sessionAnalysis)
+        || (rightWidget === 'git' && !gitSnapshot?.repository)
       return {
         ...definition,
         shortcut: shortcuts[definition.id],
         disabled: unavailableWidget
-          || (['send', 'abort', 'open-thinking', 'open-model', 'open-agent', 'copy-last-response'] as CommandId[]).includes(definition.id) && !selectedSession
+          || ([
+              'send',
+              'abort',
+              'open-thinking',
+              'open-model',
+              'open-agent',
+              'copy-last-response',
+            ] as CommandId[])
+              .includes(definition.id) && !selectedSession
           || (definition.id === 'abort' && selectedSession?.status !== 'running')
           || (definition.id === 'workspace-previous' && recentWorkspacePaths.length < 2)
-          || (definition.id === 'next-session' && (selectedIndex === -1 || selectedIndex >= visibleIds.length - 1))
+          || (definition.id === 'next-session'
+            && (selectedIndex === -1 || selectedIndex >= visibleIds.length - 1))
           || (definition.id === 'previous-session' && selectedIndex <= 0),
         onExecute: () => executeCommand(definition.id),
       }
     })
-  }, [executeCommand, gitSnapshot?.repository, recentSessions, recentWorkspacePaths, selectedId, selectedSession, sentSessions, sessionAnalysis, shortcuts, workspacePath])
+  }, [
+    executeCommand,
+    gitSnapshot?.repository,
+    recentSessions,
+    recentWorkspacePaths,
+    selectedId,
+    selectedSession,
+    sentSessions,
+    sessionAnalysis,
+    shortcuts,
+    workspacePath,
+  ])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.defaultPrevented) return
       const target = event.target
-      if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) && event.key !== 'Escape' && !event.ctrlKey && !event.metaKey && !event.altKey) return
+      if (
+        target instanceof HTMLElement && (target
+          .isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+        && event.key !== 'Escape' && !event.ctrlKey && !event.metaKey && !event.altKey
+      ) return
       const shortcut = shortcutFromEvent(event)
-      const command = (Object.entries(shortcuts) as [CommandId, string | undefined][]).find(([, value]) => value === shortcut)?.[0]
+      const command = (Object.entries(shortcuts) as [CommandId, string | undefined][])
+        .find(([, value]) => value === shortcut)
+        ?.[0]
       if (!command) return
-      if (event.key === 'Escape' && (commandPaletteOpen || settingsOpen || dialog || document.querySelector('.composer-select-content,[data-radix-select-content],.slash-commands'))) return
+      if (
+        event.key === 'Escape' && (commandPaletteOpen || settingsOpen || dialog || document
+          .querySelector('.composer-select-content,[data-radix-select-content],.slash-commands'))
+      ) return
       event.preventDefault()
       executeCommand(command)
     }
@@ -565,15 +890,40 @@ function App() {
   const railActions = useMemo(() => [
     {
       key: 'explorer',
-      icon: <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h4l2 2h7A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" /><path d="M3 9h18" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" /></svg>,
+      icon: (
+        <svg aria-hidden='true' viewBox='0 0 24 24' width='18' height='18'>
+          <path
+            d='M3 6.5A2.5 2.5 0 0 1 5.5 4h4l2 2h7A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z'
+            fill='none'
+            stroke='currentColor'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+            strokeWidth='1.8'
+          />
+          <path
+            d='M3 9h18'
+            fill='none'
+            stroke='currentColor'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+            strokeWidth='1.8'
+          />
+        </svg>
+      ),
       label: 'Open folder',
-      onClick: () => { void openExplorer(workspacePath).catch((cause) => showToast('error', messageOf(cause))) },
+      onClick: () => {
+        void openExplorer(workspacePath).catch((cause) => showToast('error', messageOf(cause)))
+      },
     },
     {
       key: 'terminal',
-      icon: <span aria-hidden="true">›_</span>,
+      icon: <span aria-hidden='true'>›_</span>,
       label: 'Open terminal',
-      onClick: () => { void openTerminal(workspacePath, terminalCommand).catch((cause) => showToast('error', messageOf(cause))) },
+      onClick: () => {
+        void openTerminal(workspacePath, terminalCommand).catch((cause) =>
+          showToast('error', messageOf(cause))
+        )
+      },
     },
   ], [showToast, terminalCommand, workspacePath])
 
@@ -584,7 +934,9 @@ function App() {
 
   return (
     <div
-      className={`app-shell ${rightPanelVisible ? 'right-sidebar-visible' : 'right-sidebar-collapsed'}`}
+      className={`app-shell ${
+        rightPanelVisible ? 'right-sidebar-visible' : 'right-sidebar-collapsed'
+      }`}
       style={{ '--right-sidebar-width': `${rightSidebarWidth}px` } as CSSProperties}
     >
       <WorkspaceSidebar
@@ -598,96 +950,154 @@ function App() {
         workspacePath={workspacePath}
         onChooseWorkspace={() => setDirectoryPickerOpen(true)}
         onCreate={() => startAndSelectSession(() => createSession(workspacePath))}
-        onOpenSession={(recentSession) => startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))}
+        onOpenSession={(recentSession) =>
+          startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))}
         onSelectOtherWorkspaceSession={(session) => selectWorkspace(session.cwd, session.id)}
         onSelectSession={setSelectedId}
         onError={(cause) => showToast('error', messageOf(cause))}
         onOpenSettings={() => setSettingsOpen(true)}
       />
 
-      <main className="workspace">
+      <main className='workspace'>
         <ManagerRuntimeNotice
-          activeSession={sessions.some(({ status }) => status === 'running' || status === 'starting')}
+          activeSession={sessions.some(({ status }) =>
+            status === 'running' || status === 'starting'
+          )}
           status={managerRuntimeStatus}
           onError={(cause) => showToast('error', messageOf(cause))}
           onRestart={restartManager}
         />
-        {selectedSession ? (
-          <>
-            {(snapshotSessionId === selectedSession.id || loadingPhase === 'exiting') && (
-              <>
-                <Conversation activity={displayedActivity} agentName={selectedSession.activeAgent} darkMode={activeTheme.mode === 'dark'} detailedView={conversationView === 'detailed'} key={selectedSession.id} liveMessages={liveMessages} messages={snapshot.messages} navigationRequest={conversationNavigation} onError={handleConversationError} onStartSession={handleContextSessionStart} pendingSteering={pendingSteering} repositoryRoot={gitSnapshot?.root} scrollToBottomRequest={scrollToBottomRequest} toolExecutions={toolExecutions} workspacePath={workspacePath} />
-                <Tooltip label={`${conversationViewDetail.label} — ${conversationViewDetail.description}`}><button aria-label={`${conversationViewDetail.label}. ${conversationViewDetail.description}. Click to toggle view.`} className={`chat-detail-toggle ${conversationView}`} onClick={() => setConversationView((current) => {
-                    const next = current === 'simple' ? 'detailed' : 'simple'
-                    window.localStorage.setItem('pi-livecraft.conversation-view', next)
-                    return next
-                  })} type="button">
-                  <span aria-hidden="true" className="chat-detail-toggle-icon">⌘</span>
-                  <span className="chat-detail-toggle-copy"><strong>{conversationViewDetail.label}</strong><small>{conversationViewDetail.description}</small></span>
-                </button></Tooltip>
-                <div className="composer-area">
-                  {questionnaire && questionnaireInComposer && <AskUserQuestionDialog canMinimize dialog={questionnaire} key={String(questionnaire.request.id)} sessionName={selectedSession.name} onClose={() => closeDialog(questionnaire)} onError={(cause) => showToast('error', messageOf(cause))} />}
-                  <ToastStack onDismiss={dismissToast} toasts={visibleToasts} />
-                  <Composer
-                  key={selectedSession.id}
-                  session={selectedSession}
-                  snapshot={snapshot}
-                  agentBusy={Boolean(agentBusy[selectedSession.id])}
-                  agentOptions={agentOptions[selectedSession.id] ?? emptyAgentOptions}
-                  selectedAgent={selectedSession.activeAgent ?? ''}
-                  onAgentChange={handleComposerAgentChange}
-                  onCommand={handleComposerCommand}
-                  commands={snapshot.commands}
-                  agentLoading={snapshotSessionId !== selectedSession.id}
-                  focusRequest={focusComposerRequest}
-                  draftRequest={composerDraftRequest?.sessionId === selectedSession.id ? composerDraftRequest : undefined}
-                  onDraftApplied={markComposerDraftApplied}
-                  showAgentSelector={snapshotSessionId !== selectedSession.id || snapshot.commands.some((command) => command.name === 'agent')}
-                  running={selectedSession.status === 'running'}
-                  compacting={displayedActivity?.kind === 'compacting'}
-                  onSend={handleComposerSend}
-                  onAbort={handleComposerAbort}
-                  onImprovePrompt={handlePromptImprovement}
-                  onError={handleConversationError}
-                  requestedSelect={requestedSelect}
-                  onSelectOpened={handleComposerSelectOpened}
-                  submitRequest={submitRequest}
+        {selectedSession
+          ? (
+            <>
+              {(snapshotSessionId === selectedSession.id || loadingPhase === 'exiting') && (
+                <>
+                  <Conversation
+                    activity={displayedActivity}
+                    agentName={selectedSession.activeAgent}
+                    darkMode={activeTheme.mode === 'dark'}
+                    detailedView={conversationView === 'detailed'}
+                    key={selectedSession.id}
+                    liveMessages={liveMessages}
+                    messages={snapshot.messages}
+                    navigationRequest={conversationNavigation}
+                    onError={handleConversationError}
+                    onStartSession={handleContextSessionStart}
+                    pendingSteering={pendingSteering}
+                    repositoryRoot={gitSnapshot?.root}
+                    scrollToBottomRequest={scrollToBottomRequest}
+                    toolExecutions={toolExecutions}
+                    workspacePath={workspacePath}
                   />
-                </div>
-              </>
-            )}
-            {loadingPhase !== 'hidden' && (
-              <>
-                <section aria-busy={loadingPhase !== 'exiting' ? true : undefined} aria-live={loadingPhase !== 'exiting' ? "polite" : undefined} className={`welcome session-loading session-loading-${loadingPhase}`}>
-                  <span className="brand-mark large brand-mark-loading">π</span>
-                  <h1>Connecting to Pi…</h1>
-                  <p>Loading the session and its capabilities.</p>
-                  <span aria-hidden="true" className="session-loading-indicator" />
-                </section>
-                {loadingPhase !== 'exiting' && <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />}
-              </>
-            )}
-          </>
-        ) : creatingSession ? (
-          <>
-            <section className="welcome" aria-busy="true">
-              <span className="brand-mark large brand-mark-loading">π</span>
-              <h1>Starting new session…</h1>
-              <p>Initializing Pi and its agents.</p>
-              <span aria-hidden="true" className="session-loading-indicator" />
-            </section>
-            <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />
-          </>
-        ) : (
-          <>
-            <section className="welcome">
-              <span className="brand-mark large">π</span>
-              <h1>Control Pi from your browser</h1>
-              <p>Create a local session to access your models, agents, tools, and commands.</p>
-            </section>
-            <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />
-          </>
-        )}
+                  <Tooltip
+                    label={`${conversationViewDetail.label} — ${conversationViewDetail.description}`}
+                  >
+                    <button
+                      aria-label={`${conversationViewDetail.label}. ${conversationViewDetail.description}. Click to toggle view.`}
+                      className={`chat-detail-toggle ${conversationView}`}
+                      onClick={() =>
+                        setConversationView((current) => {
+                          const next = current === 'simple' ? 'detailed' : 'simple'
+                          window.localStorage.setItem('pi-livecraft.conversation-view', next)
+                          return next
+                        })}
+                      type='button'
+                    >
+                      <span aria-hidden='true' className='chat-detail-toggle-icon'>⌘</span>
+                      <span className='chat-detail-toggle-copy'>
+                        <strong>{conversationViewDetail.label}</strong>
+                        <small>{conversationViewDetail.description}</small>
+                      </span>
+                    </button>
+                  </Tooltip>
+                  <div className='composer-area'>
+                    {questionnaire && questionnaireInComposer && (
+                      <AskUserQuestionDialog
+                        canMinimize
+                        dialog={questionnaire}
+                        key={String(
+                          questionnaire
+                            .request
+                            .id,
+                        )}
+                        sessionName={selectedSession.name}
+                        onClose={() => closeDialog(questionnaire)}
+                        onError={(cause) => showToast('error', messageOf(cause))}
+                      />
+                    )}
+                    <ToastStack onDismiss={dismissToast} toasts={visibleToasts} />
+                    <Composer
+                      key={selectedSession.id}
+                      session={selectedSession}
+                      snapshot={snapshot}
+                      agentBusy={Boolean(agentBusy[selectedSession.id])}
+                      agentOptions={agentOptions[selectedSession.id] ?? emptyAgentOptions}
+                      selectedAgent={selectedSession.activeAgent ?? ''}
+                      onAgentChange={handleComposerAgentChange}
+                      onCommand={handleComposerCommand}
+                      commands={snapshot.commands}
+                      agentLoading={snapshotSessionId !== selectedSession.id}
+                      focusRequest={focusComposerRequest}
+                      draftRequest={composerDraftRequest?.sessionId === selectedSession.id
+                        ? composerDraftRequest
+                        : undefined}
+                      onDraftApplied={markComposerDraftApplied}
+                      showAgentSelector={snapshotSessionId !== selectedSession.id
+                        || snapshot.commands.some((command) => command.name === 'agent')}
+                      running={selectedSession.status === 'running'}
+                      compacting={displayedActivity?.kind === 'compacting'}
+                      onSend={handleComposerSend}
+                      onAbort={handleComposerAbort}
+                      onImprovePrompt={handlePromptImprovement}
+                      onError={handleConversationError}
+                      requestedSelect={requestedSelect}
+                      onSelectOpened={handleComposerSelectOpened}
+                      submitRequest={submitRequest}
+                    />
+                  </div>
+                </>
+              )}
+              {loadingPhase !== 'hidden' && (
+                <>
+                  <section
+                    aria-busy={loadingPhase !== 'exiting' ? true : undefined}
+                    aria-live={loadingPhase !== 'exiting' ? 'polite' : undefined}
+                    className={`welcome session-loading session-loading-${loadingPhase}`}
+                  >
+                    <span className='brand-mark large brand-mark-loading'>π</span>
+                    <h1>Connecting to Pi…</h1>
+                    <p>Loading the session and its capabilities.</p>
+                    <span aria-hidden='true' className='session-loading-indicator' />
+                  </section>
+                  {loadingPhase !== 'exiting' && (
+                    <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />
+                  )}
+                </>
+              )}
+            </>
+          )
+          : creatingSession
+          ? (
+            <>
+              <section className='welcome' aria-busy='true'>
+                <span className='brand-mark large brand-mark-loading'>π</span>
+                <h1>Starting new session…</h1>
+                <p>Initializing Pi and its agents.</p>
+                <span aria-hidden='true' className='session-loading-indicator' />
+              </section>
+              <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />
+            </>
+          )
+          : (
+            <>
+              <section className='welcome'>
+                <span className='brand-mark large'>π</span>
+                <h1>Control Pi from your browser</h1>
+                <p>Create a local session to access your models, agents, tools, and commands.</p>
+              </section>
+              <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />
+            </>
+          )}
       </main>
 
       <RightSidebar
@@ -717,26 +1127,84 @@ function App() {
         onRevert={async (hash) => {
           return await revertGitCommit(workspacePath, hash)
         }}
-        onTodoSendPrompt={(message) => startAndSelectSession(() => createSession(workspacePath), message)}
-        onTodoStartSession={(message) => startAndSelectSession(() => createSession(workspacePath), undefined, message)}
-        onWidgetSelect={(widget) => setActiveRightWidget((current) => {
-          const next = current === widget ? null : widget
-          window.localStorage.setItem('pi-livecraft.right-sidebar-widget', next ?? 'none')
-          return next
-        })}
+        onTodoSendPrompt={(message) =>
+          startAndSelectSession(() => createSession(workspacePath), message)}
+        onTodoStartSession={(message) =>
+          startAndSelectSession(() => createSession(workspacePath), undefined, message)}
+        onWidgetSelect={(widget) =>
+          setActiveRightWidget((current) => {
+            const next = current === widget ? null : widget
+            window.localStorage.setItem('pi-livecraft.right-sidebar-widget', next ?? 'none')
+            return next
+          })}
       />
 
-      {directoryPickerOpen && <DirectoryPicker
-        initialPath={workspacePath}
-        recentPaths={recentWorkspacePaths}
-        onClose={() => setDirectoryPickerOpen(false)}
-        onError={(cause) => showToast('error', messageOf(cause))}
-        onSelect={selectWorkspace}
-      />}
-      {questionnaire && !questionnaireInComposer && <AskUserQuestionDialog canMinimize={false} key={String(questionnaire.request.id)} dialog={questionnaire} sessionName={sessions.find((session) => session.id === questionnaire.sessionId)?.name} onClose={() => closeDialog(questionnaire)} onError={(cause) => showToast('error', messageOf(cause))} />}
-      {dialog && !questionnaire && <ExtensionDialog dialog={dialog} onClose={() => closeDialog(dialog)} onError={(cause) => showToast('error', messageOf(cause))} />}
-      {commandPaletteOpen && <CommandPalette commands={paletteCommands} onClose={() => setCommandPaletteOpen(false)} />}
-      {settingsOpen && <SettingsPanel definitions={commandDefinitions} shortcuts={shortcuts} terminalCommand={terminalCommand} themes={allThemes(themePreferences)} activeThemeId={activeTheme.id} onChange={(id, shortcut) => { const next = { ...shortcuts, [id]: shortcut }; setShortcuts(next); window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(next)) }} onTerminalCommandChange={(value) => { setTerminalCommand(value); window.localStorage.setItem('pi-livecraft.terminal-command', value) }} onSelectTheme={selectTheme} onDuplicateTheme={duplicateActiveTheme} onRenameTheme={renameSelectedTheme} onUpdateThemeColor={updateSelectedThemeColor} onDeleteTheme={deleteSelectedTheme} onReset={() => { setShortcuts(defaultShortcuts); window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(defaultShortcuts)) }} onClose={() => setSettingsOpen(false)} />}
+      {directoryPickerOpen && (
+        <DirectoryPicker
+          initialPath={workspacePath}
+          recentPaths={recentWorkspacePaths}
+          onClose={() => setDirectoryPickerOpen(false)}
+          onError={(cause) => showToast('error', messageOf(cause))}
+          onSelect={selectWorkspace}
+        />
+      )}
+      {questionnaire && !questionnaireInComposer && (
+        <AskUserQuestionDialog
+          canMinimize={false}
+          key={String(
+            questionnaire
+              .request
+              .id,
+          )}
+          dialog={questionnaire}
+          sessionName={sessions
+            .find((session) => session.id === questionnaire.sessionId)
+            ?.name}
+          onClose={() => closeDialog(questionnaire)}
+          onError={(cause) => showToast('error', messageOf(cause))}
+        />
+      )}
+      {dialog && !questionnaire && (
+        <ExtensionDialog
+          dialog={dialog}
+          onClose={() => closeDialog(dialog)}
+          onError={(cause) => showToast('error', messageOf(cause))}
+        />
+      )}
+      {commandPaletteOpen && (
+        <CommandPalette
+          commands={paletteCommands}
+          onClose={() => setCommandPaletteOpen(false)}
+        />
+      )}
+      {settingsOpen && (
+        <SettingsPanel
+          definitions={commandDefinitions}
+          shortcuts={shortcuts}
+          terminalCommand={terminalCommand}
+          themes={allThemes(themePreferences)}
+          activeThemeId={activeTheme.id}
+          onChange={(id, shortcut) => {
+            const next = { ...shortcuts, [id]: shortcut }
+            setShortcuts(next)
+            window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(next))
+          }}
+          onTerminalCommandChange={(value) => {
+            setTerminalCommand(value)
+            window.localStorage.setItem('pi-livecraft.terminal-command', value)
+          }}
+          onSelectTheme={selectTheme}
+          onDuplicateTheme={duplicateActiveTheme}
+          onRenameTheme={renameSelectedTheme}
+          onUpdateThemeColor={updateSelectedThemeColor}
+          onDeleteTheme={deleteSelectedTheme}
+          onReset={() => {
+            setShortcuts(defaultShortcuts)
+            window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(defaultShortcuts))
+          }}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </div>
   )
 }
@@ -744,14 +1212,24 @@ function App() {
 /** Lit une éventuelle ancienne liste invalide sans empêcher l'ouverture de l'application. */
 function readShortcuts(): Partial<Record<CommandId, string>> {
   try {
-    const value: unknown = JSON.parse(window.localStorage.getItem('pi-livecraft.shortcuts') ?? 'null')
+    const value: unknown = JSON.parse(
+      window.localStorage.getItem('pi-livecraft.shortcuts') ?? 'null',
+    )
     if (!isObject(value)) return defaultShortcuts
     const primaryModifier = navigator.platform.toLowerCase().includes('mac') ? 'meta' : 'ctrl'
-    const stored = Object.entries(value)
-      .filter(([key, shortcut]) => key !== 'send' && commandDefinitions.some((definition) => definition.id === key) && typeof shortcut === 'string')
+    const stored = Object
+      .entries(value)
+      .filter(([key, shortcut]) =>
+        key !== 'send' && commandDefinitions.some((definition) => definition.id === key)
+        && typeof shortcut === 'string'
+      )
       .map(([key, shortcut]) => [key, migrateLegacyShortcut(shortcut as string, primaryModifier)])
-    return { ...defaultShortcuts, ...Object.fromEntries(stored) } as Partial<Record<CommandId, string>>
-  } catch { return defaultShortcuts }
+    return { ...defaultShortcuts, ...Object.fromEntries(stored) } as Partial<
+      Record<CommandId, string>
+    >
+  } catch {
+    return defaultShortcuts
+  }
 }
 
 function readTerminalCommand(): string {
@@ -768,8 +1246,11 @@ function readActiveRightWidget(): RightWidget | null {
 }
 
 function isManagerRuntimeStatus(value: unknown): value is ManagerRuntimeStatus {
-  if (!isObject(value) || typeof value.canRestart !== 'boolean' || typeof value.state !== 'string') return false
-  return value.state === 'checking' || value.state === 'current' || value.state === 'stale' || value.state === 'restarting' || value.state === 'disconnected' || value.state === 'unknown'
+  if (!isObject(value) || typeof value.canRestart !== 'boolean' || typeof value.state !== 'string')
+    return false
+  return value.state === 'checking' || value.state === 'current' || value.state === 'stale' || value
+        .state === 'restarting'
+    || value.state === 'disconnected' || value.state === 'unknown'
 }
 
 function messageOf(cause: unknown): string {

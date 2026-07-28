@@ -4,7 +4,8 @@ import { isAbsolute, join, relative, sep } from 'node:path'
 import type { RecentSession } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 
-const sessionDirectory = process.env.PI_CODING_AGENT_SESSION_DIR ?? join(homedir(), '.pi', 'agent', 'sessions')
+const sessionDirectory = process.env.PI_CODING_AGENT_SESSION_DIR
+  ?? join(homedir(), '.pi', 'agent', 'sessions')
 
 interface PiSessionHeader {
   type: 'session'
@@ -17,7 +18,10 @@ const MAX_SESSIONS = 30
 const CANDIDATE_BUFFER = 100
 
 /** Reads only the metadata required to resume a Pi session. */
-export async function listRecentPiSessions(cwd: string, directory = sessionDirectory): Promise<RecentSession[]> {
+export async function listRecentPiSessions(
+  cwd: string,
+  directory = sessionDirectory,
+): Promise<RecentSession[]> {
   const paths = await listSessionFiles(directory)
 
   // stat is cheap, readFile is expensive: read only the most recent candidates
@@ -40,9 +44,13 @@ export async function listRecentPiSessions(cwd: string, directory = sessionDirec
 
 /** Verifies that a file belongs to the Pi session directory before loading its metadata. */
 export async function loadPiSession(path: string): Promise<RecentSession> {
-  const [canonicalPath, canonicalDirectory] = await Promise.all([realpath(path), realpath(sessionDirectory)])
+  const [canonicalPath, canonicalDirectory] = await Promise.all([
+    realpath(path),
+    realpath(sessionDirectory),
+  ])
   const relativePath = relative(canonicalDirectory, canonicalPath)
-  if (!relativePath || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) throw new Error('Pi session file must be stored in the Pi session directory')
+  if (!relativePath || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath))
+    throw new Error('Pi session file must be stored in the Pi session directory')
   const session = await readPiSession(canonicalPath, (await stat(canonicalPath)).mtimeMs)
   if (!session) throw new Error('Invalid Pi session file')
   return session
@@ -77,11 +85,19 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
 
   const header = parseHeader(lines[0])
   if (!header || !lines.some(isMessageLine)) return null
-  const name = lines.reduce<string | undefined>((current, line) => parseSessionName(line) ?? current, undefined)
-  const prompt = lines.reduce<string | undefined>((current, line) => current ?? parseUserPrompt(line), undefined)
+  const name = lines.reduce<string | undefined>(
+    (current, line) => parseSessionName(line) ?? current,
+    undefined,
+  )
+  const prompt = lines.reduce<string | undefined>(
+    (current, line) => current ?? parseUserPrompt(line),
+    undefined,
+  )
   const lastMessageAt = lines.reduce<number | undefined>((current, line) => {
     const timestamp = parseMessageTimestamp(line)
-    return timestamp === undefined || (current !== undefined && timestamp <= current) ? current : timestamp
+    return timestamp === undefined || (current !== undefined && timestamp <= current)
+      ? current
+      : timestamp
   }, undefined)
   const createdAt = Date.parse(header.timestamp)
   return {
@@ -96,7 +112,11 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
 function parseHeader(line: string | undefined): PiSessionHeader | null {
   try {
     const value: unknown = JSON.parse(line ?? '')
-    if (!isObject(value) || value.type !== 'session' || typeof value.id !== 'string' || typeof value.timestamp !== 'string' || typeof value.cwd !== 'string') return null
+    if (
+      !isObject(value) || value.type !== 'session' || typeof value.id !== 'string' || typeof value
+          .timestamp !== 'string'
+      || typeof value.cwd !== 'string'
+    ) return null
     return { type: 'session', id: value.id, timestamp: value.timestamp, cwd: value.cwd }
   } catch {
     return null
@@ -115,7 +135,8 @@ function isMessageLine(line: string): boolean {
 function parseMessageTimestamp(line: string): number | undefined {
   try {
     const value: unknown = JSON.parse(line)
-    if (!isObject(value) || value.type !== 'message' || typeof value.timestamp !== 'string') return undefined
+    if (!isObject(value) || value.type !== 'message' || typeof value.timestamp !== 'string')
+      return undefined
     const timestamp = Date.parse(value.timestamp)
     return Number.isNaN(timestamp) ? undefined : timestamp
   } catch {
@@ -126,7 +147,8 @@ function parseMessageTimestamp(line: string): number | undefined {
 function parseSessionName(line: string): string | undefined {
   try {
     const value: unknown = JSON.parse(line)
-    return isObject(value) && value.type === 'session_info' && typeof value.name === 'string' && value.name.trim()
+    return isObject(value) && value.type === 'session_info' && typeof value.name === 'string'
+        && value.name.trim()
       ? value.name.trim()
       : undefined
   } catch {
@@ -137,7 +159,10 @@ function parseSessionName(line: string): string | undefined {
 function parseUserPrompt(line: string): string | undefined {
   try {
     const value: unknown = JSON.parse(line)
-    if (!isObject(value) || value.type !== 'message' || !isObject(value.message) || value.message.role !== 'user') return undefined
+    if (
+      !isObject(value) || value.type !== 'message' || !isObject(value.message)
+      || value.message.role !== 'user'
+    ) return undefined
     const content = textContent(value.message.content)
     if (!content || content.startsWith('/')) return undefined
     return shortenPrompt(content)
@@ -150,7 +175,9 @@ function textContent(content: unknown): string | undefined {
   if (typeof content === 'string') return content.trim() || undefined
   if (!Array.isArray(content)) return undefined
   const text = content
-    .filter((part): part is Record<string, unknown> => isObject(part) && part.type === 'text' && typeof part.text === 'string')
+    .filter((part): part is Record<string, unknown> =>
+      isObject(part) && part.type === 'text' && typeof part.text === 'string'
+    )
     .map((part) => part.text)
     .join(' ')
     .trim()

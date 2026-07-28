@@ -14,15 +14,37 @@ export function ToastStack({ onDismiss, standalone = false, toasts }: {
 }) {
   if (toasts.length === 0) return null
 
-  return <div aria-label="Notifications" aria-live="polite" aria-relevant="additions removals" className={`toast-stack${standalone ? ' toast-stack-standalone' : ''}`}>
-    {toasts.map((toast) => <ToastItem key={toast.id} onDismiss={onDismiss} toast={toast} />)}
-  </div>
+  return (
+    <div
+      aria-label='Notifications'
+      aria-live='polite'
+      aria-relevant='additions removals'
+      className={`toast-stack${standalone ? ' toast-stack-standalone' : ''}`}
+    >
+      {toasts.map((toast) => <ToastItem key={toast.id} onDismiss={onDismiss} toast={toast} />)}
+    </div>
+  )
 }
 
 /** Presents a notification's content and dismiss action. */
 function ToastItem({ onDismiss, toast }: { onDismiss: (id: string) => void; toast: Toast }) {
-  return <div className={`toast ${toast.kind}${toast.dismissing ? ' dismissing' : ''}`} role={toast.kind === 'error' ? 'alert' : 'status'}>
-    <span className="toast-message">{toast.message}</span>
-    <button aria-label="Dismiss notification" className="toast-dismiss" disabled={toast.dismissing} onClick={() => onDismiss(toast.id)} type="button">×</button>
-  </div>
+  return (
+    <div
+      className={`toast ${toast.kind}${toast.dismissing ? ' dismissing' : ''}`}
+      role={toast.kind === 'error'
+        ? 'alert'
+        : 'status'}
+    >
+      <span className='toast-message'>{toast.message}</span>
+      <button
+        aria-label='Dismiss notification'
+        className='toast-dismiss'
+        disabled={toast.dismissing}
+        onClick={() => onDismiss(toast.id)}
+        type='button'
+      >
+        ×
+      </button>
+    </div>
+  )
 }

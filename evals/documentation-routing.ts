@@ -31,7 +31,8 @@ interface RoutingScore {
 const documentationCases: DocumentationCase[] = [
   {
     name: 'composer',
-    prompt: 'Sans modifier le dépôt, prépare un plan précis pour ajouter un nouveau sélecteur dans la barre du composer.',
+    prompt:
+      'Sans modifier le dépôt, prépare un plan précis pour ajouter un nouveau sélecteur dans la barre du composer.',
     expectedDocuments: [
       'docs/README.md',
       'docs/HOW-TO-COMPOSER.md',
@@ -40,7 +41,8 @@ const documentationCases: DocumentationCase[] = [
   },
   {
     name: 'settings',
-    prompt: 'Sans modifier le dépôt, prépare un plan précis pour ajouter une préférence utilisateur dans un nouvel onglet des réglages.',
+    prompt:
+      'Sans modifier le dépôt, prépare un plan précis pour ajouter une préférence utilisateur dans un nouvel onglet des réglages.',
     expectedDocuments: [
       'docs/README.md',
       'docs/HOW-TO-SETTINGS.md',
@@ -49,7 +51,8 @@ const documentationCases: DocumentationCase[] = [
   },
   {
     name: 'manager lifecycle',
-    prompt: 'Sans modifier le dépôt, prépare un plan précis pour changer le comportement de redémarrage supervisé du manager.',
+    prompt:
+      'Sans modifier le dépôt, prépare un plan précis pour changer le comportement de redémarrage supervisé du manager.',
     expectedDocuments: [
       'docs/README.md',
       'docs/MANAGER-LIFECYCLE.md',
@@ -57,7 +60,8 @@ const documentationCases: DocumentationCase[] = [
   },
   {
     name: 'isolated prompt',
-    prompt: 'Sans modifier le dépôt, prépare un plan précis pour ajouter un nouvel usage serveur des prompts Pi isolés.',
+    prompt:
+      'Sans modifier le dépôt, prépare un plan précis pour ajouter un nouvel usage serveur des prompts Pi isolés.',
     expectedDocuments: [
       'docs/README.md',
       'docs/HOW-TO-RUN-ISOLATED-PROMPT.md',
@@ -66,13 +70,21 @@ const documentationCases: DocumentationCase[] = [
 ]
 
 /** Measures whether successful reads covered the expected documentation in order and began with the index. */
-function scoreDocumentationRouting(cwd: string, expectedDocuments: string[], trace: ToolCallTrace[]): RoutingScore {
+function scoreDocumentationRouting(
+  cwd: string,
+  expectedDocuments: string[],
+  trace: ToolCallTrace[],
+): RoutingScore {
   const successfulReads = trace
-    .filter((call) => call.name === 'read' && call.isError === false && typeof call.args.path === 'string')
+    .filter((call) =>
+      call.name === 'read' && call.isError === false && typeof call.args.path === 'string'
+    )
     .map((call) => normalizePath(cwd, call.args.path as string))
   const positions = expectedDocuments.map((document) => successfulReads.indexOf(document))
   const coverage = positions.filter((position) => position !== -1).length / expectedDocuments.length
-  const ordered = positions.every((position, index) => position !== -1 && (index === 0 || position > positions[index - 1]))
+  const ordered = positions.every((position, index) =>
+    position !== -1 && (index === 0 || position > positions[index - 1])
+  )
   const firstCall = trace[0]
   const routingFirst = firstCall?.name === 'read'
     && firstCall.isError === false
@@ -102,15 +114,22 @@ test('scores documentation coverage, order, and initial routing independently', 
   const cwd = process.cwd()
   const expected = ['docs/README.md', 'docs/HOW-TO-COMPOSER.md']
 
-  assert.deepEqual(scoreDocumentationRouting(cwd, expected, expected.map((path) => traceRead(path))), {
-    compliance: true,
-    coverage: 1,
-    ordered: true,
-    routingFirst: true,
-    readDocuments: expected,
-  })
+  assert.deepEqual(
+    scoreDocumentationRouting(cwd, expected, expected.map((path) => traceRead(path))),
+    {
+      compliance: true,
+      coverage: 1,
+      ordered: true,
+      routingFirst: true,
+      readDocuments: expected,
+    },
+  )
 
-  const wrongOrder = scoreDocumentationRouting(cwd, expected, [...expected].reverse().map((path) => traceRead(path)))
+  const wrongOrder = scoreDocumentationRouting(
+    cwd,
+    expected,
+    [...expected].reverse().map((path) => traceRead(path)),
+  )
   assert.equal(wrongOrder.coverage, 1)
   assert.equal(wrongOrder.ordered, false)
   assert.equal(wrongOrder.routingFirst, false)
@@ -123,41 +142,66 @@ test('scores documentation coverage, order, and initial routing independently', 
   assert.equal(sourceFirst.ordered, true)
   assert.equal(sourceFirst.routingFirst, false)
 
-  const failedGuide = scoreDocumentationRouting(cwd, expected, [traceRead(expected[0]), traceRead(expected[1], true)])
+  const failedGuide = scoreDocumentationRouting(cwd, expected, [
+    traceRead(expected[0]),
+    traceRead(expected[1], true),
+  ])
   assert.equal(failedGuide.coverage, 0.5)
   assert.equal(failedGuide.compliance, false)
 })
 
-test('evaluates documentation routing with a real read-only Pi agent', { timeout: 60 * 60_000 }, async () => {
-  const cwd = process.cwd()
-  const repeats = positiveInteger(process.env.PI_DOC_ROUTING_REPEATS, 3)
-  const provider = process.env.PI_DOC_ROUTING_PROVIDER ?? 'opencode-go'
-  const model = process.env.PI_DOC_ROUTING_MODEL ?? 'deepseek-v4-pro'
-  const thinking = process.env.PI_DOC_ROUTING_THINKING ?? 'high'
-  const results: Array<{ testCase: DocumentationCase; score: RoutingScore; cost?: number; trace: ToolCallTrace[] }> = []
+test(
+  'evaluates documentation routing with a real read-only Pi agent',
+  { timeout: 60 * 60_000 },
+  async () => {
+    const cwd = process.cwd()
+    const repeats = positiveInteger(process.env.PI_DOC_ROUTING_REPEATS, 3)
+    const provider = process.env.PI_DOC_ROUTING_PROVIDER ?? 'opencode-go'
+    const model = process.env.PI_DOC_ROUTING_MODEL ?? 'deepseek-v4-pro'
+    const thinking = process.env.PI_DOC_ROUTING_THINKING ?? 'high'
+    const results: Array<
+      { testCase: DocumentationCase; score: RoutingScore; cost?: number; trace: ToolCallTrace[] }
+    > = []
 
-  console.log(`\nDocumentation routing evaluation: ${provider}/${model}, thinking=${thinking}, repeats=${repeats}`)
-  for (const testCase of documentationCases) {
-    for (let attempt = 1; attempt <= repeats; attempt += 1) {
-      const run = await runReadOnlyPrompt(cwd, testCase.prompt, provider, model, thinking)
-      const score = scoreDocumentationRouting(cwd, testCase.expectedDocuments, run.trace)
-      results.push({ testCase, score, cost: run.cost, trace: run.trace })
-      console.log(`${testCase.name} #${attempt}: compliance=${score.compliance} coverage=${formatRate(score.coverage)} ordered=${score.ordered} routingFirst=${score.routingFirst}`)
-      console.log(`  expected: ${testCase.expectedDocuments.join(' -> ')}`)
-      console.log(`  tools: ${formatTrace(cwd, run.trace)}`)
+    console.log(
+      `\nDocumentation routing evaluation: ${provider}/${model}, thinking=${thinking}, repeats=${repeats}`,
+    )
+    for (const testCase of documentationCases) {
+      for (let attempt = 1; attempt <= repeats; attempt += 1) {
+        const run = await runReadOnlyPrompt(cwd, testCase.prompt, provider, model, thinking)
+        const score = scoreDocumentationRouting(cwd, testCase.expectedDocuments, run.trace)
+        results.push({ testCase, score, cost: run.cost, trace: run.trace })
+        console.log(
+          `${testCase.name} #${attempt}: compliance=${score.compliance} coverage=${
+            formatRate(score.coverage)
+          } ordered=${score.ordered} routingFirst=${score.routingFirst}`,
+        )
+        console.log(`  expected: ${testCase.expectedDocuments.join(' -> ')}`)
+        console.log(`  tools: ${formatTrace(cwd, run.trace)}`)
+      }
     }
-  }
 
-  const compliance = results.filter(({ score }) => score.compliance).length / results.length
-  const coverage = results.reduce((sum, { score }) => sum + score.coverage, 0) / results.length
-  const ordered = results.filter(({ score }) => score.ordered).length / results.length
-  const routingFirst = results.filter(({ score }) => score.routingFirst).length / results.length
-  const totalCost = results.reduce((sum, result) => sum + (result.cost ?? 0), 0)
-  console.log(`Summary: compliance=${formatRate(compliance)} coverage=${formatRate(coverage)} ordered=${formatRate(ordered)} routingFirst=${formatRate(routingFirst)} cost=$${totalCost.toFixed(4)}`)
-})
+    const compliance = results.filter(({ score }) => score.compliance).length / results.length
+    const coverage = results.reduce((sum, { score }) => sum + score.coverage, 0) / results.length
+    const ordered = results.filter(({ score }) => score.ordered).length / results.length
+    const routingFirst = results.filter(({ score }) => score.routingFirst).length / results.length
+    const totalCost = results.reduce((sum, result) => sum + (result.cost ?? 0), 0)
+    console.log(
+      `Summary: compliance=${formatRate(compliance)} coverage=${formatRate(coverage)} ordered=${
+        formatRate(ordered)
+      } routingFirst=${formatRate(routingFirst)} cost=$${totalCost.toFixed(4)}`,
+    )
+  },
+)
 
 /** Runs one ephemeral Pi prompt with mutation-capable tools disabled and captures ordered tool events. */
-async function runReadOnlyPrompt(cwd: string, prompt: string, provider: string, model: string, thinking: string): Promise<{ cost?: number; trace: ToolCallTrace[] }> {
+async function runReadOnlyPrompt(
+  cwd: string,
+  prompt: string,
+  provider: string,
+  model: string,
+  thinking: string,
+): Promise<{ cost?: number; trace: ToolCallTrace[] }> {
   const pi = new RpcEvaluationProcess(cwd, provider, model, thinking)
   try {
     await Promise.all([
@@ -181,28 +225,46 @@ class RpcEvaluationProcess {
   readonly trace: ToolCallTrace[] = []
   readonly #child: ChildProcessWithoutNullStreams
   readonly #events = new EventEmitter()
-  readonly #pending = new Map<string, { reject: (error: Error) => void; resolve: (value: JsonObject) => void; timeout: NodeJS.Timeout }>()
+  readonly #pending = new Map<
+    string,
+    {
+      reject: (error: Error) => void
+      resolve: (value: JsonObject) => void
+      timeout: NodeJS.Timeout
+    }
+  >()
   readonly #exited: Promise<void>
   #nextRequestId = 0
   #stderr = ''
 
   constructor(cwd: string, provider: string, model: string, thinking: string) {
     this.#child = spawn('pi', [
-      '--mode', 'rpc',
+      '--mode',
+      'rpc',
       '--no-session',
-      '--provider', provider,
-      '--model', model,
-      '--thinking', thinking,
-      '--tools', 'read,grep,find,ls',
+      '--provider',
+      provider,
+      '--model',
+      model,
+      '--thinking',
+      thinking,
+      '--tools',
+      'read,grep,find,ls',
       '--no-extensions',
     ], { cwd, env: process.env, stdio: ['pipe', 'pipe', 'pipe'] })
     this.#exited = new Promise((resolveExit) => this.#child.once('close', () => resolveExit()))
     const decoder = new JsonLineDecoder((value) => this.#receive(value))
     this.#child.stdout.on('data', (chunk: Buffer) => decoder.push(chunk))
     this.#child.stdout.on('end', () => decoder.end())
-    this.#child.stderr.on('data', (chunk: Buffer) => { this.#stderr = `${this.#stderr}${chunk.toString('utf8')}`.slice(-8_192) })
+    this.#child.stderr.on('data', (chunk: Buffer) => {
+      this.#stderr = `${this.#stderr}${chunk.toString('utf8')}`.slice(-8_192)
+    })
     this.#child.on('error', (error) => this.#fail(error))
-    this.#child.on('close', (code, signal) => this.#fail(new Error(`Pi exited (${signal ?? code ?? 'unknown'}): ${this.#stderr.trim()}`)))
+    this.#child.on(
+      'close',
+      (code, signal) =>
+        this.#fail(new Error(`Pi exited (${signal ?? code ?? 'unknown'}): ${this.#stderr.trim()}`)),
+    )
   }
 
   request(command: JsonObject, timeoutMs = 30_000): Promise<JsonObject> {
@@ -223,7 +285,8 @@ class RpcEvaluationProcess {
       const onEvent = (event: JsonObject): void => {
         if (event.type === type) finish()
       }
-      const onClose = (): void => finish(new Error(`Pi exited before event ${type}: ${this.#stderr.trim()}`))
+      const onClose = (): void =>
+        finish(new Error(`Pi exited before event ${type}: ${this.#stderr.trim()}`))
       const finish = (error?: Error): void => {
         clearTimeout(timeout)
         this.#events.off('event', onEvent)
@@ -239,7 +302,10 @@ class RpcEvaluationProcess {
   async terminate(): Promise<void> {
     if (this.#child.exitCode !== null || this.#child.signalCode !== null) return
     this.#child.kill('SIGTERM')
-    await Promise.race([this.#exited, new Promise<void>((resolveTimeout) => setTimeout(resolveTimeout, 2_000))])
+    await Promise.race([
+      this.#exited,
+      new Promise<void>((resolveTimeout) => setTimeout(resolveTimeout, 2_000)),
+    ])
     if (this.#child.exitCode === null && this.#child.signalCode === null) {
       this.#child.kill('SIGKILL')
       await this.#exited
@@ -253,11 +319,16 @@ class RpcEvaluationProcess {
       if (!pending) return
       clearTimeout(pending.timeout)
       this.#pending.delete(value.id)
-      if (value.success === false) pending.reject(new Error(String(value.error ?? 'Pi RPC command failed')))
+      if (value.success === false)
+        pending.reject(new Error(String(value.error ?? 'Pi RPC command failed')))
       else pending.resolve(value)
       return
     }
-    if (value.type === 'tool_execution_start' && typeof value.toolCallId === 'string' && typeof value.toolName === 'string' && isObject(value.args)) {
+    if (
+      value.type === 'tool_execution_start' && typeof value.toolCallId === 'string' && typeof value
+          .toolName === 'string'
+      && isObject(value.args)
+    ) {
       this.trace.push({ id: value.toolCallId, name: value.toolName, args: value.args })
     }
     if (value.type === 'tool_execution_end' && typeof value.toolCallId === 'string') {
@@ -287,8 +358,12 @@ function formatRate(value: number): string {
 }
 
 function formatTrace(cwd: string, trace: ToolCallTrace[]): string {
-  return trace.map((call) => {
-    const path = typeof call.args.path === 'string' ? `(${normalizePath(cwd, call.args.path)})` : ''
-    return `${call.name}${path}${call.isError ? '!' : ''}`
-  }).join(' -> ') || '(none)'
+  return trace
+    .map((call) => {
+      const path = typeof call.args.path === 'string'
+        ? `(${normalizePath(cwd, call.args.path)})`
+        : ''
+      return `${call.name}${path}${call.isError ? '!' : ''}`
+    })
+    .join(' -> ') || '(none)'
 }

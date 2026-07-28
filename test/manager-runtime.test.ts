@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 import test from 'node:test'
 import ts from 'typescript'
-import { calculateManagerRuntimeRevision, managerRuntimeManifestPath } from '../server/manager-runtime.ts'
+import {
+  calculateManagerRuntimeRevision,
+  managerRuntimeManifestPath,
+} from '../server/manager-runtime.ts'
 
 const repositoryRoot = resolve(import.meta.dirname, '..')
 
@@ -34,14 +37,19 @@ test('rejects manager runtime paths outside the repository', async () => {
   const manifestPath = join(root, 'manifest.json')
   try {
     await writeManifest(manifestPath, ['../outside.ts'])
-    await assert.rejects(calculateManagerRuntimeRevision(manifestPath, root), /Invalid manager runtime path/)
+    await assert.rejects(
+      calculateManagerRuntimeRevision(manifestPath, root),
+      /Invalid manager runtime path/,
+    )
   } finally {
     await rm(root, { force: true, recursive: true })
   }
 })
 
 test('declares every local runtime import reachable from manager.ts', async () => {
-  const manifest = JSON.parse(await readFile(managerRuntimeManifestPath, 'utf8')) as { files: string[] }
+  const manifest = JSON.parse(await readFile(managerRuntimeManifestPath, 'utf8')) as {
+    files: string[]
+  }
   const importedFiles = await collectRuntimeImports(join(repositoryRoot, 'server/manager.ts'))
   const declaredFiles = new Set(manifest.files)
   const missing = [...importedFiles]
@@ -61,7 +69,12 @@ async function collectRuntimeImports(entryPath: string): Promise<Set<string>> {
     const canonicalPath = await realpath(path)
     if (files.has(canonicalPath)) return
     files.add(canonicalPath)
-    const source = ts.createSourceFile(canonicalPath, await readFile(canonicalPath, 'utf8'), ts.ScriptTarget.Latest, false)
+    const source = ts.createSourceFile(
+      canonicalPath,
+      await readFile(canonicalPath, 'utf8'),
+      ts.ScriptTarget.Latest,
+      false,
+    )
     const imports = runtimeImportSpecifiers(source).filter((specifier) => specifier.startsWith('.'))
     await Promise.all(imports.map((specifier) => visit(resolve(dirname(canonicalPath), specifier))))
   }
@@ -73,9 +86,20 @@ async function collectRuntimeImports(entryPath: string): Promise<Set<string>> {
 function runtimeImportSpecifiers(source: ts.SourceFile): string[] {
   const specifiers: string[] = []
   const visit = (node: ts.Node): void => {
-    if (ts.isImportDeclaration(node) && hasRuntimeImport(node) && ts.isStringLiteral(node.moduleSpecifier)) specifiers.push(node.moduleSpecifier.text)
-    else if (ts.isExportDeclaration(node) && !node.isTypeOnly && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) specifiers.push(node.moduleSpecifier.text)
-    else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments.length === 1 && ts.isStringLiteral(node.arguments[0])) specifiers.push(node.arguments[0].text)
+    if (
+      ts.isImportDeclaration(node) && hasRuntimeImport(node)
+      && ts.isStringLiteral(node.moduleSpecifier)
+    ) specifiers.push(node.moduleSpecifier.text)
+    else if (
+      ts.isExportDeclaration(node) && !node.isTypeOnly && node.moduleSpecifier
+      && ts.isStringLiteral(node.moduleSpecifier)
+    ) specifiers.push(node.moduleSpecifier.text)
+    else if (
+      ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node
+          .arguments
+          .length === 1
+      && ts.isStringLiteral(node.arguments[0])
+    ) specifiers.push(node.arguments[0].text)
     ts.forEachChild(node, visit)
   }
   visit(source)
@@ -86,6 +110,7 @@ function hasRuntimeImport(node: ts.ImportDeclaration): boolean {
   const clause = node.importClause
   if (!clause) return true
   if (clause.isTypeOnly) return false
-  if (clause.name || !clause.namedBindings || ts.isNamespaceImport(clause.namedBindings)) return true
+  if (clause.name || !clause.namedBindings || ts.isNamespaceImport(clause.namedBindings))
+    return true
   return clause.namedBindings.elements.some((element) => !element.isTypeOnly)
 }

@@ -1,15 +1,43 @@
-import type { DirectoryListing, GitFileDiff, GitPushResult, GitResetResult, GitRevertResult, GitSnapshot, JsonObject, ManagerEvent, QuotaSnapshot, RecentSession, SessionSnapshot, SessionSummary, TodoItem, WorkspaceFile } from '../shared/types.ts'
+import type {
+  DirectoryListing,
+  GitFileDiff,
+  GitPushResult,
+  GitResetResult,
+  GitRevertResult,
+  GitSnapshot,
+  JsonObject,
+  ManagerEvent,
+  QuotaSnapshot,
+  RecentSession,
+  SessionSnapshot,
+  SessionSummary,
+  TodoItem,
+  WorkspaceFile,
+} from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 
-const managerEventNames: readonly ManagerEvent['event'][] = ['session_created', 'session_exited', 'manager_connected', 'manager_disconnected', 'manager_status', 'pi']
+const managerEventNames: readonly ManagerEvent['event'][] = [
+  'session_created',
+  'session_exited',
+  'manager_connected',
+  'manager_disconnected',
+  'manager_status',
+  'pi',
+]
 
 /** Parses and validates an event received from the backend SSE boundary. */
 export function parseManagerEvent(data: string): ManagerEvent | null {
   try {
     const value: unknown = JSON.parse(data)
-    if (!isObject(value) || value.kind !== 'event' || typeof value.event !== 'string' || typeof value.sessionId !== 'string') return null
+    if (
+      !isObject(value) || value.kind !== 'event' || typeof value.event !== 'string'
+      || typeof value.sessionId !== 'string'
+    ) return null
     if (!managerEventNames.includes(value.event as ManagerEvent['event'])) return null
-    if (value.sequence !== undefined && (!Number.isSafeInteger(value.sequence) || (value.sequence as number) < 0)) return null
+    if (
+      value.sequence !== undefined
+      && (!Number.isSafeInteger(value.sequence) || (value.sequence as number) < 0)
+    ) return null
     return value as unknown as ManagerEvent
   } catch {
     return null
@@ -17,7 +45,10 @@ export function parseManagerEvent(data: string): ManagerEvent | null {
 }
 
 /** Subscribes to validated manager events while preserving EventSource reconnection. */
-export function subscribeManagerEvents(onEvent: (event: ManagerEvent) => void, onError: () => void): () => void {
+export function subscribeManagerEvents(
+  onEvent: (event: ManagerEvent) => void,
+  onError: () => void,
+): () => void {
   const source = new EventSource('/api/events')
   source.onmessage = ({ data }) => {
     const event = parseManagerEvent(data)
@@ -57,17 +88,30 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
   return request<GitSnapshot>(`/api/git?cwd=${encodeURIComponent(cwd)}`)
 }
 
-export async function getGitFileDiff(cwd: string, path: string, commitHash?: string): Promise<GitFileDiff> {
+export async function getGitFileDiff(
+  cwd: string,
+  path: string,
+  commitHash?: string,
+): Promise<GitFileDiff> {
   const commit = commitHash ? `&commit=${encodeURIComponent(commitHash)}` : ''
-  return request<GitFileDiff>(`/api/git/diff?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}${commit}`)
+  return request<GitFileDiff>(
+    `/api/git/diff?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}${commit}`,
+  )
 }
 
 export async function getWorkspaceFile(cwd: string, path: string): Promise<WorkspaceFile> {
-  return request<WorkspaceFile>(`/api/files?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}`)
+  return request<WorkspaceFile>(
+    `/api/files?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}`,
+  )
 }
 
-export async function getWorkspaceFilePath(cwd: string, path: string): Promise<{ absolutePath: string; path: string }> {
-  return request<{ absolutePath: string; path: string }>(`/api/files/path?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}`)
+export async function getWorkspaceFilePath(
+  cwd: string,
+  path: string,
+): Promise<{ absolutePath: string; path: string }> {
+  return request<{ absolutePath: string; path: string }>(
+    `/api/files/path?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}`,
+  )
 }
 
 export async function getTodos(cwd: string): Promise<TodoItem[]> {
@@ -153,11 +197,18 @@ export async function refreshQuotas(sessionId: string, automatic = false): Promi
 }
 
 /** Requests an isolated rewrite without adding the draft or result to the active Pi session. */
-export async function improvePrompt(sessionId: string, prompt: string, direction?: string): Promise<{ prompt: string; cost?: number }> {
-  return request<{ prompt: string; cost?: number }>(`/api/sessions/${encodeURIComponent(sessionId)}/prompt-improvement`, {
-    method: 'POST',
-    body: JSON.stringify({ prompt, direction }),
-  })
+export async function improvePrompt(
+  sessionId: string,
+  prompt: string,
+  direction?: string,
+): Promise<{ prompt: string; cost?: number }> {
+  return request<{ prompt: string; cost?: number }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/prompt-improvement`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ prompt, direction }),
+    },
+  )
 }
 
 /** Configuration for an isolated Pi prompt execution. */
@@ -174,10 +225,13 @@ export interface RunPromptOptions {
 
 /** Runs a prompt in an isolated Pi process with caller-controlled configuration. */
 export async function runPrompt(sessionId: string, options: RunPromptOptions): Promise<string> {
-  const result = await request<{ text: string }>(`/api/sessions/${encodeURIComponent(sessionId)}/run-prompt`, {
-    method: 'POST',
-    body: JSON.stringify(options),
-  })
+  const result = await request<{ text: string }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/run-prompt`,
+    {
+      method: 'POST',
+      body: JSON.stringify(options),
+    },
+  )
   return result.text
 }
 
@@ -191,11 +245,15 @@ export async function sendPiCommand(sessionId: string, command: JsonObject): Pro
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
-    headers: typeof init?.body === 'string' ? { 'Content-Type': 'application/json', ...init.headers } : init?.headers,
+    headers: typeof init?.body === 'string'
+      ? { 'Content-Type': 'application/json', ...init.headers }
+      : init?.headers,
   })
   const value: unknown = await response.json()
   if (!response.ok) {
-    const message = isObject(value) && typeof value.error === 'string' ? value.error : `Request failed (${response.status})`
+    const message = isObject(value) && typeof value.error === 'string'
+      ? value.error
+      : `Request failed (${response.status})`
     throw new Error(message)
   }
   return value as T

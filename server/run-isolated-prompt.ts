@@ -38,7 +38,9 @@ export interface IsolatedPromptResult {
  * The process is terminated immediately after the response is extracted,
  * regardless of success or failure.
  */
-export async function runIsolatedPrompt(options: RunIsolatedPromptOptions): Promise<IsolatedPromptResult> {
+export async function runIsolatedPrompt(
+  options: RunIsolatedPromptOptions,
+): Promise<IsolatedPromptResult> {
   const pi = new PiProcess(options.cwd, randomUUID(), undefined, {
     isolated: true,
     systemPrompt: options.systemPrompt,
@@ -50,7 +52,11 @@ export async function runIsolatedPrompt(options: RunIsolatedPromptOptions): Prom
 
   try {
     if (options.model) {
-      await pi.request({ type: 'set_model', provider: options.model.provider, modelId: options.model.modelId })
+      await pi.request({
+        type: 'set_model',
+        provider: options.model.provider,
+        modelId: options.model.modelId,
+      })
     } else {
       const available = await pi.request({ type: 'get_available_models' })
       const cheapest = cheapestAvailableModel(available)

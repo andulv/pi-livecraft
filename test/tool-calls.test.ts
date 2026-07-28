@@ -1,7 +1,18 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { formatToolData } from '../src/features/conversation/tool-presentation.ts'
-import { applyToolCallUpdate, applyToolExecutionUpdate, interruptToolCallGeneration, isToolCallPending, toolCallInUpdate, toolCallsInMessage, toolContentText, toolExecutionUpdateInEvent, toolResultInMessage, type ToolExecution } from '../src/features/conversation/tool-protocol.ts'
+import {
+  applyToolCallUpdate,
+  applyToolExecutionUpdate,
+  interruptToolCallGeneration,
+  isToolCallPending,
+  toolCallInUpdate,
+  toolCallsInMessage,
+  toolContentText,
+  toolExecutionUpdateInEvent,
+  toolResultInMessage,
+  type ToolExecution,
+} from '../src/features/conversation/tool-protocol.ts'
 
 test('extracts tool calls and their resolved result from Pi messages', () => {
   const calls = toolCallsInMessage({
@@ -31,33 +42,80 @@ test('extracts tool calls and their resolved result from Pi messages', () => {
 })
 
 test('tracks raw tool arguments from generation start to completion', () => {
-  const partialCall = { type: 'toolCall', id: 'call_1', name: 'read', arguments: { path: 'src/App' } }
+  const partialCall = {
+    type: 'toolCall',
+    id: 'call_1',
+    name: 'read',
+    arguments: { path: 'src/App' },
+  }
   const start = toolCallInUpdate({
     type: 'message_update',
-    assistantMessageEvent: { type: 'toolcall_start', contentIndex: 1, partial: { content: [{ type: 'text' }, partialCall] } },
+    assistantMessageEvent: {
+      type: 'toolcall_start',
+      contentIndex: 1,
+      partial: { content: [{ type: 'text' }, partialCall] },
+    },
   })
   const delta = toolCallInUpdate({
     type: 'message_update',
-    assistantMessageEvent: { type: 'toolcall_delta', contentIndex: 1, delta: '{"path":"src/App', partial: { content: [{ type: 'text' }, partialCall] } },
+    assistantMessageEvent: {
+      type: 'toolcall_delta',
+      contentIndex: 1,
+      delta: '{"path":"src/App',
+      partial: { content: [{ type: 'text' }, partialCall] },
+    },
   })
   const end = toolCallInUpdate({
     type: 'message_update',
     assistantMessageEvent: {
       type: 'toolcall_end',
       contentIndex: 1,
-      toolCall: { type: 'toolCall', id: 'call_1', name: 'read', arguments: { path: 'src/App.tsx' } },
+      toolCall: {
+        type: 'toolCall',
+        id: 'call_1',
+        name: 'read',
+        arguments: { path: 'src/App.tsx' },
+      },
     },
   })
 
-  assert.deepEqual(start, { call: { id: 'call_1', name: 'read', args: { path: 'src/App' } }, contentIndex: 1, delta: '', phase: 'start' })
-  assert.deepEqual(delta, { call: { id: 'call_1', name: 'read', args: { path: 'src/App' } }, contentIndex: 1, delta: '{"path":"src/App', phase: 'delta' })
-  assert.deepEqual(end, { call: { id: 'call_1', name: 'read', args: { path: 'src/App.tsx' } }, contentIndex: 1, delta: '', phase: 'end' })
-  assert.equal(toolCallInUpdate({ type: 'message_update', assistantMessageEvent: { type: 'text_delta' } }), null)
+  assert.deepEqual(start, {
+    call: { id: 'call_1', name: 'read', args: { path: 'src/App' } },
+    contentIndex: 1,
+    delta: '',
+    phase: 'start',
+  })
+  assert.deepEqual(delta, {
+    call: { id: 'call_1', name: 'read', args: { path: 'src/App' } },
+    contentIndex: 1,
+    delta: '{"path":"src/App',
+    phase: 'delta',
+  })
+  assert.deepEqual(end, {
+    call: { id: 'call_1', name: 'read', args: { path: 'src/App.tsx' } },
+    contentIndex: 1,
+    delta: '',
+    phase: 'end',
+  })
+  assert.equal(
+    toolCallInUpdate({ type: 'message_update', assistantMessageEvent: { type: 'text_delta' } }),
+    null,
+  )
 })
 
 test('accumulates arguments and preserves interrupted generations', () => {
-  const start = { call: { id: '', name: 'write', args: {} }, contentIndex: 0, delta: '', phase: 'start' as const }
-  const delta = { call: { id: 'call_1', name: 'write', args: { path: 'note' } }, contentIndex: 0, delta: '{"path":"note', phase: 'delta' as const }
+  const start = {
+    call: { id: '', name: 'write', args: {} },
+    contentIndex: 0,
+    delta: '',
+    phase: 'start' as const,
+  }
+  const delta = {
+    call: { id: 'call_1', name: 'write', args: { path: 'note' } },
+    contentIndex: 0,
+    delta: '{"path":"note',
+    phase: 'delta' as const,
+  }
   const executions = applyToolCallUpdate(applyToolCallUpdate([], start, 'draft_1'), delta, 'unused')
 
   assert.deepEqual(executions, [{
@@ -80,7 +138,12 @@ test('accumulates arguments and preserves interrupted generations', () => {
 })
 
 test('preserves partial arguments through multiple deltas', () => {
-  const start = { call: { id: '', name: 'read', args: {} }, contentIndex: 0, delta: '', phase: 'start' as const }
+  const start = {
+    call: { id: '', name: 'read', args: {} },
+    contentIndex: 0,
+    delta: '',
+    phase: 'start' as const,
+  }
   const first = applyToolCallUpdate(applyToolCallUpdate([], start, 'draft_1'), {
     call: { id: 'call_1', name: 'read', args: { path: 'src/App' } },
     contentIndex: 0,
@@ -100,11 +163,17 @@ test('preserves partial arguments through multiple deltas', () => {
 
 test('marks a tool call as pending until its result arrives', () => {
   assert.equal(isToolCallPending(undefined), true)
-  assert.equal(isToolCallPending({ toolCallId: 'call_1', toolName: 'read', content: '', isError: false }), false)
+  assert.equal(
+    isToolCallPending({ toolCallId: 'call_1', toolName: 'read', content: '', isError: false }),
+    false,
+  )
 })
 
 test('ignores non-tool content and formats tool arguments safely', () => {
-  assert.deepEqual(toolCallsInMessage({ role: 'assistant', content: [{ type: 'text', text: 'Bonjour' }] }), [])
+  assert.deepEqual(
+    toolCallsInMessage({ role: 'assistant', content: [{ type: 'text', text: 'Bonjour' }] }),
+    [],
+  )
   assert.equal(toolResultInMessage({ role: 'user', content: 'Bonjour' }), null)
   assert.equal(formatToolData({ command: 'pwd' }), '{\n  "command": "pwd"\n}')
 })
@@ -130,7 +199,15 @@ test('carries details from Pi tool result messages in history', () => {
 test('extracts validated tool_execution_update events and rejects malformed ones', () => {
   assert.equal(toolExecutionUpdateInEvent({ type: 'other' }), null)
   assert.equal(toolExecutionUpdateInEvent({ type: 'tool_execution_update' }), null)
-  assert.equal(toolExecutionUpdateInEvent({ type: 'tool_execution_update', toolCallId: 'call_1', toolName: 'bash', partialResult: null }), null)
+  assert.equal(
+    toolExecutionUpdateInEvent({
+      type: 'tool_execution_update',
+      toolCallId: 'call_1',
+      toolName: 'bash',
+      partialResult: null,
+    }),
+    null,
+  )
 
   const update = toolExecutionUpdateInEvent({
     type: 'tool_execution_update',
@@ -142,34 +219,53 @@ test('extracts validated tool_execution_update events and rejects malformed ones
   assert.equal(update?.toolName, 'bash')
   assert.equal(toolContentText(update?.partialResult.content), 'line 1')
   assert.deepEqual(update?.partialResult.details, { truncation: null })
-  assert.equal(toolExecutionUpdateInEvent({
-    type: 'tool_execution_update', toolCallId: 'call_1', toolName: 'bash', partialResult: 'not an object',
-  }), null)
+  assert.equal(
+    toolExecutionUpdateInEvent({
+      type: 'tool_execution_update',
+      toolCallId: 'call_1',
+      toolName: 'bash',
+      partialResult: 'not an object',
+    }),
+    null,
+  )
 })
 
 test('replaces partial results for matching running executions', () => {
   const execution: ToolExecution = {
-    id: 'call_1', name: 'bash', args: { command: 'ls' }, status: 'running',
+    id: 'call_1',
+    name: 'bash',
+    args: { command: 'ls' },
+    status: 'running',
   }
   const executions = [{ ...execution }]
 
   const first = applyToolExecutionUpdate(executions, {
-    toolCallId: 'call_1', toolName: 'bash', partialResult: { toolCallId: 'call_1', toolName: 'bash', content: 'a', isError: false },
+    toolCallId: 'call_1',
+    toolName: 'bash',
+    partialResult: { toolCallId: 'call_1', toolName: 'bash', content: 'a', isError: false },
   })
   assert.equal(toolContentText(first[0]?.partialResult?.content), 'a')
 
   const second = applyToolExecutionUpdate(first, {
-    toolCallId: 'call_1', toolName: 'bash', partialResult: { toolCallId: 'call_1', toolName: 'bash', content: 'ab', isError: false },
+    toolCallId: 'call_1',
+    toolName: 'bash',
+    partialResult: { toolCallId: 'call_1', toolName: 'bash', content: 'ab', isError: false },
   })
   assert.equal(toolContentText(second[0]?.partialResult?.content), 'ab')
 })
 
 test('does not touch executions that are not running', () => {
   const settled: ToolExecution = {
-    id: 'call_1', name: 'bash', args: {}, result: { toolCallId: 'call_1', toolName: 'bash', content: 'done', isError: false }, status: 'running',
+    id: 'call_1',
+    name: 'bash',
+    args: {},
+    result: { toolCallId: 'call_1', toolName: 'bash', content: 'done', isError: false },
+    status: 'running',
   }
   const updated = applyToolExecutionUpdate([settled], {
-    toolCallId: 'call_1', toolName: 'bash', partialResult: { toolCallId: 'call_1', toolName: 'bash', content: 'partial', isError: false },
+    toolCallId: 'call_1',
+    toolName: 'bash',
+    partialResult: { toolCallId: 'call_1', toolName: 'bash', content: 'partial', isError: false },
   })
   assert.equal(toolContentText(updated[0]?.result?.content), 'done')
   assert.equal(updated[0]?.partialResult, undefined)

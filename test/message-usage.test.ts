@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatTurnCost, messageUsage, turnUsageByMessage } from '../src/features/conversation/message-usage.ts'
+import {
+  formatTurnCost,
+  messageUsage,
+  turnUsageByMessage,
+} from '../src/features/conversation/message-usage.ts'
 
 test('extracts per-response cost and token counters from Pi usage', () => {
   const usage = messageUsage({
@@ -13,7 +17,13 @@ test('extracts per-response cost and token counters from Pi usage', () => {
     },
   })
 
-  assert.deepEqual(usage, { cacheMiss: 12_345, cacheRead: 9_876, cacheWrite: 0, cost: 0.00105, output: 678 })
+  assert.deepEqual(usage, {
+    cacheMiss: 12_345,
+    cacheRead: 9_876,
+    cacheWrite: 0,
+    cost: 0.00105,
+    output: 678,
+  })
   assert.equal(formatTurnCost(usage?.cost ?? 0), '$0.0011')
 })
 
@@ -31,7 +41,11 @@ test('keeps usage separate for each agentic turn', () => {
     },
     { role: 'toolResult', toolCallId: 'call_1' },
     { role: 'toolResult', toolCallId: 'call_2' },
-    { role: 'assistant', content: [{ type: 'text', text: 'C’est fait.' }], usage: { input: 200, output: 20, cacheRead: 2_000, cost: { total: 0.002 } } },
+    {
+      role: 'assistant',
+      content: [{ type: 'text', text: 'C’est fait.' }],
+      usage: { input: 200, output: 20, cacheRead: 2_000, cost: { total: 0.002 } },
+    },
   ])
 
   assert.deepEqual([...usages], [
@@ -42,8 +56,11 @@ test('keeps usage separate for each agentic turn', () => {
 
 test('hides metrics when Pi does not provide complete usage', () => {
   assert.equal(messageUsage({ role: 'assistant', usage: { input: 10 } }), null)
-  assert.deepEqual(turnUsageByMessage([
-    { role: 'user' },
-    { role: 'assistant', usage: { input: 10 } },
-  ]), new Map())
+  assert.deepEqual(
+    turnUsageByMessage([
+      { role: 'user' },
+      { role: 'assistant', usage: { input: 10 } },
+    ]),
+    new Map(),
+  )
 })

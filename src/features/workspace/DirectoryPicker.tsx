@@ -10,7 +10,7 @@ import { directoryCompletionTarget } from './directory-completion.ts'
  * This prevents a slow `listDirectories()` response from overwriting
  * newer suggestions for the path currently being typed.
  */
-export function DirectoryPicker({  initialPath, recentPaths, onClose, onError, onSelect }: {
+export function DirectoryPicker({ initialPath, recentPaths, onClose, onError, onSelect }: {
   initialPath: string
   recentPaths: string[]
   onClose: () => void
@@ -31,16 +31,21 @@ export function DirectoryPicker({  initialPath, recentPaths, onClose, onError, o
       return
     }
 
-    void listDirectories(target.parentPath).then((parent) => {
-      if (version !== completionVersionRef.current) return
-      setSuggestions(parent.directories
-        .filter((directory) => directory.name.startsWith(target.namePrefix))
-        .map((directory) => `${target.pathPrefix}${directory.name}`)
-        .filter((suggestion) => suggestion !== initialPath))
-      setActiveSuggestion(-1)
-    }).catch(() => {
-      if (version === completionVersionRef.current) setSuggestions([])
-    })
+    void listDirectories(target.parentPath)
+      .then((parent) => {
+        if (version !== completionVersionRef.current) return
+        setSuggestions(
+          parent
+            .directories
+            .filter((directory) => directory.name.startsWith(target.namePrefix))
+            .map((directory) => `${target.pathPrefix}${directory.name}`)
+            .filter((suggestion) => suggestion !== initialPath),
+        )
+        setActiveSuggestion(-1)
+      })
+      .catch(() => {
+        if (version === completionVersionRef.current) setSuggestions([])
+      })
   }, [path])
 
   const visibleRecentPaths = recentPaths.filter((recentPath) => recentPath !== initialPath)
@@ -60,9 +65,11 @@ export function DirectoryPicker({  initialPath, recentPaths, onClose, onError, o
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       if (suggestions.length === 0) return
       event.preventDefault()
-      setActiveSuggestion((current) => event.key === 'ArrowDown'
-        ? Math.min(current + 1, suggestions.length - 1)
-        : Math.max(current - 1, 0))
+      setActiveSuggestion((current) =>
+        event.key === 'ArrowDown'
+          ? Math.min(current + 1, suggestions.length - 1)
+          : Math.max(current - 1, 0)
+      )
       return
     }
     if (event.key === 'Tab') {
@@ -80,42 +87,83 @@ export function DirectoryPicker({  initialPath, recentPaths, onClose, onError, o
   }
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section aria-labelledby="directory-picker-title" aria-modal="true" className="modal directory-picker" role="dialog">
-        <h2 id="directory-picker-title">Choose a directory</h2>
-        <label className="directory-path-label" htmlFor="directory-path">Directory path</label>
+    <div className='modal-backdrop' role='presentation'>
+      <section
+        aria-labelledby='directory-picker-title'
+        aria-modal='true'
+        className='modal directory-picker'
+        role='dialog'
+      >
+        <h2 id='directory-picker-title'>Choose a directory</h2>
+        <label className='directory-path-label' htmlFor='directory-path'>Directory path</label>
         <input
-          aria-activedescendant={activeSuggestion >= 0 ? `directory-suggestion-${activeSuggestion}` : undefined}
-          autoComplete="off"
+          aria-activedescendant={activeSuggestion >= 0
+            ? `directory-suggestion-${activeSuggestion}`
+            : undefined}
+          autoComplete='off'
           autoFocus
-          aria-autocomplete="list"
+          aria-autocomplete='list'
           aria-controls={suggestions.length > 0 ? 'directory-suggestions' : undefined}
           aria-expanded={suggestions.length > 0}
-          className="directory-path-input"
-          id="directory-path"
+          className='directory-path-input'
+          id='directory-path'
           onChange={(event) => setPath(event.target.value)}
           onKeyDown={handlePathKeyDown}
-          placeholder="~/projects or /absolute/path"
-          role="combobox"
+          placeholder='~/projects or /absolute/path'
+          role='combobox'
           value={path}
         />
-        <p className="directory-path-hint">Tab completes · ↑↓ navigate · Enter selects · Escape cancels</p>
-        {suggestions.length > 0 && <div aria-label="Directory suggestions" className="directory-suggestions" id="directory-suggestions" role="listbox">
-          {suggestions.map((suggestion, index) => <div
-            aria-selected={index === activeSuggestion}
-            className={index === activeSuggestion ? 'active' : undefined}
-            id={`directory-suggestion-${index}`}
-            key={suggestion}
-            onClick={() => { setPath(suggestion); setActiveSuggestion(-1) }}
-            onMouseDown={(event) => event.preventDefault()}
-            role="option"
-          >{suggestion}</div>)}
-        </div>}
-        {visibleRecentPaths.length > 0 && <section aria-label="Recent workspaces" className="recent-workspaces">
-          <strong>Recent workspaces</strong>
-          <div>{visibleRecentPaths.map((recentPath) => <button key={recentPath} onClick={() => selectDirectory(recentPath)} type="button">{recentPath}</button>)}</div>
-        </section>}
-        <div className="modal-actions"><button onClick={onClose} type="button">Cancel</button><button className="primary" onClick={() => selectDirectory(path)} type="button">Open</button></div>
+        <p className='directory-path-hint'>
+          Tab completes · ↑↓ navigate · Enter selects · Escape cancels
+        </p>
+        {suggestions.length > 0 && (
+          <div
+            aria-label='Directory suggestions'
+            className='directory-suggestions'
+            id='directory-suggestions'
+            role='listbox'
+          >
+            {suggestions.map((suggestion, index) => (
+              <div
+                aria-selected={index === activeSuggestion}
+                className={index === activeSuggestion ? 'active' : undefined}
+                id={`directory-suggestion-${index}`}
+                key={suggestion}
+                onClick={() => {
+                  setPath(suggestion)
+                  setActiveSuggestion(-1)
+                }}
+                onMouseDown={(event) => event.preventDefault()}
+                role='option'
+              >
+                {suggestion}
+              </div>
+            ))}
+          </div>
+        )}
+        {visibleRecentPaths.length > 0 && (
+          <section aria-label='Recent workspaces' className='recent-workspaces'>
+            <strong>Recent workspaces</strong>
+            <div>
+              {visibleRecentPaths
+                .map((recentPath) => (
+                  <button
+                    key={recentPath}
+                    onClick={() => selectDirectory(recentPath)}
+                    type='button'
+                  >
+                    {recentPath}
+                  </button>
+                ))}
+            </div>
+          </section>
+        )}
+        <div className='modal-actions'>
+          <button onClick={onClose} type='button'>Cancel</button>
+          <button className='primary' onClick={() => selectDirectory(path)} type='button'>
+            Open
+          </button>
+        </div>
       </section>
     </div>
   )

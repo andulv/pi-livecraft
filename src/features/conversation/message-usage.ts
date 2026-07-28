@@ -13,13 +13,26 @@ export interface MessageUsage {
 export function messageUsage(message: JsonObject): MessageUsage | null {
   const usage = isObject(message.usage) ? message.usage : null
   const cost = usage && isObject(usage.cost) ? usage.cost : null
-  if (!usage || !cost || !isNumber(usage.input) || !isNumber(usage.cacheRead) || !isNumber(usage.output) || !isNumber(cost.total)) return null
-  return { cacheMiss: usage.input, cacheRead: usage.cacheRead, cacheWrite: isNumber(usage.cacheWrite) ? usage.cacheWrite : 0, cost: cost.total, output: usage.output }
+  if (
+    !usage || !cost || !isNumber(usage.input) || !isNumber(usage.cacheRead) || !isNumber(
+      usage.output,
+    ) || !isNumber(cost.total)
+  ) return null
+  return {
+    cacheMiss: usage.input,
+    cacheRead: usage.cacheRead,
+    cacheWrite: isNumber(usage.cacheWrite) ? usage.cacheWrite : 0,
+    cost: cost.total,
+    output: usage.output,
+  }
 }
 
 export function formatTurnCost(value: number): string {
   const digits = value < 0.01 ? 4 : 2
-  return `$${new Intl.NumberFormat('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)}`
+  return `$${
+    new Intl.NumberFormat('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })
+      .format(value)
+  }`
 }
 
 export function formatTokens(value: number): string {
@@ -37,7 +50,9 @@ export function turnUsageByMessage(messages: JsonObject[]): Map<number, MessageU
 /** Formats an observed millisecond duration for display. */
 export function formatDuration(value: number): string {
   if (value < 1000) return `${Math.round(value)} ms`
-  return `${new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 }).format(value / 1000)} s`
+  return `${
+    new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 }).format(value / 1000)
+  } s`
 }
 function isNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)

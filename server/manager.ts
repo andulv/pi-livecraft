@@ -10,7 +10,11 @@ import { realpath, stat } from 'node:fs/promises'
 import { createServer, type Socket } from 'node:net'
 import { JsonLineDecoder, encodeJsonLine } from './jsonl.ts'
 import { PiProcess, terminateAllPiProcesses } from './pi-process.ts'
-import { generateProjectMap, improvementDirectionInstruction, loadPromptImprovementSystemPrompt } from './prompt-improvement.ts'
+import {
+  generateProjectMap,
+  improvementDirectionInstruction,
+  loadPromptImprovementSystemPrompt,
+} from './prompt-improvement.ts'
 import { runIsolatedPrompt } from './run-isolated-prompt.ts'
 import { isObject } from '../shared/is-object.ts'
 import type {
@@ -26,7 +30,8 @@ const port = readPort('PI_LIVECRAFT_MANAGER_PORT', 43_120)
 const clients = new Set<Socket>()
 const sessions = new Map<string, ManagedSession>()
 const restartExitCode = readRestartExitCode()
-const supervised = process.env.PI_LIVECRAFT_MANAGER_SUPERVISED === '1' && restartExitCode !== undefined
+const supervised = process.env.PI_LIVECRAFT_MANAGER_SUPERVISED === '1'
+  && restartExitCode !== undefined
 const runtimeIdentity = {
   instanceId: randomUUID(),
   startedAt: new Date().toISOString(),
@@ -94,21 +99,33 @@ async function handleRequest(socket: Socket, value: unknown): Promise<void> {
     return
   }
   if (restartAccepted) {
-    respond(socket, { kind: 'response', id: value.id, ok: false, error: 'Pi manager restart is already in progress' })
+    respond(socket, {
+      kind: 'response',
+      id: value.id,
+      ok: false,
+      error: 'Pi manager restart is already in progress',
+    })
     return
   }
 
-  const tracksActivity = value.action === 'create' || value.action === 'open' || value.action === 'command' || value.action === 'improve_prompt' || value.action === 'run_prompt'
+  const tracksActivity = value.action === 'create' || value.action === 'open' || value
+        .action === 'command'
+    || value.action === 'improve_prompt' || value.action === 'run_prompt'
   if (tracksActivity) activeRequests += 1
   try {
     let data: unknown
     if (value.action === 'status') data = runtimeIdentity
     else if (value.action === 'restart') {
-      if (!supervised || restartExitCode === undefined) throw new Error('Pi manager is not supervised')
+      if (!supervised || restartExitCode === undefined)
+        throw new Error('Pi manager is not supervised')
       if (activeRequests > 0) throw new Error('Active Pi work must settle before restarting')
       const activePiWork = await refreshSessionActivity()
-      const activityStartedDuringCheck = activeRequests > 0 || [...sessions.values()].some(({ summary }) => summary.status === 'starting' || summary.status === 'running')
-      if (activePiWork || activityStartedDuringCheck) throw new Error('Active Pi work must settle before restarting')
+      const activityStartedDuringCheck = activeRequests > 0
+        || [...sessions.values()].some(({ summary }) =>
+          summary.status === 'starting' || summary.status === 'running'
+        )
+      if (activePiWork || activityStartedDuringCheck)
+        throw new Error('Active Pi work must settle before restarting')
       restartAccepted = true
       respond(socket, { kind: 'response', id: value.id, ok: true, data: { accepted: true } })
       setImmediate(() => void shutdown(restartExitCode))
@@ -116,8 +133,7 @@ async function handleRequest(socket: Socket, value: unknown): Promise<void> {
     } else if (value.action === 'list') {
       await refreshSessionActivity()
       data = listSessions()
-    }
-    else if (value.action === 'create') data = await createSession(value)
+    } else if (value.action === 'create') data = await createSession(value)
     else if (value.action === 'open') data = await openSession(value)
     else if (value.action === 'improve_prompt') data = await improvePrompt(value)
     else if (value.action === 'run_prompt') data = await runPrompt(value)
@@ -139,16 +155,21 @@ function listSessions(): SessionSummary[] {
 
 /** Reconciles cached session activity with Pi's live state before reporting or acting on it. */
 async function refreshSessionActivity(): Promise<boolean> {
-  const managedSessions = [...sessions.values()].filter(({ summary }) => summary.status !== 'exited')
+  const managedSessions = [...sessions.values()].filter(({ summary }) =>
+    summary.status !== 'exited'
+  )
   const activity = await Promise.all(managedSessions.map(async (session) => {
     const state = await session.pi.request({ type: 'get_state' }, 5_000)
-    if (!isObject(state.data)
+    if (
+      !isObject(state.data)
       || typeof state.data.isStreaming !== 'boolean'
       || typeof state.data.isCompacting !== 'boolean'
       || typeof state.data.pendingMessageCount !== 'number'
       || !Number.isInteger(state.data.pendingMessageCount)
-      || state.data.pendingMessageCount < 0) throw new Error('Pi returned an invalid session state')
-    const running = state.data.isStreaming || state.data.isCompacting || state.data.pendingMessageCount > 0
+      || state.data.pendingMessageCount < 0
+    ) throw new Error('Pi returned an invalid session state')
+    const running = state.data.isStreaming || state.data.isCompacting
+      || state.data.pendingMessageCount > 0
     session.summary.status = running ? 'running' : 'idle'
     return running || session.pendingUi.size > 0
   }))
@@ -174,11 +195,20 @@ async function createSession(request: ManagerRequest): Promise<SessionSummary> {
 }
 
 async function openSession(request: ManagerRequest): Promise<SessionSummary> {
-  if (typeof request.cwd !== 'string' || typeof request.name !== 'string' || typeof request.sessionPath !== 'string') {
+  if (
+    typeof request.cwd !== 'string' || typeof request.name !== 'string'
+    || typeof request.sessionPath !== 'string'
+  ) {
     throw new Error('Session cwd, name and path are required')
   }
-  const existing = [...sessions.values()].find(({ summary }) => summary.sessionPath === request.sessionPath)
-  if (existing && existing.summary.status !== 'exited') return { ...existing.summary, pendingUi: [...existing.pendingUi.values()] }
+  const existing = [...sessions.values()].find(({ summary }) =>
+    summary.sessionPath === request.sessionPath
+  )
+  if (existing && existing.summary.status !== 'exited')
+    return {
+      ...existing.summary,
+      pendingUi: [...existing.pendingUi.values()],
+    }
   if (existing) sessions.delete(existing.summary.id)
 
   const summary: SessionSummary = {
@@ -208,7 +238,9 @@ async function startSession(summary: SessionSummary): Promise<void> {
 
   try {
     const state = await pi.request({ type: 'get_state' })
-    const sessionPath = isObject(state.data) && typeof state.data.sessionFile === 'string' ? state.data.sessionFile : undefined
+    const sessionPath = isObject(state.data) && typeof state.data.sessionFile === 'string'
+      ? state.data.sessionFile
+      : undefined
     if (sessionPath) summary.sessionPath = sessionPath
     summary.status = 'idle'
   } catch (error) {
@@ -220,18 +252,28 @@ async function startSession(summary: SessionSummary): Promise<void> {
 
 /** Rewrites a draft in a disposable, tool-free Pi process without touching the active session. */
 async function improvePrompt(request: ManagerRequest): Promise<{ prompt: string; cost?: number }> {
-  if (typeof request.sessionId !== 'string' || typeof request.prompt !== 'string' || !request.prompt.trim() || request.prompt.length > 100_000) {
+  if (
+    typeof request.sessionId !== 'string' || typeof request.prompt !== 'string' || !request
+      .prompt
+      .trim()
+    || request.prompt.length > 100_000
+  ) {
     throw new Error('Session id and a prompt between 1 and 100,000 characters are required')
   }
   const session = sessions.get(request.sessionId)
-  if (!session || session.summary.status === 'exited') throw new Error('Active Pi session is unavailable')
+  if (!session || session.summary.status === 'exited')
+    throw new Error('Active Pi session is unavailable')
 
-  const direction = typeof request.direction === 'string' ? improvementDirectionInstruction(request.direction) : undefined
+  const direction = typeof request.direction === 'string'
+    ? improvementDirectionInstruction(request.direction)
+    : undefined
   const [systemPrompt, projectMap] = await Promise.all([
     loadPromptImprovementSystemPrompt(),
     generateProjectMap(session.summary.cwd),
   ])
-  const directionBlock = direction ? `<improvement_direction>${direction}</improvement_direction>\n\n` : ''
+  const directionBlock = direction
+    ? `<improvement_direction>${direction}</improvement_direction>\n\n`
+    : ''
   const result = await runIsolatedPrompt({
     cwd: session.summary.cwd,
     prompt: `<user_prompt>\n${request.prompt.trim()}\n</user_prompt>`,
@@ -243,11 +285,17 @@ async function improvePrompt(request: ManagerRequest): Promise<{ prompt: string;
 
 /** Runs a prompt in an isolated, disposable Pi process with caller-controlled configuration. */
 async function runPrompt(request: ManagerRequest): Promise<{ text: string }> {
-  if (typeof request.sessionId !== 'string' || typeof request.prompt !== 'string' || !request.prompt.trim() || request.prompt.length > 100_000) {
+  if (
+    typeof request.sessionId !== 'string' || typeof request.prompt !== 'string' || !request
+      .prompt
+      .trim()
+    || request.prompt.length > 100_000
+  ) {
     throw new Error('Session id and a prompt between 1 and 100,000 characters are required')
   }
   const session = sessions.get(request.sessionId)
-  if (!session || session.summary.status === 'exited') throw new Error('Active Pi session is unavailable')
+  if (!session || session.summary.status === 'exited')
+    throw new Error('Active Pi session is unavailable')
 
   const result = await runIsolatedPrompt({
     cwd: session.summary.cwd,
@@ -255,9 +303,15 @@ async function runPrompt(request: ManagerRequest): Promise<{ text: string }> {
     systemPrompt: typeof request.systemPrompt === 'string' ? request.systemPrompt : undefined,
     thinkingLevel: typeof request.thinkingLevel === 'string' ? request.thinkingLevel : undefined,
     model: isModelOption(request.model) ? request.model : undefined,
-    extensions: Array.isArray(request.extensions) ? request.extensions.filter((e): e is string => typeof e === 'string') : undefined,
-    tools: Array.isArray(request.tools) ? request.tools.filter((t): t is string => typeof t === 'string') : undefined,
-    includeContextFiles: typeof request.includeContextFiles === 'boolean' ? request.includeContextFiles : undefined,
+    extensions: Array.isArray(request.extensions)
+      ? request.extensions.filter((e): e is string => typeof e === 'string')
+      : undefined,
+    tools: Array.isArray(request.tools)
+      ? request.tools.filter((t): t is string => typeof t === 'string')
+      : undefined,
+    includeContextFiles: typeof request.includeContextFiles === 'boolean'
+      ? request.includeContextFiles
+      : undefined,
   })
   return { text: result.text }
 }
@@ -294,15 +348,23 @@ async function sendCommand(request: ManagerRequest): Promise<JsonObject> {
 
 function handlePiEvent(sessionId: string, session: ManagedSession, event: JsonObject): void {
   if (event.type === 'session_info_changed') {
-    session.summary.name = typeof event.name === 'string' && event.name.trim() ? event.name.trim() : 'Nouvelle session'
+    session.summary.name = typeof event.name === 'string' && event.name.trim()
+      ? event.name.trim()
+      : 'Nouvelle session'
   }
   if (event.type === 'agent_start') session.summary.status = 'running'
   if (event.type === 'agent_settled') session.summary.status = 'idle'
-  if (event.type === 'extension_ui_request' && event.method === 'setStatus' && event.statusKey === 'agent') {
+  if (
+    event.type === 'extension_ui_request' && event.method === 'setStatus'
+    && event.statusKey === 'agent'
+  ) {
     session.summary.activeAgent = activeAgentFromStatus(event.statusText)
     event.activeAgent = session.summary.activeAgent
   }
-  if (event.type === 'extension_ui_request' && isBlockingUiRequest(event) && typeof event.id === 'string') {
+  if (
+    event.type === 'extension_ui_request' && isBlockingUiRequest(event)
+    && typeof event.id === 'string'
+  ) {
     session.pendingUi.set(event.id, event)
   }
   broadcast({ kind: 'event', event: 'pi', sessionId, data: event })
@@ -320,7 +382,8 @@ function activeAgentFromStatus(statusText: unknown): string | undefined {
 }
 
 function isBlockingUiRequest(event: JsonObject): boolean {
-  return event.method === 'select' || event.method === 'confirm' || event.method === 'input' || event.method === 'editor'
+  return event.method === 'select' || event.method === 'confirm' || event.method === 'input'
+    || event.method === 'editor'
 }
 
 function broadcast(event: ManagerEvent): void {
@@ -336,7 +399,10 @@ function respond(socket: Socket, response: ManagerResponse): void {
 
 function isManagerRequest(value: unknown): value is ManagerRequest {
   if (!isObject(value) || typeof value.id !== 'string') return false
-  return value.action === 'list' || value.action === 'create' || value.action === 'open' || value.action === 'command' || value.action === 'improve_prompt' || value.action === 'run_prompt' || value.action === 'status' || value.action === 'restart'
+  return value.action === 'list' || value.action === 'create' || value.action === 'open' || value
+        .action === 'command'
+    || value.action === 'improve_prompt' || value.action === 'run_prompt'
+    || value.action === 'status' || value.action === 'restart'
 }
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -345,7 +411,8 @@ function errorMessage(error: unknown): string {
 /** Reads and validates a port from the environment, using the supplied default when unset. */
 function readPort(primary: string, fallback: number): number {
   const value = Number(process.env[primary] ?? fallback)
-  if (!Number.isInteger(value) || value < 1 || value > 65_535) throw new Error(`${primary} must be a valid port`)
+  if (!Number.isInteger(value) || value < 1 || value > 65_535)
+    throw new Error(`${primary} must be a valid port`)
   return value
 }
 

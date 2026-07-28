@@ -23,10 +23,17 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
       if (!trigger || !tooltip || !trigger.isConnected) return
       const triggerRect = trigger.getBoundingClientRect()
       const tooltipRect = tooltip.getBoundingClientRect()
-      const left = Math.min(Math.max(8, triggerRect.left + (triggerRect.width - tooltipRect.width) / 2), window.innerWidth - tooltipRect.width - 8)
+      const left = Math.min(
+        Math.max(8, triggerRect.left + (triggerRect.width - tooltipRect.width) / 2),
+        window.innerWidth - tooltipRect.width - 8,
+      )
       let top = triggerRect.top - tooltipRect.height - 8
       if (top < 8) top = triggerRect.bottom + 8
-      if (top + tooltipRect.height > window.innerHeight - 8) top = Math.max(8, window.innerHeight - tooltipRect.height - 8)
+      if (top + tooltipRect.height > window.innerHeight - 8)
+        top = Math.max(
+          8,
+          window.innerHeight - tooltipRect.height - 8,
+        )
       setPosition({ top, left })
     }
     updatePosition()
@@ -45,8 +52,14 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
   }, [mounted])
 
   const clearTimers = useCallback(() => {
-    if (showTimer.current !== null) { clearTimeout(showTimer.current); showTimer.current = null }
-    if (hideTimer.current !== null) { clearTimeout(hideTimer.current); hideTimer.current = null }
+    if (showTimer.current !== null) {
+      clearTimeout(showTimer.current)
+      showTimer.current = null
+    }
+    if (hideTimer.current !== null) {
+      clearTimeout(hideTimer.current)
+      hideTimer.current = null
+    }
   }, [])
 
   function show(eventTarget: EventTarget | null): void {
@@ -68,8 +81,34 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
     }, HIDE_TRANSITION_MS)
   }
 
-  return <>
-    <span className="tooltip-host" onBlur={hide} onFocus={(event) => show(event.target)} onPointerEnter={(event) => show(event.target)} onPointerLeave={hide}>{children}</span>
-    {mounted && createPortal(<div className="tooltip-content" data-entered={entered || undefined} ref={tooltipRef} role="tooltip" style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}>{label}</div>, document.body)}
-  </>
+  return (
+    <>
+      <span
+        className='tooltip-host'
+        onBlur={hide}
+        onFocus={(event) => show(event.target)}
+        onPointerEnter={(event) => show(event.target)}
+        onPointerLeave={hide}
+      >
+        {children}
+      </span>
+      {mounted
+        && createPortal(
+          <div
+            className='tooltip-content'
+            data-entered={entered || undefined}
+            ref={tooltipRef}
+            role='tooltip'
+            style={{
+              left: position?.left ?? 0,
+              top: position?.top ?? 0,
+              visibility: position ? 'visible' : 'hidden',
+            }}
+          >
+            {label}
+          </div>,
+          document.body,
+        )}
+    </>
+  )
 }

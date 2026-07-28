@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type { TodoItem } from '../../../shared/types.ts'
 import { getTodos, updateTodos } from '../../api.ts'
@@ -43,7 +50,9 @@ export function TodoWidget({ onOpenCountChange, onSendPrompt, onStartSession, wo
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [onOpenCountChange, reloadRequest, workspacePath])
 
   /** Persists a new list before replacing the visible state. */
@@ -75,7 +84,10 @@ export function TodoWidget({ onOpenCountChange, onSendPrompt, onStartSession, wo
   async function commitEdit(todo: TodoItem): Promise<void> {
     const text = editingText.trim()
     if (!text || busy) return
-    if (text === todo.text || await save(todos.map((item) => item.id === todo.id ? { ...item, text } : item))) {
+    if (
+      text === todo.text
+      || await save(todos.map((item) => item.id === todo.id ? { ...item, text } : item))
+    ) {
       setEditingId(null)
       setEditingText('')
     }
@@ -110,11 +122,18 @@ export function TodoWidget({ onOpenCountChange, onSendPrompt, onStartSession, wo
   /** Visually reorders the list according to the task under the captured pointer. */
   function moveDraggedTodo(event: ReactPointerEvent<HTMLSpanElement>): void {
     if (!draggedId || !dragTodos.current) return
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-todo-id]')
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>(
+      '[data-todo-id]',
+    )
     const targetId = target?.dataset.todoId
     if (!targetId || targetId === draggedId) return
 
-    const nextTodos = reorderTodoItems(dragTodos.current, draggedId, targetId, event.clientY > target.getBoundingClientRect().top + target.offsetHeight / 2)
+    const nextTodos = reorderTodoItems(
+      dragTodos.current,
+      draggedId,
+      targetId,
+      event.clientY > target.getBoundingClientRect().top + target.offsetHeight / 2,
+    )
     if (nextTodos === dragTodos.current) return
     dragTodos.current = nextTodos
     dragMoved.current = true
@@ -123,7 +142,8 @@ export function TodoWidget({ onOpenCountChange, onSendPrompt, onStartSession, wo
 
   /** Persists the dropped order and restores the previous order if writing fails. */
   async function finishDrag(event: ReactPointerEvent<HTMLSpanElement>): Promise<void> {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId)
     const nextTodos = dragTodos.current
     const previousTodos = dragOriginalTodos.current
     const shouldSave = dragMoved.current
@@ -168,53 +188,176 @@ export function TodoWidget({ onOpenCountChange, onSendPrompt, onStartSession, wo
   const visibleTodos = todos.filter((todo) => !todo.completed)
   const remaining = visibleTodos.length
 
-  return <>
-    <header className="widget-header">
-      <div className="todo-heading"><strong>Todo</strong><span>{loading ? 'Loading…' : remaining === 0 ? 'All clear' : `${remaining} task${remaining === 1 ? '' : 's'} to do`}</span></div>
-      <span className="todo-count" aria-label={`${remaining} tasks remaining`}>{loading ? '—' : remaining}</span>
-    </header>
-    <div className="widget-content todo-content">
-      {loading ? <div aria-label="Loading tasks" className="todo-skeleton" role="status"><i /><i /><i /></div> : <>
-        {error && <div className="todo-error" role="alert"><span>{error}</span><button onClick={() => setReloadRequest((current) => current + 1)} type="button">Retry</button></div>}
-        {visibleTodos.length === 0 && !error ? <div className="todo-empty"><strong>No tasks</strong><span>Write down an idea to pick up later in this workspace.</span></div> : <ul className="todo-list">
-          {visibleTodos.map((todo) => <li className={draggedId === todo.id ? 'dragging' : undefined} data-todo-id={todo.id} key={todo.id}>
-            <Tooltip label="Move"><span
-              aria-hidden="true"
-              className="todo-drag"
-              onPointerCancel={cancelDrag}
-              onPointerDown={(event) => beginDrag(event, todo.id)}
-              onPointerMove={moveDraggedTodo}
-              onPointerUp={(event) => void finishDrag(event)}
-            >⠿</span></Tooltip>
-            <input aria-label={`Mark “${todo.text}” as complete`} checked={false} disabled={busy} onChange={() => void save(todos.map((item) => item.id === todo.id ? { ...item, completed: true } : item))} type="checkbox" />
-            {editingId === todo.id ? <input
-              aria-label={`Edit “${todo.text}”`}
-              autoFocus
-              className="todo-edit"
-              disabled={busy}
-              maxLength={500}
-              onBlur={() => void commitEdit(todo)}
-              onChange={(event) => setEditingText(event.target.value)}
-              onKeyDown={(event) => editWithKeyboard(event, todo)}
-              value={editingText}
-            /> : <Tooltip label="Edit"><button className="todo-text" disabled={busy || startingId !== null} onClick={() => { setEditingId(todo.id); setEditingText(todo.text) }} type="button">{todo.text}</button></Tooltip>}
-            <Tooltip label="Open a new session"><button aria-label={`Open a new session with “${todo.text}”`} className="todo-start" disabled={busy || editingId !== null || startingId !== null} onClick={() => void startSession(todo)} type="button">{startingId === todo.id ? '…' : '↗'}</button></Tooltip>
-            <Tooltip label="Open a session and send the prompt"><button aria-label={`Open a new session and send “${todo.text}”`} className="todo-send" disabled={busy || editingId !== null || startingId !== null} onClick={() => void sendPrompt(todo)} type="button">{startingId === todo.id ? '…' : '↑'}</button></Tooltip>
-            <Tooltip label="Delete"><button aria-label={`Delete “${todo.text}”`} className="todo-delete" disabled={busy || startingId !== null} onClick={() => void removeTodo(todo)} type="button">×</button></Tooltip>
-          </li>)}
-        </ul>}
-      </>}
-    </div>
-    <footer className="widget-footer">
-      <form className="todo-add" onSubmit={(event) => void addTodo(event)}>
-        <input aria-label="New task" disabled={busy || loading} maxLength={500} onChange={(event) => setNewText(event.target.value)} placeholder="Add a task to this workspace…" value={newText} />
-        <Tooltip label="Add"><button aria-label="Add task" disabled={busy || loading || !newText.trim()} type="submit">+</button></Tooltip>
-      </form>
-    </footer>
-  </>
+  return (
+    <>
+      <header className='widget-header'>
+        <div className='todo-heading'>
+          <strong>Todo</strong>
+          <span>
+            {loading
+              ? 'Loading…'
+              : remaining === 0
+              ? 'All clear'
+              : `${remaining} task${remaining === 1 ? '' : 's'} to do`}
+          </span>
+        </div>
+        <span className='todo-count' aria-label={`${remaining} tasks remaining`}>
+          {loading ? '—' : remaining}
+        </span>
+      </header>
+      <div className='widget-content todo-content'>
+        {loading
+          ? (
+            <div aria-label='Loading tasks' className='todo-skeleton' role='status'>
+              <i />
+              <i />
+              <i />
+            </div>
+          )
+          : (
+            <>
+              {error && (
+                <div className='todo-error' role='alert'>
+                  <span>{error}</span>
+                  <button onClick={() => setReloadRequest((current) => current + 1)} type='button'>
+                    Retry
+                  </button>
+                </div>
+              )}
+              {visibleTodos.length === 0 && !error
+                ? (
+                  <div className='todo-empty'>
+                    <strong>No tasks</strong>
+                    <span>Write down an idea to pick up later in this workspace.</span>
+                  </div>
+                )
+                : (
+                  <ul className='todo-list'>
+                    {visibleTodos.map((todo) => (
+                      <li
+                        className={draggedId === todo.id
+                          ? 'dragging'
+                          : undefined}
+                        data-todo-id={todo.id}
+                        key={todo.id}
+                      >
+                        <Tooltip label='Move'>
+                          <span
+                            aria-hidden='true'
+                            className='todo-drag'
+                            onPointerCancel={cancelDrag}
+                            onPointerDown={(event) => beginDrag(event, todo.id)}
+                            onPointerMove={moveDraggedTodo}
+                            onPointerUp={(event) => void finishDrag(event)}
+                          >
+                            ⠿
+                          </span>
+                        </Tooltip>
+                        <input
+                          aria-label={`Mark “${todo.text}” as complete`}
+                          checked={false}
+                          disabled={busy}
+                          onChange={() =>
+                            void save(todos.map((item) =>
+                              item.id === todo.id
+                                ? { ...item, completed: true }
+                                : item
+                            ))}
+                          type='checkbox'
+                        />
+                        {editingId === todo.id
+                          ? (
+                            <input
+                              aria-label={`Edit “${todo.text}”`}
+                              autoFocus
+                              className='todo-edit'
+                              disabled={busy}
+                              maxLength={500}
+                              onBlur={() => void commitEdit(todo)}
+                              onChange={(event) => setEditingText(event.target.value)}
+                              onKeyDown={(event) => editWithKeyboard(event, todo)}
+                              value={editingText}
+                            />
+                          )
+                          : (
+                            <Tooltip label='Edit'>
+                              <button
+                                className='todo-text'
+                                disabled={busy || startingId !== null}
+                                onClick={() => {
+                                  setEditingId(todo.id)
+                                  setEditingText(todo.text)
+                                }}
+                                type='button'
+                              >
+                                {todo.text}
+                              </button>
+                            </Tooltip>
+                          )}
+                        <Tooltip label='Open a new session'>
+                          <button
+                            aria-label={`Open a new session with “${todo.text}”`}
+                            className='todo-start'
+                            disabled={busy || editingId !== null || startingId !== null}
+                            onClick={() => void startSession(todo)}
+                            type='button'
+                          >
+                            {startingId === todo.id ? '…' : '↗'}
+                          </button>
+                        </Tooltip>
+                        <Tooltip label='Open a session and send the prompt'>
+                          <button
+                            aria-label={`Open a new session and send “${todo.text}”`}
+                            className='todo-send'
+                            disabled={busy || editingId !== null || startingId !== null}
+                            onClick={() => void sendPrompt(todo)}
+                            type='button'
+                          >
+                            {startingId === todo.id ? '…' : '↑'}
+                          </button>
+                        </Tooltip>
+                        <Tooltip label='Delete'>
+                          <button
+                            aria-label={`Delete “${todo.text}”`}
+                            className='todo-delete'
+                            disabled={busy || startingId !== null}
+                            onClick={() => void removeTodo(todo)}
+                            type='button'
+                          >
+                            ×
+                          </button>
+                        </Tooltip>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </>
+          )}
+      </div>
+      <footer className='widget-footer'>
+        <form className='todo-add' onSubmit={(event) => void addTodo(event)}>
+          <input
+            aria-label='New task'
+            disabled={busy || loading}
+            maxLength={500}
+            onChange={(event) => setNewText(event.target.value)}
+            placeholder='Add a task to this workspace…'
+            value={newText}
+          />
+          <Tooltip label='Add'>
+            <button
+              aria-label='Add task'
+              disabled={busy || loading || !newText.trim()}
+              type='submit'
+            >
+              +
+            </button>
+          </Tooltip>
+        </form>
+      </footer>
+    </>
+  )
 }
-
-
 
 function openCount(todos: TodoItem[]): number {
   return todos.filter((todo) => !todo.completed).length

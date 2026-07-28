@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { defaultTerminalInvocation, parseTerminalTemplate, tokenizeTemplate, TerminalTemplateError } from '../server/features/terminal/launcher.ts'
+import {
+  defaultTerminalInvocation,
+  parseTerminalTemplate,
+  tokenizeTemplate,
+  TerminalTemplateError,
+} from '../server/features/terminal/launcher.ts'
 
 test('tokenizes a simple command', () => {
   assert.deepEqual(tokenizeTemplate('wt.exe -d {cwd}'), ['wt.exe', '-d', '{cwd}'])
@@ -29,12 +34,25 @@ test('replaces {cwd} inside a longer token', () => {
 })
 
 test('uses the platform terminal defaults', () => {
-  assert.deepEqual(defaultTerminalInvocation('/home/user', 'linux'), { command: 'x-terminal-emulator', args: [], cwd: '/home/user' })
-  assert.deepEqual(defaultTerminalInvocation('/home/user', 'wsl', { WSL_DISTRO_NAME: 'Ubuntu-22.04' }), { command: 'wt.exe', args: ['nt', '--', 'wsl.exe', '-d', 'Ubuntu-22.04', '--cd', '/home/user'] })
+  assert.deepEqual(defaultTerminalInvocation('/home/user', 'linux'), {
+    command: 'x-terminal-emulator',
+    args: [],
+    cwd: '/home/user',
+  })
+  assert.deepEqual(
+    defaultTerminalInvocation('/home/user', 'wsl', { WSL_DISTRO_NAME: 'Ubuntu-22.04' }),
+    {
+      command: 'wt.exe',
+      args: ['nt', '--', 'wsl.exe', '-d', 'Ubuntu-22.04', '--cd', '/home/user'],
+    },
+  )
 })
 
 test('falls back to the default WSL distribution when its name is unavailable', () => {
-  assert.deepEqual(defaultTerminalInvocation('/home/user', 'wsl', { WSL_INTEROP: '/run/WSL/1_interop' }), { command: 'wt.exe', args: ['nt', '--', 'wsl.exe', '--cd', '/home/user'] })
+  assert.deepEqual(
+    defaultTerminalInvocation('/home/user', 'wsl', { WSL_INTEROP: '/run/WSL/1_interop' }),
+    { command: 'wt.exe', args: ['nt', '--', 'wsl.exe', '--cd', '/home/user'] },
+  )
 })
 
 test('replaces {cwd} inside a quoted token', () => {
@@ -69,5 +87,8 @@ test('rejects a template exceeding the length limit', () => {
 })
 
 test('rejects a template with NUL characters', () => {
-  assert.throws(() => parseTerminalTemplate('wt.exe\0 -d {cwd}', '/home/user'), TerminalTemplateError)
+  assert.throws(
+    () => parseTerminalTemplate('wt.exe\0 -d {cwd}', '/home/user'),
+    TerminalTemplateError,
+  )
 })

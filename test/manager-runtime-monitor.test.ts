@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import type { ManagerRequest, ManagerRuntimeIdentity, ManagerRuntimeStatus } from '../shared/types.ts'
+import type {
+  ManagerRequest,
+  ManagerRuntimeIdentity,
+  ManagerRuntimeStatus,
+} from '../shared/types.ts'
 import type { ManagerClient } from '../server/manager-client.ts'
 import { ManagerRuntimeMonitor } from '../server/manager-runtime-monitor.ts'
 import { calculateManagerRuntimeRevision } from '../server/manager-runtime.ts'
@@ -57,7 +61,10 @@ test('marks an obsolete supervised manager as restartable and requests one resta
     supervised: true,
   })
   const states: ManagerRuntimeStatus[] = []
-  const monitor = new ManagerRuntimeMonitor(manager as unknown as ManagerClient, (status) => states.push(status))
+  const monitor = new ManagerRuntimeMonitor(
+    manager as unknown as ManagerClient,
+    (status) => states.push(status),
+  )
 
   try {
     monitor.start()
@@ -85,7 +92,10 @@ test('marks an obsolete supervised manager as restartable and requests one resta
 })
 
 /** Polls asynchronous monitor work without coupling the test to file-system timing. */
-async function waitForState(monitor: ManagerRuntimeMonitor, state: ManagerRuntimeStatus['state']): Promise<void> {
+async function waitForState(
+  monitor: ManagerRuntimeMonitor,
+  state: ManagerRuntimeStatus['state'],
+): Promise<void> {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     if (monitor.status.state === state) return
     await new Promise((resolve) => setTimeout(resolve, 10))

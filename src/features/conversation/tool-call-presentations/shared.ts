@@ -4,9 +4,15 @@ export interface ToolCallPresentation {
   pendingDetail?: string
 }
 
-export type ToolCallPresenter = (args: unknown, repositoryRoot?: string | null) => ToolCallPresentation
+export type ToolCallPresenter = (
+  args: unknown,
+  repositoryRoot?: string | null,
+) => ToolCallPresentation
 
-export function truncateToolText(text: string, maxLength = 140): { text: string; truncated: boolean } {
+export function truncateToolText(
+  text: string,
+  maxLength = 140,
+): { text: string; truncated: boolean } {
   if (text.length <= maxLength) return { text, truncated: false }
   return { text: `${text.slice(0, maxLength)}…`, truncated: true }
 }

@@ -1,5 +1,13 @@
 import { isObject } from '../../../shared/is-object.ts'
-import type { CopilotQuotaWindow, JsonObject, OpenAiQuotaWindow, QuotaProviderReport, QuotaProviderSnapshot, QuotaReport, QuotaSnapshot } from '../../../shared/types.ts'
+import type {
+  CopilotQuotaWindow,
+  JsonObject,
+  OpenAiQuotaWindow,
+  QuotaProviderReport,
+  QuotaProviderSnapshot,
+  QuotaReport,
+  QuotaSnapshot,
+} from '../../../shared/types.ts'
 
 const emptyProvider = <T>(): QuotaProviderSnapshot<T> => ({ data: [], stale: false })
 
@@ -10,7 +18,12 @@ export class QuotaCache {
   #refreshing = false
 
   snapshot(sessionRequired: boolean): QuotaSnapshot {
-    return { openai: this.#openai, copilot: this.#copilot, refreshing: this.#refreshing, sessionRequired }
+    return {
+      openai: this.#openai,
+      copilot: this.#copilot,
+      refreshing: this.#refreshing,
+      sessionRequired,
+    }
   }
 
   setRefreshing(refreshing: boolean): void {
@@ -20,7 +33,11 @@ export class QuotaCache {
   /** Accepts only the private, versioned status emitted by the quota extension. */
   receiveManagerEvent(event: unknown): boolean {
     const data = object(object(event)?.data)
-    if (object(event)?.event !== 'pi' || data?.type !== 'extension_ui_request' || data.method !== 'setStatus' || data.statusKey !== 'pi-livecraft.quotas' || typeof data.statusText !== 'string') return false
+    if (
+      object(event)?.event !== 'pi' || data?.type !== 'extension_ui_request' || data
+          .method !== 'setStatus'
+      || data.statusKey !== 'pi-livecraft.quotas' || typeof data.statusText !== 'string'
+    ) return false
     let parsed: unknown
     try {
       parsed = JSON.parse(data.statusText)
@@ -36,23 +53,43 @@ export class QuotaCache {
   }
 }
 
-function mergeProvider<T>(current: QuotaProviderSnapshot<T>, report: QuotaProviderReport<T>, updatedAt: number): QuotaProviderSnapshot<T> {
+function mergeProvider<T>(
+  current: QuotaProviderSnapshot<T>,
+  report: QuotaProviderReport<T>,
+  updatedAt: number,
+): QuotaProviderSnapshot<T> {
   if (report.ok) return { data: report.data, updatedAt, stale: false }
   return { ...current, stale: current.updatedAt !== undefined, error: report.error }
 }
 
 function parseQuotaReport(value: unknown): QuotaReport | undefined {
   const report = object(value)
-  if (report?.protocol !== 'pi-livecraft.quotas' || report.version !== 1 || !finiteNumber(report.refreshedAt)) return undefined
+  if (
+    report?.protocol !== 'pi-livecraft.quotas' || report.version !== 1
+    || !finiteNumber(report.refreshedAt)
+  ) return undefined
   const openai = parseProvider(report.openai, parseOpenAiWindow)
   const copilot = parseProvider(report.copilot, parseCopilotWindow)
   if (!openai || !copilot) return undefined
-  return { protocol: 'pi-livecraft.quotas', version: 1, refreshedAt: report.refreshedAt, openai, copilot }
+  return {
+    protocol: 'pi-livecraft.quotas',
+    version: 1,
+    refreshedAt: report.refreshedAt,
+    openai,
+    copilot,
+  }
 }
 
-function parseProvider<T>(value: unknown, parseItem: (value: unknown) => T | undefined): QuotaProviderReport<T> | undefined {
+function parseProvider<T>(
+  value: unknown,
+  parseItem: (value: unknown) => T | undefined,
+): QuotaProviderReport<T> | undefined {
   const provider = object(value)
-  if (provider?.ok === false && typeof provider.error === 'string') return { ok: false, error: provider.error.slice(0, 300) }
+  if (provider?.ok === false && typeof provider.error === 'string')
+    return {
+      ok: false,
+      error: provider.error.slice(0, 300),
+    }
   if (provider?.ok !== true || !Array.isArray(provider.data)) return undefined
   const data = provider.data.map(parseItem)
   return data.every((item): item is T => item !== undefined) ? { ok: true, data } : undefined
@@ -60,16 +97,30 @@ function parseProvider<T>(value: unknown, parseItem: (value: unknown) => T | und
 
 function parseOpenAiWindow(value: unknown): OpenAiQuotaWindow | undefined {
   const window = object(value)
-  if ((window?.period !== '5h' && window?.period !== '7d') || !finiteNumber(window.remainingPercent)) return undefined
+  if (
+    (window?.period !== '5h' && window?.period !== '7d') || !finiteNumber(window.remainingPercent)
+  ) return undefined
   const resetsAt = finiteNumber(window.resetsAt) ? window.resetsAt : undefined
-  return { period: window.period, remainingPercent: Math.min(100, Math.max(0, window.remainingPercent)), ...(resetsAt ? { resetsAt } : {}) }
+  return {
+    period: window.period,
+    remainingPercent: Math.min(100, Math.max(0, window.remainingPercent)),
+    ...(resetsAt ? { resetsAt } : {}),
+  }
 }
 
 function parseCopilotWindow(value: unknown): CopilotQuotaWindow | undefined {
   const window = object(value)
-  if (typeof window?.name !== 'string' || !finiteNumber(window.used) || !finiteNumber(window.limit) || window.limit <= 0) return undefined
+  if (
+    typeof window?.name !== 'string' || !finiteNumber(window.used) || !finiteNumber(window.limit)
+    || window.limit <= 0
+  ) return undefined
   const resetsAt = finiteNumber(window.resetsAt) ? window.resetsAt : undefined
-  return { name: window.name.slice(0, 80), used: Math.max(0, window.used), limit: window.limit, ...(resetsAt ? { resetsAt } : {}) }
+  return {
+    name: window.name.slice(0, 80),
+    used: Math.max(0, window.used),
+    limit: window.limit,
+    ...(resetsAt ? { resetsAt } : {}),
+  }
 }
 
 function object(value: unknown): JsonObject | undefined {

@@ -1,15 +1,43 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { activeSessionMessages, LiveSessionEvents, visibleSessionMessages } from '../server/session-snapshot.ts'
+import {
+  activeSessionMessages,
+  LiveSessionEvents,
+  visibleSessionMessages,
+} from '../server/session-snapshot.ts'
 
 test('retains only the events needed to restore active thinking and tools', () => {
   const live = new LiveSessionEvents()
   live.receive({ type: 'agent_start' }, 1)
   live.receive({ type: 'message_start', message: { role: 'assistant', content: [] } }, 2)
-  live.receive({ type: 'message_update', message: { role: 'assistant', content: [{ type: 'thinking', thinking: 'Inspecting' }] }, assistantMessageEvent: { type: 'thinking_delta', delta: 'Inspecting' } }, 3)
-  live.receive({ type: 'message_update', message: { role: 'assistant', content: [{ type: 'thinking', thinking: 'Inspecting' }, { type: 'toolCall', id: 'call-1', name: 'read', arguments: {} }] }, assistantMessageEvent: { type: 'toolcall_start', contentIndex: 1 } }, 4)
-  live.receive({ type: 'tool_execution_start', toolCallId: 'call-1', toolName: 'read', args: {} }, 5)
-  live.receive({ type: 'tool_execution_update', toolCallId: 'call-1', toolName: 'read', partialResult: { content: 'partial' } }, 6)
+  live.receive({
+    type: 'message_update',
+    message: { role: 'assistant', content: [{ type: 'thinking', thinking: 'Inspecting' }] },
+    assistantMessageEvent: { type: 'thinking_delta', delta: 'Inspecting' },
+  }, 3)
+  live.receive({
+    type: 'message_update',
+    message: {
+      role: 'assistant',
+      content: [{ type: 'thinking', thinking: 'Inspecting' }, {
+        type: 'toolCall',
+        id: 'call-1',
+        name: 'read',
+        arguments: {},
+      }],
+    },
+    assistantMessageEvent: { type: 'toolcall_start', contentIndex: 1 },
+  }, 4)
+  live.receive(
+    { type: 'tool_execution_start', toolCallId: 'call-1', toolName: 'read', args: {} },
+    5,
+  )
+  live.receive({
+    type: 'tool_execution_update',
+    toolCallId: 'call-1',
+    toolName: 'read',
+    partialResult: { content: 'partial' },
+  }, 6)
 
   assert.deepEqual(live.snapshot().map(({ sequence }) => sequence), [1, 2, 4, 5, 6])
 
@@ -23,11 +51,31 @@ test('retains only the events needed to restore active thinking and tools', () =
 
 test('keeps the active conversation before and after compaction', () => {
   const messages = activeSessionMessages([
-    { type: 'message', id: 'user-1', parentId: null, message: { role: 'user', content: 'Original request' } },
-    { type: 'message', id: 'assistant-1', parentId: 'user-1', message: { role: 'assistant', content: 'Original response' } },
-    { type: 'message', id: 'abandoned', parentId: 'user-1', message: { role: 'assistant', content: 'Abandoned branch' } },
+    {
+      type: 'message',
+      id: 'user-1',
+      parentId: null,
+      message: { role: 'user', content: 'Original request' },
+    },
+    {
+      type: 'message',
+      id: 'assistant-1',
+      parentId: 'user-1',
+      message: { role: 'assistant', content: 'Original response' },
+    },
+    {
+      type: 'message',
+      id: 'abandoned',
+      parentId: 'user-1',
+      message: { role: 'assistant', content: 'Abandoned branch' },
+    },
     { type: 'compaction', id: 'compact-1', parentId: 'assistant-1', summary: 'Summary' },
-    { type: 'message', id: 'user-2', parentId: 'compact-1', message: { role: 'user', content: 'Continue' } },
+    {
+      type: 'message',
+      id: 'user-2',
+      parentId: 'compact-1',
+      message: { role: 'user', content: 'Continue' },
+    },
   ], 'user-2')
 
   assert.deepEqual(messages, [
@@ -42,7 +90,12 @@ test('filters compaction entries without a string summary', () => {
   const messages = activeSessionMessages([
     { type: 'message', id: 'user-1', parentId: null, message: { role: 'user', content: 'Hello' } },
     { type: 'compaction', id: 'compact-1', parentId: 'user-1', summary: 42 },
-    { type: 'message', id: 'user-2', parentId: 'compact-1', message: { role: 'user', content: 'World' } },
+    {
+      type: 'message',
+      id: 'user-2',
+      parentId: 'compact-1',
+      message: { role: 'user', content: 'World' },
+    },
   ], 'user-2')
 
   assert.deepEqual(messages, [
@@ -53,16 +106,24 @@ test('filters compaction entries without a string summary', () => {
 
 test('keeps visible custom messages out of hidden extension context', () => {
   const visible = { role: 'custom', customType: 'status', content: 'Prêt', display: true }
-  const hidden = { role: 'custom', customType: 'secret-context', content: 'Interne', display: false }
+  const hidden = {
+    role: 'custom',
+    customType: 'secret-context',
+    content: 'Interne',
+    display: false,
+  }
 
-  assert.deepEqual(visibleSessionMessages([
-    { role: 'user', content: 'Bonjour' },
-    visible,
-    hidden,
-    { role: 'custom', content: 'Type manquant', display: true },
-    { role: 'branchSummary', summary: 'Résumé' },
-  ]), [
-    { role: 'user', content: 'Bonjour' },
-    visible,
-  ])
+  assert.deepEqual(
+    visibleSessionMessages([
+      { role: 'user', content: 'Bonjour' },
+      visible,
+      hidden,
+      { role: 'custom', content: 'Type manquant', display: true },
+      { role: 'branchSummary', summary: 'Résumé' },
+    ]),
+    [
+      { role: 'user', content: 'Bonjour' },
+      visible,
+    ],
+  )
 })

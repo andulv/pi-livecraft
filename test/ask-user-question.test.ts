@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { askUserQuestionProtocol, askUserQuestionVersion, parseAskUserQuestionRequest, parseAskUserQuestionResponse } from '../shared/ask-user-question.ts'
+import {
+  askUserQuestionProtocol,
+  askUserQuestionVersion,
+  parseAskUserQuestionRequest,
+  parseAskUserQuestionResponse,
+} from '../shared/ask-user-question.ts'
 
 const request = parseAskUserQuestionRequest({
   protocol: askUserQuestionProtocol,
@@ -23,7 +28,10 @@ test('valide le contrat de questionnaire RPC', () => {
       cancelled: false,
       answers: [{ question: request.questions[0].question, selectedOptions: ['Simple'] }],
     }, request),
-    { cancelled: false, answers: [{ question: request.questions[0].question, selectedOptions: ['Simple'] }] },
+    {
+      cancelled: false,
+      answers: [{ question: request.questions[0].question, selectedOptions: ['Simple'] }],
+    },
   )
   assert.equal(
     parseAskUserQuestionResponse({

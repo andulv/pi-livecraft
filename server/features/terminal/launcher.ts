@@ -1,5 +1,9 @@
 import { spawn } from 'node:child_process'
-import { getDesktopPlatform, getWslDistributionName, type DesktopPlatform } from '../../system-integration.ts'
+import {
+  getDesktopPlatform,
+  getWslDistributionName,
+  type DesktopPlatform,
+} from '../../system-integration.ts'
 
 const maxTemplateLength = 2000
 
@@ -54,10 +58,15 @@ export function tokenizeTemplate(template: string): string[] {
  * Parses and validates a terminal command template.
  * Replaces every `{cwd}` placeholder with the resolved workspace path.
  */
-export function parseTerminalTemplate(raw: string, cwd: string): { command: string; args: string[] } {
+export function parseTerminalTemplate(
+  raw: string,
+  cwd: string,
+): { command: string; args: string[] } {
   if (!raw || !raw.trim()) throw new TerminalTemplateError('Terminal command is empty')
-  if (raw.length > maxTemplateLength) throw new TerminalTemplateError(`Terminal command exceeds ${maxTemplateLength} characters`)
-  if (raw.includes('\0')) throw new TerminalTemplateError('Terminal command contains invalid characters')
+  if (raw.length > maxTemplateLength)
+    throw new TerminalTemplateError(`Terminal command exceeds ${maxTemplateLength} characters`)
+  if (raw.includes('\0'))
+    throw new TerminalTemplateError('Terminal command contains invalid characters')
 
   const tokens = tokenizeTemplate(raw.trim())
   if (tokens.length === 0) throw new TerminalTemplateError('Terminal command produced no tokens')
@@ -72,10 +81,24 @@ export function parseTerminalTemplate(raw: string, cwd: string): { command: stri
 }
 
 /** Returns the platform-specific terminal invocation used when no custom template is set. */
-export function defaultTerminalInvocation(workspacePath: string, platform = getDesktopPlatform(), env: NodeJS.ProcessEnv = process.env): { command: string; args: string[]; cwd?: string } {
+export function defaultTerminalInvocation(
+  workspacePath: string,
+  platform = getDesktopPlatform(),
+  env: NodeJS.ProcessEnv = process.env,
+): { command: string; args: string[]; cwd?: string } {
   const wslDistribution = getWslDistributionName(env)
   return platform === 'wsl'
-    ? { command: 'wt.exe', args: ['nt', '--', 'wsl.exe', ...(wslDistribution ? ['-d', wslDistribution] : []), '--cd', workspacePath] }
+    ? {
+      command: 'wt.exe',
+      args: [
+        'nt',
+        '--',
+        'wsl.exe',
+        ...(wslDistribution ? ['-d', wslDistribution] : []),
+        '--cd',
+        workspacePath,
+      ],
+    }
     : { command: 'x-terminal-emulator', args: [], cwd: workspacePath }
 }
 
@@ -83,7 +106,11 @@ export function defaultTerminalInvocation(workspacePath: string, platform = getD
  * Launches a terminal application detached from the backend process.
  * An empty template selects the platform default; custom templates still require `{cwd}`.
  */
-export function openTerminalApplication(workspacePath: string, template?: string | null, platform?: DesktopPlatform): Promise<void> {
+export function openTerminalApplication(
+  workspacePath: string,
+  template?: string | null,
+  platform?: DesktopPlatform,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     let invocation: { command: string; args: string[]; cwd?: string }
     try {
@@ -95,7 +122,11 @@ export function openTerminalApplication(workspacePath: string, template?: string
       return
     }
 
-    const child = spawn(invocation.command, invocation.args, { cwd: invocation.cwd, detached: true, stdio: 'ignore' })
+    const child = spawn(invocation.command, invocation.args, {
+      cwd: invocation.cwd,
+      detached: true,
+      stdio: 'ignore',
+    })
     child.once('error', reject)
     child.once('spawn', () => {
       child.unref()

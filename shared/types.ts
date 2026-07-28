@@ -93,7 +93,13 @@ export interface ManagerRuntimeIdentity {
   supervised: boolean
 }
 
-export type ManagerRuntimeState = 'checking' | 'current' | 'stale' | 'restarting' | 'disconnected' | 'unknown'
+export type ManagerRuntimeState =
+  | 'checking'
+  | 'current'
+  | 'stale'
+  | 'restarting'
+  | 'disconnected'
+  | 'unknown'
 
 export interface ManagerRuntimeStatus {
   state: ManagerRuntimeState
@@ -103,7 +109,15 @@ export interface ManagerRuntimeStatus {
 
 export interface ManagerRequest {
   id: string
-  action: 'list' | 'create' | 'open' | 'command' | 'improve_prompt' | 'run_prompt' | 'status' | 'restart'
+  action:
+    | 'list'
+    | 'create'
+    | 'open'
+    | 'command'
+    | 'improve_prompt'
+    | 'run_prompt'
+    | 'status'
+    | 'restart'
   sessionId?: string
   cwd?: string
   name?: string
@@ -129,7 +143,13 @@ export interface ManagerResponse {
 
 export interface ManagerEvent {
   kind: 'event'
-  event: 'session_created' | 'session_exited' | 'manager_connected' | 'manager_disconnected' | 'manager_status' | 'pi'
+  event:
+    | 'session_created'
+    | 'session_exited'
+    | 'manager_connected'
+    | 'manager_disconnected'
+    | 'manager_status'
+    | 'pi'
   sessionId: string
   data?: unknown
   sequence?: number

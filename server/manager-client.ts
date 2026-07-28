@@ -30,7 +30,8 @@ export class ManagerClient extends EventEmitter {
 
   /** Sends a request to the connected manager and associates its response with a timeout. */
   request(request: Omit<ManagerRequest, 'id'>, timeoutMs = 35_000): Promise<unknown> {
-    if (!this.#socket?.writable || !this.connected) return Promise.reject(new Error('Pi manager is unavailable'))
+    if (!this.#socket?.writable || !this.connected)
+      return Promise.reject(new Error('Pi manager is unavailable'))
     const id = randomUUID()
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {

@@ -9,7 +9,15 @@ const todos = [
 ]
 
 test('reorders todos before or after a drop target', () => {
-  assert.deepEqual(reorderTodoItems(todos, 'last', 'first', false).map(({ id }) => id), ['last', 'first', 'completed'])
-  assert.deepEqual(reorderTodoItems(todos, 'first', 'last', true).map(({ id }) => id), ['completed', 'last', 'first'])
+  assert.deepEqual(reorderTodoItems(todos, 'last', 'first', false).map(({ id }) => id), [
+    'last',
+    'first',
+    'completed',
+  ])
+  assert.deepEqual(reorderTodoItems(todos, 'first', 'last', true).map(({ id }) => id), [
+    'completed',
+    'last',
+    'first',
+  ])
   assert.equal(reorderTodoItems(todos, 'missing', 'first', false), todos)
 })

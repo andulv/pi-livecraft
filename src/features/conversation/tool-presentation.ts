@@ -19,9 +19,11 @@ export interface ToolEditChange {
 /** Extracts valid replacements provided to the edit tool. */
 export function toolEditChanges(args: unknown): ToolEditChange[] {
   if (!isObject(args) || !Array.isArray(args.edits)) return []
-  return args.edits.flatMap((edit) => isObject(edit) && typeof edit.oldText === 'string' && typeof edit.newText === 'string'
-    ? [{ oldText: edit.oldText, newText: edit.newText }]
-    : [])
+  return args.edits.flatMap((edit) =>
+    isObject(edit) && typeof edit.oldText === 'string' && typeof edit.newText === 'string'
+      ? [{ oldText: edit.oldText, newText: edit.newText }]
+      : []
+  )
 }
 
 export interface EditDiffLine {
@@ -43,7 +45,11 @@ export function intraLineDiff(oldText: string, newText: string): IntraLineSegmen
   let isFirstAdded = true
 
   for (const part of diffWords(oldText, newText)) {
-    const kind: IntraLineSegment['kind'] = part.removed ? 'removed' : part.added ? 'added' : 'shared'
+    const kind: IntraLineSegment['kind'] = part.removed
+      ? 'removed'
+      : part.added
+      ? 'added'
+      : 'shared'
     if (kind === 'shared') {
       segments.push({ text: part.value, kind })
       continue
@@ -96,14 +102,22 @@ export function editDiffDisplayLines(diffLines: EditDiffLine[]): EditDiffDisplay
     }
 
     const removedLines: EditDiffLine[] = []
-    while (index < lines.length && lines[index].kind === 'removed') removedLines.push(lines[index++])
+    while (index < lines.length && lines[index].kind === 'removed') {
+      removedLines.push(lines[index++])
+    }
     const addedLines: EditDiffLine[] = []
     while (index < lines.length && lines[index].kind === 'added') addedLines.push(lines[index++])
 
     if (removedLines.length === 1 && addedLines.length === 1) {
       const segments = intraLineDiff(removedLines[0].content, addedLines[0].content)
-      displayLines.push({ ...removedLines[0], segments: segments.filter((segment) => segment.kind !== 'added') })
-      displayLines.push({ ...addedLines[0], segments: segments.filter((segment) => segment.kind !== 'removed') })
+      displayLines.push({
+        ...removedLines[0],
+        segments: segments.filter((segment) => segment.kind !== 'added'),
+      })
+      displayLines.push({
+        ...addedLines[0],
+        segments: segments.filter((segment) => segment.kind !== 'removed'),
+      })
       continue
     }
 
@@ -114,19 +128,36 @@ export function editDiffDisplayLines(diffLines: EditDiffLine[]): EditDiffDisplay
 }
 
 export function formatToolData(value: unknown): string {
-  try { return JSON.stringify(value, null, 2) ?? String(value) } catch { return String(value) }
+  try {
+    return JSON.stringify(value, null, 2) ?? String(value)
+  } catch {
+    return String(value)
+  }
 }
 
 export function toolDataLength(value: unknown): number {
-  try { return (JSON.stringify(value) ?? String(value)).length } catch { return String(value).length }
+  try {
+    return (JSON.stringify(value) ?? String(value)).length
+  } catch {
+    return String(value).length
+  }
 }
 
-export function formatToolCallTooltip(title: string, inputLength: number, outputLength?: number): string {
-  return `${title}\nCall: ${inputLength} characters${outputLength === undefined ? '' : ` · Result: ${outputLength} characters`}`
+export function formatToolCallTooltip(
+  title: string,
+  inputLength: number,
+  outputLength?: number,
+): string {
+  return `${title}\nCall: ${inputLength} characters${
+    outputLength === undefined ? '' : ` · Result: ${outputLength} characters`
+  }`
 }
 
 /** Limits output to its first lines while reserving an indicator for the remaining content. */
-export function toolTextPreview(text: string, maxLines = 4): { text: string; remainingLineCount: number } {
+export function toolTextPreview(
+  text: string,
+  maxLines = 4,
+): { text: string; remainingLineCount: number } {
   const lines = text.endsWith('\n') ? text.slice(0, -1).split('\n') : text.split('\n')
   const remainingLineCount = Math.max(0, lines.length - maxLines)
   if (remainingLineCount === 0) return { text, remainingLineCount }
@@ -137,10 +168,15 @@ export function toolTextPreview(text: string, maxLines = 4): { text: string; rem
 export function fileUrl(path: string): string {
   const normalizedPath = path.replaceAll('\\', '/')
   if (normalizedPath.startsWith('//')) return `file:${encodeURI(normalizedPath)}`
-  return `file://${encodeURI(normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`)}`
+  return `file://${
+    encodeURI(normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`)
+  }`
 }
 
-export function toolCallPresentation(call: ToolCall, repositoryRoot?: string | null): ToolCallPresentation {
+export function toolCallPresentation(
+  call: ToolCall,
+  repositoryRoot?: string | null,
+): ToolCallPresentation {
   return toolCallPresentations[call.name]?.(call.args, repositoryRoot) ?? {}
 }
 

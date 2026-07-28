@@ -7,10 +7,14 @@ export function SessionInfo({ name, cwd, active }: {
   active: boolean
 }) {
   return (
-    <div className="composer-session">
-      {active && <span aria-label="Pi is active" className="session-status-indicator working" role="img" />}
+    <div className='composer-session'>
+      {active && (
+        <span aria-label='Pi is active' className='session-status-indicator working' role='img' />
+      )}
       <strong>{name}</strong>
-      <Tooltip label={cwd}><span>{cwd}</span></Tooltip>
+      <Tooltip label={cwd}>
+        <span>{cwd}</span>
+      </Tooltip>
     </div>
   )
 }

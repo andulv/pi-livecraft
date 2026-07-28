@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { commandDefinitions, defaultShortcuts, lastAssistantText, migrateLegacyShortcut, rightWidgetCommandId, rightWidgetFromCommand, shortcutConflicts, shortcutFromEvent } from '../src/features/commands/command-registry.ts'
+import {
+  commandDefinitions,
+  defaultShortcuts,
+  lastAssistantText,
+  migrateLegacyShortcut,
+  rightWidgetCommandId,
+  rightWidgetFromCommand,
+  shortcutConflicts,
+  shortcutFromEvent,
+} from '../src/features/commands/command-registry.ts'
 import { rightWidgetDefinitions } from '../src/features/right-sidebar/right-sidebar.ts'
 
 test('conserve exactement les touches d’un raccourci', () => {
@@ -19,7 +28,11 @@ test('expose automatiquement chaque widget dans le registre de commandes', () =>
   for (const widget of rightWidgetDefinitions) {
     const commandId = rightWidgetCommandId(widget.id)
     assert.equal(rightWidgetFromCommand(commandId), widget.id)
-    assert.ok(commandDefinitions.some(({ id, label }) => id === commandId && label === `Open ${widget.label}`))
+    assert.ok(
+      commandDefinitions.some(({ id, label }) =>
+        id === commandId && label === `Open ${widget.label}`
+      ),
+    )
   }
 })
 
@@ -29,7 +42,15 @@ test('détecte les conflits de raccourcis', () => {
 })
 
 test('les nouvelles commandes de productivité sont reconnues par le registre', () => {
-  const ids = ['open-directory-picker', 'workspace-previous', 'focus-composer', 'next-session', 'previous-session', 'toggle-conversation-view', 'open-explorer']
+  const ids = [
+    'open-directory-picker',
+    'workspace-previous',
+    'focus-composer',
+    'next-session',
+    'previous-session',
+    'toggle-conversation-view',
+    'open-explorer',
+  ]
   for (const id of ids) {
     const definition = commandDefinitions.find((d) => d.id === id)
     assert.ok(definition, `Commande ${id} absente du registre`)
@@ -48,5 +69,11 @@ test('les nouveaux raccourcis par défaut sont définis', () => {
 })
 
 test('extrait la dernière réponse assistant', () => {
-  assert.equal(lastAssistantText([{ role: 'assistant', content: 'Première' }, { role: 'assistant', content: [{ type: 'text', text: 'Dernière' }] }]), 'Dernière')
+  assert.equal(
+    lastAssistantText([{ role: 'assistant', content: 'Première' }, {
+      role: 'assistant',
+      content: [{ type: 'text', text: 'Dernière' }],
+    }]),
+    'Dernière',
+  )
 })

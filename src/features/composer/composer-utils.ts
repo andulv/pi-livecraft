@@ -26,7 +26,10 @@ export function ensureCompactCommand(commands: JsonObject[]): JsonObject[] {
 /** Restores the draft for one session from local storage. */
 export function readComposerDraft(storageKey: string): string {
   try {
-    const storage = (globalThis as typeof globalThis & { localStorage?: { getItem: (key: string) => string | null } }).localStorage
+    const storage = (globalThis as typeof globalThis & {
+      localStorage?: { getItem: (key: string) => string | null }
+    })
+      .localStorage
     return storage?.getItem(storageKey) ?? ''
   } catch {
     return ''

@@ -1,10 +1,22 @@
 import type { JsonObject, SessionStats } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
-import { messageUsage, turnUsageByMessage, type MessageUsage } from '../conversation/message-usage.ts'
+import {
+  messageUsage,
+  turnUsageByMessage,
+  type MessageUsage,
+} from '../conversation/message-usage.ts'
 import { toolDataLength } from '../conversation/tool-presentation.ts'
-import { toolCallsInMessage, toolContentText, toolResultInMessage, type ToolExecution } from '../conversation/tool-protocol.ts'
+import {
+  toolCallsInMessage,
+  toolContentText,
+  toolResultInMessage,
+  type ToolExecution,
+} from '../conversation/tool-protocol.ts'
 
-export type SessionAnalysisTarget = { kind: 'message' | 'turn'; index: number } | { kind: 'tool'; id: string }
+export type SessionAnalysisTarget = { kind: 'message' | 'turn'; index: number } | {
+  kind: 'tool'
+  id: string
+}
 
 export interface AnalyzedTurn {
   messageIndex: number
@@ -78,15 +90,28 @@ interface MutableRequest extends AnalyzedRequest {
   usage: MessageUsage
 }
 
-const emptyUsage = (): MessageUsage => ({ cacheMiss: 0, cacheRead: 0, cacheWrite: 0, cost: 0, output: 0 })
+const emptyUsage = (): MessageUsage => ({
+  cacheMiss: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+  cost: 0,
+  output: 0,
+})
 
 /** Reconstructs assistant turns, user cycles, and their calls from Pi's public contract. */
-export function analyzeSession(messages: JsonObject[], stats: SessionStats | null, running: boolean, telemetry: AnalysisTelemetry = {}): SessionAnalysis {
+export function analyzeSession(
+  messages: JsonObject[],
+  stats: SessionStats | null,
+  running: boolean,
+  telemetry: AnalysisTelemetry = {},
+): SessionAnalysis {
   const resultsByCallId = new Map(messages.flatMap((message) => {
     const result = toolResultInMessage(message)
     return result ? [[result.toolCallId, result] as const] : []
   }))
-  const executionsByCallId = new Map(telemetry.toolExecutions?.map((execution) => [execution.id, execution]) ?? [])
+  const executionsByCallId = new Map(
+    telemetry.toolExecutions?.map((execution) => [execution.id, execution]) ?? [],
+  )
   const requests: MutableRequest[] = []
   const seenToolCallIds = new Set<string>()
   let currentRequest: MutableRequest | undefined
@@ -102,7 +127,9 @@ export function analyzeSession(messages: JsonObject[], stats: SessionStats | nul
         toolCalls: [],
         failedToolCalls: 0,
         complete: true,
-        durationMs: typeof message.timestamp === 'number' ? telemetry.requestDurations?.get(message.timestamp) : undefined,
+        durationMs: typeof message.timestamp === 'number'
+          ? telemetry.requestDurations?.get(message.timestamp)
+          : undefined,
       }
       requests.push(currentRequest)
       return
@@ -156,7 +183,8 @@ export function analyzeSession(messages: JsonObject[], stats: SessionStats | nul
     activeRequest.toolCalls.push(call)
     seenToolCallIds.add(execution.id)
   }
-  if (activeRequest.messageIndex === -1 && activeRequest.toolCalls.length > 0) requests.push(activeRequest)
+  if (activeRequest.messageIndex === -1 && activeRequest.toolCalls.length > 0)
+    requests.push(activeRequest)
 
   requests.forEach((request, index) => {
     request.cost = request.usage.cost
@@ -177,7 +205,10 @@ export function analyzeSession(messages: JsonObject[], stats: SessionStats | nul
     toolCallCount: toolCallsInMessage(messages[messageIndex] ?? {}).length,
   }))
   const turnCosts = turns.map((turn) => turn.cost).sort((a, b) => a - b)
-  const parsedUsage = requests.reduce((total, request) => addUsage(total, request.usage), emptyUsage())
+  const parsedUsage = requests.reduce(
+    (total, request) => addUsage(total, request.usage),
+    emptyUsage(),
+  )
   const statsTokens = statsUsage(stats)
   const tokens = statsTokens ?? parsedUsage
   const totalToolCalls = Math.max(stats?.toolCalls ?? 0, toolCalls.length)
@@ -191,8 +222,12 @@ export function analyzeSession(messages: JsonObject[], stats: SessionStats | nul
     costAvailable: statsCost !== undefined || attributionAvailable,
     attributedCost,
     attributionAvailable,
-    unattributedCost: statsCost !== undefined && attributionAvailable ? Math.max(0, totalCost - attributedCost) : 0,
-    averageTurnCost: turnCosts.length ? turnCosts.reduce((total, cost) => total + cost, 0) / turnCosts.length : 0,
+    unattributedCost: statsCost !== undefined && attributionAvailable
+      ? Math.max(0, totalCost - attributedCost)
+      : 0,
+    averageTurnCost: turnCosts.length
+      ? turnCosts.reduce((total, cost) => total + cost, 0) / turnCosts.length
+      : 0,
     medianTurnCost: quantile(turnCosts, 0.5),
     turnCount: turnCosts.length,
     averageToolCallsPerTurn: turnCosts.length ? totalToolCalls / turnCosts.length : 0,
@@ -205,7 +240,16 @@ export function analyzeSession(messages: JsonObject[], stats: SessionStats | nul
 }
 
 function createActiveRequest(): MutableRequest {
-  return { messageIndex: -1, title: 'Request in progress', cost: 0, usage: emptyUsage(), modelCallCount: 0, toolCalls: [], failedToolCalls: 0, complete: false }
+  return {
+    messageIndex: -1,
+    title: 'Request in progress',
+    cost: 0,
+    usage: emptyUsage(),
+    modelCallCount: 0,
+    toolCalls: [],
+    failedToolCalls: 0,
+    complete: false,
+  }
 }
 
 /** Accumulates one MessageUsage record into another, mutating the target in place. */
@@ -226,7 +270,10 @@ function statsUsage(stats: SessionStats | null): MessageUsage | null {
   const cacheRead = finiteNumber(tokens.cacheRead)
   const cacheWrite = finiteNumber(tokens.cacheWrite)
   const output = finiteNumber(tokens.output)
-  if (cacheMiss === undefined || cacheRead === undefined || cacheWrite === undefined || output === undefined) return null
+  if (
+    cacheMiss === undefined || cacheRead === undefined || cacheWrite === undefined
+    || output === undefined
+  ) return null
   return { cacheMiss, cacheRead, cacheWrite, cost: finiteNumber(stats?.cost) ?? 0, output }
 }
 
@@ -234,7 +281,16 @@ function statsUsage(stats: SessionStats | null): MessageUsage | null {
 function summarizeTools(calls: AnalyzedToolCall[]): ToolSummary[] {
   const summaries = new Map<string, ToolSummary>()
   for (const call of calls) {
-    const summary = summaries.get(call.name) ?? { name: call.name, count: 0, failed: 0, inputLength: 0, outputLength: 0, durationMs: 0, measuredDurationCount: 0 }
+    const summary = summaries.get(call.name)
+      ?? {
+        name: call.name,
+        count: 0,
+        failed: 0,
+        inputLength: 0,
+        outputLength: 0,
+        durationMs: 0,
+        measuredDurationCount: 0,
+      }
     summary.count += 1
     summary.failed += Number(call.isError)
     summary.inputLength += call.inputLength
@@ -254,8 +310,12 @@ function messageTitle(message: JsonObject): string {
   const text = typeof content === 'string'
     ? content
     : Array.isArray(content)
-      ? content.flatMap((part) => isObject(part) && part.type === 'text' && typeof part.text === 'string' ? [part.text] : []).join(' ')
-      : ''
+    ? content
+      .flatMap((part) =>
+        isObject(part) && part.type === 'text' && typeof part.text === 'string' ? [part.text] : []
+      )
+      .join(' ')
+    : ''
   const normalized = text.replace(/\s+/g, ' ').trim()
   return normalized.length > 90 ? `${normalized.slice(0, 89)}…` : normalized || 'Untitled request'
 }

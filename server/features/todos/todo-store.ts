@@ -15,7 +15,10 @@ const maxTodoTextLength = 500
 let saveQueue = Promise.resolve()
 
 /** Loads tasks associated with a workspace without exposing tasks from other directories. */
-export async function loadWorkspaceTodos(workspacePath: string, path = defaultTodoStorePath): Promise<TodoItem[]> {
+export async function loadWorkspaceTodos(
+  workspacePath: string,
+  path = defaultTodoStorePath,
+): Promise<TodoItem[]> {
   try {
     return parseTodoStore(await readFile(path, 'utf8')).workspaces[workspacePath] ?? []
   } catch (error) {
@@ -25,7 +28,11 @@ export async function loadWorkspaceTodos(workspacePath: string, path = defaultTo
 }
 
 /** Atomically replaces a workspace's tasks by serializing writes to the shared registry. */
-export function saveWorkspaceTodos(workspacePath: string, todos: TodoItem[], path = defaultTodoStorePath): Promise<void> {
+export function saveWorkspaceTodos(
+  workspacePath: string,
+  todos: TodoItem[],
+  path = defaultTodoStorePath,
+): Promise<void> {
   const validatedTodos = parseTodoItems(todos)
   const operation = saveQueue.then(async () => {
     let store: TodoStore
@@ -48,24 +55,32 @@ export function saveWorkspaceTodos(workspacePath: string, todos: TodoItem[], pat
 
 /** Validates and normalizes a todo array, rejecting duplicates and oversized lists. */
 export function parseTodoItems(value: unknown): TodoItem[] {
-  if (!Array.isArray(value) || value.length > maxTodoCount || !value.every(isTodoItem)) throw new Error('Invalid workspace todo list')
-  if (new Set(value.map(({ id }) => id)).size !== value.length) throw new Error('Duplicate todo item')
+  if (!Array.isArray(value) || value.length > maxTodoCount || !value.every(isTodoItem))
+    throw new Error('Invalid workspace todo list')
+  if (new Set(value.map(({ id }) => id)).size !== value.length)
+    throw new Error('Duplicate todo item')
   return value.map((todo) => ({ ...todo, text: todo.text.trim() }))
 }
 
 /** Parses the on-disk todo registry JSON into a structured workspace-to-tasks map. */
 export function parseTodoStore(content: string): TodoStore {
   const value: unknown = JSON.parse(content)
-  if (!isObject(value) || !isObject(value.workspaces)) throw new Error('Invalid Pi Livecraft todo store')
+  if (!isObject(value) || !isObject(value.workspaces))
+    throw new Error('Invalid Pi Livecraft todo store')
   return {
-    workspaces: Object.fromEntries(Object.entries(value.workspaces).map(([workspacePath, todos]) => [workspacePath, parseTodoItems(todos)])),
+    workspaces: Object.fromEntries(
+      Object.entries(value.workspaces).map((
+        [workspacePath, todos],
+      ) => [workspacePath, parseTodoItems(todos)]),
+    ),
   }
 }
 
 function isTodoItem(value: unknown): value is TodoItem {
   return isObject(value)
     && typeof value.id === 'string' && value.id.length > 0 && value.id.length <= 100
-    && typeof value.text === 'string' && value.text.trim().length > 0 && value.text.length <= maxTodoTextLength
+    && typeof value.text === 'string' && value.text.trim().length > 0
+    && value.text.length <= maxTodoTextLength
     && typeof value.completed === 'boolean'
 }
 function isNotFound(error: unknown): boolean {

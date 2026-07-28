@@ -1,0 +1,33 @@
+{
+  "typescript": {
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "semiColons": "asi",
+    "quoteStyle": "alwaysSingle",
+    "trailingCommas": "onlyMultiLine",
+    "ifStatement.useBraces": "maintain",
+    "ifStatement.singleBodyPosition": "maintain",
+    "module.sortImportDeclarations": "maintain",
+    "importDeclaration.sortNamedImports": "maintain",
+    "exportDeclaration.sortNamedExports": "maintain",
+    "memberExpression.linePerExpression": true
+  },
+  "json": {
+    "indentWidth": 2
+  },
+  "malva": {
+  },
+  "markup": {
+  },
+  "excludes": [
+    "**/node_modules",
+    "**/*-lock.json",
+    "**/dist"
+  ],
+  "plugins": [
+    "https://plugins.dprint.dev/typescript-0.96.1.wasm",
+    "https://plugins.dprint.dev/json-0.23.0.wasm",
+    "https://plugins.dprint.dev/g-plane/malva-v0.16.0.wasm",
+    "https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.3.wasm"
+  ]
+}

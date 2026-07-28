@@ -72,7 +72,11 @@ export const BUILT_IN_THEMES: [ThemePreset, ThemePreset] = [
 
 const STORAGE_KEY = 'pi-livecraft.themes'
 const LEGACY_THEME_KEY = 'pi-livecraft.theme'
-type ThemeStorage = { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void; removeItem: (key: string) => void }
+type ThemeStorage = {
+  getItem: (key: string) => string | null
+  setItem: (key: string, value: string) => void
+  removeItem: (key: string) => void
+}
 
 type ThemeStyle = {
   setProperty: (name: string, value: string) => void
@@ -119,7 +123,9 @@ function normalizePalette(value: unknown): ThemePalette | null {
   const obj = value as Record<string, unknown>
   // Accept the current schema as-is.
   if (THEME_VARIABLES.every((v) => validateHex(obj[v]))) {
-    return Object.fromEntries(THEME_VARIABLES.map((v) => [v, obj[v] as string])) as unknown as ThemePalette
+    return Object.fromEntries(
+      THEME_VARIABLES.map((v) => [v, obj[v] as string]),
+    ) as unknown as ThemePalette
   }
   // Migrate from the legacy 21-token schema: map violet → secondary,
   // preserve the 8 source colours, ignore everything else.
@@ -144,16 +150,17 @@ function normalizePalette(value: unknown): ThemePalette | null {
 function validateUserTheme(value: unknown): value is UserTheme {
   if (typeof value !== 'object' || value === null) return false
   const t = value as Record<string, unknown>
-  return typeof t.id === 'string' && t.id.length > 0 &&
-    typeof t.name === 'string' && t.name.trim().length > 0 &&
-    (t.mode === 'light' || t.mode === 'dark') &&
-    normalizePalette(t.palette) !== null
+  return typeof t.id === 'string' && t.id.length > 0
+    && typeof t.name === 'string' && t.name.trim().length > 0
+    && (t.mode === 'light' || t.mode === 'dark')
+    && normalizePalette(t.palette) !== null
 }
 
 function validateThemePreferences(value: unknown): value is ThemePreferences {
   if (typeof value !== 'object' || value === null) return false
   const p = value as Record<string, unknown>
-  return typeof p.active === 'string' && Array.isArray(p.themes) && p.themes.every(validateUserTheme)
+  return typeof p.active === 'string' && Array.isArray(p.themes)
+    && p.themes.every(validateUserTheme)
 }
 
 /**
@@ -163,10 +170,13 @@ function validateThemePreferences(value: unknown): value is ThemePreferences {
 function normalizePreferences(prefs: ThemePreferences): ThemePreferences {
   return {
     ...prefs,
-    themes: prefs.themes.map((t) => {
-      const normalized = normalizePalette(t.palette)
-      return normalized ? { ...t, palette: normalized } : t
-    }).filter((t) => normalizePalette(t.palette) !== null),
+    themes: prefs
+      .themes
+      .map((t) => {
+        const normalized = normalizePalette(t.palette)
+        return normalized ? { ...t, palette: normalized } : t
+      })
+      .filter((t) => normalizePalette(t.palette) !== null),
   }
 }
 
@@ -230,7 +240,12 @@ export function isBuiltIn(id: string): boolean {
  * Creates a user theme from a source palette (defaults to Light preset).
  * The name is deduplicated against existing built-in and user themes.
  */
-export function createTheme(prefs: ThemePreferences, name: string, mode: ThemeMode, sourcePalette?: ThemePalette): ThemePreferences {
+export function createTheme(
+  prefs: ThemePreferences,
+  name: string,
+  mode: ThemeMode,
+  sourcePalette?: ThemePalette,
+): ThemePreferences {
   const palette = sourcePalette ? { ...sourcePalette } : { ...LIGHT_PALETTE }
   const allNames = [...BUILT_IN_THEMES, ...prefs.themes].map((t) => t.name)
   const theme: UserTheme = {
@@ -243,10 +258,16 @@ export function createTheme(prefs: ThemePreferences, name: string, mode: ThemeMo
 }
 
 /** Duplicates an existing theme (preset or user) as a new user theme. */
-export function duplicateTheme(prefs: ThemePreferences, sourceId: string, newName: string): ThemePreferences {
-  const source = sourceId === 'light' ? BUILT_IN_THEMES[0] :
-    sourceId === 'dark' ? BUILT_IN_THEMES[1] :
-    prefs.themes.find((t) => t.id === sourceId)
+export function duplicateTheme(
+  prefs: ThemePreferences,
+  sourceId: string,
+  newName: string,
+): ThemePreferences {
+  const source = sourceId === 'light'
+    ? BUILT_IN_THEMES[0]
+    : sourceId === 'dark'
+    ? BUILT_IN_THEMES[1]
+    : prefs.themes.find((t) => t.id === sourceId)
   if (!source) return prefs
   return createTheme(prefs, newName || `${source.name} copy`, source.mode, source.palette)
 }
@@ -255,26 +276,39 @@ export function duplicateTheme(prefs: ThemePreferences, sourceId: string, newNam
 export function renameTheme(prefs: ThemePreferences, id: string, name: string): ThemePreferences {
   const trimmed = name.trim()
   if (!trimmed || isBuiltIn(id)) return prefs
-  const allNames = [...BUILT_IN_THEMES, ...prefs.themes].filter((t) => t.id !== id).map((t) => t.name)
+  const allNames = [...BUILT_IN_THEMES, ...prefs.themes].filter((t) => t.id !== id).map((t) =>
+    t.name
+  )
   return {
     ...prefs,
-    themes: prefs.themes.map((t) => t.id === id ? { ...t, name: uniqueName(trimmed, allNames) } : t),
+    themes: prefs.themes.map((t) =>
+      t.id === id ? { ...t, name: uniqueName(trimmed, allNames) } : t
+    ),
   }
 }
 
 /** Updates a single palette variable on a user theme. Hex format is validated. */
-export function updateThemeColor(prefs: ThemePreferences, id: string, variable: ThemeVariable, color: string): ThemePreferences {
+export function updateThemeColor(
+  prefs: ThemePreferences,
+  id: string,
+  variable: ThemeVariable,
+  color: string,
+): ThemePreferences {
   if (!validateHex(color) || isBuiltIn(id)) return prefs
   return {
     ...prefs,
     themes: prefs.themes.map((t) =>
-      t.id === id ? { ...t, palette: { ...t.palette, [variable]: color } } : t,
+      t.id === id ? { ...t, palette: { ...t.palette, [variable]: color } } : t
     ),
   }
 }
 
 /** Updates the mode (light/dark) of a user theme. Presets are immutable. */
-export function updateThemeMode(prefs: ThemePreferences, id: string, mode: ThemeMode): ThemePreferences {
+export function updateThemeMode(
+  prefs: ThemePreferences,
+  id: string,
+  mode: ThemeMode,
+): ThemePreferences {
   if (isBuiltIn(id)) return prefs
   return {
     ...prefs,
@@ -332,8 +366,14 @@ export function applyThemePalette(element: { style: ThemeStyle }, palette: Theme
 /** Shadow values derived from the theme mode. */
 export function shadowForMode(mode: ThemeMode): Record<'shadow' | 'shadow-soft', string> {
   return mode === 'dark'
-    ? { shadow: '0 8px 32px color-mix(in srgb, var(--ink) 40%, transparent)', 'shadow-soft': '0 3px 12px color-mix(in srgb, var(--ink) 30%, transparent)' }
-    : { shadow: '0 18px 45px color-mix(in srgb, var(--ink) 10%, transparent)', 'shadow-soft': '0 5px 18px color-mix(in srgb, var(--ink) 7%, transparent)' }
+    ? {
+      shadow: '0 8px 32px color-mix(in srgb, var(--ink) 40%, transparent)',
+      'shadow-soft': '0 3px 12px color-mix(in srgb, var(--ink) 30%, transparent)',
+    }
+    : {
+      shadow: '0 18px 45px color-mix(in srgb, var(--ink) 10%, transparent)',
+      'shadow-soft': '0 5px 18px color-mix(in srgb, var(--ink) 7%, transparent)',
+    }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────

@@ -4,7 +4,17 @@ import { isObject } from '../../../shared/is-object.ts'
 export type PiConnection = 'connecting' | 'connected' | 'disconnected'
 
 export interface Activity {
-  kind: 'connecting' | 'disconnected' | 'exited' | 'working' | 'thinking' | 'tool-preparing' | 'tool-waiting' | 'writing' | 'retrying' | 'compacting'
+  kind:
+    | 'connecting'
+    | 'disconnected'
+    | 'exited'
+    | 'working'
+    | 'thinking'
+    | 'tool-preparing'
+    | 'tool-waiting'
+    | 'writing'
+    | 'retrying'
+    | 'compacting'
   thinking?: string
   attempt?: number
   maxAttempts?: number
@@ -12,7 +22,10 @@ export interface Activity {
 
 /** Converts Pi events into a stable activity state for the conversation indicator. */
 export function activityForPiEvent(current: Activity | null, event: JsonObject): Activity | null {
-  if (event.type === 'agent_start' || event.type === 'message_start' || event.type === 'compaction_end') return { kind: 'working' }
+  if (
+    event.type === 'agent_start' || event.type === 'message_start'
+    || event.type === 'compaction_end'
+  ) return { kind: 'working' }
   if (event.type === 'compaction_start') return { kind: 'compacting' }
   if (event.type === 'agent_settled') return null
   if (event.type === 'auto_retry_start') {
@@ -32,13 +45,20 @@ export function activityForPiEvent(current: Activity | null, event: JsonObject):
     const thinking = `${current?.kind === 'thinking' ? current.thinking ?? '' : ''}${update.delta}`
     return { kind: 'thinking', thinking }
   }
-  if (update.type === 'toolcall_start' || update.type === 'toolcall_delta' || update.type === 'toolcall_end') return { kind: 'tool-preparing' }
+  if (
+    update.type === 'toolcall_start' || update.type === 'toolcall_delta'
+    || update.type === 'toolcall_end'
+  ) return { kind: 'tool-preparing' }
   if (update.type === 'text_start' || update.type === 'text_delta') return { kind: 'writing' }
   return current
 }
 
 /** Reconciles live activity with the manager and process states available after a page reload. */
-export function sessionActivity(current: Activity | null, status: SessionSummary['status'], connection: PiConnection): Activity | null {
+export function sessionActivity(
+  current: Activity | null,
+  status: SessionSummary['status'],
+  connection: PiConnection,
+): Activity | null {
   if (connection === 'connecting') return { kind: 'connecting' }
   if (connection === 'disconnected') return { kind: 'disconnected' }
   if (status === 'exited') return { kind: 'exited' }
@@ -61,7 +81,9 @@ export function activityActionText(activity: Activity): string {
   if (activity.kind === 'disconnected') return 'is off the radar 📡'
   if (activity.kind === 'exited') return 'has left the building 👋'
   if (activity.kind === 'retrying') {
-    const progress = activity.attempt !== undefined && activity.maxAttempts !== undefined ? ` (${activity.attempt}/${activity.maxAttempts})` : ''
+    const progress = activity.attempt !== undefined && activity.maxAttempts !== undefined
+      ? ` (${activity.attempt}/${activity.maxAttempts})`
+      : ''
     return `is reconnecting to the provider${progress}…`
   }
   if (activity.kind === 'compacting') return 'is compacting the session…'

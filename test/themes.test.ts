@@ -27,7 +27,9 @@ test('applyThemePalette clears stale derived inline variables', () => {
   applyThemePalette({
     style: {
       removeProperty: (name) => removed.push(name),
-      setProperty: (name, value) => { set[name] = value },
+      setProperty: (name, value) => {
+        set[name] = value
+      },
     },
   }, BUILT_IN_THEMES[1].palette)
 
@@ -53,7 +55,10 @@ test('parseThemePreferences migre le legacy dark', () => {
 })
 
 test('parseThemePreferences ignore le legacy quand une préférence valide existe', () => {
-  const valid = { active: 'light', themes: [{ id: 'x', name: 'Test', mode: 'light', palette: BUILT_IN_THEMES[0].palette }] }
+  const valid = {
+    active: 'light',
+    themes: [{ id: 'x', name: 'Test', mode: 'light', palette: BUILT_IN_THEMES[0].palette }],
+  }
   const result = parseThemePreferences(valid, 'dark')
   assert.equal(result.active, 'light')
   assert.equal(result.themes.length, 1)
@@ -89,7 +94,7 @@ test('resolveActiveTheme retourne dark preset', () => {
   assert.equal(resolveActiveTheme({ active: 'dark', themes: [] }).id, 'dark')
 })
 
-test("resolveActiveTheme retourne un thème utilisateur s'il est actif", () => {
+test('resolveActiveTheme retourne un thème utilisateur s\'il est actif', () => {
   const prefs = createTheme(basePrefs, 'My Theme', 'dark')
   const prefsWithActive = setActiveTheme(prefs, prefs.themes[0].id)
   const theme = resolveActiveTheme(prefsWithActive)
@@ -98,7 +103,7 @@ test("resolveActiveTheme retourne un thème utilisateur s'il est actif", () => {
   assert.equal(theme.mode, 'dark')
 })
 
-test("resolveActiveTheme retombe sur light quand l'id actif n'existe pas", () => {
+test('resolveActiveTheme retombe sur light quand l\'id actif n\'existe pas', () => {
   const result = resolveActiveTheme({ active: 'nonexistent', themes: [] })
   assert.equal(result.id, 'light')
 })
@@ -125,7 +130,7 @@ test('createTheme génère des ids uniques', () => {
   assert.notEqual(b.themes[0].id, b.themes[1].id)
 })
 
-test("createTheme accepte une palette source et ne mute pas l'original", () => {
+test('createTheme accepte une palette source et ne mute pas l\'original', () => {
   const source = { ...BUILT_IN_THEMES[1].palette, canvas: '#abcdef' }
   const prefs = createTheme(basePrefs, 'Custom', 'dark', source)
   assert.equal(prefs.themes[0].palette.canvas, '#abcdef')
@@ -149,7 +154,7 @@ test('duplicateTheme déduplique le nom automatiquement', () => {
   assert.equal(dup.themes[1].name, 'Original 2')
 })
 
-test("duplicateTheme ne change rien si l'id source n'existe pas", () => {
+test('duplicateTheme ne change rien si l\'id source n\'existe pas', () => {
   const result = duplicateTheme(basePrefs, 'nonexistent', 'Copy')
   assert.deepEqual(result, basePrefs)
 })
@@ -184,7 +189,7 @@ test('renameTheme déduplique le nom', () => {
   assert.equal(renamed.themes[0].name, 'Light 2')
 })
 
-test("renameTheme ignore un nom vide ou tout blanc", () => {
+test('renameTheme ignore un nom vide ou tout blanc', () => {
   const prefs = createTheme(basePrefs, 'Keep', 'light')
   const id = prefs.themes[0].id
   assert.equal(renameTheme(prefs, id, '').themes[0].name, 'Keep')
@@ -249,7 +254,7 @@ test('deleteTheme supprime un thème utilisateur', () => {
   assert.equal(result.themes.length, 0)
 })
 
-test("deleteTheme retombe sur light si le thème actif est supprimé", () => {
+test('deleteTheme retombe sur light si le thème actif est supprimé', () => {
   const prefs = createTheme(basePrefs, 'T', 'dark')
   const id = prefs.themes[0].id
   const withActive = setActiveTheme(prefs, id)
@@ -279,7 +284,7 @@ test('setActiveTheme change le thème actif', () => {
   assert.equal(result.active, 'dark')
 })
 
-test("setActiveTheme ignore les ids inconnus", () => {
+test('setActiveTheme ignore les ids inconnus', () => {
   const result = setActiveTheme(basePrefs, 'unknown')
   assert.equal(result.active, 'light')
 })

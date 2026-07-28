@@ -3,7 +3,10 @@ import { spawn } from 'node:child_process'
 export type DesktopPlatform = 'linux' | 'wsl'
 
 /** Identifies the supported Linux desktop environment from the process platform and WSL markers. */
-export function getDesktopPlatform(platform = process.platform, env: NodeJS.ProcessEnv = process.env): DesktopPlatform {
+export function getDesktopPlatform(
+  platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): DesktopPlatform {
   if (platform !== 'linux') throw new Error(`Unsupported platform: ${platform}`)
   return env.WSL_DISTRO_NAME || env.WSL_INTEROP ? 'wsl' : 'linux'
 }
@@ -14,13 +17,20 @@ export function getWslDistributionName(env: NodeJS.ProcessEnv = process.env): st
 }
 
 /** Opens the workspace directory using the native file browser for the current Linux environment. */
-export async function openExplorer(workspacePath: string, platform = getDesktopPlatform()): Promise<void> {
+export async function openExplorer(
+  workspacePath: string,
+  platform = getDesktopPlatform(),
+): Promise<void> {
   const command = platform === 'wsl' ? 'explorer.exe' : 'xdg-open'
   await openApplication(command, await externalWorkspacePath(workspacePath, platform))
 }
 
 /** Returns the path format expected by the browser or desktop integration. */
-export function externalWorkspacePath(workspacePath: string, platform = getDesktopPlatform(), convertPath = convertWslPath): Promise<string> {
+export function externalWorkspacePath(
+  workspacePath: string,
+  platform = getDesktopPlatform(),
+  convertPath = convertWslPath,
+): Promise<string> {
   return platform === 'wsl' ? convertPath(workspacePath) : Promise.resolve(workspacePath)
 }
 
@@ -30,8 +40,12 @@ function convertWslPath(workspacePath: string): Promise<string> {
     const process = spawn('wslpath', ['-w', workspacePath], { stdio: ['ignore', 'pipe', 'pipe'] })
     let output = ''
     let errorOutput = ''
-    process.stdout.on('data', (chunk: Buffer) => { output += chunk.toString('utf8') })
-    process.stderr.on('data', (chunk: Buffer) => { errorOutput += chunk.toString('utf8') })
+    process.stdout.on('data', (chunk: Buffer) => {
+      output += chunk.toString('utf8')
+    })
+    process.stderr.on('data', (chunk: Buffer) => {
+      errorOutput += chunk.toString('utf8')
+    })
     process.once('error', reject)
     process.once('exit', (code) => {
       const windowsPath = output.trim()

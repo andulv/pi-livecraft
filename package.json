@@ -16,10 +16,13 @@
     "start:manager": "node server/manager-supervisor.ts",
     "build": "npm run typecheck && vite build",
     "typecheck": "tsc -b",
+    "format": "dprint fmt",
+    "format:check": "dprint check",
     "lint": "oxlint .",
     "test": "node --test",
     "eval:documentation-routing": "node --test evals/documentation-routing.ts",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "prepare": "husky"
   },
   "dependencies": {
     "@radix-ui/react-select": "^2.3.3",
@@ -38,8 +41,17 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "@vitejs/plugin-react": "^6.0.3",
     "concurrently": "^10.0.3",
+    "dprint": "^0.55.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.2.0",
     "oxlint": "^1.71.0",
     "typescript": "~6.0.2",
     "vite": "^8.1.1"
+  },
+  "lint-staged": {
+    "*": "dprint fmt"
+  },
+  "allowScripts": {
+    "dprint@0.55.2": true
   }
 }

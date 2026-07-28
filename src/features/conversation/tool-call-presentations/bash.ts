@@ -6,7 +6,9 @@ export function bashPresentation(args: unknown): ToolCallPresentation {
   if (!isObject(args) || typeof args.command !== 'string') return {}
 
   const command = args.command
-  const timeout = typeof args.timeout === 'number' && Number.isFinite(args.timeout) ? args.timeout : undefined
+  const timeout = typeof args.timeout === 'number' && Number.isFinite(args.timeout)
+    ? args.timeout
+    : undefined
   return {
     headerDetail: { text: truncateToolText(command, 80).text, title: command },
     pendingDetail: timeout === undefined ? undefined : `timeout: ${timeout}s`,

@@ -59,21 +59,28 @@ export class ManagerRuntimeMonitor {
   disconnected(): void {
     this.#identity = undefined
     this.#verification += 1
-    if (this.#status.state !== 'restarting') this.#publish({ state: 'disconnected', canRestart: false })
+    if (this.#status.state !== 'restarting')
+      this.#publish({ state: 'disconnected', canRestart: false })
   }
 
   /** Requests one supervised restart while leaving active-work authority to the manager. */
   async restart(): Promise<void> {
     if (!this.#manager.connected) throw new Error('Pi manager is unavailable')
     if (this.#restartRequested) throw new Error('Pi manager restart is already in progress')
-    if (this.#status.state !== 'stale' || !this.#status.canRestart) throw new Error('Pi manager cannot be restarted in its current state')
+    if (this.#status.state !== 'stale' || !this.#status.canRestart)
+      throw new Error('Pi manager cannot be restarted in its current state')
     this.#restartRequested = true
     try {
       this.#restartingInstanceId = this.#identity?.instanceId
       this.#publish({ state: 'restarting', canRestart: false })
       await this.#manager.request({ action: 'restart' }, 5_000)
       this.#reconnectTimer = setTimeout(() => {
-        if (this.#status.state === 'restarting') this.#publish({ state: 'disconnected', canRestart: false, error: 'Pi manager did not reconnect after restarting.' })
+        if (this.#status.state === 'restarting')
+          this.#publish({
+            state: 'disconnected',
+            canRestart: false,
+            error: 'Pi manager did not reconnect after restarting.',
+          })
       }, reconnectTimeoutMs)
     } catch (error) {
       this.#restartRequested = false
@@ -113,18 +120,26 @@ export class ManagerRuntimeMonitor {
     if (!this.#manager.connected || this.#restartRequested) return
     try {
       const value = await this.#manager.request({ action: 'status' }, 5_000)
-      if (verification !== this.#verification || !this.#manager.connected || this.#restartRequested) return
+      if (verification !== this.#verification || !this.#manager.connected || this.#restartRequested)
+        return
       const identity = managerRuntimeIdentity(value)
       if (!identity) throw new Error('Pi manager returned an invalid runtime status')
       this.#identity = identity
-      if (this.#status.state === 'restarting' && identity.instanceId === this.#restartingInstanceId) {
-        this.#publish({ state: 'unknown', canRestart: false, error: 'Pi manager reconnected without starting a new instance.' })
+      if (
+        this.#status.state === 'restarting' && identity.instanceId === this.#restartingInstanceId
+      ) {
+        this.#publish({
+          state: 'unknown',
+          canRestart: false,
+          error: 'Pi manager reconnected without starting a new instance.',
+        })
         return
       }
       this.#restartingInstanceId = undefined
       this.#compareRevisions()
     } catch (error) {
-      if (verification === this.#verification && this.#manager.connected && !this.#restartRequested) this.#publish({ state: 'unknown', canRestart: false, error: errorMessage(error) })
+      if (verification === this.#verification && this.#manager.connected && !this.#restartRequested)
+        this.#publish({ state: 'unknown', canRestart: false, error: errorMessage(error) })
     }
   }
 
@@ -135,17 +150,26 @@ export class ManagerRuntimeMonitor {
       return
     }
     if (!this.#expectedRevision) {
-      this.#publish(this.#revisionError
-        ? { state: 'unknown', canRestart: false, error: this.#revisionError }
-        : { state: 'checking', canRestart: false })
+      this.#publish(
+        this.#revisionError
+          ? { state: 'unknown', canRestart: false, error: this.#revisionError }
+          : { state: 'checking', canRestart: false },
+      )
       return
     }
     if (!this.#identity.runtimeRevision) {
-      this.#publish({ state: 'unknown', canRestart: false, error: 'Pi manager did not provide a runtime revision.' })
+      this.#publish({
+        state: 'unknown',
+        canRestart: false,
+        error: 'Pi manager did not provide a runtime revision.',
+      })
       return
     }
     const current = this.#identity.runtimeRevision === this.#expectedRevision
-    this.#publish({ state: current ? 'current' : 'stale', canRestart: !current && this.#identity.supervised })
+    this.#publish({
+      state: current ? 'current' : 'stale',
+      canRestart: !current && this.#identity.supervised,
+    })
   }
 
   /** Keeps polling limited to the manifest and its declared runtime files. */
@@ -177,9 +201,17 @@ export class ManagerRuntimeMonitor {
 }
 
 function managerRuntimeIdentity(value: unknown): ManagerRuntimeIdentity | undefined {
-  if (!isObject(value) || typeof value.instanceId !== 'string' || typeof value.startedAt !== 'string' || typeof value.supervised !== 'boolean') return undefined
+  if (
+    !isObject(value) || typeof value.instanceId !== 'string' || typeof value.startedAt !== 'string'
+    || typeof value.supervised !== 'boolean'
+  ) return undefined
   if (value.runtimeRevision !== null && typeof value.runtimeRevision !== 'string') return undefined
-  return { instanceId: value.instanceId, startedAt: value.startedAt, runtimeRevision: value.runtimeRevision, supervised: value.supervised }
+  return {
+    instanceId: value.instanceId,
+    startedAt: value.startedAt,
+    runtimeRevision: value.runtimeRevision,
+    supervised: value.supervised,
+  }
 }
 
 function errorMessage(error: unknown): string {

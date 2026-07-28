@@ -24,14 +24,24 @@ export class LiveSessionEvents {
     if (type === 'message_update') {
       this.#events.set('message:update', { data, sequence })
       const update = isObject(data.assistantMessageEvent) ? data.assistantMessageEvent : undefined
-      if ((update?.type === 'toolcall_start' || update?.type === 'toolcall_delta' || update?.type === 'toolcall_end')
-        && Number.isSafeInteger(update.contentIndex)) this.#events.set(`message:tool:${String(update.contentIndex)}`, { data, sequence })
+      if (
+        (update?.type === 'toolcall_start' || update?.type === 'toolcall_delta' || update
+              ?.type === 'toolcall_end')
+        && Number.isSafeInteger(update.contentIndex)
+      ) this.#events.set(`message:tool:${String(update.contentIndex)}`, { data, sequence })
     }
     if (type === 'message_end') this.#deletePrefix('message:')
-    if ((type === 'tool_execution_start' || type === 'tool_execution_update') && typeof data.toolCallId === 'string') {
-      this.#events.set(`tool:${data.toolCallId}:${type === 'tool_execution_start' ? 'start' : 'update'}`, { data, sequence })
+    if (
+      (type === 'tool_execution_start' || type === 'tool_execution_update')
+      && typeof data.toolCallId === 'string'
+    ) {
+      this.#events.set(
+        `tool:${data.toolCallId}:${type === 'tool_execution_start' ? 'start' : 'update'}`,
+        { data, sequence },
+      )
     }
-    if (type === 'tool_execution_end' && typeof data.toolCallId === 'string') this.#deletePrefix(`tool:${data.toolCallId}:`)
+    if (type === 'tool_execution_end' && typeof data.toolCallId === 'string')
+      this.#deletePrefix(`tool:${data.toolCallId}:`)
     if (type === 'auto_retry_start') this.#events.set('retry', { data, sequence })
     if (type === 'auto_retry_end') this.#events.delete('retry')
   }
@@ -49,7 +59,9 @@ export class LiveSessionEvents {
 /** Rebuilds the active conversation without dropping messages hidden from Pi by compaction. */
 export function activeSessionMessages(entries: JsonObject[], leafId: unknown): JsonObject[] {
   if (typeof leafId !== 'string') return []
-  const entriesById = new Map(entries.flatMap((entry) => typeof entry.id === 'string' ? [[entry.id, entry] as const] : []))
+  const entriesById = new Map(
+    entries.flatMap((entry) => typeof entry.id === 'string' ? [[entry.id, entry] as const] : []),
+  )
   const activeEntries: JsonObject[] = []
   const visited = new Set<string>()
   let id: string | null = leafId
@@ -65,15 +77,30 @@ export function activeSessionMessages(entries: JsonObject[], leafId: unknown): J
 
 /** Keeps messages useful to the interface without exposing hidden custom messages. */
 export function visibleSessionMessages(messages: JsonObject[]): JsonObject[] {
-  return messages.filter((message) => message.role === 'user'
+  return messages.filter((message) =>
+    message.role === 'user'
     || message.role === 'assistant'
     || message.role === 'toolResult'
-    || (message.role === 'custom' && message.display === true && typeof message.customType === 'string'))
+    || (message.role === 'custom' && message.display === true
+      && typeof message.customType === 'string')
+  )
 }
 
 function messageFromEntry(entry: JsonObject): JsonObject[] {
   if (entry.type === 'message' && isObject(entry.message)) return [entry.message]
-  if (entry.type === 'compaction' && typeof entry.summary === 'string') return [{ role: 'custom', customType: 'compaction', content: entry.summary, display: true }]
+  if (entry.type === 'compaction' && typeof entry.summary === 'string')
+    return [{
+      role: 'custom',
+      customType: 'compaction',
+      content: entry.summary,
+      display: true,
+    }]
   if (entry.type !== 'custom_message' || typeof entry.customType !== 'string') return []
-  return [{ role: 'custom', customType: entry.customType, content: entry.content, display: entry.display, details: entry.details }]
+  return [{
+    role: 'custom',
+    customType: entry.customType,
+    content: entry.content,
+    display: entry.display,
+    details: entry.details,
+  }]
 }

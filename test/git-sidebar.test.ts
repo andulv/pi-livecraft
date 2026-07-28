@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { parseGitDiff } from '../src/features/git/git-diff.ts'
-import { clampRightSidebarWidth, defaultRightSidebarWidth, isRightWidget, maxRightSidebarWidth, minRightSidebarWidth, readRightSidebarWidth } from '../src/features/right-sidebar/right-sidebar.ts'
+import {
+  clampRightSidebarWidth,
+  defaultRightSidebarWidth,
+  isRightWidget,
+  maxRightSidebarWidth,
+  minRightSidebarWidth,
+  readRightSidebarWidth,
+} from '../src/features/right-sidebar/right-sidebar.ts'
 
 test('borne et restaure la largeur de la sidebar droite', () => {
   assert.equal(maxRightSidebarWidth, 720)
@@ -15,7 +22,9 @@ test('borne et restaure la largeur de la sidebar droite', () => {
 })
 
 test('parse un diff unifié sans ses métadonnées Git', () => {
-  const lines = parseGitDiff('diff --git a/file.ts b/file.ts\nindex 123..456 100644\n--- a/file.ts\n+++ b/file.ts\n@@ -2,2 +2,3 @@\n keep\n-old\n+new\n+added\n')
+  const lines = parseGitDiff(
+    'diff --git a/file.ts b/file.ts\nindex 123..456 100644\n--- a/file.ts\n+++ b/file.ts\n@@ -2,2 +2,3 @@\n keep\n-old\n+new\n+added\n',
+  )
 
   assert.deepEqual(lines, [
     { content: '@@ -2,2 +2,3 @@', kind: 'hunk', oldLine: null, newLine: null },

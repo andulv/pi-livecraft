@@ -2,10 +2,16 @@ import type { RecentSession, SessionSummary } from '../../../shared/types.ts'
 import { sessionIndicator } from './session-indicator.ts'
 
 /** Adds only sent sessions still missing from persistence, preserving the server order otherwise. */
-export function sidebarSessions(recentSessions: RecentSession[], workspacePath: string, sentSessions: RecentSession[] = []): RecentSession[] {
+export function sidebarSessions(
+  recentSessions: RecentSession[],
+  workspacePath: string,
+  sentSessions: RecentSession[] = [],
+): RecentSession[] {
   const recentIds = new Set(recentSessions.map((session) => session.id))
   const recentPaths = new Set(recentSessions.map((session) => session.sessionPath))
-  const pending = sentSessions.filter((session) => !recentIds.has(session.id) && !recentPaths.has(session.sessionPath))
+  const pending = sentSessions.filter((session) =>
+    !recentIds.has(session.id) && !recentPaths.has(session.sessionPath)
+  )
   return [...pending, ...recentSessions].filter(({ cwd }) => cwd === workspacePath)
 }
 
@@ -16,12 +22,18 @@ export function otherWorkspaceSessions(
   compactingSessionIds: ReadonlySet<string>,
   completedSessionIds: ReadonlySet<string>,
 ): SessionSummary[] {
-  const relevant = sessions.filter((session) => session.cwd !== workspacePath
+  const relevant = sessions.filter((session) =>
+    session.cwd !== workspacePath
     && session.status !== 'exited'
-    && sessionIndicator(session, '', compactingSessionIds, completedSessionIds) !== null)
+    && sessionIndicator(session, '', compactingSessionIds, completedSessionIds) !== null
+  )
   return [
-    ...relevant.filter((session) => sessionIndicator(session, '', compactingSessionIds, completedSessionIds) !== 'complete'),
-    ...relevant.filter((session) => sessionIndicator(session, '', compactingSessionIds, completedSessionIds) === 'complete'),
+    ...relevant.filter((session) =>
+      sessionIndicator(session, '', compactingSessionIds, completedSessionIds) !== 'complete'
+    ),
+    ...relevant.filter((session) =>
+      sessionIndicator(session, '', compactingSessionIds, completedSessionIds) === 'complete'
+    ),
   ]
 }
 
