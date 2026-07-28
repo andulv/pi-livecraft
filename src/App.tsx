@@ -266,7 +266,12 @@ function App() {
       const autoSelectId = shouldAutoSelect
         ? pickSessionOnOpen(sidebarSessions(nextRecentSessions, cwd, sentSessionsRef.current), nextSessions, completedSessionIdsRef.current)
         : undefined
-      setSessions(nextSessions)
+      const recentNames = new Map(nextRecentSessions.map((session) => [session.sessionPath, session.name]))
+      setSessions(nextSessions.map((session) => {
+        const recentName = session.sessionPath ? recentNames.get(session.sessionPath) : undefined
+        const previousName = sessionsRef.current.find((current) => current.id === session.id)?.name
+        return recentName ? { ...session, name: recentName } : previousName && previousName !== 'Nouvelle session' ? { ...session, name: previousName } : session
+      }))
       setCompletedSessionIds((current) => {
         if (current.size === 0) return current
         const sessionKeys = new Set(nextSessions.flatMap((session) => [session.id, session.sessionPath].filter((key): key is string => Boolean(key))))
