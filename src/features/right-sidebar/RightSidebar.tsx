@@ -135,7 +135,8 @@ export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onA
         <span aria-hidden="true">☑</span>
         {todoOpenCount !== null && todoOpenCount > 0 && <small aria-label={`${todoOpenCount} tasks remaining`}>{todoOpenCount}</small>}
       </button></Tooltip>
-      {railActions.map((action) => <Tooltip key={action.key} label={action.label}><button aria-label={action.label} className="rail-tab" disabled={action.disabled} onClick={action.onClick} type="button">{action.icon}<span aria-hidden="true" className="rail-action-badge">↗</span></button></Tooltip>)}
+      <div className="rail-separator" />
+      {railActions.map((action) => <Tooltip key={action.key} label={action.label}><button aria-label={action.label} className="rail-tab" disabled={action.disabled} onClick={action.onClick} type="button">{action.icon}</button></Tooltip>)}
     </div>
   </aside>
 }
