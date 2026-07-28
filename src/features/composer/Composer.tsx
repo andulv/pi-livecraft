@@ -148,18 +148,19 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
   }
 
   /** Produces an isolated rewrite while preserving the source text for an explicit comparison. */
-  async function improveDraft(): Promise<void> {
+  async function improveDraft(direction?: string): Promise<void> {
     const original = message.trim()
     if (!original || improving) return
     setImproving(true)
     setSuggestion(undefined)
     try {
-      const result = await onImprovePrompt(original, improvePreset || undefined)
+      const result = await onImprovePrompt(original, direction)
       setSuggestion({ original, improved: result.prompt, cost: result.cost })
     } catch (cause) {
       onError(cause)
     } finally {
       setImproving(false)
+      setImprovePreset('')
     }
   }
 
@@ -296,37 +297,25 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
             />
 
             {running && <BehaviorSelect behavior={behavior} onChange={setBehavior} />}
-            <Tooltip label="Improvement preset"><ComposerSelect
-              ariaLabel="Improvement preset"
-              disabled={improving || submitting}
-              onValueChange={setImprovePreset}
+            <Tooltip label="Improve prompt"><ComposerSelect
+              ariaLabel="Improve prompt"
+              disabled={improving || submitting || !message.trim()}
+              onValueChange={(value) => { setImprovePreset(value); void improveDraft(value === '_default' ? undefined : value) }}
               options={[
-                { label: 'Aucun', value: '' },
-                { label: 'Clarifier', value: 'clarify' },
-                { label: 'Être précis', value: 'precise' },
-                { label: 'Rendre actionnable', value: 'actionable' },
-                { label: 'Explorer des idées', value: 'ideate' },
-                { label: 'Résoudre un bug', value: 'debug' },
-                { label: 'Planifier une feature', value: 'plan' },
-                { label: 'Être concis', value: 'concise' },
-                { label: 'Demander une revue', value: 'review' },
+                { label: 'Improve', value: '_default' },
+                { label: 'Clarify', value: 'clarify' },
+                { label: 'Be precise', value: 'precise' },
+                { label: 'Make actionable', value: 'actionable' },
+                { label: 'Explore ideas', value: 'ideate' },
+                { label: 'Debug', value: 'debug' },
+                { label: 'Plan feature', value: 'plan' },
+                { label: 'Be concise', value: 'concise' },
+                { label: 'Request review', value: 'review' },
               ]}
-              placeholder="Améliorer…"
+              placeholder="Improve"
               tone="improve"
               value={improvePreset}
             /></Tooltip>
-            <Tooltip label={improving ? 'Improving prompt…' : 'Improve prompt'}><button
-              aria-busy={improving}
-              aria-label={improving ? 'Improving prompt' : 'Improve prompt'}
-              className={`icon-button prompt-improve-button${improving ? ' loading' : ''}`}
-              disabled={improving || submitting || !message.trim()}
-              onClick={() => void improveDraft()}
-              type="button"
-            >
-              {improving
-                ? <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M8 2a6 6 0 1 0 6 6h-2a4 4 0 1 1-4-4V2Z" /></svg>
-                : <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m8 1 1.2 3.8L13 6l-3.8 1.2L8 11 6.8 7.2 3 6l3.8-1.2L8 1Zm4 9 .7 2.3L15 13l-2.3.7L12 16l-.7-2.3L9 13l2.3-.7L12 10Z" /></svg>}
-            </button></Tooltip>
           </div>
           <div className="composer-primary-actions">
             <span className="composer-stop-slot">{running && <Tooltip label="Stop generation"><button aria-label="Stop generation" className="icon-button danger" onClick={() => void onAbort().catch(onError)} type="button">

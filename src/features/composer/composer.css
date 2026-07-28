@@ -120,8 +120,6 @@
 .icon-button:active:not(:disabled) { transform: translateY(0); }
 .icon-button:disabled { cursor: not-allowed; opacity: .42; transform: none; box-shadow: none; }
 .icon-button svg { width: 15px; height: 15px; fill: currentColor; }
-.prompt-improve-button { color: var(--secondary); }
-.prompt-improve-button.loading svg { animation: spin 800ms linear infinite; }
 .composer-compacting { display: inline-flex; align-items: center; gap: 8px; color: var(--accent); font: 10px ui-monospace, monospace; white-space: nowrap; }
 .composer-compacting-spinner { display: inline-block; width: 11px; height: 11px; border: 1.5px solid var(--line-strong); border-top-color: var(--accent); border-radius: 50%; animation: spin 800ms linear infinite; }
 @media (prefers-reduced-motion: reduce) {
