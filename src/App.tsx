@@ -313,16 +313,16 @@ function App() {
     void refreshSessions()
   }, [refreshSessions])
 
-  /** Refreshes Git state for the current directory without showing silent refresh errors. */
+  /** Refreshes Git state for the current directory. Throws when requested so callers can handle the error. */
   const refreshGit = useCallback(async (cwd = workspacePath, notifyOnError = false) => {
     const version = ++gitRefreshVersionRef.current
     try {
       const nextSnapshot = await getGitSnapshot(cwd)
       if (version === gitRefreshVersionRef.current) setGitSnapshot(nextSnapshot)
     } catch (cause) {
-      if (notifyOnError && version === gitRefreshVersionRef.current) showToast('error', messageOf(cause))
+      if (notifyOnError && version === gitRefreshVersionRef.current) throw cause
     }
-  }, [showToast, workspacePath])
+  }, [workspacePath])
 
   /** Synchronizes the session snapshot and reconciles streamed assistant messages. */
   const refreshSnapshot = useCallback(async (sessionId: string) => {
@@ -909,36 +909,19 @@ function App() {
         railActions={railActions}
         onCommit={async (message) => {
           await commitChanges(workspacePath, message)
-          await refreshGit(workspacePath, true)
-          showToast('notice', 'Commit created.')
         }}
         onDiscard={async (path) => {
           await discardChanges(workspacePath, path)
-          await refreshGit(workspacePath, true)
-          showToast('notice', path ? `Changes to ${path} discarded.` : 'Changes discarded.')
         }}
-        onPush={async () => {
-          const result = await pushCommits(workspacePath)
-          await refreshGit(workspacePath, true)
-          if (result.pushError) showToast('error', `Push failed: ${result.pushError}`)
-          else showToast('notice', 'Commits pushed.')
-          return result
-        }}
-        onError={(cause) => showToast('error', messageOf(cause))}
+        onPush={() => pushCommits(workspacePath)}
         onFileSelect={(path, commitHash) => getGitFileDiff(workspacePath, path, commitHash)}
         onQuotaRefresh={() => refreshSessionQuotas(selectedId, false)}
-        onRefresh={() => void refreshGit(workspacePath, true)}
+        onRefresh={() => refreshGit(workspacePath, true)}
         onReset={async (hash) => {
-          const result = await resetGitCommit(workspacePath, hash)
-          await refreshGit(workspacePath, true)
-          showToast('notice', `Commit ${hash.slice(0, 7)} reset.`)
-          return result
+          return await resetGitCommit(workspacePath, hash)
         }}
         onRevert={async (hash) => {
-          const result = await revertGitCommit(workspacePath, hash)
-          await refreshGit(workspacePath, true)
-          showToast('notice', `Commit ${hash.slice(0, 7)} reverted.`)
-          return result
+          return await revertGitCommit(workspacePath, hash)
         }}
         onTodoSendPrompt={(message) => startAndSelectSession(() => createSession(workspacePath), message)}
         onTodoStartSession={(message) => startAndSelectSession(() => createSession(workspacePath), undefined, message)}

@@ -20,7 +20,7 @@ export interface RailAction {
 }
 
 /** Coordinates the sidebar panels, their common rail, and resizing. */
-export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onAnalysisNavigate, onResize, snapshot, quotas, width, workspacePath, railActions, onCommit, onDiscard, onError, onFileSelect, onPush, onQuotaRefresh, onRefresh, onReset, onRevert, onTodoSendPrompt, onTodoStartSession, onWidgetSelect }: {
+export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onAnalysisNavigate, onResize, snapshot, quotas, width, workspacePath, railActions, onCommit, onDiscard, onFileSelect, onPush, onQuotaRefresh, onRefresh, onReset, onRevert, onTodoSendPrompt, onTodoStartSession, onWidgetSelect }: {
   activeWidget: RightWidget | null
   analysis: SessionAnalysis | null
   currentQuotaProvider: QuotaProvider | undefined
@@ -33,11 +33,10 @@ export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onA
   railActions: RailAction[]
   onCommit: (message: string) => Promise<void>
   onDiscard: (path?: string) => Promise<void>
-  onError: (cause: unknown) => void
   onFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
   onPush: () => Promise<GitPushResult>
   onQuotaRefresh: () => Promise<void>
-  onRefresh: () => void
+  onRefresh: () => Promise<void>
   onReset: (hash: string) => Promise<GitResetResult>
   onRevert: (hash: string) => Promise<GitRevertResult>
   onTodoSendPrompt: (message: string) => Promise<void>
@@ -114,7 +113,7 @@ export function RightSidebar({ activeWidget, analysis, currentQuotaProvider, onA
       />
       <section aria-label={panelLabel(activeWidget)} className="right-sidebar-content" id={`${activeWidget}-panel`}>
         {activeWidget === 'analysis' && analysis && <WidgetLayout header={<div><strong>Session analysis</strong><span>{analysis.requests.length} request{analysis.requests.length > 1 ? 's' : ''} analyzed</span></div>}><SessionAnalysisWidget analysis={analysis} onNavigate={onAnalysisNavigate} /></WidgetLayout>}
-        {activeWidget === 'git' && snapshot && <GitWidget onCommit={onCommit} onDiscard={onDiscard} onError={onError} onFileSelect={onFileSelect} onPush={onPush} onRefresh={onRefresh} onReset={onReset} onRevert={onRevert} snapshot={snapshot} />}
+        {activeWidget === 'git' && snapshot && <GitWidget onCommit={onCommit} onDiscard={onDiscard} onFileSelect={onFileSelect} onPush={onPush} onRefresh={onRefresh} onReset={onReset} onRevert={onRevert} snapshot={snapshot} />}
         {activeWidget === 'quotas' && <QuotaWidget onRefresh={onQuotaRefresh} quotas={quotas} />}
         {activeWidget === 'todo' && <TodoWidget onOpenCountChange={setTodoOpenCount} onSendPrompt={onTodoSendPrompt} onStartSession={onTodoStartSession} workspacePath={workspacePath} />}
       </section>
