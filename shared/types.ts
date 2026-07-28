@@ -116,6 +116,7 @@ export interface ManagerRequest {
   extensions?: string[]
   tools?: string[]
   includeContextFiles?: boolean
+  direction?: string
 }
 
 export interface ManagerResponse {

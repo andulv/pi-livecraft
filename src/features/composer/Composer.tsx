@@ -7,6 +7,7 @@ import { AgentSelect } from './selects/AgentSelect.tsx'
 import { BehaviorSelect } from './selects/BehaviorSelect.tsx'
 import { ModelSelect } from './selects/ModelSelect.tsx'
 import { ThinkingSelect } from './selects/ThinkingSelect.tsx'
+import { ComposerSelect } from './selects/ComposerSelect.tsx'
 import { ComposerStatusBar } from './status-bar/ComposerStatusBar.tsx'
 
 /** Provides user input and session commands while reflecting the current Pi state. */
@@ -25,7 +26,7 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
   compacting: boolean
   onSend: (message: string, images: JsonObject[], behavior: 'steer' | 'followUp') => Promise<void>
   onAbort: () => Promise<JsonObject>
-  onImprovePrompt: (prompt: string) => Promise<{ prompt: string; cost?: number }>
+  onImprovePrompt: (prompt: string, direction?: string) => Promise<{ prompt: string; cost?: number }>
   onError: (cause: unknown) => void
   requestedSelect?: 'agent' | 'model' | 'thinking' | null
   onSelectOpened?: () => void
@@ -40,6 +41,7 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
   const [preparingImages, setPreparingImages] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [improving, setImproving] = useState(false)
+  const [improvePreset, setImprovePreset] = useState('')
   const [suggestion, setSuggestion] = useState<{ original: string; improved: string; cost?: number }>()
   const [openSelect, setOpenSelect] = useState<'agent' | 'model' | 'thinking' | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
@@ -144,7 +146,7 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
     setImproving(true)
     setSuggestion(undefined)
     try {
-      const result = await onImprovePrompt(original)
+      const result = await onImprovePrompt(original, improvePreset || undefined)
       setSuggestion({ original, improved: result.prompt, cost: result.cost })
     } catch (cause) {
       onError(cause)
@@ -286,6 +288,25 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
             />
 
             {running && <BehaviorSelect behavior={behavior} onChange={setBehavior} />}
+            <Tooltip label="Improvement preset"><ComposerSelect
+              ariaLabel="Improvement preset"
+              disabled={improving || submitting}
+              onValueChange={setImprovePreset}
+              options={[
+                { label: 'Aucun', value: '' },
+                { label: 'Clarifier', value: 'clarify' },
+                { label: 'Être précis', value: 'precise' },
+                { label: 'Rendre actionnable', value: 'actionable' },
+                { label: 'Explorer des idées', value: 'ideate' },
+                { label: 'Résoudre un bug', value: 'debug' },
+                { label: 'Planifier une feature', value: 'plan' },
+                { label: 'Être concis', value: 'concise' },
+                { label: 'Demander une revue', value: 'review' },
+              ]}
+              placeholder="Améliorer…"
+              tone="improve"
+              value={improvePreset}
+            /></Tooltip>
             <Tooltip label={improving ? 'Improving prompt…' : 'Improve prompt'}><button
               aria-busy={improving}
               aria-label={improving ? 'Improving prompt' : 'Improve prompt'}

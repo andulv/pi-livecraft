@@ -665,7 +665,7 @@ function App() {
     }
   }, [flushLiveUpdates, refreshSessions, selectedId, selectedSessionStatus, sessions, snapshot.messages])
   const handleComposerAbort = useCallback(() => sendPiCommand(selectedId, { type: 'abort' }), [selectedId])
-  const handlePromptImprovement = useCallback((prompt: string) => improvePrompt(selectedId, prompt), [selectedId])
+  const handlePromptImprovement = useCallback((prompt: string, direction?: string) => improvePrompt(selectedId, prompt, direction), [selectedId])
   const handleComposerSelectOpened = useCallback(() => setRequestedSelect(null), [])
   const sessionAnalysis = useMemo(() => selectedSession && snapshotSessionId === selectedSession.id
     ? analyzeSession(snapshot.messages, snapshot.stats, selectedSession.status === 'running', {

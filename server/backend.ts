@@ -275,10 +275,14 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     if (typeof body.prompt !== 'string' || !body.prompt.trim() || body.prompt.length > 100_000) {
       throw new HttpError(400, 'A prompt between 1 and 100,000 characters is required')
     }
+    if (body.direction !== undefined && typeof body.direction !== 'string') {
+      throw new HttpError(400, 'Direction must be a string when provided')
+    }
     const data = await manager.request({
       action: 'improve_prompt',
       sessionId: decodeURIComponent(promptImprovementMatch[1]),
       prompt: body.prompt,
+      direction: body.direction,
     }, 3 * 60_000)
     sendJson(response, 200, data)
     return

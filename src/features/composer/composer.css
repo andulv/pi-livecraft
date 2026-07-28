@@ -81,6 +81,8 @@
 .composer-select.agent .composer-select-icon { color: var(--accent); }
 .composer-select.command .composer-select-icon { color: color-mix(in srgb, var(--accent) 60%, var(--ink)); }
 .composer-select.behavior .composer-select-icon { color: var(--secondary); }
+.composer-select.improve .composer-select-icon { color: var(--secondary); }
+.composer-select.improve .composer-select-icon::before { content: '✦'; }
 .composer-select-content {
   z-index: 40;
   min-width: var(--radix-select-trigger-width);

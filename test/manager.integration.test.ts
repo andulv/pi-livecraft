@@ -193,6 +193,28 @@ test('improves a prompt with the cheapest isolated model', { timeout: 10_000 }, 
   }
 })
 
+test('improves a prompt with a direction preset', { timeout: 10_000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
+  const port = 45_000 + (process.pid % 10_000)
+  await writeFakePi(directory)
+  const manager = spawn(process.execPath, ['server/manager.ts'], {
+    cwd: process.cwd(),
+    env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, PI_LIVECRAFT_MANAGER_PORT: String(port) },
+    stdio: 'ignore',
+  })
+  const client = await connectManager(port)
+  try {
+    const opened = await client.request('open', { cwd: process.cwd(), name: 'Active', sessionPath: join(directory, 'active.jsonl') })
+    const improved = await client.request('improve_prompt', { sessionId: sessionId(opened), prompt: 'Fix it', direction: 'concise' })
+    assert.deepEqual(improved.data, { prompt: 'Fix the failing behavior and validate the result.', cost: 0.0042 })
+  } finally {
+    client.close()
+    manager.kill('SIGTERM')
+    await once(manager, 'exit')
+    await rm(directory, { force: true, recursive: true })
+  }
+})
+
 async function writeFakePi(directory: string, emitStartupEvent = false): Promise<void> {
   const path = join(directory, 'pi')
   await writeFile(path, `#!/usr/bin/env node

@@ -8,6 +8,22 @@ export async function loadPromptImprovementSystemPrompt(): Promise<string> {
   return readFile(new URL('prompt-improvement-system.txt', import.meta.url), 'utf8')
 }
 
+const improvementDirections: Record<string, string> = {
+  clarify: 'Clarify the request. Make the expected outcome, scope, and constraints explicit only when they are already implied by the draft.',
+  precise: 'Make the request precise and unambiguous. Preserve all existing facts and constraints; do not add assumptions.',
+  actionable: 'Rewrite this as direct, actionable instructions with a clear expected result. Do not add steps, requirements, or decisions.',
+  ideate: 'Rewrite this as an ideation request. Ask for several concrete options and their trade-offs, preserving the draft\'s stated context and constraints.',
+  debug: 'Rewrite this as a bug-investigation request. Emphasize reproducing the issue, identifying the root cause, and validating the fix without inventing symptoms.',
+  plan: 'Rewrite this as an implementation-planning request. Ask to inspect the existing code, propose the smallest compatible change, and identify validation.',
+  concise: 'Make the request shorter and direct. Remove redundant wording while preserving every requirement and constraint.',
+  review: 'Rewrite this as a code-review request. Focus on concrete correctness, security, maintainability, and regression risks relevant to the draft.',
+}
+
+/** Returns the direction instruction for a valid preset key, or undefined for an invalid or missing key. */
+export function improvementDirectionInstruction(direction: string): string | undefined {
+  return improvementDirections[direction]
+}
+
 /** Names excluded from the project map. */
 const ignoredNames = new Set([
   '.git', 'node_modules', 'dist', 'build', 'coverage', '.next', '.turbo',

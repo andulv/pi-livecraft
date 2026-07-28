@@ -10,7 +10,7 @@ import { realpath, stat } from 'node:fs/promises'
 import { createServer, type Socket } from 'node:net'
 import { JsonLineDecoder, encodeJsonLine } from './jsonl.ts'
 import { PiProcess, terminateAllPiProcesses } from './pi-process.ts'
-import { generateProjectMap, loadPromptImprovementSystemPrompt } from './prompt-improvement.ts'
+import { generateProjectMap, improvementDirectionInstruction, loadPromptImprovementSystemPrompt } from './prompt-improvement.ts'
 import { runIsolatedPrompt } from './run-isolated-prompt.ts'
 import { isObject } from '../shared/is-object.ts'
 import type {
@@ -226,14 +226,16 @@ async function improvePrompt(request: ManagerRequest): Promise<{ prompt: string;
   const session = sessions.get(request.sessionId)
   if (!session || session.summary.status === 'exited') throw new Error('Active Pi session is unavailable')
 
+  const direction = typeof request.direction === 'string' ? improvementDirectionInstruction(request.direction) : undefined
   const [systemPrompt, projectMap] = await Promise.all([
     loadPromptImprovementSystemPrompt(),
     generateProjectMap(session.summary.cwd),
   ])
+  const directionBlock = direction ? `<improvement_direction>${direction}</improvement_direction>\n\n` : ''
   const result = await runIsolatedPrompt({
     cwd: session.summary.cwd,
     prompt: `<user_prompt>\n${request.prompt.trim()}\n</user_prompt>`,
-    systemPrompt: `${systemPrompt}\n\n${projectMap}`,
+    systemPrompt: `${systemPrompt}\n\n${directionBlock}${projectMap}`,
     includeContextFiles: false,
   })
   return { prompt: result.text, cost: result.cost }
