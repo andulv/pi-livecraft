@@ -1,8 +1,14 @@
 # Agent instructions
 
+## First: find your guide
+
+Before any exploration, open [`docs/README.md`](/docs/README.md) and pick the guide or feature README closest to your goal. Read that guide, then explore only the code it points to. Skip this step only when the task already names the exact files or symbols to change and no applicable guide exists.
+
+- Read [`docs/ARCHITECTURE.md`](/docs/ARCHITECTURE.md) when a change crosses the frontend, HTTP API, manager, or Pi process boundaries.
+- Read [`docs/MANAGER-LIFECYCLE.md`](/docs/MANAGER-LIFECYCLE.md) before any change to the manager runtime, supervision, or restart behaviour.
+
 ## Architecture and boundaries
 
-- Read [`docs/ARCHITECTURE.md`](/docs/ARCHITECTURE.md) before a cross-cutting change or moving a module; use [`docs/README.md`](/docs/README.md) to find focused guides.
 - The React frontend communicates with the backend only through `src/api.ts`.
 - `src/App.tsx` orchestrates cross-cutting state. Area-specific rendering and logic belong in `src/features/<feature>/`.
 - Colocate feature CSS. Reserve `src/styles/` for global and responsive rules; `src/App.css` remains the ordered entry point.
@@ -40,9 +46,7 @@ npm test                    # full suite
 
 The integration test requires a configured `pi` command and the `/agent` extension. Pi documentation is installed at `$(npm root -g)/@earendil-works/pi-coding-agent/docs/`.
 
-## Documentation
 
-Find the right guide for any task in the [documentation index](/docs/README.md).
 
 ## Conventions
 

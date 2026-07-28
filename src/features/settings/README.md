@@ -15,4 +15,4 @@ All values stay in browser `localStorage`; never store secrets there. Readers mu
 
 Keep the value with its narrowest owner, expose it in `SettingsPanel` only when users should configure it, and persist it under the `pi-livecraft.` prefix. Add a focused test when parsing, migration, or validation is non-trivial.
 
-Read [how to add a settings tab](/src/docs/HOW-TO-SETTINGS.md) for the tabbed modal structure, or [commands](/src/features/commands/README.md) for palette entries and shortcuts, or [right sidebar](/src/features/right-sidebar/README.md) for widget state.
+Read [how to add a settings tab](/docs/HOW-TO-SETTINGS.md) for the tabbed modal structure, or [commands](/src/features/commands/README.md) for palette entries and shortcuts, or [right sidebar](/src/features/right-sidebar/README.md) for widget state.
