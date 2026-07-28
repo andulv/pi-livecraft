@@ -107,6 +107,12 @@ test('reconciles live Pi work before restarting the manager', { timeout: 10_000 
     )
     const waitingSessions = await client.request('list', {})
     assert.equal(sessionStatus(waitingSessions, sessionId(opened)), 'idle')
+    assert.ok(
+      sessionPendingUi(waitingSessions, sessionId(opened)).some(
+        (r) => isObject(r) && r.id === 'select-test',
+      ),
+      'Agent selector should appear in pendingUi after /select',
+    )
     assert.equal(
       (await client.request('command', {
         sessionId: sessionId(opened),
@@ -114,6 +120,15 @@ test('reconciles live Pi work before restarting the manager', { timeout: 10_000 
       }))
         .ok,
       true,
+    )
+    const clearedUi = sessionPendingUi(
+      await client.request('list', {}),
+      sessionId(opened),
+    )
+    assert.equal(
+      clearedUi.filter((r) => isObject(r) && r.method === 'select').length,
+      0,
+      'Agent selector should be cleared from pendingUi after response',
     )
 
     const pendingCommand = client.request('command', {
@@ -558,6 +573,13 @@ function sessionStatus(response: ManagerResponse, id: string): unknown {
   if (!Array.isArray(response.data)) throw new Error('Invalid sessions response')
   const session = response.data.find((value) => isObject(value) && value.id === id)
   return isObject(session) ? session.status : undefined
+}
+
+function sessionPendingUi(response: ManagerResponse, id: string): unknown[] {
+  if (!Array.isArray(response.data)) throw new Error('Invalid sessions response')
+  const session = response.data.find((value) => isObject(value) && value.id === id)
+  if (!isObject(session) || !Array.isArray(session.pendingUi)) return []
+  return session.pendingUi
 }
 
 function isManagerResponse(value: unknown): value is ManagerResponse {

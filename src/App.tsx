@@ -175,6 +175,7 @@ function App() {
   const loadingTimerRef = useRef<number>(0)
   const gitRefreshVersionRef = useRef(0)
   const agentIntentsRef = useRef(new Map<string, AgentIntent>())
+  const agentResponsesSentRef = useRef(new Set<string>())
 
   // Conversation timing and quotas
   const quotaAutoRefreshAtRef = useRef(new Map<string, number>())
@@ -209,7 +210,9 @@ function App() {
   /** Removes a toast after explicit dismissal or automatic timeout. */
   const dismissToast = useCallback((id: string) => startDismissal(id), [startDismissal])
 
+  /** Restores visible dialogs and resolves stale agent selectors that block manager restart. */
   const handleSessionsRefreshed = useCallback((nextSessions: SessionSummary[]): void => {
+    // Restore user-facing dialogs (excludes agent selectors which are handled silently)
     const pending = nextSessions
       .flatMap((session) =>
         session.pendingUi.map((request) => ({ sessionId: session.id, request }))
@@ -219,7 +222,37 @@ function App() {
       pending
         ?? (current && nextSessions.some(({ id }) => id === current.sessionId) ? current : null)
     )
-  }, [])
+    // Resolve stale agent selectors that were missed during an SSE disconnect
+    for (const session of nextSessions) {
+      for (const request of session.pendingUi) {
+        if (!isAgentSelector(request)) continue
+        const key = `${session.id}:${request.id}`
+        if (agentResponsesSentRef.current.has(key)) continue
+        agentResponsesSentRef.current.add(key)
+        const intent = agentIntentsRef.current.get(session.id)
+        const options = request.options.filter((o): o is string => typeof o === 'string')
+        if (intent) {
+          setAgentOptions((current) => ({ ...current, [session.id]: options }))
+          agentIntentsRef.current.delete(session.id)
+        }
+        const selectedAgent = intent?.value && options.includes(intent.value)
+          ? intent.value
+          : undefined
+        const response = selectedAgent ? { value: selectedAgent } : { cancelled: true }
+        void sendPiCommand(session.id, {
+          type: 'extension_ui_response',
+          id: request.id,
+          ...response,
+        })
+          .catch((cause) => {
+            agentResponsesSentRef.current.delete(key)
+            showToast('error', messageOf(cause))
+          })
+        if (intent?.value && !selectedAgent)
+          showToast('error', 'Selected agent is no longer available.')
+      }
+    }
+  }, [showToast])
   const handleWorkspaceSelected = useCallback((): void => {
     setGitSnapshot(null)
     setActiveRightWidget(null)
