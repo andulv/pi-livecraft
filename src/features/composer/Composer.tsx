@@ -312,7 +312,6 @@ export const Composer = memo(function Composer({ session, snapshot, agentBusy, a
                 { label: 'Be concise', value: 'concise' },
                 { label: 'Request review', value: 'review' },
               ]}
-              placeholder="Improve"
               tone="improve"
               value={improvePreset}
             /></Tooltip>
