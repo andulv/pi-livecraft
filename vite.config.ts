@@ -1,12 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const backendPort = process.env.PI_LIVECRAFT_BACKEND_PORT ?? '43121'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://127.0.0.1:43121',
+      '/api': `http://127.0.0.1:${backendPort}`,
     },
   },
 })
