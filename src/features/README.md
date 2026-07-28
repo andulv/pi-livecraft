@@ -7,13 +7,13 @@ Start with the area that owns the behavior. Read `App.tsx` only when state coord
 - `workspace/` selects directories and creates, reopens, or switches sessions. See [workspace and sessions](/src/features/workspace/README.md).
 - `composer/` prepares prompts, images, slash commands, and per-session drafts. See [composer](/src/features/composer/README.md).
 - `conversation/` owns the selected session's snapshot, live-event replay, streaming state, activity, usage, tool calls, and file previews. See [conversation](/src/features/conversation/README.md).
-- `dialogs/` handles versioned UI requests sent by Pi extensions.
+- `dialogs/` handles versioned UI requests sent by Pi extensions. See [extension dialogs](/src/features/dialogs/README.md).
 
 ## Application controls
 
 - `commands/` owns the command registry, palette, and keyboard normalization. See [commands](/src/features/commands/README.md).
 - `settings/` edits local preferences exposed to the user. See [settings and preferences](/src/features/settings/README.md).
-- `notifications/` displays transient notices and persistent errors.
+- `notifications/` displays transient notices and persistent errors. See [notifications](/src/features/notifications/README.md).
 - `manager/` reports manager runtime changes and offers the [guarded manual restart](/src/features/manager/README.md).
 - `right-sidebar/` composes workspace widgets and rail actions. See [right sidebar](/src/features/right-sidebar/README.md).
 

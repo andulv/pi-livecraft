@@ -80,7 +80,6 @@ const summary = await runPrompt(sessionId, {
 const result = await runPrompt(sessionId, {
   prompt: 'Read package.json and tell me the project name.',
   tools: ['read'],
-  extensions: [],
 })
 ```
 

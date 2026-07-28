@@ -49,7 +49,7 @@
     "vite": "^8.1.1"
   },
   "lint-staged": {
-    "*": "dprint fmt"
+    "*.{ts,tsx,json,css,html}": "dprint fmt"
   },
   "allowScripts": {
     "dprint@0.55.2": true

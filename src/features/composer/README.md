@@ -1,12 +1,14 @@
 # Composer
 
 Follow the [step-by-step guide](/docs/HOW-TO-COMPOSER.md) to add a button,
-dropdown, or stat. Return here for the data flow and internal state reference below.
+dropdown, or stat. Read the [prompt improvement guide](/docs/HOW-TO-PROMPT-IMPROVEMENT.md)
+before changing isolated draft rewrites. Return here for the data flow and internal state reference
+below.
 
 ## Data flow
 
-`App.tsx` → props → `Composer.tsx` → `onSend()` / `onCommand()` / `onAbort()`
-→ `src/api.ts` → `sendPiCommand()` → Pi
+`App.tsx` → props → `Composer.tsx` → `onSend()` / `onCommand()` / `onAbort()` /
+`onImprovePrompt()` → `src/api.ts` → backend or Pi
 
 All data arrives through props. The Composer never calls the backend directly.
 
@@ -37,6 +39,7 @@ All data arrives through props. The Composer never calls the backend directly.
 - `behavior` — `steer` vs `followUp`, only visible while Pi is running.
 - `submitting` — prevents double-send during the API call.
 - `preparingImages` — blocks send while clipboard images are being converted.
+- `improving`, `improvePreset`, `suggestion` — isolated rewrite request and explicit comparison.
 
 ## Selects
 

@@ -21,22 +21,24 @@ No command whitelist, no filter. The backend only checks that the body has a
 
 ## Two ways to reach Pi
 
-### 1. Snapshot — automatic, every poll
+### 1. Snapshot — selection and event reconciliation
 
-The frontend calls `getSnapshot(sessionId)`, which triggers five Pi commands
-in parallel inside `server/backend.ts`:
+The frontend calls `getSnapshot(sessionId)` when a session is selected and when Pi events require
+history reconciliation. Each request triggers five Pi commands in parallel inside
+`server/backend.ts`:
 
 | Command | Returns |
 |---|---|
 | `get_state` | Current model, thinking level, streaming status, session name |
-| `get_entries` | All session entries (messages, tool calls) in append order |
+| `get_entries` | Entries used by the backend to rebuild the visible active conversation |
 | `get_available_models` | `Model[]` — id, provider, cost, context window, input types |
 | `get_commands` | Available extensions, prompt templates, and skills |
 | `get_session_stats` | Token usage, total cost, context window pressure |
 
-The result is assembled into a `SessionSnapshot` and sent to the frontend as
-JSON. These five commands are the only ones called automatically; you never
-need to invoke them yourself.
+The backend follows the active entry branch, keeps user, assistant, tool-result, and explicitly
+visible custom messages, and represents compactions as visible custom messages. It then assembles
+the result into a `SessionSnapshot` and sends it to the frontend as JSON. These five commands are
+the only ones called as part of snapshot refreshes; you never need to invoke them yourself.
 
 ### 2. Arbitrary commands — on demand
 

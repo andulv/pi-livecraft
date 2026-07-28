@@ -8,14 +8,17 @@ Pi Livecraft is documented in layers: begin with the guide closest to your goal,
 - **Change the frontend:** [frontend feature map](/src/features/README.md).
 - **Add a tooltip or shared UI element:** [shared components](/src/components/README.md).
 - **Modify the composer:** [step-by-step guide](/docs/HOW-TO-COMPOSER.md), then [composer reference](/src/features/composer/README.md).
+- **Change prompt improvement:** [prompt improvement guide](/docs/HOW-TO-PROMPT-IMPROVEMENT.md).
 - **Add a command, palette entry, or shortcut:** [step-by-step guide](/docs/HOW-TO-PALETTE-COMMAND.md), then [contract reference](/src/features/commands/README.md).
 - **Add a preference, persisted UI state, or settings tab:** [how to settings](/docs/HOW-TO-SETTINGS.md), then [settings and preferences](/src/features/settings/README.md).
 - **Customise colours or add a theme:** [how to theme](/docs/HOW-TO-THEME.md).
 - **Add a right sidebar widget:** [step-by-step guide](/docs/HOW-TO-WIDGET.md), then [contract reference](/src/features/right-sidebar/README.md).
 - **Change a tool call display:** [step-by-step guide](/docs/HOW-TO-TOOL-PRESENTATION.md), then [contract reference](/src/features/conversation/README.md).
+- **Change extension dialogs or questionnaires:** [dialog protocol](/src/features/dialogs/README.md), then [Pi extensions](/pi-extensions/README.md).
+- **Change transient notices or errors:** [notifications](/src/features/notifications/README.md).
 - **Change Git, quotas, terminal, or todos on the server:** [backend capabilities](/server/features/README.md).
 - **Change manager runtime, supervision, or restart behavior:** [manager lifecycle](/docs/MANAGER-LIFECYCLE.md).
-- **Send a command to a Pi session or inspect its data:** [how to talk to Pi](/docs/HOW-TO-TALK-TO-PI.md), then the [upstream RPC reference]($(npm root -g)/@earendil-works/pi-coding-agent/docs/rpc.md).
+- **Send a command to a Pi session or inspect its data:** [how to talk to Pi](/docs/HOW-TO-TALK-TO-PI.md), which explains how to locate the upstream RPC reference installed with Pi.
 - **Run an isolated one-shot prompt without touching the session:** [how to run an isolated prompt](/docs/HOW-TO-RUN-ISOLATED-PROMPT.md).
 - **Change code loaded into Pi:** [Pi extensions](/pi-extensions/README.md).
 
@@ -24,6 +27,7 @@ Pi Livecraft is documented in layers: begin with the guide closest to your goal,
 Step-by-step walkthroughs for common tasks. Each guide is self-contained: start here, follow the file references, no prior knowledge assumed.
 
 - **[Modify the composer](/docs/HOW-TO-COMPOSER.md)** — add a toolbar button, dropdown, or session stat.
+- **[Change prompt improvement](/docs/HOW-TO-PROMPT-IMPROVEMENT.md)** — isolated rewrite flow, project context, and presets.
 - **[Add a widget](/docs/HOW-TO-WIDGET.md)** — sidebar widget, API endpoint, and backend capability.
 - **[Add a tool call presentation](/docs/HOW-TO-TOOL-PRESENTATION.md)** — custom display for a Pi tool in the conversation.
 - **[Add a palette command](/docs/HOW-TO-PALETTE-COMMAND.md)** — palette entry, keyboard shortcut, and execution.

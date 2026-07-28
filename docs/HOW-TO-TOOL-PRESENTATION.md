@@ -97,7 +97,8 @@ test('myToolPresentation ignores invalid arguments', () => {
 |---|---|---|
 | `truncateToolText(text, maxLength)` | `tool-call-presentations/shared.ts` | Truncates with `…`, returns `{ text, truncated }` |
 | `pathFromRepositoryRoot(path, root)` | `tool-call-presentations/shared.ts` | Renders an absolute path relative to the repo root |
-| `toolFilePath(args)` | `tool-calls.ts` | Extracts `args.path` if present and valid |
+| `readLineRange(args)` | `tool-call-presentations/shared.ts` | Formats validated `offset` and `limit` arguments |
+| `positiveInteger(value)` | `tool-call-presentations/shared.ts` | Validates a positive safe integer |
 | `isObject(value)` | `shared/is-object.ts` | Type guard `value is Record<string, unknown>` |
 
 ## Files touched

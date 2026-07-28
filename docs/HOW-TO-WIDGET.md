@@ -8,15 +8,16 @@ implementation — open it alongside and follow its shape.
 
 Add a directory `src/features/<widget>/` with the main component.
 
-The component receives data through **props** passed from `App.tsx` via `RightSidebar.tsx`.
-It never talks to the backend directly — every network request goes through `src/api.ts`.
+The component receives cross-feature data through **props** passed from `App.tsx` via
+`RightSidebar.tsx`. Data owned only by the widget may be loaded inside the component, but every
+network request must use a function from `src/api.ts`.
 
 ```tsx
 // src/features/<widget>/<Widget>.tsx
 
 export function MyWidget({ workspacePath }: { workspacePath: string }) {
-  // Local state only (forms, selections, errors).
-  // Persistent data → props from App.tsx.
+  // Local UI and feature-owned data belong here.
+  // Cross-feature state and actions arrive through props.
 }
 ```
 
@@ -58,7 +59,7 @@ In `src/features/right-sidebar/RightSidebar.tsx`:
 
 ## 4. (Optional) Forward props from App.tsx
 
-If the widget needs data or callbacks owned by `App.tsx`:
+If the widget needs cross-feature data or callbacks owned by `App.tsx`:
 
 - Add the props to `RightSidebar`'s interface
 - Pass them in the `<RightSidebar>` render in `App.tsx`
@@ -137,5 +138,5 @@ Used by the session analysis widget, but not mandatory.
 
 ## Reference widget
 
-[`TodoWidget`](/src/features/todo/TodoWidget.tsx) illustrates local state, API
-calls, error handling, and persistent data management.
+[`TodoWidget`](/src/features/todo/TodoWidget.tsx) illustrates feature-owned state, calls through
+`src/api.ts`, error handling, and backend persistence.
