@@ -18,6 +18,7 @@
     "typecheck": "tsc -b",
     "lint": "oxlint .",
     "test": "node --test",
+    "eval:documentation-routing": "node --test evals/documentation-routing.ts",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
