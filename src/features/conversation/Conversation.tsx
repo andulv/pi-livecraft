@@ -65,7 +65,7 @@ export function Conversation(
   },
 ) {
   const allMessages = messages
-  const { visibleMessages, usagesByMessage, turnNumbers, toolCallIds, resultsByCallId } = useMemo(
+  const { visibleMessages, toolCallIds, resultsByCallId } = useMemo(
     () => {
       const visible = allMessages.filter(isVisibleConversationMessage)
       const calls = allMessages.flatMap(toolCallsInMessage)
@@ -73,16 +73,8 @@ export function Conversation(
         const result = toolResultInMessage(message)
         return result ? [[result.toolCallId, result] as const] : []
       }))
-      const usagesByMessage = turnUsageByMessage(allMessages)
-      const turnNumbers = new Map<number, number>()
-      let turnNum = 0
-      for (const idx of [...usagesByMessage.keys()].sort((a, b) => a - b)) {
-        turnNumbers.set(idx, ++turnNum)
-      }
       return {
         visibleMessages: visible,
-        usagesByMessage,
-        turnNumbers,
         toolCallIds: new Set(calls.map((call) => call.id)),
         resultsByCallId: results,
       }
@@ -92,6 +84,29 @@ export function Conversation(
   const executionsByCallId = useMemo(
     () => new Map(toolExecutions.map((execution) => [execution.id, execution])),
     [toolExecutions],
+  )
+  /** Call IDs whose result has arrived, either from history or a live tool_execution_end. */
+  const resolvedCallIds = useMemo(
+    () =>
+      new Set([
+        ...resultsByCallId.keys(),
+        ...toolExecutions.filter((execution) => execution.result !== undefined).map((execution) =>
+          execution.id
+        ),
+      ]),
+    [resultsByCallId, toolExecutions],
+  )
+  const { usagesByMessage, turnNumbers } = useMemo(
+    () => {
+      const usagesByMessage = turnUsageByMessage(allMessages, resolvedCallIds)
+      const turnNumbers = new Map<number, number>()
+      let turnNum = 0
+      for (const idx of [...usagesByMessage.keys()].sort((a, b) => a - b)) {
+        turnNumbers.set(idx, ++turnNum)
+      }
+      return { usagesByMessage, turnNumbers }
+    },
+    [allMessages, resolvedCallIds],
   )
   const liveToolCallIds = useMemo(
     () =>

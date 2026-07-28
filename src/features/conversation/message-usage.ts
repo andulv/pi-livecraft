@@ -1,5 +1,6 @@
 import type { JsonObject } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
+import { toolCallsInMessage } from './tool-protocol.ts'
 
 export interface MessageUsage {
   cacheMiss: number
@@ -39,11 +40,21 @@ export function formatTokens(value: number): string {
   return value >= 1000 ? `${Math.round(value / 1000)}k` : String(value)
 }
 
-/** Associates each agent turn with the billed counters from its assistant response. */
-export function turnUsageByMessage(messages: JsonObject[]): Map<number, MessageUsage> {
+/** Associates each agent turn with the billed counters from its assistant response.
+ * When resolvedCallIds is provided, only returns usage for messages whose tool calls
+ * have all been resolved (result received). */
+export function turnUsageByMessage(
+  messages: JsonObject[],
+  resolvedCallIds?: ReadonlySet<string>,
+): Map<number, MessageUsage> {
   return new Map(messages.flatMap((message, index) => {
     const usage = message.role === 'assistant' ? messageUsage(message) : null
-    return usage ? [[index, usage] as const] : []
+    if (!usage) return []
+    if (resolvedCallIds !== undefined) {
+      const calls = toolCallsInMessage(message)
+      if (calls.length > 0 && calls.some((call) => !resolvedCallIds.has(call.id))) return []
+    }
+    return [[index, usage] as const]
   }))
 }
 

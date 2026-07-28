@@ -64,3 +64,65 @@ test('hides metrics when Pi does not provide complete usage', () => {
     new Map(),
   )
 })
+
+test('defers usage for messages whose tool calls are not yet resolved', () => {
+  const messages = [
+    { role: 'user', content: 'Lis et cherche.' },
+    {
+      role: 'assistant',
+      content: [
+        { type: 'toolCall', id: 'call_1', name: 'read' },
+        { type: 'toolCall', id: 'call_2', name: 'grep' },
+      ],
+      usage: { input: 100, output: 10, cacheRead: 50, cost: { total: 0.001 } },
+    },
+    { role: 'toolResult', toolCallId: 'call_1' },
+    { role: 'toolResult', toolCallId: 'call_2' },
+  ]
+
+  // Neither call resolved (live): no usage.
+  assert.deepEqual(
+    turnUsageByMessage(messages, new Set()),
+    new Map(),
+  )
+  // Only one call resolved: still no usage.
+  assert.deepEqual(
+    turnUsageByMessage(messages, new Set(['call_1'])),
+    new Map(),
+  )
+  // Both resolved from history: usage appears.
+  assert.deepEqual(
+    [...turnUsageByMessage(messages, new Set(['call_1', 'call_2']))],
+    [[1, { cacheMiss: 100, cacheRead: 50, cacheWrite: 0, cost: 0.001, output: 10 }]],
+  )
+})
+
+test('shows usage immediately for assistant responses without tool calls', () => {
+  const messages = [
+    { role: 'user', content: 'Bonjour' },
+    {
+      role: 'assistant',
+      content: [{ type: 'text', text: 'Salut !' }],
+      usage: { input: 10, output: 5, cacheRead: 0, cost: { total: 0.0001 } },
+    },
+  ]
+
+  assert.deepEqual(
+    [...turnUsageByMessage(messages, new Set())],
+    [[1, { cacheMiss: 10, cacheRead: 0, cacheWrite: 0, cost: 0.0001, output: 5 }]],
+  )
+})
+
+test('returns all usages when resolvedCallIds is not provided', () => {
+  const messages = [
+    {
+      role: 'assistant',
+      content: [{ type: 'toolCall', id: 'pending', name: 'read' }],
+      usage: { input: 100, output: 10, cacheRead: 1, cost: { total: 0.001 } },
+    },
+  ]
+
+  // Without gating the usage still appears (session-analysis path).
+  assert.equal(turnUsageByMessage(messages).size, 1)
+  assert.equal(turnUsageByMessage(messages, undefined).size, 1)
+})
