@@ -1,28 +1,30 @@
-import { memo, useEffect, useState } from 'react'
+import { lazy, memo, Suspense, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter'
-import bash from 'react-syntax-highlighter/dist/esm/languages/prism/bash'
-import csharp from 'react-syntax-highlighter/dist/esm/languages/prism/csharp'
-import css from 'react-syntax-highlighter/dist/esm/languages/prism/css'
-import javascript from 'react-syntax-highlighter/dist/esm/languages/prism/javascript'
-import json from 'react-syntax-highlighter/dist/esm/languages/prism/json'
-import markup from 'react-syntax-highlighter/dist/esm/languages/prism/markup'
-import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript'
-import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import { getWorkspaceFile, getWorkspaceFilePath } from '../../api.ts'
 import { fileContextDraft } from './context-session.ts'
 import { canHighlightFile } from './file-preview.ts'
 import { editDiffDisplayLines, formatToolCallTooltip, formatToolData, intraLineDiff, parseEditDiff, readContentDisplay, readStartingLineNumber, toolCallPresentation, toolContentText, toolDataLength, toolEditChanges, toolFilePath, toolTextPreview, fileUrl, type EditDiffLine } from './tool-calls.ts'
 
-SyntaxHighlighter.registerLanguage('bash', bash)
-SyntaxHighlighter.registerLanguage('csharp', csharp)
-SyntaxHighlighter.registerLanguage('css', css)
-SyntaxHighlighter.registerLanguage('javascript', javascript)
-SyntaxHighlighter.registerLanguage('json', json)
-SyntaxHighlighter.registerLanguage('markup', markup)
-SyntaxHighlighter.registerLanguage('typescript', typescript)
+const LazyCodeHighlighter = lazy(() => import('./CodeHighlighter'))
+
+/** Reports whether an element is in the viewport (plus a vertical margin). */
+function useInView(ref: React.RefObject<HTMLElement | null>, enabled: boolean): boolean {
+  const [inView, setInView] = useState(false)
+  useEffect(() => {
+    if (!enabled) return
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry) setInView(entry.isIntersecting) },
+      { rootMargin: '800px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [enabled, ref])
+  return inView
+}
 
 export function Markdown({ children }: { children: string }) {
   return <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
@@ -83,6 +85,7 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
   const [htmlOpenError, setHtmlOpenError] = useState<string>()
   const [codeRendered, setCodeRendered] = useState(false)
   const [argsExpanded, setArgsExpanded] = useState(false)
+  const cardRef = useRef<HTMLElement>(null)
   const input = formatToolData(args)
   const inputLength = toolDataLength(args)
   const maxPreviewChars = 400
@@ -97,6 +100,8 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
   const tooltip = formatToolCallTooltip(presentation.headerDetail?.title ?? input, inputLength, hasResult ? outputLength : undefined)
   const resolvedSizeLabel = `Input: ${inputLength} characters. Output: ${outputLength} characters.`
   const content = htmlOpenError ?? writtenContentError ?? (name === 'write' && writtenContent === undefined && loadingWrittenContent ? 'Loading file…' : name === 'write' ? writtenContent ?? displayedOutput : displayedOutput)
+  const hasCodePreview = display.kind === 'code' && hasResult && !expanded && canHighlightFile(content)
+  const isNearViewport = useInView(cardRef, hasCodePreview)
   const contentError = resultError || Boolean(writtenContentError) || Boolean(htmlOpenError)
   const preview = toolTextPreview(content)
   const streamingArgs = streaming || interrupted ? input : undefined
@@ -144,7 +149,7 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
 
   const hasBody = streaming || interrupted || hasResult || Boolean(partialOutput)
 
-  return <article className={`tool-call${animateLiveChanges && streaming ? ' entering' : ''}${contentError ? ' error' : ''}${interrupted ? ' interrupted' : ''}${targeted ? ' conversation-target' : ''}`} data-tool-call-id={id}>
+  return <article className={`tool-call${animateLiveChanges && streaming ? ' entering' : ''}${contentError ? ' error' : ''}${interrupted ? ' interrupted' : ''}${targeted ? ' conversation-target' : ''}`} data-tool-call-id={id} ref={cardRef}>
     <Tooltip label={tooltip}><button aria-expanded={htmlFile ? undefined : hasResult ? expanded : undefined} className="tool-call-heading" disabled={!hasResult} onClick={activate} type="button">
       <span aria-hidden="true">⌘</span>
       <span><strong aria-label={tooltip}>{name || 'Tool'}</strong></span>
@@ -185,7 +190,7 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
         {hasResult && <div className={animateLiveChanges ? 'tool-call-result entering' : 'tool-call-result'}>
           {expanded && !htmlFile
             ? <ToolCallContent call={{ name, args }} content={content} darkMode={darkMode} onCollapse={() => setExpanded(false)} renderingCode={renderingCode || loadingWrittenContent} resultDetails={resultDetails} showEditDiff={!contentError} />
-            : <ToolCallPreview call={{ name, args }} content={display.kind === 'svg' ? content : preview.text} darkMode={darkMode} htmlFile={htmlFile} onClick={activate} remainingLineCount={preview.remainingLineCount} />}
+            : <ToolCallPreview call={{ name, args }} content={display.kind === 'svg' ? content : preview.text} darkMode={darkMode} htmlFile={htmlFile} isNearViewport={isNearViewport} onClick={activate} remainingLineCount={preview.remainingLineCount} />}
         </div>}
       </div>
     </div>
@@ -208,7 +213,7 @@ function NumberedPre({ content, startLine }: { content: string; startLine: numbe
 }
 
 /** Displays a clickable preview for code files and resolved SVGs. */
-function ToolCallPreview({ call, content, darkMode, htmlFile, onClick, remainingLineCount }: { call: { name: string; args: unknown }; content: string; darkMode: boolean; htmlFile: boolean; onClick: () => void; remainingLineCount: number }) {
+function ToolCallPreview({ call, content, darkMode, htmlFile, isNearViewport, onClick, remainingLineCount }: { call: { name: string; args: unknown }; content: string; darkMode: boolean; htmlFile: boolean; isNearViewport: boolean; onClick: () => void; remainingLineCount: number }) {
   const display = call.name === 'read' || call.name === 'write' ? readContentDisplay(call.args) : { kind: 'text' as const }
   const remainingLabel = display.kind === 'svg' ? 'Click to view full code' : `Click to view ${remainingLineCount} more ${remainingLineCount === 1 ? 'line' : 'lines'}`
   const highlightedCode = display.kind === 'code' && canHighlightFile(content)
@@ -216,15 +221,16 @@ function ToolCallPreview({ call, content, darkMode, htmlFile, onClick, remaining
   const filePath = toolFilePath(call.args)
   const isRead = call.name === 'read'
   const startLine = isRead ? readStartingLineNumber(call.args) : 1
+  const plainPreview = isRead ? <NumberedPre content={content} startLine={startLine} /> : <pre>{content}</pre>
 
   return <button className="tool-call-preview" onClick={onClick} type="button">
     {svgPreview
       ? <img alt={`SVG preview of ${filePath ?? 'file'}`} className="tool-call-svg-preview" src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(content)}`} />
-      : highlightedCode
-        ? <SyntaxHighlighter className="tool-call-syntax" customStyle={{ background: 'transparent', margin: 0, padding: '9px 10px 4px' }} language={display.language} PreTag="div" showLineNumbers={isRead} startingLineNumber={isRead ? startLine : undefined} lineNumberStyle={isRead ? lineNumberStyle : undefined} style={darkMode ? oneDark : oneLight} wrapLongLines>{content}</SyntaxHighlighter>
-        : isRead
-          ? <NumberedPre content={content} startLine={startLine} />
-          : <pre>{content}</pre>}
+      : highlightedCode && isNearViewport
+        ? <Suspense fallback={plainPreview}>
+            <LazyCodeHighlighter className="tool-call-syntax" customStyle={{ background: 'transparent', margin: 0, padding: '9px 10px 4px' }} language={display.language} PreTag="div" showLineNumbers={isRead} startingLineNumber={isRead ? startLine : undefined} lineNumberStyle={isRead ? lineNumberStyle : undefined} darkMode={darkMode} wrapLongLines>{content}</LazyCodeHighlighter>
+          </Suspense>
+        : plainPreview}
     {remainingLineCount > 0 && <span>{remainingLabel}</span>}
     {htmlFile && <span>Click to open in browser</span>}
   </button>
@@ -243,7 +249,7 @@ function ToolCallContent({ call, content, darkMode, onCollapse, renderingCode, r
   const isRead = call.name === 'read'
   const startLine = isRead ? readStartingLineNumber(call.args) : 1
   if (display.kind === 'markdown') return <section className="tool-call-content tool-call-markdown" onClick={onCollapse}><Markdown>{content}</Markdown></section>
-  if (display.kind === 'code' && canHighlightFile(content)) return <section className="tool-call-content" onClick={onCollapse}><SyntaxHighlighter className="tool-call-syntax" customStyle={{ background: 'transparent', margin: 0, padding: '9px 10px' }} language={display.language} PreTag="div" showLineNumbers={isRead} startingLineNumber={isRead ? startLine : undefined} lineNumberStyle={isRead ? lineNumberStyle : undefined} style={darkMode ? oneDark : oneLight} wrapLongLines>{content}</SyntaxHighlighter></section>
+  if (display.kind === 'code' && canHighlightFile(content)) return <section className="tool-call-content" onClick={onCollapse}><Suspense fallback={isRead ? <NumberedPre content={content} startLine={startLine} /> : <pre>{content}</pre>}><LazyCodeHighlighter className="tool-call-syntax" customStyle={{ background: 'transparent', margin: 0, padding: '9px 10px' }} language={display.language} PreTag="div" showLineNumbers={isRead} startingLineNumber={isRead ? startLine : undefined} lineNumberStyle={isRead ? lineNumberStyle : undefined} darkMode={darkMode} wrapLongLines>{content}</LazyCodeHighlighter></Suspense></section>
   if (display.kind === 'code') return <section className="tool-call-content" onClick={onCollapse}><p className="tool-call-notice">Highlighting disabled beyond 50,000 characters.</p>{isRead ? <NumberedPre content={content} startLine={startLine} /> : <pre>{content}</pre>}</section>
   return <section className="tool-call-content" onClick={onCollapse}>{isRead ? <NumberedPre content={content} startLine={startLine} /> : <pre>{content}</pre>}</section>
 }
