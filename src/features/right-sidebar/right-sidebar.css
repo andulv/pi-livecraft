@@ -13,12 +13,10 @@
 .widget-footer { flex: 0 0 auto; border-top: 1px solid var(--line); background: var(--surface-raised); }
 .right-sidebar-rail { display: flex; flex: 0 0 48px; flex-direction: column; align-items: center; border-left: 1px solid var(--line); background: var(--surface-raised); }
 .rail-tab { position: relative; display: grid; place-items: center; width: 100%; height: 48px; border: 0; border-bottom: 1px solid var(--line); padding: 0; background: transparent; color: var(--muted); transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease; }
-.rail-tab:hover:not(:disabled) { background: color-mix(in srgb, var(--surface) 70%, var(--canvas)); color: var(--ink); }
+.rail-tab:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
 .rail-tab:focus-visible { z-index: 1; outline: 2px solid var(--accent); outline-offset: -2px; }
 .rail-tab[aria-expanded='true'] { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
 .rail-tab:disabled { color: var(--subtle); cursor: not-allowed; }
 .rail-tab small { position: absolute; top: 5px; right: 4px; display: grid; place-items: center; min-width: 14px; height: 14px; border-radius: 9px; padding: 0 3px; background: var(--accent-soft); color: var(--accent-hover); font: 8px ui-sans-serif, system-ui, sans-serif; }
 .rail-tab[aria-expanded='true'] small { background: var(--surface); box-shadow: 0 1px 3px rgb(0 0 0 / 12%); }
-.rail-action-badge { position: absolute; top: 6px; right: 5px; display: grid; place-items: center; width: 11px; height: 11px; border: 1px solid var(--line); border-radius: 2px; background: var(--surface-raised); color: var(--muted); font: 7px ui-sans-serif, system-ui, sans-serif; line-height: 1; }
-.rail-tab:hover:not(:disabled) .rail-action-badge,
-.rail-tab:focus-visible .rail-action-badge { color: var(--subtle); border-color: var(--line-strong); }
+.rail-action-badge { position: absolute; top: 5px; right: 4px; display: grid; place-items: center; min-width: 14px; height: 14px; border-radius: 9px; padding: 0 2px; background: var(--accent-soft); color: var(--accent-hover); font: 8px ui-sans-serif, system-ui, sans-serif; }

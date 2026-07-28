@@ -184,6 +184,6 @@ button:disabled, select:disabled { cursor: not-allowed; }
   .git-commit-action:hover:not(:disabled) { background: var(--surface-raised); }
   .git-reset:hover:not(:disabled) { background: var(--danger-soft); }
   .git-actions button:hover { background: var(--accent-hover); }
-  .rail-tab:hover:not(:disabled) { background: color-mix(in srgb, var(--surface) 70%, var(--canvas)); }
+  .rail-tab:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
   .rail-tab small { color: var(--accent-hover); }
 }
