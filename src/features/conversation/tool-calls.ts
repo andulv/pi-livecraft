@@ -371,6 +371,12 @@ export function toolFilePath(args: unknown): string | null {
   return isObject(args) && typeof args.path === 'string' && args.path.length > 0 ? args.path : null
 }
 
+/** Returns the starting line number for read tool content display (offset or 1). */
+export function readStartingLineNumber(args: unknown): number {
+  if (!isObject(args)) return 1
+  return positiveInteger(args.offset) ?? 1
+}
+
 /** Determines file rendering from its path extension. */
 export function readContentDisplay(args: unknown): ReadContentDisplay {
   const path = toolFilePath(args)

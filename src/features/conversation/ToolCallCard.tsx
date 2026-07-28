@@ -14,7 +14,7 @@ import { Tooltip } from '../../components/Tooltip.tsx'
 import { getWorkspaceFile, getWorkspaceFilePath } from '../../api.ts'
 import { fileContextDraft } from './context-session.ts'
 import { canHighlightFile } from './file-preview.ts'
-import { formatToolCallTooltip, formatToolData, intraLineDiff, parseEditDiff, readContentDisplay, toolCallPresentation, toolContentText, toolDataLength, toolEditChanges, toolFilePath, toolTextPreview, fileUrl, type EditDiffLine } from './tool-calls.ts'
+import { formatToolCallTooltip, formatToolData, intraLineDiff, parseEditDiff, readContentDisplay, readStartingLineNumber, toolCallPresentation, toolContentText, toolDataLength, toolEditChanges, toolFilePath, toolTextPreview, fileUrl, type EditDiffLine } from './tool-calls.ts'
 
 SyntaxHighlighter.registerLanguage('bash', bash)
 SyntaxHighlighter.registerLanguage('csharp', csharp)
@@ -192,6 +192,21 @@ export const ToolCallCard = memo(function ToolCallCard({ animateLiveChanges = fa
   </article>
 })
 
+const lineNumberStyle: React.CSSProperties = { minWidth: '2.5em', paddingRight: '1em', textAlign: 'right', userSelect: 'none', opacity: 0.5 }
+
+/** Renders preformatted content with line numbers starting at an arbitrary offset. */
+function NumberedPre({ content, startLine }: { content: string; startLine: number }) {
+  const lines = content.split('\n')
+  const displayLines = content.endsWith('\n') ? lines.slice(0, -1) : lines
+  const width = String(startLine + displayLines.length - 1).length
+  return <pre className="tool-call-numbered-pre">
+    {displayLines.map((line, i) => {
+      const num = startLine + i
+      return <div key={i}><span>{String(num).padStart(width)}</span>{line}</div>
+    })}
+  </pre>
+}
+
 /** Displays a clickable preview for code files and resolved SVGs. */
 function ToolCallPreview({ call, content, darkMode, htmlFile, onClick, remainingLineCount }: { call: { name: string; args: unknown }; content: string; darkMode: boolean; htmlFile: boolean; onClick: () => void; remainingLineCount: number }) {
   const display = call.name === 'read' || call.name === 'write' ? readContentDisplay(call.args) : { kind: 'text' as const }
@@ -199,13 +214,17 @@ function ToolCallPreview({ call, content, darkMode, htmlFile, onClick, remaining
   const highlightedCode = display.kind === 'code' && canHighlightFile(content)
   const svgPreview = display.kind === 'svg' && content.trim().length > 0
   const filePath = toolFilePath(call.args)
+  const isRead = call.name === 'read'
+  const startLine = isRead ? readStartingLineNumber(call.args) : 1
 
   return <button className="tool-call-preview" onClick={onClick} type="button">
     {svgPreview
       ? <img alt={`SVG preview of ${filePath ?? 'file'}`} className="tool-call-svg-preview" src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(content)}`} />
       : highlightedCode
-        ? <SyntaxHighlighter className="tool-call-syntax" customStyle={{ background: 'transparent', margin: 0, padding: '9px 10px 4px' }} language={display.language} PreTag="div" style={darkMode ? oneDark : oneLight} wrapLongLines>{content}</SyntaxHighlighter>
-        : <pre>{content}</pre>}
+        ? <SyntaxHighlighter className="tool-call-syntax" customStyle={{ background: 'transparent', margin: 0, padding: '9px 10px 4px' }} language={display.language} PreTag="div" showLineNumbers={isRead} startingLineNumber={isRead ? startLine : undefined} lineNumberStyle={isRead ? lineNumberStyle : undefined} style={darkMode ? oneDark : oneLight} wrapLongLines>{content}</SyntaxHighlighter>
+        : isRead
+          ? <NumberedPre content={content} startLine={startLine} />
+          : <pre>{content}</pre>}
     {remainingLineCount > 0 && <span>{remainingLabel}</span>}
     {htmlFile && <span>Click to open in browser</span>}
   </button>
@@ -221,10 +240,12 @@ function ToolCallContent({ call, content, darkMode, onCollapse, renderingCode, r
   if (diffLines.length > 0 || changes.length > 0) return <ToolCallEditDiff changes={changes} diffLines={diffLines} onCollapse={onCollapse} />
 
   const display = call.name === 'read' || call.name === 'write' ? readContentDisplay(call.args) : { kind: 'text' as const }
+  const isRead = call.name === 'read'
+  const startLine = isRead ? readStartingLineNumber(call.args) : 1
   if (display.kind === 'markdown') return <section className="tool-call-content tool-call-markdown" onClick={onCollapse}><Markdown>{content}</Markdown></section>
-  if (display.kind === 'code' && canHighlightFile(content)) return <section className="tool-call-content" onClick={onCollapse}><SyntaxHighlighter className="tool-call-syntax" customStyle={{ background: 'transparent', margin: 0, padding: '9px 10px' }} language={display.language} PreTag="div" style={darkMode ? oneDark : oneLight} wrapLongLines>{content}</SyntaxHighlighter></section>
-  if (display.kind === 'code') return <section className="tool-call-content" onClick={onCollapse}><p className="tool-call-notice">Highlighting disabled beyond 50,000 characters.</p><pre>{content}</pre></section>
-  return <section className="tool-call-content" onClick={onCollapse}><pre>{content}</pre></section>
+  if (display.kind === 'code' && canHighlightFile(content)) return <section className="tool-call-content" onClick={onCollapse}><SyntaxHighlighter className="tool-call-syntax" customStyle={{ background: 'transparent', margin: 0, padding: '9px 10px' }} language={display.language} PreTag="div" showLineNumbers={isRead} startingLineNumber={isRead ? startLine : undefined} lineNumberStyle={isRead ? lineNumberStyle : undefined} style={darkMode ? oneDark : oneLight} wrapLongLines>{content}</SyntaxHighlighter></section>
+  if (display.kind === 'code') return <section className="tool-call-content" onClick={onCollapse}><p className="tool-call-notice">Highlighting disabled beyond 50,000 characters.</p>{isRead ? <NumberedPre content={content} startLine={startLine} /> : <pre>{content}</pre>}</section>
+  return <section className="tool-call-content" onClick={onCollapse}>{isRead ? <NumberedPre content={content} startLine={startLine} /> : <pre>{content}</pre>}</section>
 }
 
 
