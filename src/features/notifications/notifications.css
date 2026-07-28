@@ -43,6 +43,19 @@
   color: var(--danger);
 }
 .toast-message { overflow-wrap: anywhere; }
+.toast-action {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 2px;
+}
+.toast-action:hover { text-decoration-color: currentColor; }
+.toast-action:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .toast-dismiss {
   flex: 0 0 auto;
   width: 20px;

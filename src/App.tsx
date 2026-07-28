@@ -88,6 +88,7 @@ function App() {
   const [shortcuts, setShortcuts] = useState(() => readShortcuts())
   const [terminalCommand, setTerminalCommand] = useState(() => readTerminalCommand())
   const selectedIdRef = useRef(selectedId)
+  const workspacePathRef = useRef(workspacePath)
   const sessionsRef = useRef(sessions)
   const creatingSessionRef = useRef(false)
   const refreshVersionRef = useRef(0)
@@ -108,6 +109,7 @@ function App() {
   const currentQuotaProvider = quotaProviderForModel(model?.provider)
   const currentQuotaProviderRef = useRef(currentQuotaProvider)
   selectedIdRef.current = selectedId
+  workspacePathRef.current = workspacePath
   sessionsRef.current = sessions
   quotasRef.current = quotas
   currentQuotaProviderRef.current = currentQuotaProvider
@@ -125,8 +127,8 @@ function App() {
     }, 160)
   }, [])
 
-  const showToast = useCallback((kind: Toast['kind'], message: string, sessionId = selectedIdRef.current) => {
-    const toast = { id: crypto.randomUUID(), kind, message, sessionId }
+  const showToast = useCallback((kind: Toast['kind'], message: string, sessionId: string | null = selectedIdRef.current, action?: Toast['action']) => {
+    const toast = { id: crypto.randomUUID(), kind, message, sessionId, action }
     setToasts((current) => [...current, toast])
     if (kind !== 'error') window.setTimeout(() => startDismissal(toast.id), 3000)
   }, [startDismissal])
@@ -271,6 +273,39 @@ function App() {
     }
   }, [showToast, workspacePath])
 
+  /** Selects a workspace, persists it in recent history, and refreshes its sessions. */
+  const selectWorkspace = useCallback((path: string): void => {
+    window.localStorage.setItem('pi-livecraft.workspace-path', path)
+    const nextRecentWorkspacePaths = recentWorkspaces(path, recentWorkspacePaths)
+    window.localStorage.setItem('pi-livecraft.recent-workspace-paths', JSON.stringify(nextRecentWorkspacePaths))
+    setRecentWorkspacePaths(nextRecentWorkspacePaths)
+    setGitSnapshot(null)
+    setActiveRightWidget(null)
+    setWorkspacePath(path)
+    setSelectedId('')
+    setDirectoryPickerOpen(false)
+    void refreshSessions(path)
+  }, [recentWorkspacePaths, refreshSessions])
+
+  /** Opens a completed-session notification's workspace and selects its session. */
+  const openToastTarget = useCallback((toast: Toast): void => {
+    const target = toast.action
+    if (!target) return
+    dismissToast(toast.id)
+    selectWorkspace(target.cwd)
+    void (async () => {
+      try {
+        const session = target.sessionPath
+          ? await openSession(target.cwd, target.sessionPath)
+          : sessionsRef.current.find(({ id }) => id === target.sessionId)
+        await refreshSessions(target.cwd)
+        if (session) setSelectedId(session.id)
+      } catch (cause) {
+        showToast('error', messageOf(cause), null)
+      }
+    })()
+  }, [dismissToast, refreshSessions, selectWorkspace, showToast])
+
   /** Clears an answered request immediately, then reconciles all pending requests with the manager. */
   const closeDialog = useCallback((closedDialog: UiDialog) => {
     const requestId = closedDialog.request.id
@@ -403,8 +438,22 @@ function App() {
       if (event.type === 'agent_start') updateSessionStatus(sessionId, 'running')
       if (event.type === 'agent_settled') {
         updateSessionStatus(sessionId, 'idle')
-        const sessionKey = sessionsRef.current.find((session) => session.id === sessionId)?.sessionPath ?? sessionId
+        const completedSession = sessionsRef.current.find((session) => session.id === sessionId)
+        const sessionKey = completedSession?.sessionPath ?? sessionId
         if (sessionId !== selectedIdRef.current) setCompletedSessionIds((current) => new Set(current).add(sessionKey))
+        if (completedSession && completedSession.cwd !== workspacePathRef.current) {
+          showToast(
+            'notice',
+            `Workspace «${completedSession.cwd}» — session «${completedSession.name}» terminée.`,
+            null,
+            {
+              label: `Ouvrir le workspace ${completedSession.cwd} et la session ${completedSession.name}`,
+              cwd: completedSession.cwd,
+              sessionId: completedSession.id,
+              sessionPath: completedSession.sessionPath,
+            },
+          )
+        }
       }
       if (event.type === 'compaction_start') setCompactingSessionIds((current) => new Set(current).add(sessionId))
       if (event.type === 'compaction_end') setCompactingSessionIds((current) => {
@@ -801,7 +850,7 @@ function App() {
                 </button></Tooltip>
                 <div className="composer-area">
                   {questionnaire && questionnaireInComposer && <AskUserQuestionDialog canMinimize dialog={questionnaire} key={String(questionnaire.request.id)} sessionName={selectedSession.name} onClose={() => closeDialog(questionnaire)} onError={(cause) => showToast('error', messageOf(cause))} />}
-                  <ToastStack onDismiss={dismissToast} toasts={visibleToasts} />
+                  <ToastStack onAction={openToastTarget} onDismiss={dismissToast} toasts={visibleToasts} />
                   <Composer
                   key={selectedSession.id}
                   session={selectedSession}
@@ -838,7 +887,7 @@ function App() {
                   <p>Loading the session and its capabilities.</p>
                   <span aria-hidden="true" className="session-loading-indicator" />
                 </section>
-                {loadingPhase !== 'exiting' && <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />}
+                {loadingPhase !== 'exiting' && <ToastStack onAction={openToastTarget} onDismiss={dismissToast} standalone toasts={visibleToasts} />}
               </>
             )}
           </>
@@ -850,7 +899,7 @@ function App() {
               <p>Initializing Pi and its agents.</p>
               <span aria-hidden="true" className="session-loading-indicator" />
             </section>
-            <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />
+            <ToastStack onAction={openToastTarget} onDismiss={dismissToast} standalone toasts={visibleToasts} />
           </>
         ) : (
           <>
@@ -859,7 +908,7 @@ function App() {
               <h1>Control Pi from your browser</h1>
               <p>Create a local session to access your models, agents, tools, and commands.</p>
             </section>
-            <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />
+            <ToastStack onAction={openToastTarget} onDismiss={dismissToast} standalone toasts={visibleToasts} />
           </>
         )}
       </main>
@@ -922,18 +971,7 @@ function App() {
         recentPaths={recentWorkspacePaths}
         onClose={() => setDirectoryPickerOpen(false)}
         onError={(cause) => showToast('error', messageOf(cause))}
-        onSelect={(path) => {
-          window.localStorage.setItem('pi-livecraft.workspace-path', path)
-          const nextRecentWorkspacePaths = recentWorkspaces(path, recentWorkspacePaths)
-          window.localStorage.setItem('pi-livecraft.recent-workspace-paths', JSON.stringify(nextRecentWorkspacePaths))
-          setRecentWorkspacePaths(nextRecentWorkspacePaths)
-          setGitSnapshot(null)
-          setActiveRightWidget(null)
-          setWorkspacePath(path)
-          setSelectedId('')
-          setDirectoryPickerOpen(false)
-          void refreshSessions(path)
-        }}
+        onSelect={selectWorkspace}
       />}
       {questionnaire && !questionnaireInComposer && <AskUserQuestionDialog canMinimize={false} key={String(questionnaire.request.id)} dialog={questionnaire} sessionName={sessions.find((session) => session.id === questionnaire.sessionId)?.name} onClose={() => closeDialog(questionnaire)} onError={(cause) => showToast('error', messageOf(cause))} />}
       {dialog && !questionnaire && <ExtensionDialog dialog={dialog} onClose={() => closeDialog(dialog)} onError={(cause) => showToast('error', messageOf(cause))} />}
