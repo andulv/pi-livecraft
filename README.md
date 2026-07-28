@@ -21,15 +21,9 @@ Use your Pi sessions in a browser, with a more visual and interactive interface 
 
 ## Why Pi Livecraft?
 
-Pi works well in a terminal. Livecraft is another way to use the same sessions: in a browser, where custom tools, displays, and small workflows can have their own place.
+Pi Livecraft connects a Pi conversation to a React application. That opens up interactions that are awkward in the usual terminal flow: analyze a session in charts and click a turn to jump back into the conversation, replay a command from its Bash tool call, or open a referenced file directly in Explorer.
 
-Pi still owns the sessions, models, tools, history, and extensions. Livecraft adds the browser interface around them. A tool call can get a focused preview instead of raw output. A prompt you repeat can become a button. Context you keep checking can live in a panel. A recurring sequence can become a small workflow with the controls it needs.
-
-The source code is the customization surface. When something feels awkward, ask Pi to change the client from the session already running inside it. The development setup applies most changes without closing the Pi process. Review the diff, try the result, then keep it, tweak it, or remove it.
-
-The documentation is part of that loop. It is written for agents as well as people. The guides point to the code that owns a feature, explain the boundaries to preserve, and name focused checks. This helps Pi make a small change without rediscovering the whole project each time.
-
-Pi Livecraft starts as a capable client, not a finished product you must accept as-is. Create your own repository from the template. Delete half of it. Add the oddly specific workflow only you need.
+The analysis and jump-back navigation are included today. The Bash and file actions are examples of the small, personal additions Livecraft is made for. Ask Pi to change the client from the session already running inside it, then try most client changes without closing the Pi process. The agent-oriented docs point Pi to the right code and focused checks, making this loop practical.
 
 ## Quick start
 
