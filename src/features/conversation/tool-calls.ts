@@ -1,5 +1,8 @@
 import type { JsonObject } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
+import { positiveInteger, type ToolCallPresentation } from './tool-call-presentations/shared.ts'
+import { toolCallPresentations } from './tool-call-presentations/index.ts'
+export { truncateToolText } from './tool-call-presentations/shared.ts'
 
 export interface ToolCall {
   id: string
@@ -33,11 +36,6 @@ export interface ToolExecution extends ToolCall {
   partialResult?: ToolResult
   result?: ToolResult
   status: 'generating' | 'running' | 'interrupted'
-}
-
-export interface ToolCallPresentation {
-  headerDetail?: { text: string; title: string; suffix?: string }
-  pendingDetail?: string
 }
 
 export type AssistantTurnPart = { kind: 'message'; message: JsonObject } | { kind: 'tool'; call: ToolCall }
@@ -342,11 +340,6 @@ export function formatToolCallTooltip(title: string, inputLength: number, output
   return `${title}\nCall: ${inputLength} characters${outputLength === undefined ? '' : ` · Result: ${outputLength} characters`}`
 }
 
-export function truncateToolText(text: string, maxLength = 140): { text: string; truncated: boolean } {
-  if (text.length <= maxLength) return { text, truncated: false }
-  return { text: `${text.slice(0, maxLength)}…`, truncated: true }
-}
-
 /** Limits output to its first lines while reserving an indicator for the remaining content. */
 export function toolTextPreview(text: string, maxLines = 4): { text: string; remainingLineCount: number } {
   const lines = text.endsWith('\n') ? text.slice(0, -1).split('\n') : text.split('\n')
@@ -407,77 +400,6 @@ const languageByExtension: Record<string, string> = {
   ts: 'typescript',
   tsx: 'typescript',
   zsh: 'bash',
-}
-
-type ToolCallPresenter = (args: unknown, repositoryRoot?: string | null) => ToolCallPresentation
-
-const toolCallPresentations: Record<string, ToolCallPresenter> = {
-  bash: bashPresentation,
-  edit: filePresentation,
-  find: searchPresentation,
-  grep: searchPresentation,
-  read: readPresentation,
-  write: filePresentation,
-}
-
-/** Adapts Bash by placing its command in the header and its timeout in the status. */
-function bashPresentation(args: unknown): ToolCallPresentation {
-  if (!isObject(args) || typeof args.command !== 'string') return {}
-
-  const command = args.command
-  const timeout = typeof args.timeout === 'number' && Number.isFinite(args.timeout) ? args.timeout : undefined
-  return {
-    headerDetail: { text: truncateToolText(command, 80).text, title: command },
-    pendingDetail: timeout === undefined ? undefined : `timeout: ${timeout}s`,
-  }
-}
-
-/** Displays a file path relative to the repository without hiding access outside it. */
-function filePresentation(args: unknown, repositoryRoot?: string | null): ToolCallPresentation {
-  if (!isObject(args) || typeof args.path !== 'string') return {}
-
-  const path = pathFromRepositoryRoot(args.path, repositoryRoot)
-  return { headerDetail: { text: truncateToolText(path, 80).text, title: path } }
-}
-
-/** Exposes the pattern and optional scope without duplicating the two search tools' presentation. */
-function searchPresentation(args: unknown, repositoryRoot?: string | null): ToolCallPresentation {
-  if (!isObject(args) || typeof args.pattern !== 'string') return {}
-
-  const path = typeof args.path === 'string' ? pathFromRepositoryRoot(args.path, repositoryRoot) : undefined
-  const detail = path ? `${args.pattern} · ${path}` : args.pattern
-  return { headerDetail: { text: truncateToolText(detail, 80).text, title: detail } }
-}
-
-/** Completes the read path with an always-visible range distinct from truncated text. */
-function readPresentation(args: unknown, repositoryRoot?: string | null): ToolCallPresentation {
-  const presentation = filePresentation(args, repositoryRoot)
-  if (!presentation.headerDetail || !isObject(args)) return presentation
-
-  const range = readLineRange(args)
-  return range ? { headerDetail: { ...presentation.headerDetail, suffix: range } } : presentation
-}
-
-function readLineRange(args: JsonObject): string | undefined {
-  const offset = positiveInteger(args.offset)
-  const limit = positiveInteger(args.limit)
-  if (offset === undefined && limit === undefined) return undefined
-
-  const start = offset ?? 1
-  const end = limit === undefined ? '' : String(start + limit - 1)
-  return `[${start}:${end}]`
-}
-
-function positiveInteger(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined
-}
-
-function pathFromRepositoryRoot(path: string, repositoryRoot?: string | null): string {
-  if (!repositoryRoot) return path
-
-  const root = repositoryRoot.replace(/\/+$/, '')
-  if (path === root) return '.'
-  return path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path
 }
 
 function toolCallFromValue(value: unknown): ToolCall | null {

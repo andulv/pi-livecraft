@@ -2,12 +2,12 @@
 
 This guide covers adding a visual presentation for an RPC tool in the conversation.
 Every step is required unless noted otherwise. The `bash` presentation in
-[`tool-calls.ts`](/src/features/conversation/tool-calls.ts) is the reference —
-open it and locate `bashPresentation` to follow its shape.
+[`tool-call-presentations/bash.ts`](/src/features/conversation/tool-call-presentations/bash.ts)
+is the reference — open it to follow its shape.
 
-## 1. Create the presentation function
+## 1. Create the presentation module
 
-Add a function in `src/features/conversation/tool-calls.ts`.
+Add a new `.ts` file in `src/features/conversation/tool-call-presentations/`.
 
 **Signature:** `(args: unknown, repositoryRoot?: string | null) => ToolCallPresentation`
 
@@ -22,11 +22,17 @@ Add a function in `src/features/conversation/tool-calls.ts`.
 - `pendingDetail`: optional, shown under the "In progress…" status.
 - `repositoryRoot` lets you render absolute paths relative to the repo root via
   `pathFromRepositoryRoot`.
+- Types and shared helpers (`ToolCallPresentation`, `ToolCallPresenter`,
+  `truncateToolText`, `pathFromRepositoryRoot`, `readLineRange`, `positiveInteger`)
+  are available from `./shared.ts`.
 
 ```ts
-// src/features/conversation/tool-calls.ts
+// src/features/conversation/tool-call-presentations/my-tool.ts
 
-function myToolPresentation(args: unknown): ToolCallPresentation {
+import { isObject } from '../../../../shared/is-object.ts'
+import { truncateToolText, type ToolCallPresentation } from './shared.ts'
+
+export function myToolPresentation(args: unknown): ToolCallPresentation {
   if (!isObject(args) || typeof args.myField !== 'string') return {}
 
   const field = args.myField
@@ -39,16 +45,18 @@ function myToolPresentation(args: unknown): ToolCallPresentation {
 ```
 
 The function body is free-form: extract the fields you need, transform them, return the
-presentation. Look at `bashPresentation` for the simple case, `filePresentation` for
-relative paths, or `readPresentation` for enriching another presentation.
+presentation. Look at `bash.ts` for the simple case, `file.ts` for
+relative paths, or `read.ts` for enriching another presentation.
 
 ## 2. Register the presentation
 
-Add an entry to the `toolCallPresentations` object with the **exact RPC tool name** as the
-key (as sent by Pi in RPC events: `bash`, `read`, `write`, `edit`, `grep`, `find`, etc.):
+Add an entry to the `toolCallPresentations` object in
+[`tool-call-presentations/index.ts`](/src/features/conversation/tool-call-presentations/index.ts)
+with the **exact RPC tool name** as the key (as sent by Pi in RPC events: `bash`, `read`,
+`write`, `edit`, `grep`, `find`, etc.):
 
 ```ts
-const toolCallPresentations: Record<string, ToolCallPresenter> = {
+export const toolCallPresentations: Record<string, ToolCallPresenter> = {
   // … existing …
   my_tool: myToolPresentation,
 }
@@ -85,24 +93,26 @@ test('myToolPresentation ignores invalid arguments', () => {
 
 ## Available utilities
 
-| Function | Purpose |
-|---|---|
-| `truncateToolText(text, maxLength)` | Truncates with `…`, returns `{ text, truncated }` |
-| `pathFromRepositoryRoot(path, root)` | Renders an absolute path relative to the repo root |
-| `toolFilePath(args)` | Extracts `args.path` if present and valid |
-| `isObject(value)` | Type guard `value is JsonObject` |
+| Function | Location | Purpose |
+|---|---|---|
+| `truncateToolText(text, maxLength)` | `tool-call-presentations/shared.ts` | Truncates with `…`, returns `{ text, truncated }` |
+| `pathFromRepositoryRoot(path, root)` | `tool-call-presentations/shared.ts` | Renders an absolute path relative to the repo root |
+| `toolFilePath(args)` | `tool-calls.ts` | Extracts `args.path` if present and valid |
+| `isObject(value)` | `shared/is-object.ts` | Type guard `value is Record<string, unknown>` |
 
 ## Files touched
 
 | File | Action |
 |---|---|
-| `src/features/conversation/tool-calls.ts` | Presentation function + entry in `toolCallPresentations` |
+| `src/features/conversation/tool-call-presentations/<tool>.ts` | New presentation module |
+| `src/features/conversation/tool-call-presentations/index.ts` | Entry in `toolCallPresentations` |
 | `test/tool-calls.test.ts` | Test for the presentation and its fallback |
 
 ## Reference presentations
 
-All in [`tool-calls.ts`](/src/features/conversation/tool-calls.ts):
+Every presentation lives in [`src/features/conversation/tool-call-presentations/`](/src/features/conversation/tool-call-presentations/):
 
-- `bashPresentation` — simplest: a text field + `pendingDetail`
-- `filePresentation` — repo-relative path via `pathFromRepositoryRoot`
-- `readPresentation` — enriches `filePresentation` with a suffix (line range)
+- [`bash.ts`](/src/features/conversation/tool-call-presentations/bash.ts) — simplest: a text field + `pendingDetail`
+- [`file.ts`](/src/features/conversation/tool-call-presentations/file.ts) — repo-relative path via `pathFromRepositoryRoot`, shared by `edit` and `write`
+- [`read.ts`](/src/features/conversation/tool-call-presentations/read.ts) — enriches `file.ts` with a line-range suffix
+- [`search.ts`](/src/features/conversation/tool-call-presentations/search.ts) — pattern with optional directory, shared by `find` and `grep`

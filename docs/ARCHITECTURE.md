@@ -54,7 +54,7 @@ Use the [`src/features/` map](/src/features/README.md) to locate frontend owners
 
 ## Where to make a change
 
-- New tool presentation: `src/features/conversation/tool-calls.ts`, then its focused test.
+- New tool presentation: `src/features/conversation/tool-call-presentations/<tool>.ts`, register in `index.ts`, then its focused test.
 - New conversation or composer behavior: the relevant feature, without growing `App` when the state is not cross-cutting.
 - New palette command, widget command, or shortcut: read [`../src/features/commands/README.md`](/src/features/commands/README.md).
 - New preference or persisted UI state: read [`../src/features/settings/README.md`](/src/features/settings/README.md).
