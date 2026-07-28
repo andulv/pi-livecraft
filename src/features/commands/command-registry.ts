@@ -2,7 +2,7 @@ import type { JsonObject } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
 import { rightWidgetDefinitions, type RightWidget } from '../right-sidebar/right-sidebar.ts'
 
-type CoreCommandId = 'new-session' | 'send' | 'abort' | 'open-thinking' | 'open-model' | 'open-agent' | 'copy-last-response' | 'open-palette' | 'open-settings' | 'open-terminal'
+type CoreCommandId = 'new-session' | 'send' | 'abort' | 'open-thinking' | 'open-model' | 'open-agent' | 'copy-last-response' | 'open-palette' | 'open-settings' | 'open-terminal' | 'open-directory-picker' | 'workspace-previous' | 'focus-composer' | 'next-session' | 'previous-session' | 'toggle-conversation-view' | 'open-explorer'
 export type WidgetCommandId = `open-widget-${RightWidget}`
 export type CommandId = CoreCommandId | WidgetCommandId
 
@@ -23,6 +23,13 @@ export const commandDefinitions: CommandDefinition[] = [
   { id: 'open-palette', label: 'Open command palette' },
   { id: 'open-settings', label: 'Open settings' },
   { id: 'open-terminal', label: 'Open terminal' },
+  { id: 'open-directory-picker', label: 'Open directory picker' },
+  { id: 'workspace-previous', label: 'Switch to previous workspace' },
+  { id: 'focus-composer', label: 'Focus composer' },
+  { id: 'next-session', label: 'Next session' },
+  { id: 'previous-session', label: 'Previous session' },
+  { id: 'toggle-conversation-view', label: 'Toggle conversation view' },
+  { id: 'open-explorer', label: 'Open folder in explorer' },
   ...rightWidgetDefinitions.map(({ id, label }) => ({ id: rightWidgetCommandId(id), label: `Open ${label}` })),
 ]
 
@@ -36,6 +43,13 @@ export const defaultShortcuts: Partial<Record<CommandId, string>> = {
   'open-palette': 'alt+k',
   'open-settings': 'alt+s',
   'open-terminal': 'alt+t',
+  'open-directory-picker': 'alt+shift+d',
+  'workspace-previous': 'alt+shift+w',
+  'focus-composer': 'alt+i',
+  'next-session': 'alt+j',
+  'previous-session': 'alt+shift+j',
+  'toggle-conversation-view': 'alt+v',
+  'open-explorer': 'alt+shift+o',
   'open-widget-analysis': 'alt+a',
   'open-widget-git': 'alt+g',
   'open-widget-quotas': 'alt+q',

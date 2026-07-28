@@ -730,19 +730,48 @@ function App() {
       const text = lastAssistantText(snapshot.messages)
       if (!text) { showToast('notice', 'No assistant response to copy.'); return }
       void navigator.clipboard.writeText(text).then(() => showToast('notice', 'Last response copied.')).catch((cause) => showToast('error', messageOf(cause)))
+      return
     }
-  }, [gitSnapshot?.repository, openRightWidget, selectedId, sessionAnalysis, showToast, snapshot.messages, startAndSelectSession, terminalCommand, workspacePath])
+    if (id === 'open-directory-picker') { setDirectoryPickerOpen(true); return }
+    if (id === 'workspace-previous' && recentWorkspacePaths.length > 1) { selectWorkspace(recentWorkspacePaths[1]); return }
+    if (id === 'focus-composer') { setFocusComposerRequest((current) => current + 1); return }
+    if (id === 'next-session' || id === 'previous-session') {
+      const visible = sidebarSessions(recentSessions, workspacePath, sentSessions)
+      const currentIndex = visible.findIndex((session) => session.id === selectedId)
+      const targetIndex = id === 'next-session' ? currentIndex + 1 : currentIndex - 1
+      if (targetIndex >= 0 && targetIndex < visible.length) setSelectedId(visible[targetIndex].id)
+      return
+    }
+    if (id === 'toggle-conversation-view') {
+      setConversationView((current) => {
+        const next = current === 'simple' ? 'detailed' : 'simple'
+        window.localStorage.setItem('pi-livecraft.conversation-view', next)
+        return next
+      })
+      return
+    }
+    if (id === 'open-explorer') { void openExplorer(workspacePath).catch((cause) => showToast('error', messageOf(cause))); return }
+  }, [gitSnapshot?.repository, openRightWidget, recentSessions, recentWorkspacePaths, selectWorkspace, selectedId, sentSessions, sessionAnalysis, showToast, snapshot.messages, startAndSelectSession, terminalCommand, workspacePath])
 
-  const paletteCommands: PaletteCommand[] = useMemo(() => commandDefinitions.map((definition) => {
-    const rightWidget = rightWidgetFromCommand(definition.id)
-    const unavailableWidget = (rightWidget === 'analysis' && !sessionAnalysis) || (rightWidget === 'git' && !gitSnapshot?.repository)
-    return {
-      ...definition,
-      shortcut: shortcuts[definition.id],
-      disabled: unavailableWidget || (['send', 'abort', 'open-thinking', 'open-model', 'open-agent', 'copy-last-response'] as CommandId[]).includes(definition.id) && !selectedSession || (definition.id === 'abort' && selectedSession?.status !== 'running'),
-      onExecute: () => executeCommand(definition.id),
-    }
-  }), [executeCommand, gitSnapshot?.repository, selectedSession, sessionAnalysis, shortcuts])
+  const paletteCommands: PaletteCommand[] = useMemo(() => {
+    const visibleIds = sidebarSessions(recentSessions, workspacePath, sentSessions).map((session) => session.id)
+    const selectedIndex = selectedId ? visibleIds.indexOf(selectedId) : -1
+    return commandDefinitions.map((definition) => {
+      const rightWidget = rightWidgetFromCommand(definition.id)
+      const unavailableWidget = (rightWidget === 'analysis' && !sessionAnalysis) || (rightWidget === 'git' && !gitSnapshot?.repository)
+      return {
+        ...definition,
+        shortcut: shortcuts[definition.id],
+        disabled: unavailableWidget
+          || (['send', 'abort', 'open-thinking', 'open-model', 'open-agent', 'copy-last-response'] as CommandId[]).includes(definition.id) && !selectedSession
+          || (definition.id === 'abort' && selectedSession?.status !== 'running')
+          || (definition.id === 'workspace-previous' && recentWorkspacePaths.length < 2)
+          || (definition.id === 'next-session' && (selectedIndex === -1 || selectedIndex >= visibleIds.length - 1))
+          || (definition.id === 'previous-session' && selectedIndex <= 0),
+        onExecute: () => executeCommand(definition.id),
+      }
+    })
+  }, [executeCommand, gitSnapshot?.repository, recentSessions, recentWorkspacePaths, selectedId, selectedSession, sentSessions, sessionAnalysis, shortcuts, workspacePath])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {

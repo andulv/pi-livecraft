@@ -28,6 +28,25 @@ test('détecte les conflits de raccourcis', () => {
   assert.deepEqual([...conflicts].sort(), ['abort', 'send'])
 })
 
+test('les nouvelles commandes de productivité sont reconnues par le registre', () => {
+  const ids = ['open-directory-picker', 'workspace-previous', 'focus-composer', 'next-session', 'previous-session', 'toggle-conversation-view', 'open-explorer']
+  for (const id of ids) {
+    const definition = commandDefinitions.find((d) => d.id === id)
+    assert.ok(definition, `Commande ${id} absente du registre`)
+    assert.equal(typeof definition.label, 'string')
+  }
+})
+
+test('les nouveaux raccourcis par défaut sont définis', () => {
+  assert.equal(defaultShortcuts['open-directory-picker'], 'alt+shift+d')
+  assert.equal(defaultShortcuts['workspace-previous'], 'alt+shift+w')
+  assert.equal(defaultShortcuts['focus-composer'], 'alt+i')
+  assert.equal(defaultShortcuts['next-session'], 'alt+j')
+  assert.equal(defaultShortcuts['previous-session'], 'alt+shift+j')
+  assert.equal(defaultShortcuts['toggle-conversation-view'], 'alt+v')
+  assert.equal(defaultShortcuts['open-explorer'], 'alt+shift+o')
+})
+
 test('extrait la dernière réponse assistant', () => {
   assert.equal(lastAssistantText([{ role: 'assistant', content: 'Première' }, { role: 'assistant', content: [{ type: 'text', text: 'Dernière' }] }]), 'Dernière')
 })
