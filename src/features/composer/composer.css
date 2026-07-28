@@ -83,6 +83,7 @@
 .composer-select.behavior .composer-select-icon { color: var(--secondary); }
 .composer-select.improve .composer-select-icon { color: var(--secondary); }
 .composer-select.improve .composer-select-icon::before { content: '❇'; line-height: 14px; }
+.composer-select.improve { gap: 0; }
 .composer-select-content {
   z-index: 40;
   min-width: var(--radix-select-trigger-width);
