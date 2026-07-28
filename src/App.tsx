@@ -18,6 +18,7 @@ import { RightSidebar } from './features/right-sidebar/RightSidebar.tsx'
 import { quotaProviderForModel } from './features/quotas/quota-display.ts'
 import { DirectoryPicker } from './features/workspace/DirectoryPicker.tsx'
 import { recentWorkspaces } from './features/workspace/recent-workspaces.ts'
+import { pickSessionOnOpen, sidebarSessions } from './features/workspace/sidebar-sessions.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
 import { CommandPalette, type PaletteCommand } from './features/commands/CommandPalette.tsx'
 import { commandDefinitions, defaultShortcuts, lastAssistantText, migrateLegacyShortcut, rightWidgetFromCommand, shortcutFromEvent, type CommandId } from './features/commands/command-registry.ts'
@@ -104,6 +105,7 @@ function App() {
   const pendingLiveMessagesRef = useRef<LiveMessage[] | undefined>(undefined)
   const liveUpdateFrameRef = useRef<number | undefined>(undefined)
   const quotaAutoRefreshAtRef = useRef(new Map<string, number>())
+  const autoSelectOnRefreshRef = useRef(true)
   const quotasRef = useRef(quotas)
   const model = isObject(snapshot.state?.model) ? snapshot.state.model : undefined
   const currentQuotaProvider = quotaProviderForModel(model?.provider)
@@ -252,9 +254,13 @@ function App() {
   /** Reloads sessions and their UI requests while discarding stale responses. */
   const refreshSessions = useCallback(async (cwd = workspacePath) => {
     const version = ++refreshVersionRef.current
+    const shouldAutoSelect = autoSelectOnRefreshRef.current
     try {
       const [nextSessions, nextRecentSessions] = await Promise.all([listSessions(), listRecentSessions(cwd)])
       if (version !== refreshVersionRef.current) return
+      const autoSelectId = shouldAutoSelect
+        ? pickSessionOnOpen(sidebarSessions(nextRecentSessions, cwd, sentSessions), nextSessions, completedSessionIds)
+        : undefined
       setSessions(nextSessions)
       setCompletedSessionIds((current) => {
         if (current.size === 0) return current
@@ -265,7 +271,12 @@ function App() {
       })
       setRecentSessions(nextRecentSessions)
       setSentSessions((current) => current.filter((sent) => !nextRecentSessions.some((recent) => recent.id === sent.id || recent.sessionPath === sent.sessionPath)))
-      setSelectedId((current) => nextSessions.some((session) => session.id === current) ? current : '')
+      if (shouldAutoSelect) {
+        autoSelectOnRefreshRef.current = false
+        setSelectedId(autoSelectId ?? '')
+      } else {
+        setSelectedId((current) => nextSessions.some((session) => session.id === current) ? current : '')
+      }
       const pending = nextSessions.flatMap((session) =>
         session.pendingUi.map((request) => ({ sessionId: session.id, request })),
       ).find(({ request }) => !isAgentSelector(request))
@@ -286,6 +297,7 @@ function App() {
     setWorkspacePath(path)
     setSelectedId('')
     setDirectoryPickerOpen(false)
+    autoSelectOnRefreshRef.current = true
     void refreshSessions(path)
   }, [recentWorkspacePaths, refreshSessions])
 
@@ -295,6 +307,7 @@ function App() {
     if (!target) return
     dismissToast(toast.id)
     selectWorkspace(target.cwd)
+    autoSelectOnRefreshRef.current = false
     void (async () => {
       try {
         const session = target.sessionPath

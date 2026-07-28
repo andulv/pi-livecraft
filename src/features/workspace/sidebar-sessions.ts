@@ -1,4 +1,4 @@
-import type { RecentSession } from '../../../shared/types.ts'
+import type { RecentSession, SessionSummary } from '../../../shared/types.ts'
 
 /** Adds only sent sessions still missing from persistence, preserving the server order otherwise. */
 export function sidebarSessions(recentSessions: RecentSession[], workspacePath: string, sentSessions: RecentSession[] = []): RecentSession[] {
@@ -6,4 +6,32 @@ export function sidebarSessions(recentSessions: RecentSession[], workspacePath: 
   const recentPaths = new Set(recentSessions.map((session) => session.sessionPath))
   const pending = sentSessions.filter((session) => !recentIds.has(session.id) && !recentPaths.has(session.sessionPath))
   return [...pending, ...recentSessions].filter(({ cwd }) => cwd === workspacePath)
+}
+
+/**
+ * Picks the session to auto-select when opening a workspace.
+ * Priority: most recent completed unviewed session → most recent active session → none.
+ */
+export function pickSessionOnOpen(
+  visibleSessions: RecentSession[],
+  activeSessions: SessionSummary[],
+  completedSessionIds: ReadonlySet<string>,
+): string | null {
+  for (const visible of visibleSessions) {
+    const active = activeSessions.find(
+      (s) => s.sessionPath === visible.sessionPath && s.status !== 'exited',
+    )
+    if (active && active.status === 'idle' && completedSessionIds.has(visible.sessionPath)) {
+      return active.id
+    }
+  }
+  for (const visible of visibleSessions) {
+    const active = activeSessions.find(
+      (s) => s.sessionPath === visible.sessionPath && s.status !== 'exited',
+    )
+    if (active && (active.status === 'starting' || active.status === 'running')) {
+      return active.id
+    }
+  }
+  return null
 }
