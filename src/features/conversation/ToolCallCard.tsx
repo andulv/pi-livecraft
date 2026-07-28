@@ -163,7 +163,8 @@ export const ToolCallCard = memo(function ToolCallCard({
     hasResult ? outputLength : undefined,
   )
   const resolvedSizeLabel = `Input: ${inputLength} characters. Output: ${outputLength} characters.`
-  const content = htmlOpenError ?? writtenContentError
+  const content = htmlOpenError
+    ?? (!resultError ? undefined : writtenContentError)
     ?? (name === 'write' && writtenContent === undefined && loadingWrittenContent
       ? 'Loading file…'
       : name === 'write'
@@ -172,7 +173,7 @@ export const ToolCallCard = memo(function ToolCallCard({
   const hasCodePreview = display.kind === 'code' && hasResult && !expanded
     && canHighlightFile(content)
   const isNearViewport = useInView(cardRef, hasCodePreview)
-  const contentError = resultError || Boolean(writtenContentError) || Boolean(htmlOpenError)
+  const contentError = resultError
   const preview = toolTextPreview(content)
   const streamingArgs = streaming || interrupted ? input : undefined
   const streamingTruncated = Boolean(streamingArgs && streamingArgs.length > maxPreviewChars)
