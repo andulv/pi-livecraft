@@ -384,6 +384,20 @@
 .composer-select.improve {
   gap: 0;
 }
+.composer-select-spinner {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid var(--line-strong);
+  border-top-color: var(--secondary);
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer-select-spinner {
+    animation: none;
+  }
+}
 .composer-select-content {
   z-index: 40;
   min-width: var(--radix-select-trigger-width);

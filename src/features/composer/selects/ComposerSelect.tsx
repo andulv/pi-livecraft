@@ -13,6 +13,7 @@ export function ComposerSelect(
     placeholder,
     tone,
     triggerRef,
+    loading,
     value,
   }: {
     ariaLabel: string
@@ -22,6 +23,7 @@ export function ComposerSelect(
     placeholder?: string
     tone: 'agent' | 'behavior' | 'command' | 'improve' | 'model' | 'thinking'
     value: string
+    loading?: boolean
     open?: boolean
     onOpenChange?: (open: boolean) => void
     triggerRef?: RefObject<HTMLButtonElement | null>
@@ -36,7 +38,9 @@ export function ComposerSelect(
       value={value}
     >
       <Select.Trigger aria-label={ariaLabel} className={`composer-select ${tone}`} ref={triggerRef}>
-        <ComposerSelectIcon tone={tone} />
+        {loading
+          ? <span aria-hidden='true' className='composer-select-spinner' />
+          : <ComposerSelectIcon tone={tone} />}
         <Select.Value placeholder={placeholder} />
       </Select.Trigger>
       <Select.Portal>

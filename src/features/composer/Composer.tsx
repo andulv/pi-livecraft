@@ -463,6 +463,7 @@ export const Composer = memo(function Composer({
                   { label: 'Be concise', value: 'concise' },
                   { label: 'Request review', value: 'review' },
                 ]}
+                loading={improving}
                 tone='improve'
                 value={improvePreset}
               />
