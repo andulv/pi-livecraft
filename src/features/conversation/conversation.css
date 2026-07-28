@@ -284,8 +284,9 @@
 .pi-activity.is-exited .activity-signal i, .pi-activity.is-disconnected .activity-signal i { animation: none; }
 .pi-activity.is-exited, .pi-activity.is-disconnected { color: var(--muted); }
 @keyframes activity-wave { 0%, 60%, 100% { opacity: .45; transform: translateY(2px) scale(.8); } 30% { opacity: 1; transform: translateY(-3px) scale(1.15); } }
-.empty-conversation, .welcome { align-self: center; margin: auto; color: var(--muted); text-align: center; }
-.empty-conversation { max-width: 360px; padding: 44px 20px; }
+.empty-conversation, .welcome { color: var(--muted); text-align: center; }
+.empty-conversation { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 360px; padding: 44px 20px; }
+.welcome { align-self: center; margin: auto; }
 .empty-conversation h2, .welcome h1 { color: var(--ink); text-wrap: balance; }
 .empty-conversation .brand-mark.large { width: 56px; height: 56px; margin: 0 auto 14px; border-radius: 16px; font-size: 32px; box-shadow: 0 2px 0 var(--accent-hover); opacity: .92; }
 .empty-conversation h2 { margin-bottom: 8px; font-size: 21px; letter-spacing: -.03em; }
