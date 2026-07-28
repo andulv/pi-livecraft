@@ -238,8 +238,8 @@
 .tool-call-edit-line.removed { background: var(--danger-soft); color: var(--danger); }
 .tool-call-edit-line.removed > span,
 .tool-call-edit-line.removed > i { color: color-mix(in srgb, var(--danger) 60%, var(--surface)); }
-.tool-call-edit-line.removed .diff-seg-removed,
-.tool-call-edit-line.added .diff-seg-added { border-radius: 2px; background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.tool-call-edit-line.removed .diff-seg-removed { border-radius: 2px; background: color-mix(in srgb, var(--danger) 18%, var(--surface)); color: var(--danger); font-weight: 700; }
+.tool-call-edit-line.added .diff-seg-added { border-radius: 2px; background: color-mix(in srgb, var(--success) 18%, var(--surface)); color: var(--success); font-weight: 700; }
 .tool-call-edit-line.added { background: color-mix(in srgb, var(--success) 13%, var(--surface)); color: var(--success); }
 .tool-call-edit-line.added > span,
 .tool-call-edit-line.added > i { color: var(--success); }
