@@ -66,7 +66,7 @@ On Linux, opening a folder or terminal uses the desktop tools available in your 
 
 ## What is already included
 
-- **Session workspace** — create, switch, and reopen parallel Pi sessions without tying them to the browser lifecycle.
+- **Session workspace** — create, switch, and reopen parallel Pi sessions across multiple workspaces, with active and newly completed sessions surfaced in the sidebar so you can monitor ongoing work and jump wherever attention is needed.
 - **Live execution** — inspect responses, activity, usage, rich tool calls, file previews, and extension dialogs as they happen.
 - **Session analysis** — track context, tokens, costs per turn, tool activity, and failures, then jump back to the relevant message or call.
 - **Provider quotas** — monitor OpenAI Codex windows and GitHub Copilot usage from the right rail.
@@ -74,6 +74,11 @@ On Linux, opening a folder or terminal uses the desktop tools available in your 
 - **Focused side tools** — keep todos and bounded workspace commands one click away.
 - **Pi-native controls** — use the models, thinking levels, and commands exposed by Pi.
 - **Personal controls** — command palette, editable shortcuts, persistent drafts, resizable panels, and light or dark themes.
+
+## Recommended extensions
+
+- **[pi-agents](https://github.com/sebastienservouze/pi-agents)** — adds specialized agents with focused prompts, restricted tool sets, and isolated delegation. When available in Pi, its agent selector is automatically exposed in the Livecraft composer.
+- **[pi-auto-title](https://github.com/sebastienservouze/pi-auto-title)** — automatically names sessions from their first prompt, making parallel workspace histories easier to scan.
 
 ## Make it yours
 
