@@ -36,14 +36,18 @@ export function turnUsageByMessage(messages: JsonObject[]): Map<number, MessageU
 
 /**
  * Maps observed per-message durations to their message index.
- * Durations are keyed by the assistant message's timestamp.
+ * Durations are keyed by the 1-based ordinal of assistant messages that carry usage.
  */
 export function turnDurationByMessage(messages: JsonObject[], durations: ReadonlyMap<number, number>): Map<number, number> {
-  return new Map(messages.flatMap((message, index) => {
-    if (message.role !== 'assistant' || typeof message.timestamp !== 'number') return []
-    const duration = durations.get(message.timestamp)
-    return duration !== undefined ? [[index, duration] as const] : []
-  }))
+  const result = new Map<number, number>()
+  let ordinal = 0
+  messages.forEach((message, index) => {
+    if (message.role !== 'assistant' || !messageUsage(message)) return
+    ordinal += 1
+    const duration = durations.get(ordinal)
+    if (duration !== undefined) result.set(index, duration)
+  })
+  return result
 }
 
 /** Formats an observed millisecond duration for display. */

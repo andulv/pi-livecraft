@@ -2,7 +2,7 @@
 
 # Pi Livecraft
 
-**Craft your own Pi client while it runs.**
+**Turn your Pi conversations into an interactive web app you can reshape live, quirks welcome.**
 
 Use your Pi sessions in a browser, with a more visual and interactive interface you can shape around the way you work.
 

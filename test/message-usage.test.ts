@@ -48,23 +48,27 @@ test('hides metrics when Pi does not provide complete usage', () => {
   ]), new Map())
 })
 
-test('maps observed per-message durations to their message index by timestamp', () => {
+test('maps observed per-message durations to their message index by ordinal', () => {
   const messages = [
-    { role: 'user', timestamp: 100, content: 'hello' },
-    { role: 'assistant', timestamp: 200, content: 'response' },
-    { role: 'user', timestamp: 300, content: 'continue' },
-    { role: 'assistant', timestamp: 400, content: 'done' },
+    { role: 'user', content: 'hello' },
+    { role: 'assistant', content: 'response', usage: { input: 100, output: 10, cacheRead: 1_000, cost: { total: 0.01 } } },
+    { role: 'user', content: 'continue' },
+    { role: 'assistant', content: 'done', usage: { input: 200, output: 20, cacheRead: 2_000, cost: { total: 0.02 } } },
   ]
-  const durations = new Map([[200, 1_250], [400, 830]])
+  const durations = new Map([[1, 1_250], [2, 830]])
   assert.deepEqual(turnDurationByMessage(messages, durations), new Map([[1, 1_250], [3, 830]]))
 })
 
-test('skips messages without a timestamp or without an observed duration', () => {
+test('skips assistant messages without usage and ignores non-assistant roles', () => {
   const messages = [
-    { role: 'assistant', content: 'no timestamp here' },
-    { role: 'assistant', timestamp: 500, content: 'unmeasured' },
-    { role: 'user', timestamp: 600, content: 'not an assistant' },
+    { role: 'assistant', content: 'no usage here' },
+    { role: 'user', content: 'not an assistant' },
+    { role: 'assistant', content: 'with usage', usage: { input: 50, output: 5, cacheRead: 500, cost: { total: 0.005 } } },
   ]
+  // Only the third message has usage, so it's ordinal 1.
+  assert.deepEqual(turnDurationByMessage(messages, new Map([[1, 500]])), new Map([[2, 500]]))
+  // No matching ordinal in the map.
+  assert.deepEqual(turnDurationByMessage(messages, new Map([[2, 999]])), new Map())
+  // Empty durations map.
   assert.deepEqual(turnDurationByMessage(messages, new Map()), new Map())
-  assert.deepEqual(turnDurationByMessage(messages, new Map([[700, 500]])), new Map())
 })

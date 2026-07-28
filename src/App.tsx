@@ -101,6 +101,7 @@ function App() {
   const agentIntentsRef = useRef(new Map<string, AgentIntent>())
   const toolStartedAtRef = useRef(new Map<string, number>())
   const turnMessageStartedAtRef = useRef(new Map<number, number>())
+  const turnMessageSeqRef = useRef(0)
   const requestStartedAtRef = useRef<number | undefined>(undefined)
   const queueUpdateVersionRef = useRef(0)
   const liveMessagesRef = useRef<LiveMessage[]>([])
@@ -398,6 +399,7 @@ function App() {
     setObservedTurnDurations(new Map())
     toolStartedAtRef.current.clear()
     turnMessageStartedAtRef.current.clear()
+    turnMessageSeqRef.current = 0
     requestStartedAtRef.current = undefined
     void refreshSnapshot(selectedId)
   }, [clearLiveMessages, refreshSnapshot, selectedId])
@@ -538,8 +540,8 @@ function App() {
         return next?.kind === current?.kind ? current : next
       })
       if (event.type === 'message_start') {
-        const startedMessage = assistantMessageInEvent(event)
-        if (startedMessage && typeof startedMessage.timestamp === 'number') turnMessageStartedAtRef.current.set(startedMessage.timestamp, performance.now())
+        turnMessageSeqRef.current += 1
+        turnMessageStartedAtRef.current.set(turnMessageSeqRef.current, performance.now())
         flushLiveUpdates()
         setToolExecutions(interruptToolCallGeneration)
         const message = assistantMessageInEvent(event)
@@ -564,14 +566,11 @@ function App() {
       }
       if (event.type === 'message_end' || event.type === 'agent_settled') {
         if (event.type === 'message_end') {
-          const endedMessage = event.message
-          if (isObject(endedMessage) && typeof endedMessage.timestamp === 'number') {
-            const timestamp = endedMessage.timestamp
-            const startedAt = turnMessageStartedAtRef.current.get(timestamp)
-            if (startedAt !== undefined) {
-              setObservedTurnDurations((current) => new Map(current).set(timestamp, performance.now() - startedAt))
-              turnMessageStartedAtRef.current.delete(timestamp)
-            }
+          const ordinal = turnMessageSeqRef.current
+          const startedAt = turnMessageStartedAtRef.current.get(ordinal)
+          if (startedAt !== undefined) {
+            setObservedTurnDurations((current) => new Map(current).set(ordinal, performance.now() - startedAt))
+            turnMessageStartedAtRef.current.delete(ordinal)
           }
         }
         if (event.type === 'agent_settled') turnMessageStartedAtRef.current.clear()
