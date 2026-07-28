@@ -99,22 +99,19 @@ A local backend sends commands to `pi --mode rpc` through Pi's public RPC protoc
 React browser
     │ HTTP + SSE
     ▼
-server/backend.ts
-    │ local JSON Lines
-    ▼
-server/manager.ts ◀── lifecycle ── server/manager-supervisor.ts
-    │ Pi public RPC
-    ▼
-pi --mode rpc
+server/backend.ts ─── local JSON Lines ──▶ server/manager.ts ─── Pi public RPC ──▶ pi --mode rpc
+                                               ▲
+                                               │ guarded lifecycle
+                                    server/manager-supervisor.ts
 ```
 
-The separation is deliberate: the browser can refresh and the backend can restart while the manager continues to own the Pi processes. The supervisor never restarts the manager after a code change or crash; it replaces it only after the running manager accepts an explicit restart request and exits cleanly.
+The manager remains the sole owner of Pi processes, so browser and backend restarts preserve sessions. The supervisor records the manager runtime revision at launch but never restarts it after a code change or crash. Runtime changes produce a notice; replacement occurs only after the manager accepts a guarded restart and exits cleanly.
 
 | Change | Development behavior | Active session |
 | --- | --- | --- |
 | React UI and feature styles | Vite hot update | Preserved |
 | Backend routes and capabilities | `node --watch` restart | Preserved |
-| Manager runtime files | Persistent notice, then manual restart | Restart is blocked during an active response; open Pi processes close when confirmed |
+| Declared manager runtime files | Persistent notice, then guarded restart | Blocked during active work; Pi processes close, but sessions remain in history |
 
 Read [`docs/ARCHITECTURE.md`](/docs/ARCHITECTURE.md) before changing boundaries or process ownership.
 
@@ -148,7 +145,7 @@ The Pi RPC integration test additionally requires a configured Pi installation.
 ## Troubleshooting
 
 - `pi: command not found`: install Pi globally and verify that `pi --version` works in the same shell used to start Livecraft.
-- The manager or backend is unavailable: check that ports `43120` and `43121` are free, or set `PI_LIVECRAFT_MANAGER_PORT` and `PI_LIVECRAFT_BACKEND_PORT`.
+- The manager or backend is unavailable: check that ports `43120` and `43121` are free, or set `PI_LIVECRAFT_MANAGER_PORT` and `PI_LIVECRAFT_BACKEND_PORT`. After a manager crash, restart `npm run dev`; the supervisor intentionally does not relaunch it automatically.
 - A new session cannot answer: launch Pi once, configure a provider with `/login`, and verify the `/agent` extension is available.
 - Linux desktop actions unavailable: install or expose `xdg-open` and `x-terminal-emulator` in `PATH`.
 - WSL desktop actions unavailable: verify that `explorer.exe`, `wslpath`, and `wt.exe` are available in the WSL `PATH`.

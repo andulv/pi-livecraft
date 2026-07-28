@@ -7,8 +7,9 @@
 - `src/App.tsx` orchestrates cross-cutting state. Area-specific rendering and logic belong in `src/features/<feature>/`.
 - Colocate feature CSS. Reserve `src/styles/` for global and responsive rules; `src/App.css` remains the ordered entry point.
 - `server/backend.ts` owns the web API and SSE stream and can restart without interrupting Pi.
-- `server/manager.ts` is the sole owner of `pi --mode rpc` processes. Ask before changing or restarting it because this can interrupt the current connection and response; history can normally resume the session.
-- Use Pi's public RPC protocol. Do not read internal files to reproduce an RPC capability or move process ownership into the backend.
+- `server/manager.ts` is the sole owner of `pi --mode rpc` processes; never move that ownership into the backend.
+- Manager runtime files are declared in `server/manager-runtime-files.json`; keep it aligned with runtime imports. Edits are detected without interrupting Pi and take effect only after the user requests the guarded restart. Do not restart the manager or supervisor yourself, bypass that flow, or change its lifecycle contract without explicit approval.
+- Use Pi's public RPC protocol. Do not read internal files to reproduce an RPC capability.
 - The application listens only on `127.0.0.1`. Do not broaden exposure without explicit authentication and scoping.
 - Do not add a database, frontend router, state manager, or UI library without demonstrated need.
 
@@ -25,8 +26,8 @@ Pi Livecraft is designed to be modified by the agents using it. Trace the existi
 ## Commands
 
 ```bash
-npm run dev                 # manager, backend, and frontend
-npm run dev:manager         # individual development processes
+npm run dev                 # supervisor/manager, backend, and frontend
+npm run dev:manager         # supervisor and manager only
 npm run dev:backend
 npm run dev:frontend
 npm run typecheck

@@ -6,13 +6,10 @@ Pi Livecraft separates the interface, local HTTP API, and Pi processes so that r
 React browser
     │ HTTP + SSE
     ▼
-server/backend.ts
-    │ JSON Lines over local TCP
-    ▼
-server/manager.ts ◀── lifecycle ── server/manager-supervisor.ts
-    │ Pi public RPC
-    ▼
-pi --mode rpc process
+server/backend.ts ─── JSON Lines over local TCP ──▶ server/manager.ts ─── Pi public RPC ──▶ pi --mode rpc
+                                                        ▲
+                                                        │ starts; replaces only after an accepted restart
+                                             server/manager-supervisor.ts
 ```
 
 ## Frontend
@@ -37,9 +34,11 @@ Use the [`src/features/` map](/src/features/README.md) to locate frontend owners
 
 `server/backend.ts` exposes the web API, validates HTTP requests, serves the build, and broadcasts SSE events. Domain behavior for Git, quotas, terminal launching, and todos lives in `server/features/`; route definitions remain in the backend. Other neighboring modules provide workspace files, recent sessions, and system integrations.
 
-`server/manager.ts` is the sole owner of `pi --mode rpc` processes. `server/pi-process.ts` starts each process with the required extensions from `pi-extensions/`. `server/manager-client.ts` connects the backend to the manager through a local JSON Lines protocol. This responsibility must not move to the backend: the manager must survive backend restarts. Backend capabilities that need Pi communicate through this client rather than owning a process.
+`server/manager.ts` is the sole owner of `pi --mode rpc` processes. `server/pi-process.ts` starts them with the extensions from `pi-extensions/`, while `server/manager-client.ts` carries backend requests over local JSON Lines. Keeping this ownership outside the backend preserves Pi sessions across backend restarts.
 
-`server/manager-supervisor.ts` owns only the manager process lifecycle. It captures the declared runtime revision before launch and starts a replacement only after the manager exits with the reserved restart code. It does not restart after file changes or crashes, and remains alive after a crash so the backend can report the outage. `server/manager-runtime-monitor.ts` runs in the backend, compares that captured revision with `server/manager-runtime-files.json`, and publishes status through SSE. A manual restart is rejected while a session is starting or running or manager work is still in flight, and the old manager terminates all owned Pi children before the supervisor launches the new instance.
+`server/manager-supervisor.ts` starts the manager with the SHA-256 revision of the files declared in `server/manager-runtime-files.json`. It never replaces the manager because files changed or because it crashed: replacement happens only when the manager accepts a restart request and exits with the reserved code. After a crash, the supervisor stays alive and the backend reports the outage.
+
+`server/manager-runtime-monitor.ts` runs in the backend. It compares the running revision with the current declared files, emits `manager_status` through SSE, and coordinates the guarded restart. The restart is rejected while a session is starting or running, while manager work is in flight, or while another restart is pending. Once accepted, the manager closes its Pi children before the supervisor starts the replacement; closed idle sessions remain available in history.
 
 ## Shared contracts
 
@@ -62,4 +61,5 @@ Use the [`src/features/` map](/src/features/README.md) to locate frontend owners
 - New right widget: read [`../src/features/right-sidebar/README.md`](/src/features/right-sidebar/README.md).
 - Existing local capability: its module under `server/features/`, after reading [`../server/features/README.md`](/server/features/README.md).
 - New local route: `server/backend.ts`, then `src/api.ts` if the frontend uses it.
-- Pi process lifecycle: `server/manager.ts` or `server/pi-process.ts`, after explicit approval because of the interruption risk.
+- Manager or Pi process behavior: `server/manager.ts` or `server/pi-process.ts`; keep `server/manager-runtime-files.json` aligned with runtime imports.
+- Manager supervision or restart protocol: `server/manager-supervisor.ts` and `server/manager-runtime-monitor.ts`, after explicit approval because this changes the interruption boundary.
