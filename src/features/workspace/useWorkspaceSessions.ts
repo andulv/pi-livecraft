@@ -43,9 +43,7 @@ export function useWorkspaceSessions(
     )
   )
   const [directoryPickerOpen, setDirectoryPickerOpen] = useState(false)
-  const [selectedId, setSelectedId] = useState(() =>
-    window.localStorage.getItem('pi-livecraft.selected-session') ?? ''
-  )
+  const [selectedId, setSelectedId] = useState('')
   const [creatingSession, setCreatingSession] = useState(false)
   const sessionsRef = useRef(sessions)
   const sentSessionsRef = useRef(sentSessions)
