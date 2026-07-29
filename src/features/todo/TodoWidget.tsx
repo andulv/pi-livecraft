@@ -428,7 +428,15 @@ export function TodoWidget(
               disabled={busy || loading || !newText.trim()}
               type='submit'
             >
-              +
+              <svg aria-hidden='true' viewBox='0 0 16 16'>
+                <path
+                  d='M8 3.5v9M3.5 8h9'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeLinecap='round'
+                  strokeWidth='1.5'
+                />
+              </svg>
             </button>
           </Tooltip>
         </form>
