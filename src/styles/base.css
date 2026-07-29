@@ -195,10 +195,13 @@ button:disabled, select:disabled {
     border-color: color-mix(in srgb, var(--accent) 40%, var(--canvas));
   }
   .composer-select-option[data-highlighted] {
-    background: color-mix(in srgb, var(--surface) 70%, var(--canvas));
+    background: color-mix(in srgb, var(--ink) 6%, var(--surface));
   }
   .composer-select-option[data-state="checked"] {
     color: var(--accent-hover);
+  }
+  .composer-select-option[data-state="checked"][data-highlighted] {
+    background: color-mix(in srgb, var(--accent) 22%, var(--surface));
   }
   .icon-button.send {
     box-shadow: 0 2px 0 color-mix(in srgb, var(--accent-hover) 35%, black);

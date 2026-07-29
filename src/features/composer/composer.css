@@ -435,9 +435,10 @@
   color: var(--ink);
   font-size: 12px;
   line-height: 1.35;
+  cursor: pointer;
 }
 .composer-select-option[data-highlighted] {
-  background: color-mix(in srgb, var(--surface) 70%, var(--canvas));
+  background: color-mix(in srgb, var(--ink) 6%, var(--surface));
 }
 .composer-select-content.improve .composer-select-option[data-highlighted] {
   background: var(--secondary-soft);
@@ -446,6 +447,9 @@
   background: var(--accent-soft);
   color: var(--accent-hover);
   font-weight: 700;
+}
+.composer-select-option[data-state="checked"][data-highlighted] {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
 }
 .composer-select-option[data-disabled] {
   color: var(--subtle);
