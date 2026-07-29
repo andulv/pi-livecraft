@@ -67,7 +67,15 @@
 }
 
 .todo-list li.todo-linked {
-  grid-template-columns: 22px minmax(0, 1fr) 30px;
+  grid-template-columns: 18px 22px minmax(0, 1fr) 30px;
+}
+.todo-indicator-placeholder {
+  width: 18px;
+  height: 10px;
+}
+.todo-list li.todo-linked .session-status-indicator {
+  justify-self: center;
+  align-self: center;
 }
 .todo-list li.todo-session-active {
   border-color: color-mix(in srgb, var(--accent) 30%, var(--line));

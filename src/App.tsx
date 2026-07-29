@@ -1146,6 +1146,8 @@ function App() {
         activeSessionId={selectedId}
         activeWidget={activeRightWidget}
         analysis={sessionAnalysis}
+        compactingSessionIds={compactingSessionIds}
+        completedSessionIds={completedSessionIds}
         currentQuotaProvider={currentQuotaProvider}
         onAnalysisNavigate={navigateToAnalysisTarget}
         onResize={updateRightSidebarWidth}

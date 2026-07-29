@@ -12,11 +12,15 @@ import type { SessionSummary, TodoItem, TodoSessionLink } from '../../../shared/
 import { getTodos, updateTodos } from '../../api.ts'
 import { reorderTodoItems, sortTodoItemsForDisplay } from './todo-order.ts'
 import { promptSessionTitle } from '../composer/prompt-title.ts'
+import { sessionIndicator } from '../workspace/session-indicator.ts'
+import { SessionStatusIndicator } from '../workspace/SessionStatusIndicator.tsx'
 
 /** Displays and edits the persistent task list for the current workspace. */
 export function TodoWidget(
   {
     activeSessionId,
+    compactingSessionIds,
+    completedSessionIds,
     onNavigateSession,
     onOpenCountChange,
     onSendPrompt,
@@ -25,6 +29,8 @@ export function TodoWidget(
     workspacePath,
   }: {
     activeSessionId: string
+    compactingSessionIds: ReadonlySet<string>
+    completedSessionIds: ReadonlySet<string>
     onNavigateSession: (link: { id: string; sessionPath: string }) => void
     onOpenCountChange: (count: number | null) => void
     onSendPrompt: (message: string) => Promise<SessionSummary | null>
@@ -338,6 +344,21 @@ export function TodoWidget(
                             </span>
                           </Tooltip>
                         )}
+                        {todo.session
+                          && ((() => {
+                            const s = sessionForTodo(todo, sessions)
+                            const ind = s
+                              ? sessionIndicator(
+                                s,
+                                activeSessionId,
+                                compactingSessionIds,
+                                completedSessionIds,
+                              )
+                              : null
+                            return ind
+                              ? <SessionStatusIndicator status={ind} />
+                              : <span aria-hidden='true' className='todo-indicator-placeholder' />
+                          })())}
                         <input
                           aria-label={`${todo.completed ? 'Reopen' : 'Mark'} “${todo.text}”`}
                           checked={todo.completed}
@@ -483,16 +504,20 @@ export function TodoWidget(
   )
 }
 
+/** Finds the live session summary for a linked todo, matching by id or path. */
+function sessionForTodo(todo: TodoItem, sessions: SessionSummary[]): SessionSummary | undefined {
+  const link = todo.session
+  if (!link) return undefined
+  return sessions.find(
+    (session) =>
+      session.id === link.id
+      || (session.sessionPath !== undefined && session.sessionPath === link.sessionPath),
+  )
+}
+
 /** Resolves the current display name for a linked session, falling back to its stored name. */
 function sessionNameForTodo(todo: TodoItem, sessions: SessionSummary[]): string {
-  const link = todo.session
-  if (!link) return ''
-  return sessions
-    .find((session) =>
-      session.id === link.id
-      || (session.sessionPath !== undefined && session.sessionPath === link.sessionPath)
-    )
-    ?.name ?? link.name
+  return sessionForTodo(todo, sessions)?.name ?? todo.session?.name ?? ''
 }
 
 function openCount(todos: TodoItem[]): number {

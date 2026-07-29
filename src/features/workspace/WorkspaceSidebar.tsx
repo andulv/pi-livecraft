@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CompactingIcon } from '../../components/CompactingIcon.tsx'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type { RecentSession, SessionSummary } from '../../../shared/types.ts'
-import { sessionIndicator, type SessionIndicator } from './session-indicator.ts'
+import { sessionIndicator } from './session-indicator.ts'
+import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
 import { otherWorkspaceSessions, sidebarSessions } from './sidebar-sessions.ts'
 
 interface WorkspaceSidebarProps {
@@ -177,30 +177,6 @@ export function WorkspaceSidebar({
   )
 }
 
-const indicatorLabels: Record<SessionIndicator, string> = {
-  working: 'Pi is working',
-  waiting: 'Pi is waiting for your response',
-  compacting: 'Pi is compacting the session',
-  complete: 'Pi finished its turn',
-}
-
-/** Uses one visual vocabulary for active, attention, and completed session states. */
-function SessionStatusIndicator({ status }: { status: SessionIndicator }) {
-  return (
-    <Tooltip label={indicatorLabels[status]}>
-      <span
-        aria-label={indicatorLabels[status]}
-        className={`session-status-indicator ${status}`}
-        role='img'
-      >
-        {status === 'compacting' && <CompactingIcon />}
-        {status === 'waiting' && <WaitingIcon />}
-        {status === 'complete' && <CompleteIcon />}
-      </span>
-    </Tooltip>
-  )
-}
-
 /** Prevents duplicate session creation and reports errors to the container. */
 function NewSessionButton(
   { onCreate, onError }: { onCreate: () => Promise<void>; onError: (cause: unknown) => void },
@@ -245,30 +221,6 @@ function SettingsIcon() {
     >
       <path d='M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z' />
       <path d='m19.4 15 .1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.9 1.9 0 0 0-3.2 1.3v.2a2 2 0 1 1-4 0v-.2a1.9 1.9 0 0 0-3.2-1.3l.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.9 1.9 0 0 0 2.2 12a1.9 1.9 0 0 0 1.2-3.2l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.9 1.9 0 0 0 3.2-1.3v-.2a2 2 0 1 1 4 0v.2a1.9 1.9 0 0 0 3.2 1.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.9 1.9 0 0 0 20.8 12a1.9 1.9 0 0 0-1.4 3Z' />
-    </svg>
-  )
-}
-
-/** Filled chat-bubble icon for the waiting-for-response indicator. */
-function WaitingIcon() {
-  return (
-    <svg aria-hidden='true' fill='currentColor' height='14' viewBox='0 0 24 24' width='14'>
-      <path d='M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4V4c0-1.1-.9-2-2-2z' />
-    </svg>
-  )
-}
-
-/** Simple checkmark for completed sessions. */
-function CompleteIcon() {
-  return (
-    <svg aria-hidden='true' fill='currentColor' height='14' viewBox='0 0 24 24' width='14'>
-      <path
-        d='M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'
-        stroke='currentColor'
-        strokeLinecap='round'
-        strokeLinejoin='round'
-        strokeWidth='.6'
-      />
     </svg>
   )
 }

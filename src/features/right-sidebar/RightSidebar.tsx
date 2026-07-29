@@ -41,6 +41,8 @@ export function RightSidebar({
   activeSessionId,
   activeWidget,
   analysis,
+  compactingSessionIds,
+  completedSessionIds,
   currentQuotaProvider,
   onAnalysisNavigate,
   onResize,
@@ -66,6 +68,8 @@ export function RightSidebar({
   activeSessionId: string
   activeWidget: RightWidget | null
   analysis: SessionAnalysis | null
+  compactingSessionIds: ReadonlySet<string>
+  completedSessionIds: ReadonlySet<string>
   currentQuotaProvider: QuotaProvider | undefined
   onAnalysisNavigate: (target: SessionAnalysisTarget) => void
   onResize: (width: number) => void
@@ -207,6 +211,8 @@ export function RightSidebar({
             {activeWidget === 'todo' && (
               <TodoWidget
                 activeSessionId={activeSessionId}
+                compactingSessionIds={compactingSessionIds}
+                completedSessionIds={completedSessionIds}
                 onNavigateSession={onTodoNavigateSession}
                 onOpenCountChange={setTodoOpenCount}
                 onSendPrompt={onTodoSendPrompt}
