@@ -214,7 +214,7 @@
 /* ── Add form: textarea + button ── */
 .todo-add {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 34px;
   align-items: start;
   gap: 7px;
   padding: 10px;
@@ -247,14 +247,15 @@
 .todo-add button {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 30px;
+  align-self: end;
+  width: 100%;
+  height: 34px;
   border: 1px solid var(--accent);
   border-radius: 7px;
   background: var(--accent);
   color: var(--surface);
   font-size: 20px;
-  line-height: 1;
+  line-height: 0;
   padding: 0;
   transition: background 180ms ease, transform 180ms ease;
 }
