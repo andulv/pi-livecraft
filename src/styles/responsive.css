@@ -1,6 +1,9 @@
 @media (prefers-reduced-motion: reduce) {
   .session-status-indicator,
   .session-status-indicator.compacting svg,
+  .activity-signal.compacting svg {
+    animation: none;
+  }
   .session-item.working strong,
   .session-item.compacting strong,
   .session-item.waiting strong,

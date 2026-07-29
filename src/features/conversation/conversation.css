@@ -942,6 +942,15 @@
   text-align: right;
   user-select: none;
 }
+.pi-activity.is-compacting {
+  color: var(--warning-strong);
+}
+.activity-signal.compacting svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  animation: compact-gear-spin 2s linear infinite;
+}
 .pi-activity {
   display: flex;
   align-items: flex-start;

@@ -12,6 +12,7 @@ import {
 } from 'react'
 import type { JsonObject } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
+import { CompactingIcon } from '../../components/CompactingIcon.tsx'
 import { activityActionText, activityAgentName, type Activity } from './activity.ts'
 import {
   formatTokens,
@@ -575,10 +576,23 @@ export function ActivityIndicator(
 ) {
   return (
     <div className={`pi-activity is-${activity.kind}`} role='status'>
-      <span aria-hidden='true' className='activity-signal'>
-        <i />
-        <i />
-        <i />
+      <span
+        aria-hidden='true'
+        className={`activity-signal${
+          activity.kind === 'compacting'
+            ? ' compacting'
+            : ''
+        }`}
+      >
+        {activity.kind === 'compacting'
+          ? <CompactingIcon />
+          : (
+            <>
+              <i />
+              <i />
+              <i />
+            </>
+          )}
       </span>
       <span className='activity-text'>
         <span>{activityAgentName(agentName)}</span>{' '}

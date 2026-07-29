@@ -499,7 +499,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--accent);
+  color: var(--warning-strong);
   font: 10px ui-monospace, monospace;
   white-space: nowrap;
 }
@@ -508,7 +508,7 @@
   width: 11px;
   height: 11px;
   border: 1.5px solid var(--line-strong);
-  border-top-color: var(--accent);
+  border-top-color: var(--warning-strong);
   border-radius: 50%;
   animation: spin 800ms linear infinite;
 }

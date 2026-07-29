@@ -337,7 +337,7 @@
   width: 16px;
   height: 16px;
   display: block;
-  animation: session-gear-spin 2s linear infinite;
+  animation: compact-gear-spin 2s linear infinite;
 }
 .session-status-indicator.waiting {
   width: 14px;
@@ -370,11 +370,6 @@
   50% {
     box-shadow: 0 0 0 7px transparent;
     transform: scale(1.08);
-  }
-}
-@keyframes session-gear-spin {
-  to {
-    transform: rotate(360deg);
   }
 }
 .empty-sidebar {

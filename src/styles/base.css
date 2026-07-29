@@ -408,3 +408,9 @@ button:disabled, select:disabled {
     color: var(--accent-hover);
   }
 }
+
+@keyframes compact-gear-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
