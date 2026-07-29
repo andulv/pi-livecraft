@@ -8,7 +8,7 @@ import type {
   ToolSummary,
 } from './session-analysis.ts'
 
-type ToolRanking = 'duration' | 'failure' | 'output'
+type ToolRanking = 'duration' | 'failure' | 'input' | 'output'
 type ToolUsageRanking = 'duration' | 'input' | 'output'
 
 /** Presents deterministic session metrics and links each anomaly to the conversation. */
@@ -18,7 +18,7 @@ export function SessionAnalysisWidget(
     onNavigate: (target: SessionAnalysisTarget) => void
   },
 ) {
-  const [toolRanking, setToolRanking] = useState<ToolRanking>('output')
+  const [toolRanking, setToolRanking] = useState<ToolRanking>('input')
   const [toolUsageRanking, setToolUsageRanking] = useState<ToolUsageRanking>('output')
   const costlyRequests = useMemo(() =>
     [...analysis.requests]
@@ -174,6 +174,7 @@ export function SessionAnalysisWidget(
             onChange={(event) => setToolRanking(event.target.value as ToolRanking)}
             value={toolRanking}
           >
+            <option value='input'>input</option>
             <option value='output'>output</option>
             <option value='duration'>observed duration</option>
             <option value='failure'>failures</option>
@@ -668,7 +669,7 @@ function ToolCallRow(
             ? formatDuration(call.durationMs ?? 0)
             : metric === 'failure'
             ? 'failure'
-            : formatCharacters(call.outputLength)}
+            : formatCharacters(toolValue(call, metric))}
         </b>
       </button>
     </li>
@@ -680,7 +681,9 @@ function EmptyState({ children }: { children: string }) {
 }
 
 function toolValue(call: AnalyzedToolCall, metric: ToolRanking): number {
-  return metric === 'duration' ? call.durationMs ?? 0 : call.outputLength
+  if (metric === 'duration') return call.durationMs ?? 0
+  if (metric === 'input') return call.inputLength
+  return call.outputLength
 }
 
 function toolSummaryValue(tool: ToolSummary | undefined, metric: ToolUsageRanking): number {
