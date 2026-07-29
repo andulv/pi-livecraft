@@ -343,8 +343,8 @@ export function TodoWidget(
                                 onClick={() => onNavigateSession(todo.session!)}
                                 type='button'
                               >
-                                <span className='todo-session-dot' />
-                                {todo.text}
+                                <span className='todo-session-dot' aria-hidden='true' />
+                                <span className='todo-session-text'>{todo.text}</span>
                                 <span className='todo-session-name'>{todo.session.name}</span>
                               </button>
                             </Tooltip>
