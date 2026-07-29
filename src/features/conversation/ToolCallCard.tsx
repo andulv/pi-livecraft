@@ -334,6 +334,8 @@ export const ToolCallCard = memo(function ToolCallCard({
                     call={{ name, args }}
                     content={display.kind === 'svg' || display
                           .kind === 'html'
+                        || display
+                            .kind === 'markdown'
                       ? content
                       : preview
                         .text}
@@ -376,7 +378,7 @@ function NumberedPre({ content, startLine }: { content: string; startLine: numbe
   )
 }
 
-/** Displays a clickable preview for code files, HTML files, and resolved SVGs. */
+/** Displays a clickable preview for code files, HTML files, resolved SVGs, and Markdown. */
 function ToolCallPreview({
   call,
   content,
@@ -397,11 +399,16 @@ function ToolCallPreview({
   const display = call.name === 'read' || call.name === 'write'
     ? readContentDisplay(call.args)
     : { kind: 'text' as const }
-  const remainingLabel = display.kind === 'svg' || display.kind === 'html'
-    ? 'Click to view full code'
+  const isRenderable = display.kind === 'markdown' || display.kind === 'html'
+    || display.kind === 'svg'
+  const remainingLabel = isRenderable
+    ? 'View source'
     : `Click to view ${remainingLineCount} more ${remainingLineCount === 1 ? 'line' : 'lines'}`
+  const showLabel = remainingLineCount > 0 || isRenderable
   const highlightedCode = display.kind === 'code' && canHighlightFile(content)
   const svgPreview = display.kind === 'svg' && content.trim().length > 0
+  const htmlPreview = display.kind === 'html' && showHtmlPreview
+  const markdownPreview = display.kind === 'markdown'
   const filePath = toolFilePath(call.args)
   const isReadOrWrite = call.name === 'read' || call.name === 'write'
   const startLine = isReadOrWrite ? readStartingLineNumber(call.args) : 1
@@ -409,11 +416,15 @@ function ToolCallPreview({
     ? <NumberedPre content={content} startLine={startLine} />
     : <pre>{content}</pre>
 
-  const htmlPreview = display.kind === 'html' && showHtmlPreview
-
   return (
     <button className='tool-call-preview' onClick={onClick} type='button'>
-      {htmlPreview
+      {markdownPreview
+        ? (
+          <div className='tool-call-markdown-preview'>
+            <Markdown>{content}</Markdown>
+          </div>
+        )
+        : htmlPreview
         ? (
           <iframe
             className='tool-call-html-preview'
@@ -449,7 +460,7 @@ function ToolCallPreview({
           </Suspense>
         )
         : plainPreview}
-      {remainingLineCount > 0 && <span>{remainingLabel}</span>}
+      {showLabel && <span>{remainingLabel}</span>}
     </button>
   )
 }
@@ -488,20 +499,22 @@ function ToolCallContent({
   const rawContentDisplay = call.name === 'read' || call.name === 'write'
     ? readContentDisplay(call.args)
     : { kind: 'text' as const }
-  const display = rawContentDisplay.kind === 'html'
+  const display = rawContentDisplay.kind === 'html' || rawContentDisplay.kind === 'svg'
     ? ({ kind: 'code' as const, language: 'markup' })
+    : rawContentDisplay.kind === 'markdown'
+    ? ({ kind: 'code' as const, language: 'markdown' })
     : rawContentDisplay
+  const isRenderable = rawContentDisplay.kind === 'markdown'
+    || rawContentDisplay.kind === 'html'
+    || rawContentDisplay.kind === 'svg'
+  const contentClassName = isRenderable
+    ? 'tool-call-content tool-call-content-scrollable'
+    : 'tool-call-content'
   const isReadOrWrite = call.name === 'read' || call.name === 'write'
   const startLine = isReadOrWrite ? readStartingLineNumber(call.args) : 1
-  if (display.kind === 'markdown')
-    return (
-      <section className='tool-call-content tool-call-markdown' onClick={onCollapse}>
-        <Markdown>{content}</Markdown>
-      </section>
-    )
   if (display.kind === 'code' && canHighlightFile(content))
     return (
-      <section className='tool-call-content' onClick={onCollapse}>
+      <section className={contentClassName} onClick={onCollapse}>
         <Suspense
           fallback={isReadOrWrite
             ? <NumberedPre content={content} startLine={startLine} />
@@ -525,15 +538,18 @@ function ToolCallContent({
     )
   if (display.kind === 'code')
     return (
-      <section className='tool-call-content' onClick={onCollapse}>
+      <section className={contentClassName} onClick={onCollapse}>
         <p className='tool-call-notice'>Highlighting disabled beyond 50,000 characters.</p>
         {isReadOrWrite
           ? <NumberedPre content={content} startLine={startLine} />
           : <pre>{content}</pre>}
       </section>
     )
+  const plainSectionClass = isRenderable
+    ? 'tool-call-content tool-call-content-scrollable'
+    : 'tool-call-content'
   return (
-    <section className='tool-call-content' onClick={onCollapse}>
+    <section className={plainSectionClass} onClick={onCollapse}>
       {isReadOrWrite
         ? <NumberedPre content={content} startLine={startLine} />
         : <pre>{content}</pre>}

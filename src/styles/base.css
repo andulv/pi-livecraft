@@ -300,6 +300,13 @@ button:disabled, select:disabled {
   .tool-call-edit-line.added > i {
     color: var(--success);
   }
+  .tool-call-markdown-preview :not(pre) > code {
+    background: color-mix(in srgb, var(--ink) 12%, transparent);
+  }
+  .tool-call-markdown-preview pre {
+    background: color-mix(in srgb, var(--ink) 14%, transparent);
+    border-color: color-mix(in srgb, var(--ink) 14%, transparent);
+  }
   .tool-call-markdown :not(pre) > code {
     background: color-mix(in srgb, var(--ink) 12%, transparent);
   }
