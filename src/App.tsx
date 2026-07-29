@@ -1150,6 +1150,7 @@ function App() {
         onAnalysisNavigate={navigateToAnalysisTarget}
         onResize={updateRightSidebarWidth}
         snapshot={gitSnapshot?.repository ? gitSnapshot : null}
+        sessions={sessions}
         quotas={quotas}
         width={rightSidebarWidth}
         workspacePath={workspacePath}

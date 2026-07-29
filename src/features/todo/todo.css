@@ -67,7 +67,11 @@
 }
 
 .todo-list li.todo-linked {
-  grid-template-columns: 22px minmax(0, 1fr) 30px 30px 30px;
+  grid-template-columns: 22px minmax(0, 1fr) 30px;
+}
+.todo-list li.todo-session-active {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+  background: var(--accent-soft);
 }
 
 /* ── Task text ── */
@@ -78,7 +82,7 @@
   border: 0;
   padding: 5px 2px;
   background: transparent;
-  color: var(--accent-hover);
+  color: var(--ink);
   font-size: 12px;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -96,16 +100,16 @@
   transition: color 180ms ease;
 }
 .todo-session-link:hover:not(:disabled) {
-  color: var(--accent);
+  color: var(--ink);
 }
 .todo-session-link.active {
   border-radius: 6px;
   padding: 2px 5px;
   margin: -2px -5px;
-  background: var(--secondary-soft);
+  background: transparent;
 }
 .todo-session-link.active:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--secondary) 16%, var(--surface));
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 .todo-session-text {
   min-width: 0;
@@ -131,7 +135,7 @@
 }
 
 .todo-list .completed .todo-text {
-  color: var(--accent);
+  color: var(--ink);
   text-decoration: line-through;
 }
 .todo-list .completed .todo-session-name {

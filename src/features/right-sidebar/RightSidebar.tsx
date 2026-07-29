@@ -61,6 +61,7 @@ export function RightSidebar({
   onTodoSendPrompt,
   onTodoStartSession,
   onWidgetSelect,
+  sessions,
 }: {
   activeSessionId: string
   activeWidget: RightWidget | null
@@ -85,6 +86,7 @@ export function RightSidebar({
   onTodoSendPrompt: (message: string) => Promise<SessionSummary | null>
   onTodoStartSession: (message: string) => Promise<SessionSummary | null>
   onWidgetSelect: (widget: RightWidget) => void
+  sessions: SessionSummary[]
 }) {
   const [todoOpenCount, setTodoOpenCount] = useState<number | null>(null)
   const hasChanges = snapshot ? snapshot.files.length > 0 : false
@@ -209,6 +211,7 @@ export function RightSidebar({
                 onOpenCountChange={setTodoOpenCount}
                 onSendPrompt={onTodoSendPrompt}
                 onStartSession={onTodoStartSession}
+                sessions={sessions}
                 workspacePath={workspacePath}
               />
             )}

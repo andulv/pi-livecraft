@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -20,6 +21,7 @@ export function TodoWidget(
     onOpenCountChange,
     onSendPrompt,
     onStartSession,
+    sessions,
     workspacePath,
   }: {
     activeSessionId: string
@@ -27,6 +29,7 @@ export function TodoWidget(
     onOpenCountChange: (count: number | null) => void
     onSendPrompt: (message: string) => Promise<SessionSummary | null>
     onStartSession: (message: string) => Promise<SessionSummary | null>
+    sessions: SessionSummary[]
     workspacePath: string
   },
 ) {
@@ -45,6 +48,8 @@ export function TodoWidget(
   const dragOriginalTodos = useRef<TodoItem[] | null>(null)
   const dragTodos = useRef<TodoItem[] | null>(null)
   const dragMoved = useRef(false)
+  const sessionNameSyncKey = useRef('')
+  const todosWorkspace = useRef<string | null>(null)
 
   /** Restores the draft when the workspace changes. */
   useEffect(() => {
@@ -57,9 +62,12 @@ export function TodoWidget(
     setLoading(true)
     setError('')
     setTodos([])
+    sessionNameSyncKey.current = ''
+    todosWorkspace.current = null
     void getTodos(workspacePath)
       .then((nextTodos) => {
         if (cancelled) return
+        todosWorkspace.current = workspacePath
         setTodos(nextTodos)
         onOpenCountChange(openCount(nextTodos))
       })
@@ -75,7 +83,7 @@ export function TodoWidget(
   }, [onOpenCountChange, reloadRequest, workspacePath])
 
   /** Persists a new list before replacing the visible state. */
-  async function save(nextTodos: TodoItem[]): Promise<boolean> {
+  const save = useCallback(async (nextTodos: TodoItem[]): Promise<boolean> => {
     setBusy(true)
     setError('')
     try {
@@ -89,7 +97,26 @@ export function TodoWidget(
     } finally {
       setBusy(false)
     }
-  }
+  }, [onOpenCountChange, workspacePath])
+
+  /** Persists current session names when a linked session is renamed elsewhere. */
+  useEffect(() => {
+    if (busy || todosWorkspace.current !== workspacePath) return
+    const nextTodos = todos.map((todo) => {
+      if (!todo.session) return todo
+      const name = sessionNameForTodo(todo, sessions)
+      return name === todo.session.name
+        ? todo
+        : { ...todo, session: { ...todo.session, name } }
+    })
+    if (nextTodos.every((todo, index) => todo === todos[index])) return
+    const syncKey = JSON.stringify(
+      nextTodos.map((todo) => [todo.id, todo.session?.name ?? null]),
+    )
+    if (syncKey === sessionNameSyncKey.current) return
+    sessionNameSyncKey.current = syncKey
+    void save(nextTodos)
+  }, [busy, save, sessions, todos, workspacePath])
 
   /** Persists the draft so a page reload cannot discard typed text. */
   function setDraft(next: string): void {
@@ -289,6 +316,10 @@ export function TodoWidget(
                       <li
                         className={`${todo.completed ? 'completed ' : ''}${
                           todo.session ? 'todo-linked ' : ''
+                        }${
+                          todo.session && activeSessionId === todo.session.id
+                            ? 'todo-session-active '
+                            : ''
                         }${draggedId === todo.id ? 'dragging' : ''}`}
                         data-todo-id={todo.id}
                         key={todo.id}
@@ -336,7 +367,7 @@ export function TodoWidget(
                           )
                           : todo.session
                           ? (
-                            <Tooltip label={`Open session "${todo.session.name}"`}>
+                            <Tooltip label={`Open session "${sessionNameForTodo(todo, sessions)}"`}>
                               <button
                                 className={`todo-text todo-session-link${
                                   activeSessionId === todo.session.id ? ' active' : ''
@@ -346,7 +377,9 @@ export function TodoWidget(
                                 type='button'
                               >
                                 <span className='todo-session-text'>{todo.text}</span>
-                                <span className='todo-session-name'>{todo.session.name}</span>
+                                <span className='todo-session-name'>
+                                  {sessionNameForTodo(todo, sessions)}
+                                </span>
                               </button>
                             </Tooltip>
                           )
@@ -365,28 +398,32 @@ export function TodoWidget(
                               </button>
                             </Tooltip>
                           )}
-                        <Tooltip label='Open a new session'>
-                          <button
-                            aria-label={`Open a new session with “${todo.text}”`}
-                            className='todo-start'
-                            disabled={busy || editingId !== null || startingId !== null}
-                            onClick={() => void startSession(todo)}
-                            type='button'
-                          >
-                            {startingId === todo.id ? '…' : '↗'}
-                          </button>
-                        </Tooltip>
-                        <Tooltip label='Open a session and send the prompt'>
-                          <button
-                            aria-label={`Open a new session and send “${todo.text}”`}
-                            className='todo-send'
-                            disabled={busy || editingId !== null || startingId !== null}
-                            onClick={() => void sendPrompt(todo)}
-                            type='button'
-                          >
-                            {startingId === todo.id ? '…' : '↑'}
-                          </button>
-                        </Tooltip>
+                        {!todo.session && (
+                          <>
+                            <Tooltip label='Open a new session'>
+                              <button
+                                aria-label={`Open a new session with “${todo.text}”`}
+                                className='todo-start'
+                                disabled={busy || editingId !== null || startingId !== null}
+                                onClick={() => void startSession(todo)}
+                                type='button'
+                              >
+                                {startingId === todo.id ? '…' : '↗'}
+                              </button>
+                            </Tooltip>
+                            <Tooltip label='Open a session and send the prompt'>
+                              <button
+                                aria-label={`Open a new session and send “${todo.text}”`}
+                                className='todo-send'
+                                disabled={busy || editingId !== null || startingId !== null}
+                                onClick={() => void sendPrompt(todo)}
+                                type='button'
+                              >
+                                {startingId === todo.id ? '…' : '↑'}
+                              </button>
+                            </Tooltip>
+                          </>
+                        )}
                         <Tooltip label='Delete'>
                           <button
                             aria-label={`Delete “${todo.text}”`}
@@ -444,6 +481,18 @@ export function TodoWidget(
       </footer>
     </>
   )
+}
+
+/** Resolves the current display name for a linked session, falling back to its stored name. */
+function sessionNameForTodo(todo: TodoItem, sessions: SessionSummary[]): string {
+  const link = todo.session
+  if (!link) return ''
+  return sessions
+    .find((session) =>
+      session.id === link.id
+      || (session.sessionPath !== undefined && session.sessionPath === link.sessionPath)
+    )
+    ?.name ?? link.name
 }
 
 function openCount(todos: TodoItem[]): number {
