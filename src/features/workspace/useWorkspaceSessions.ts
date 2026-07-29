@@ -201,12 +201,13 @@ export function useWorkspaceSessions(
     [],
   )
 
-  /** Launches and selects a session, then sends or prepares its optional first prompt. */
+  /** Launches and selects a session, then sends or prepares its optional first prompt.
+   *  Returns the created session summary, or null when an error prevented the operation. */
   const startAndSelectSession = useCallback(
     async (
       start: () => Promise<SessionSummary>,
       options: StartSessionOptions = {},
-    ): Promise<void> => {
+    ): Promise<SessionSummary | null> => {
       creatingSessionRef.current = true
       setCreatingSession(true)
       setSelectedId('')
@@ -221,8 +222,10 @@ export function useWorkspaceSessions(
           await refreshSessions()
           onInitialMessageSent()
         }
+        return session
       } catch (cause) {
         onError(cause)
+        return null
       } finally {
         creatingSessionRef.current = false
         setCreatingSession(false)

@@ -7,19 +7,32 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import type { TodoItem } from '../../../shared/types.ts'
+import type { SessionSummary, TodoItem, TodoSessionLink } from '../../../shared/types.ts'
 import { getTodos, updateTodos } from '../../api.ts'
 import { reorderTodoItems } from './todo-order.ts'
+import { promptSessionTitle } from '../composer/prompt-title.ts'
 
 /** Displays and edits the persistent task list for the current workspace. */
-export function TodoWidget({ onOpenCountChange, onSendPrompt, onStartSession, workspacePath }: {
-  onOpenCountChange: (count: number | null) => void
-  onSendPrompt: (message: string) => Promise<void>
-  onStartSession: (message: string) => Promise<void>
-  workspacePath: string
-}) {
+export function TodoWidget(
+  {
+    activeSessionId,
+    onNavigateSession,
+    onOpenCountChange,
+    onSendPrompt,
+    onStartSession,
+    workspacePath,
+  }: {
+    activeSessionId: string
+    onNavigateSession: (link: { id: string; sessionPath: string }) => void
+    onOpenCountChange: (count: number | null) => void
+    onSendPrompt: (message: string) => Promise<SessionSummary | null>
+    onStartSession: (message: string) => Promise<SessionSummary | null>
+    workspacePath: string
+  },
+) {
+  const draftStorageKey = `pi-livecraft.todo-draft.${workspacePath}`
   const [todos, setTodos] = useState<TodoItem[]>([])
-  const [newText, setNewText] = useState('')
+  const [newText, setNewText] = useState(() => readDraft(draftStorageKey))
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingText, setEditingText] = useState('')
   const [reloadRequest, setReloadRequest] = useState(0)
@@ -28,9 +41,15 @@ export function TodoWidget({ onOpenCountChange, onSendPrompt, onStartSession, wo
   const [startingId, setStartingId] = useState<string | null>(null)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const dragOriginalTodos = useRef<TodoItem[] | null>(null)
   const dragTodos = useRef<TodoItem[] | null>(null)
   const dragMoved = useRef(false)
+
+  /** Restores the draft when the workspace changes. */
+  useEffect(() => {
+    setNewText(readDraft(draftStorageKey))
+  }, [draftStorageKey])
 
   /** Reloads the list when the workspace changes and ignores stale responses. */
   useEffect(() => {
@@ -72,12 +91,26 @@ export function TodoWidget({ onOpenCountChange, onSendPrompt, onStartSession, wo
     }
   }
 
+  /** Persists the draft so a page reload cannot discard typed text. */
+  function setDraft(next: string): void {
+    setNewText(next)
+    try {
+      if (next) window.localStorage.setItem(draftStorageKey, next)
+      else window.localStorage.removeItem(draftStorageKey)
+    } catch {
+      // Storage can be unavailable in private browsing; the in-memory draft still works.
+    }
+  }
+
   /** Adds a non-empty task while keeping the input if saving fails. */
   async function addTodo(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
     const text = newText.trim()
     if (!text) return
-    if (await save([...todos, { id: crypto.randomUUID(), text, completed: false }])) setNewText('')
+    if (await save([...todos, { id: crypto.randomUUID(), text, completed: false }])) {
+      setDraft('')
+      textareaRef.current?.focus()
+    }
   }
 
   /** Saves edited text or cancels editing when it has not changed. */
@@ -93,8 +126,11 @@ export function TodoWidget({ onOpenCountChange, onSendPrompt, onStartSession, wo
     }
   }
 
-  function editWithKeyboard(event: KeyboardEvent<HTMLInputElement>, todo: TodoItem): void {
-    if (event.key === 'Enter') {
+  function editWithKeyboard(
+    event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+    todo: TodoItem,
+  ): void {
+    if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       void commitEdit(todo)
     } else if (event.key === 'Escape') {
@@ -165,11 +201,22 @@ export function TodoWidget({ onOpenCountChange, onSendPrompt, onStartSession, wo
     dragMoved.current = false
   }
 
+  /** Builds a session link from a returned summary, falling back to a computed name. */
+  function sessionLink(summary: SessionSummary, computedName?: string): TodoSessionLink | null {
+    if (!summary.sessionPath) return null
+    return { id: summary.id, name: computedName ?? summary.name, sessionPath: summary.sessionPath }
+  }
+
   /** Opens a new session with the task text ready to edit. */
   async function startSession(todo: TodoItem): Promise<void> {
     setStartingId(todo.id)
     try {
-      await onStartSession(todo.text)
+      const summary = await onStartSession(todo.text)
+      if (summary) {
+        const link = sessionLink(summary)
+        if (link)
+          await save(todos.map((item) => item.id === todo.id ? { ...item, session: link } : item))
+      }
     } finally {
       setStartingId(null)
     }
@@ -179,7 +226,12 @@ export function TodoWidget({ onOpenCountChange, onSendPrompt, onStartSession, wo
   async function sendPrompt(todo: TodoItem): Promise<void> {
     setStartingId(todo.id)
     try {
-      await onSendPrompt(todo.text)
+      const summary = await onSendPrompt(todo.text)
+      if (summary) {
+        const link = sessionLink(summary, promptSessionTitle(todo.text))
+        if (link)
+          await save(todos.map((item) => item.id === todo.id ? { ...item, session: link } : item))
+      }
     } finally {
       setStartingId(null)
     }
@@ -267,8 +319,8 @@ export function TodoWidget({ onOpenCountChange, onSendPrompt, onStartSession, wo
                         />
                         {editingId === todo.id
                           ? (
-                            <input
-                              aria-label={`Edit “${todo.text}”`}
+                            <textarea
+                              aria-label={`Edit "${todo.text}"`}
                               autoFocus
                               className='todo-edit'
                               disabled={busy}
@@ -276,8 +328,26 @@ export function TodoWidget({ onOpenCountChange, onSendPrompt, onStartSession, wo
                               onBlur={() => void commitEdit(todo)}
                               onChange={(event) => setEditingText(event.target.value)}
                               onKeyDown={(event) => editWithKeyboard(event, todo)}
+                              rows={1}
                               value={editingText}
                             />
+                          )
+                          : todo.session
+                          ? (
+                            <Tooltip label={`Open session "${todo.session.name}"`}>
+                              <button
+                                className={`todo-text todo-session-link${
+                                  activeSessionId === todo.session.id ? ' active' : ''
+                                }`}
+                                disabled={busy || startingId !== null}
+                                onClick={() => onNavigateSession(todo.session!)}
+                                type='button'
+                              >
+                                <span className='todo-session-dot' />
+                                {todo.text}
+                                <span className='todo-session-name'>{todo.session.name}</span>
+                              </button>
+                            </Tooltip>
                           )
                           : (
                             <Tooltip label='Edit'>
@@ -336,12 +406,20 @@ export function TodoWidget({ onOpenCountChange, onSendPrompt, onStartSession, wo
       </div>
       <footer className='widget-footer'>
         <form className='todo-add' onSubmit={(event) => void addTodo(event)}>
-          <input
+          <textarea
             aria-label='New task'
             disabled={busy || loading}
             maxLength={500}
-            onChange={(event) => setNewText(event.target.value)}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                event.currentTarget.form?.requestSubmit()
+              }
+            }}
             placeholder='Add a task to this workspace…'
+            ref={textareaRef}
+            rows={1}
             value={newText}
           />
           <Tooltip label='Add'>
@@ -365,4 +443,12 @@ function openCount(todos: TodoItem[]): number {
 
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
+}
+
+function readDraft(key: string): string {
+  try {
+    return window.localStorage.getItem(key) ?? ''
+  } catch {
+    return ''
+  }
 }

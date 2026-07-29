@@ -60,3 +60,32 @@ test('validates todo stores and rejects duplicate or empty items', () => {
     /Invalid workspace todo list/,
   )
 })
+
+test('accepts valid session link on a todo item', () => {
+  const linked = parseTodoItems([
+    {
+      id: 'linked',
+      text: 'Tâche liée',
+      completed: false,
+      session: { id: 's1', name: 'Ma session', sessionPath: '/tmp/session.jsonl' },
+    },
+  ])
+  assert.deepEqual(linked, [
+    {
+      id: 'linked',
+      text: 'Tâche liée',
+      completed: false,
+      session: { id: 's1', name: 'Ma session', sessionPath: '/tmp/session.jsonl' },
+    },
+  ])
+})
+
+test('rejects incomplete session link', () => {
+  assert.throws(
+    () =>
+      parseTodoItems([
+        { id: 'bad', text: 'X', completed: false, session: { id: 's1', name: '' } },
+      ]),
+    /Invalid workspace todo list/,
+  )
+})

@@ -301,7 +301,11 @@ function App() {
   selectedIdRef.current = selectedId
 
   const startAndSelectSession = useCallback(
-    (start: () => Promise<SessionSummary>, initialMessage?: string, draftMessage?: string) =>
+    (
+      start: () => Promise<SessionSummary>,
+      initialMessage?: string,
+      draftMessage?: string,
+    ): Promise<SessionSummary | null> =>
       startWorkspaceSession(start, { draftMessage, initialMessage }),
     [startWorkspaceSession],
   )
@@ -725,7 +729,9 @@ function App() {
     && snapshotSessionId === selectedId
 
   const handleContextSessionStart = useCallback(
-    (draft: string) => startAndSelectSession(() => createSession(workspacePath), undefined, draft),
+    async (draft: string): Promise<void> => {
+      await startAndSelectSession(() => createSession(workspacePath), undefined, draft)
+    },
     [startAndSelectSession, workspacePath],
   )
 
@@ -982,9 +988,12 @@ function App() {
         selectedId={selectedId}
         workspacePath={workspacePath}
         onChooseWorkspace={() => setDirectoryPickerOpen(true)}
-        onCreate={() => startAndSelectSession(() => createSession(workspacePath))}
-        onOpenSession={(recentSession) =>
-          startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))}
+        onCreate={async () => {
+          await startAndSelectSession(() => createSession(workspacePath))
+        }}
+        onOpenSession={async (recentSession) => {
+          await startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))
+        }}
         onSelectOtherWorkspaceSession={(session) => selectWorkspace(session.cwd, session.id)}
         onSelectSession={setSelectedId}
         onError={(cause) => showToast('error', messageOf(cause))}
@@ -1134,6 +1143,7 @@ function App() {
       </main>
 
       <RightSidebar
+        activeSessionId={selectedId}
         activeWidget={activeRightWidget}
         analysis={sessionAnalysis}
         currentQuotaProvider={currentQuotaProvider}
@@ -1160,9 +1170,17 @@ function App() {
         onRevert={async (hash) => {
           return await revertGitCommit(workspacePath, hash)
         }}
-        onTodoSendPrompt={(message) =>
+        onTodoNavigateSession={(link) => {
+          const active = sessions.find((s) => s.id === link.id)
+          if (active) {
+            setSelectedId(link.id)
+          } else {
+            void startAndSelectSession(() => openSession(workspacePath, link.sessionPath))
+          }
+        }}
+        onTodoSendPrompt={async (message) =>
           startAndSelectSession(() => createSession(workspacePath), message)}
-        onTodoStartSession={(message) =>
+        onTodoStartSession={async (message) =>
           startAndSelectSession(() => createSession(workspacePath), undefined, message)}
         onWidgetSelect={(widget) =>
           setActiveRightWidget((current) => {

@@ -13,6 +13,7 @@ import type {
   GitRevertResult,
   GitSnapshot,
   QuotaSnapshot,
+  SessionSummary,
 } from '../../../shared/types.ts'
 import { getTodos } from '../../api.ts'
 import { GitWidget } from '../git/GitWidget.tsx'
@@ -37,6 +38,7 @@ export interface RailAction {
 
 /** Coordinates the sidebar panels, their common rail, and resizing. */
 export function RightSidebar({
+  activeSessionId,
   activeWidget,
   analysis,
   currentQuotaProvider,
@@ -55,10 +57,12 @@ export function RightSidebar({
   onRefresh,
   onReset,
   onRevert,
+  onTodoNavigateSession,
   onTodoSendPrompt,
   onTodoStartSession,
   onWidgetSelect,
 }: {
+  activeSessionId: string
   activeWidget: RightWidget | null
   analysis: SessionAnalysis | null
   currentQuotaProvider: QuotaProvider | undefined
@@ -77,8 +81,9 @@ export function RightSidebar({
   onRefresh: () => Promise<void>
   onReset: (hash: string) => Promise<GitResetResult>
   onRevert: (hash: string) => Promise<GitRevertResult>
-  onTodoSendPrompt: (message: string) => Promise<void>
-  onTodoStartSession: (message: string) => Promise<void>
+  onTodoNavigateSession: (link: { id: string; sessionPath: string }) => void
+  onTodoSendPrompt: (message: string) => Promise<SessionSummary | null>
+  onTodoStartSession: (message: string) => Promise<SessionSummary | null>
   onWidgetSelect: (widget: RightWidget) => void
 }) {
   const [todoOpenCount, setTodoOpenCount] = useState<number | null>(null)
@@ -199,6 +204,8 @@ export function RightSidebar({
             )}
             {activeWidget === 'todo' && (
               <TodoWidget
+                activeSessionId={activeSessionId}
+                onNavigateSession={onTodoNavigateSession}
                 onOpenCountChange={setTodoOpenCount}
                 onSendPrompt={onTodoSendPrompt}
                 onStartSession={onTodoStartSession}

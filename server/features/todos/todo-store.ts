@@ -77,11 +77,26 @@ export function parseTodoStore(content: string): TodoStore {
 }
 
 function isTodoItem(value: unknown): value is TodoItem {
-  return isObject(value)
-    && typeof value.id === 'string' && value.id.length > 0 && value.id.length <= 100
-    && typeof value.text === 'string' && value.text.trim().length > 0
-    && value.text.length <= maxTodoTextLength
-    && typeof value.completed === 'boolean'
+  if (
+    !isObject(value)
+    || typeof value.id !== 'string' || value.id.length === 0 || value.id.length > 100
+    || typeof value.text !== 'string' || value.text.trim().length === 0
+    || value.text.length > maxTodoTextLength
+    || typeof value.completed !== 'boolean'
+  ) return false
+  if (value.session !== undefined) {
+    if (
+      !isObject(value.session)
+      || typeof value.session.id !== 'string' || value.session.id.length === 0
+      || value.session.id.length > 100
+      || typeof value.session.name !== 'string' || value.session.name.trim().length === 0
+      || value.session.name.length > 200
+      || typeof value.session.sessionPath !== 'string'
+      || value.session.sessionPath.trim().length === 0
+      || value.session.sessionPath.length > 1000
+    ) return false
+  }
+  return true
 }
 function isNotFound(error: unknown): boolean {
   return isObject(error) && error.code === 'ENOENT'
