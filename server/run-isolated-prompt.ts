@@ -1,8 +1,40 @@
 import { randomUUID } from 'node:crypto'
-import { PiProcess } from './pi-process.ts'
+import { copyFile, mkdir, stat } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+import { ISOLATED_AGENT_DIR, PiProcess } from './pi-process.ts'
 import { assistantText, cheapestAvailableModel } from './prompt-improvement.ts'
 import type { JsonObject } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
+
+/** Lazy-init promise so concurrent isolated prompts share a single directory setup. */
+let isolatedDirReady: Promise<void> | undefined
+
+/**
+ * Creates the dedicated isolated Pi profile directory and copies auth/models from the
+ * user's main config so the isolated process can authenticate and list models without
+ * sharing the default-settings write target.
+ */
+async function ensureIsolatedAgentDir(): Promise<void> {
+  if (isolatedDirReady) return isolatedDirReady
+  isolatedDirReady = (async () => {
+    await mkdir(ISOLATED_AGENT_DIR, { recursive: true })
+    const mainDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), '.pi', 'agent')
+    for (const file of ['auth.json', 'models.json']) {
+      const dest = join(ISOLATED_AGENT_DIR, file)
+      try {
+        await stat(dest)
+      } catch {
+        try {
+          await copyFile(join(mainDir, file), dest)
+        } catch {
+          // File may not exist (e.g. no custom models.json) — that's fine.
+        }
+      }
+    }
+  })()
+  return isolatedDirReady
+}
 
 /** Configuration for an isolated, disposable Pi prompt execution. */
 export interface RunIsolatedPromptOptions {
@@ -41,6 +73,7 @@ export interface IsolatedPromptResult {
 export async function runIsolatedPrompt(
   options: RunIsolatedPromptOptions,
 ): Promise<IsolatedPromptResult> {
+  await ensureIsolatedAgentDir()
   const pi = new PiProcess(options.cwd, randomUUID(), undefined, {
     isolated: true,
     systemPrompt: options.systemPrompt,

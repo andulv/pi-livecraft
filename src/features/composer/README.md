@@ -1,9 +1,9 @@
 # Composer
 
 Follow the [step-by-step guide](/docs/HOW-TO-COMPOSER.md) to add a button,
-dropdown, or stat. Read the [prompt improvement guide](/docs/HOW-TO-PROMPT-IMPROVEMENT.md)
-before changing isolated draft rewrites. Return here for the data flow and internal state reference
-below.
+dropdown, or stat. Isolated draft rewrites use the same [isolated prompt](/docs/HOW-TO-RUN-ISOLATED-PROMPT.md)
+mechanism; see its guide before changing that flow. Return here for the data flow and internal
+state reference below.
 
 ## Data flow
 

@@ -385,6 +385,8 @@ const expectedExtension = ${
     }
 const extensionIndex = process.argv.indexOf('--extension')
 if (isolated) {
+  const agentDir = process.env.PI_CODING_AGENT_DIR
+  if (!agentDir || !agentDir.includes('livecraft-isolated')) throw new Error('PI_CODING_AGENT_DIR must point to an isolated profile, got ' + agentDir)
   for (const flag of ['--no-tools', '--no-extensions', '--no-skills', '--no-prompt-templates', '--no-themes', '--no-context-files']) {
     if (!process.argv.includes(flag)) throw new Error('Missing isolation flag: ' + flag)
   }

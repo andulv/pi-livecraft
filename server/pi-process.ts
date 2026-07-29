@@ -1,12 +1,17 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { JsonLineDecoder, encodeJsonLine } from './jsonl.ts'
 import type { JsonObject } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 
 const activeChildren = new Set<ChildProcessWithoutNullStreams>()
+
+/** Dedicated Pi profile directory for isolated prompts so model/thinking defaults never leak into the user's main config. */
+export const ISOLATED_AGENT_DIR = join(homedir(), '.pi', 'livecraft-isolated')
 
 interface PendingRequest {
   resolve: (value: JsonObject) => void
@@ -68,9 +73,12 @@ export class PiProcess extends EventEmitter {
         ...(sessionPath ? ['--session', sessionPath] : ['--session-id', sessionId]),
       ]
 
+    const env = options.isolated
+      ? { ...process.env, PI_CODING_AGENT_DIR: ISOLATED_AGENT_DIR }
+      : process.env
     this.child = spawn('pi', args, {
       cwd,
-      env: process.env,
+      env,
       stdio: ['pipe', 'pipe', 'pipe'],
     })
     activeChildren.add(this.child)
