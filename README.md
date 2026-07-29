@@ -10,7 +10,7 @@ Use your Pi sessions in a browser, with a more visual and interactive interface 
 [![Version](https://img.shields.io/github/package-json/v/sebastienservouze/pi-livecraft?style=flat-square&label=version)](package.json)
 [![License](https://img.shields.io/github/license/sebastienservouze/pi-livecraft?style=flat-square)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/sebastienservouze/pi-livecraft?style=flat-square&logo=github)](https://github.com/sebastienservouze/pi-livecraft/stargazers)
-[![Use this template](https://img.shields.io/badge/Use_this_template-2ea44f?style=flat-square&logo=github)](https://github.com/new?template_name=pi-livecraft&template_owner=sebastienservouze)
+[![Fork this repo](https://img.shields.io/badge/Fork_this_repo-2ea44f?style=flat-square&logo=github)](https://github.com/sebastienservouze/pi-livecraft/fork)
 
 [Why Pi Livecraft?](#why-pi-livecraft) · [Quick start](#quick-start) · [Make it yours](#make-it-yours) · [Docs](/docs/README.md)
 
@@ -29,7 +29,7 @@ The analysis and jump-back navigation are included today. The Bash and file acti
 
 You need **Node.js 24+**, **npm**, and a configured **Pi**. Linux and WSL are supported.
 
-Create a repository with **[Use this template](https://github.com/new?template_name=pi-livecraft&template_owner=sebastienservouze)**, then run:
+**[Fork the repository](https://github.com/sebastienservouze/pi-livecraft/fork)**, then run:
 
 ```bash
 git clone https://github.com/YOUR-USERNAME/YOUR-REPOSITORY.git
@@ -147,7 +147,7 @@ Pi Livecraft is made specifically for the [Pi coding agent](https://pi.dev). It 
 
 ## Contributing
 
-Applications built from the template belong in their own repositories and do not need to stay synchronized with Pi Livecraft. Focused bug fixes and improvements to the reusable starting point are welcome here.
+Forks belong to their authors and do not need to stay synchronized with Pi Livecraft. Focused bug fixes and improvements to the reusable starting point are welcome here.
 
 ## License
 
