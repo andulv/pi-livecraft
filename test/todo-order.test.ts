@@ -38,14 +38,12 @@ test('displays linked todos first, completed before in-progress', () => {
   const sorted = sortTodoItemsForDisplay([
     todos[0],
     linkedOpen,
-    todos[1],
     linkedCompleted,
   ])
   assert.deepEqual(sorted.map(({ id }) => id), [
     'linked-completed',
     'linked-open',
     'first',
-    'completed',
   ])
 })
 

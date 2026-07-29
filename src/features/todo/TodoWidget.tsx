@@ -237,7 +237,9 @@ export function TodoWidget(
     }
   }
 
-  const visibleTodos = sortTodoItemsForDisplay(todos)
+  const visibleTodos = sortTodoItemsForDisplay(
+    todos.filter((todo) => !todo.completed || todo.session),
+  )
   const remaining = openCount(todos)
 
   return (
