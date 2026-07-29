@@ -66,24 +66,30 @@
   accent-color: var(--accent);
 }
 
-/* ── Task text (editable, non-linked) ── */
+.todo-list li.todo-linked {
+  grid-template-columns: 22px minmax(0, 1fr) 30px 30px 30px;
+}
+
+/* ── Task text ── */
 .todo-text {
+  display: block;
+  width: 100%;
   min-width: 0;
   border: 0;
   padding: 5px 2px;
   background: transparent;
-  color: var(--ink);
+  color: var(--accent-hover);
   font-size: 12px;
   line-height: 1.4;
   overflow-wrap: anywhere;
   text-align: left;
 }
 
-/* ── Linked session button (single-line: dot + text + session name) ── */
+/* ── Linked session button (task text with discreet session metadata) ── */
 .todo-session-link {
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
   min-width: 0;
   overflow: hidden;
   cursor: pointer;
@@ -97,26 +103,18 @@
   padding: 2px 5px;
   margin: -2px -5px;
   background: var(--secondary-soft);
-  color: var(--secondary);
 }
 .todo-session-link.active:hover:not(:disabled) {
   background: color-mix(in srgb, var(--secondary) 16%, var(--surface));
 }
-.todo-session-dot {
-  flex: 0 0 auto;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--secondary);
-}
 .todo-session-text {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 .todo-session-name {
-  flex: 0 1 auto;
+  display: block;
+  width: 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -133,8 +131,11 @@
 }
 
 .todo-list .completed .todo-text {
-  color: var(--muted);
+  color: var(--accent);
   text-decoration: line-through;
+}
+.todo-list .completed .todo-session-name {
+  text-decoration: none;
 }
 
 /* ── Focus ring (all interactive elements) ── */

@@ -9,7 +9,7 @@ import {
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type { SessionSummary, TodoItem, TodoSessionLink } from '../../../shared/types.ts'
 import { getTodos, updateTodos } from '../../api.ts'
-import { reorderTodoItems } from './todo-order.ts'
+import { reorderTodoItems, sortTodoItemsForDisplay } from './todo-order.ts'
 import { promptSessionTitle } from '../composer/prompt-title.ts'
 
 /** Displays and edits the persistent task list for the current workspace. */
@@ -237,8 +237,8 @@ export function TodoWidget(
     }
   }
 
-  const visibleTodos = todos.filter((todo) => !todo.completed)
-  const remaining = visibleTodos.length
+  const visibleTodos = sortTodoItemsForDisplay(todos)
+  const remaining = openCount(todos)
 
   return (
     <>
@@ -287,32 +287,34 @@ export function TodoWidget(
                   <ul className='todo-list'>
                     {visibleTodos.map((todo) => (
                       <li
-                        className={draggedId === todo.id
-                          ? 'dragging'
-                          : undefined}
+                        className={`${todo.completed ? 'completed ' : ''}${
+                          todo.session ? 'todo-linked ' : ''
+                        }${draggedId === todo.id ? 'dragging' : ''}`}
                         data-todo-id={todo.id}
                         key={todo.id}
                       >
-                        <Tooltip label='Move'>
-                          <span
-                            aria-hidden='true'
-                            className='todo-drag'
-                            onPointerCancel={cancelDrag}
-                            onPointerDown={(event) => beginDrag(event, todo.id)}
-                            onPointerMove={moveDraggedTodo}
-                            onPointerUp={(event) => void finishDrag(event)}
-                          >
-                            ⠿
-                          </span>
-                        </Tooltip>
+                        {!todo.session && (
+                          <Tooltip label='Move'>
+                            <span
+                              aria-hidden='true'
+                              className='todo-drag'
+                              onPointerCancel={cancelDrag}
+                              onPointerDown={(event) => beginDrag(event, todo.id)}
+                              onPointerMove={moveDraggedTodo}
+                              onPointerUp={(event) => void finishDrag(event)}
+                            >
+                              ⠿
+                            </span>
+                          </Tooltip>
+                        )}
                         <input
-                          aria-label={`Mark “${todo.text}” as complete`}
-                          checked={false}
+                          aria-label={`${todo.completed ? 'Reopen' : 'Mark'} “${todo.text}”`}
+                          checked={todo.completed}
                           disabled={busy}
                           onChange={() =>
                             void save(todos.map((item) =>
                               item.id === todo.id
-                                ? { ...item, completed: true }
+                                ? { ...item, completed: !item.completed }
                                 : item
                             ))}
                           type='checkbox'
@@ -343,7 +345,6 @@ export function TodoWidget(
                                 onClick={() => onNavigateSession(todo.session!)}
                                 type='button'
                               >
-                                <span className='todo-session-dot' aria-hidden='true' />
                                 <span className='todo-session-text'>{todo.text}</span>
                                 <span className='todo-session-name'>{todo.session.name}</span>
                               </button>
