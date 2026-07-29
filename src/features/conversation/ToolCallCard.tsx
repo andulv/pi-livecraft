@@ -161,9 +161,12 @@ export const ToolCallCard = memo(function ToolCallCard({
   const resolvedSizeLabel = `Input: ${inputLength} characters. Output: ${outputLength} characters.`
   const writeContent = name === 'write' ? toolWriteContent(args) : null
   const content = name === 'write' && !resultError && writeContent ? writeContent : displayedOutput
+  const isRenderable = display.kind === 'markdown' || display.kind === 'html'
+    || display.kind === 'svg'
+  const hasRenderedPreview = isRenderable && hasResult && !expanded
   const hasCodePreview = display.kind === 'code' && hasResult && !expanded
     && canHighlightFile(content)
-  const isNearViewport = useInView(cardRef, hasCodePreview)
+  const isNearViewport = useInView(cardRef, hasCodePreview || hasRenderedPreview)
   const contentError = resultError
   const preview = toolTextPreview(content)
   const streamingArgs = streaming || interrupted ? input : undefined
@@ -419,28 +422,34 @@ function ToolCallPreview({
   return (
     <button className='tool-call-preview' onClick={onClick} type='button'>
       {markdownPreview
-        ? (
-          <div className='tool-call-markdown-preview'>
-            <Markdown>{content}</Markdown>
-          </div>
-        )
+        ? isNearViewport
+          ? (
+            <div className='tool-call-markdown-preview'>
+              <Markdown>{content}</Markdown>
+            </div>
+          )
+          : plainPreview
         : htmlPreview
-        ? (
-          <iframe
-            className='tool-call-html-preview'
-            sandbox=''
-            srcDoc={stripScripts(content)}
-            title={`HTML preview of ${filePath ?? 'file'}`}
-          />
-        )
+        ? isNearViewport
+          ? (
+            <iframe
+              className='tool-call-html-preview'
+              sandbox=''
+              srcDoc={stripScripts(content)}
+              title={`HTML preview of ${filePath ?? 'file'}`}
+            />
+          )
+          : plainPreview
         : svgPreview
-        ? (
-          <img
-            alt={`SVG preview of ${filePath ?? 'file'}`}
-            className='tool-call-svg-preview'
-            src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(content)}`}
-          />
-        )
+        ? isNearViewport
+          ? (
+            <img
+              alt={`SVG preview of ${filePath ?? 'file'}`}
+              className='tool-call-svg-preview'
+              src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(content)}`}
+            />
+          )
+          : plainPreview
         : highlightedCode && isNearViewport
         ? (
           <Suspense fallback={plainPreview}>
