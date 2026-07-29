@@ -27,6 +27,8 @@ Pi Livecraft is designed to be modified by the agents using it. Trace the existi
 - Keep validation at trust boundaries and avoid speculative dependencies or abstractions.
 - Do not mix agent changes with pre-existing work.
 - Before a compatibility break, report the changed behavior, impact, and migration.
+- Place new files in the smallest coherent owning area. Reuse an existing directory when it already owns the behavior; create a new directory when the change introduces a distinct feature or boundary, or when several related files need a clear home. Avoid generic buckets such as `utils` or `common` unless their shared ownership is demonstrated.
+- Remove imports, files, styles, and documentation made obsolete by the current change. Do not include build artifacts, logs, or local environment files.
 - Validate with the narrowest relevant check. Never claim a check that was not run.
 
 ## Commands
