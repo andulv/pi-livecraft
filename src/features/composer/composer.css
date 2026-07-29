@@ -291,6 +291,11 @@
   border-color: color-mix(in srgb, var(--warning) 38%, var(--line-strong));
   background: color-mix(in srgb, var(--warning) 9%, var(--surface));
 }
+.composer-select.improve:hover,
+.composer-select.improve[data-state="open"] {
+  border-color: color-mix(in srgb, var(--secondary) 38%, var(--line-strong));
+  background: var(--secondary-soft);
+}
 .composer-select:focus-visible {
   outline: 0;
   border-color: var(--accent);
@@ -381,9 +386,6 @@
   content: "❇";
   line-height: 14px;
 }
-.composer-select.improve {
-  gap: 0;
-}
 .composer-select-spinner {
   display: inline-block;
   width: 11px;
@@ -419,6 +421,9 @@
 .composer-select-content.agent {
   border-color: color-mix(in srgb, var(--accent) 42%, var(--line-strong));
 }
+.composer-select-content.improve {
+  border-color: color-mix(in srgb, var(--secondary) 38%, var(--line-strong));
+}
 .composer-select-option {
   display: flex;
   align-items: center;
@@ -433,6 +438,9 @@
 }
 .composer-select-option[data-highlighted] {
   background: color-mix(in srgb, var(--surface) 70%, var(--canvas));
+}
+.composer-select-content.improve .composer-select-option[data-highlighted] {
+  background: var(--secondary-soft);
 }
 .composer-select-option[data-state="checked"] {
   background: var(--accent-soft);
