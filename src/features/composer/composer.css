@@ -291,9 +291,6 @@
   border-color: color-mix(in srgb, var(--warning) 38%, var(--line-strong));
   background: color-mix(in srgb, var(--warning) 9%, var(--surface));
 }
-.composer-select.improve {
-  gap: 3px;
-}
 .composer-select.improve:hover,
 .composer-select.improve[data-state="open"] {
   border-color: color-mix(in srgb, var(--secondary) 38%, var(--line-strong));

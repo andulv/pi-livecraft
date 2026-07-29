@@ -464,6 +464,7 @@ export const Composer = memo(function Composer({
                   { label: 'Request review', value: 'review' },
                 ]}
                 loading={improving}
+                placeholder='Improve'
                 tone='improve'
                 value={improvePreset}
               />
