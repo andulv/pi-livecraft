@@ -54,5 +54,5 @@ The integration test requires a configured `pi` command and the `/agent` extensi
 - Keep code spacious and explicit.
 - Document every application function longer than four lines with English JSDoc, except obvious type guards, conversions, formatting, or local parsing. Explain purpose, contract, invariant, side effect, or rationale rather than paraphrasing code.
 - Keep TypeScript strict and run Oxlint before proposing a change.
-- Commit as `<gitmoji> concise imperative subject`, without a conventional prefix.
+- At the end of each task, commit the changes as `<gitmoji> concise imperative subject`, without a conventional prefix.
 - Before creating or modifying a visual interface in Pi Livecraft, load the `livecraft-ui` skill. Do not load it for frontend changes that have no visual impact (state, API calls, data plumbing).
