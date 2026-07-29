@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import './tooltip.css'
 
-const SHOW_DELAY_MS = 400
+const SHOW_DELAY_MS = 800
 const HIDE_TRANSITION_MS = 150
 
 /** Renders a tooltip in the document layer so parent containers cannot clip it. Delays appearance to avoid flicker during quick pointer movement and fades in/out with a CSS transition. */
@@ -14,6 +14,17 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
   const tooltipRef = useRef<HTMLDivElement>(null)
   const showTimer = useRef<number | null>(null)
   const hideTimer = useRef<number | null>(null)
+
+  const clearTimers = useCallback(() => {
+    if (showTimer.current !== null) {
+      clearTimeout(showTimer.current)
+      showTimer.current = null
+    }
+    if (hideTimer.current !== null) {
+      clearTimeout(hideTimer.current)
+      hideTimer.current = null
+    }
+  }, [])
 
   useLayoutEffect(() => {
     if (!mounted) return
@@ -51,22 +62,22 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
     return () => cancelAnimationFrame(frame)
   }, [mounted])
 
-  const clearTimers = useCallback(() => {
-    if (showTimer.current !== null) {
-      clearTimeout(showTimer.current)
-      showTimer.current = null
-    }
-    if (hideTimer.current !== null) {
-      clearTimeout(hideTimer.current)
-      hideTimer.current = null
-    }
-  }, [])
+  // Hide the tooltip if React replaced or removed the trigger element.
+  useLayoutEffect(() => {
+    if (mounted && !triggerRef.current?.isConnected) hide()
+  })
+
+  // Clean up pending timers when the component unmounts.
+  useEffect(() => {
+    return () => clearTimers()
+  }, [clearTimers])
 
   function show(eventTarget: EventTarget | null): void {
     if (!(eventTarget instanceof Element)) return
     clearTimers()
     triggerRef.current = eventTarget
     showTimer.current = window.setTimeout(() => {
+      if (!triggerRef.current?.isConnected) return
       setPosition(null)
       setMounted(true)
     }, SHOW_DELAY_MS)
