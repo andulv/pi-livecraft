@@ -14,7 +14,6 @@
   place-items: center;
   padding: 20px;
   background: color-mix(in srgb, var(--ink) 18%, transparent);
-  backdrop-filter: blur(2px);
 }
 
 .ask-user-question-backdrop .ask-user-question {
