@@ -10,6 +10,7 @@ export function AgentSelect(
     agentLoading,
     agentBusy,
     onAgentChange,
+    onRequestOptions,
     open,
     onOpenChange,
     triggerRef,
@@ -19,6 +20,7 @@ export function AgentSelect(
     agentLoading: boolean
     agentBusy: boolean
     onAgentChange: (agent: string) => void
+    onRequestOptions?: () => void
     open: boolean
     onOpenChange: (open: boolean) => void
     triggerRef: RefObject<HTMLButtonElement | null>
@@ -27,12 +29,17 @@ export function AgentSelect(
   return (
     <ComposerSelect
       ariaLabel='Agent'
-      disabled={agentLoading || agentBusy || agentOptions.length === 0}
+      disabled={agentLoading || (agentBusy && agentOptions.length === 0)}
       onValueChange={onAgentChange}
-      onOpenChange={onOpenChange}
+      onOpenChange={(open) => {
+        if (open && agentOptions.length === 0 && !agentBusy) onRequestOptions?.()
+        onOpenChange(open)
+      }}
       open={open}
       options={agentOptions.map((agent) => ({ label: capitalizeLabel(agent), value: agent }))}
-      placeholder={agentLoading || agentBusy ? 'Loading…' : 'Choose an agent'}
+      placeholder={agentLoading || (agentBusy && agentOptions.length === 0)
+        ? 'Loading…'
+        : 'Choose an agent'}
       tone='agent'
       triggerRef={triggerRef}
       value={selectedAgent}

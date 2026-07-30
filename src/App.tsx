@@ -85,10 +85,6 @@ import {
 } from './features/session-analysis/session-analysis.ts'
 import './features/commands/commands.css'
 
-interface AgentIntent {
-  value?: string
-}
-
 const emptyAgentOptions: string[] = []
 const conversationViewDetails = {
   simple: { label: 'Simplified view', description: 'Messages only, without tool calls' },
@@ -118,6 +114,11 @@ function App() {
   // Dialogs and notifications
   const [agentOptions, setAgentOptions] = useState<Record<string, string[]>>({})
   const [agentBusy, setAgentBusy] = useState<Record<string, boolean>>({})
+  const [agentOptionsLoading, setAgentOptionsLoading] = useState<Record<string, boolean>>({})
+  const agentOptionsLoadingRef = useRef(agentOptionsLoading)
+  useEffect(() => {
+    agentOptionsLoadingRef.current = agentOptionsLoading
+  }, [agentOptionsLoading])
   const [dialog, setDialog] = useState<UiDialog | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
 
@@ -174,7 +175,6 @@ function App() {
   // UI and capability synchronization
   const loadingTimerRef = useRef<number>(0)
   const gitRefreshVersionRef = useRef(0)
-  const agentIntentsRef = useRef(new Map<string, AgentIntent>())
   const agentResponsesSentRef = useRef(new Set<string>())
 
   // Conversation timing and quotas
@@ -222,34 +222,23 @@ function App() {
       pending
         ?? (current && nextSessions.some(({ id }) => id === current.sessionId) ? current : null)
     )
-    // Resolve stale agent selectors that were missed during an SSE disconnect
+    // Resolve stale agent selectors that were missed during an SSE disconnect.
+    // Options are fetched on demand when the user opens the dropdown.
     for (const session of nextSessions) {
       for (const request of session.pendingUi) {
         if (!isAgentSelector(request)) continue
         const key = `${session.id}:${request.id}`
         if (agentResponsesSentRef.current.has(key)) continue
         agentResponsesSentRef.current.add(key)
-        const intent = agentIntentsRef.current.get(session.id)
-        const options = request.options.filter((o): o is string => typeof o === 'string')
-        if (intent) {
-          setAgentOptions((current) => ({ ...current, [session.id]: options }))
-          agentIntentsRef.current.delete(session.id)
-        }
-        const selectedAgent = intent?.value && options.includes(intent.value)
-          ? intent.value
-          : undefined
-        const response = selectedAgent ? { value: selectedAgent } : { cancelled: true }
         void sendPiCommand(session.id, {
           type: 'extension_ui_response',
           id: request.id,
-          ...response,
+          cancelled: true,
         })
           .catch((cause) => {
             agentResponsesSentRef.current.delete(key)
             showToast('error', messageOf(cause))
           })
-        if (intent?.value && !selectedAgent)
-          showToast('error', 'Selected agent is no longer available.')
       }
     }
   }, [showToast])
@@ -445,19 +434,26 @@ function App() {
     [showToast],
   )
 
-  /** Requests agent selection while avoiding concurrent requests for a session. */
-  const requestAgent = useCallback((sessionId: string, value?: string) => {
-    if (agentIntentsRef.current.has(sessionId)) return
-    agentIntentsRef.current.set(sessionId, value ? { value } : {})
-    setAgentBusy((current) => ({ ...current, [sessionId]: true }))
+  /** Sends /agent to Pi, intercepts the resulting selector silently, and caches its options. */
+  const fetchAgentOptions = useCallback((sessionId: string) => {
+    if (agentOptionsLoadingRef.current[sessionId] || agentOptions[sessionId]) return
+    setAgentOptionsLoading((current) => ({ ...current, [sessionId]: true }))
     void sendPiCommand(sessionId, { type: 'prompt', message: '/agent' })
-      .then(() => refreshSnapshot(sessionId))
       .catch((cause) => {
-        agentIntentsRef.current.delete(sessionId)
+        setAgentOptionsLoading((current) => ({ ...current, [sessionId]: false }))
         showToast('error', messageOf(cause))
       })
+  }, [agentOptions, showToast])
+
+  /** Activates an agent directly without opening the interactive selector. */
+  const activateAgent = useCallback((sessionId: string, agentName: string) => {
+    if (agentBusy[sessionId]) return
+    setAgentBusy((current) => ({ ...current, [sessionId]: true }))
+    void sendPiCommand(sessionId, { type: 'prompt', message: `/agent ${agentName}` })
+      .then(() => refreshSnapshot(sessionId))
+      .catch((cause) => showToast('error', messageOf(cause)))
       .finally(() => setAgentBusy((current) => ({ ...current, [sessionId]: false })))
-  }, [refreshSnapshot, showToast])
+  }, [agentBusy, refreshSnapshot, showToast])
 
   // Initial application synchronization
   useEffect(() => void refreshGit(), [refreshGit])
@@ -529,31 +525,22 @@ function App() {
         ) selectCreatedSession(sessionId)
         if (event.method === 'notify' && typeof event.message === 'string')
           showToast('notice', event.message, sessionId)
-        const agentIntent = agentIntentsRef.current.get(sessionId)
-        if (isAgentSelector(event)) {
-          const options = event.options.filter((option): option is string =>
-            typeof option === 'string'
-          )
-          if (agentIntent) {
-            setAgentOptions((current) => ({ ...current, [sessionId]: options }))
-            agentIntentsRef.current.delete(sessionId)
-          }
-          const selectedAgent = agentIntent?.value && options.includes(agentIntent.value)
-            ? agentIntent.value
-            : undefined
-          const response = selectedAgent ? { value: selectedAgent } : { cancelled: true }
+        // Intercept agent selector silently when Livecraft requested the options list.
+        if (isAgentSelector(event) && agentOptionsLoadingRef.current[sessionId]) {
+          const options = event.options.filter((o): o is string => typeof o === 'string')
+          setAgentOptions((current) => ({ ...current, [sessionId]: options }))
+          setAgentOptionsLoading((current) => ({ ...current, [sessionId]: false }))
           void sendPiCommand(sessionId, {
             type: 'extension_ui_response',
             id: event.id,
-            ...response,
+            cancelled: true,
           })
-            .then(() => refreshSnapshot(sessionId))
             .catch((cause) => showToast('error', messageOf(cause)))
-          if (agentIntent?.value && !selectedAgent)
-            showToast(
-              'error',
-              'Selected agent is no longer available.',
-            )
+          return
+        }
+        if (isAgentSelector(event)) {
+          // Pi-initiated selector (e.g. user typed /agent in Pi terminal) — show as normal dialog.
+          if (isBlockingDialog(event)) setDialog({ sessionId, request: event })
           return
         }
         if (isBlockingDialog(event)) setDialog({ sessionId, request: event })
@@ -572,7 +559,6 @@ function App() {
       markSessionCompleted,
       refreshGit,
       refreshSessionQuotas,
-      refreshSnapshot,
       renameSession,
       selectCreatedSession,
       showToast,
@@ -607,17 +593,6 @@ function App() {
       clearActivity()
       showToast('error', 'Connection to backend lost; retrying.')
     }), [clearActivity, handleManagerPiEvent, refreshSessions, resetEventSequence, showToast])
-
-  // Agent capabilities
-  useEffect(() => {
-    const exposesAgentCommand = snapshot.commands.some((command) => command.name === 'agent')
-    if (
-      snapshotSessionId === selectedId && exposesAgentCommand && !agentOptions[selectedId]
-      && !agentBusy[selectedId]
-    ) {
-      requestAgent(selectedId)
-    }
-  }, [agentBusy, agentOptions, requestAgent, selectedId, snapshot.commands, snapshotSessionId])
 
   // Selected session and loading state
   const selectedSession = sessions.find((session) => session.id === selectedId)
@@ -654,8 +629,8 @@ function App() {
     [showToast],
   )
   const handleComposerAgentChange = useCallback(
-    (agent: string) => requestAgent(selectedId, agent),
-    [requestAgent, selectedId],
+    (agent: string) => activateAgent(selectedId, agent),
+    [activateAgent, selectedId],
   )
   /** Executes a composer command and synchronizes capabilities affected by it. */
   const handleComposerCommand = useCallback(async (command: JsonObject) => {
@@ -1074,8 +1049,10 @@ function App() {
                       snapshot={snapshot}
                       agentBusy={Boolean(agentBusy[selectedSession.id])}
                       agentOptions={agentOptions[selectedSession.id] ?? emptyAgentOptions}
+                      agentOptionsLoading={Boolean(agentOptionsLoading[selectedSession.id])}
                       selectedAgent={selectedSession.activeAgent ?? ''}
                       onAgentChange={handleComposerAgentChange}
+                      onRequestAgentOptions={() => fetchAgentOptions(selectedSession.id)}
                       onCommand={handleComposerCommand}
                       commands={snapshot.commands}
                       agentLoading={snapshotSessionId !== selectedSession.id}

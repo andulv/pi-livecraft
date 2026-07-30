@@ -142,7 +142,7 @@ Pi Livecraft is made specifically for the [Pi coding agent](https://pi.dev). It 
 
 ## Recommended extensions
 
-- **[pi-agents](https://github.com/sebastienservouze/pi-agents):** adds specialized agents with focused prompts, restricted tool sets, and isolated delegation. When available in Pi, its agent selector is automatically exposed in the Livecraft composer.
+- **[@nerisma/pi-agents](https://github.com/sebastienservouze/pi-agents):** adds specialized agents with focused prompts, restricted tool sets, and isolated delegation. When Pi exposes the `/agent` command, Livecraft shows an agent dropdown that fetches options on first open and activates directly with `/agent <name>`. The dropdown does not trigger at session start.
 - **[pi-auto-title](https://github.com/sebastienservouze/pi-auto-title):** automatically names sessions from their first prompt, making parallel workspace histories easier to scan.
 
 ## Contributing

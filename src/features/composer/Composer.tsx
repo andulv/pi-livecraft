@@ -36,10 +36,12 @@ export const Composer = memo(function Composer({
   snapshot,
   agentBusy,
   agentOptions,
+  agentOptionsLoading,
   selectedAgent,
   agentLoading,
   showAgentSelector,
   onAgentChange,
+  onRequestAgentOptions,
   onCommand,
   commands,
   running,
@@ -59,10 +61,12 @@ export const Composer = memo(function Composer({
   snapshot: SessionSnapshot
   agentBusy: boolean
   agentOptions: string[]
+  agentOptionsLoading: boolean
   selectedAgent: string
   agentLoading: boolean
   showAgentSelector: boolean
   onAgentChange: (agent: string) => void
+  onRequestAgentOptions: () => void
   onCommand: (command: JsonObject) => Promise<JsonObject>
   commands: JsonObject[]
   running: boolean
@@ -132,6 +136,10 @@ export const Composer = memo(function Composer({
 
   useEffect(() => {
     if (!requestedSelect) return
+    if (requestedSelect === 'agent' && agentOptions.length === 0) {
+      onRequestAgentOptions()
+      return
+    }
     setOpenSelect(requestedSelect)
     const trigger = requestedSelect === 'agent'
       ? agentTriggerRef.current
@@ -140,7 +148,7 @@ export const Composer = memo(function Composer({
       : thinkingTriggerRef.current
     trigger?.focus()
     onSelectOpened?.()
-  }, [onSelectOpened, requestedSelect])
+  }, [onSelectOpened, requestedSelect, agentOptions.length, onRequestAgentOptions])
 
   useEffect(() => {
     if (!draftRequest) return
@@ -453,8 +461,9 @@ export const Composer = memo(function Composer({
                 agentOptions={agentOptions}
                 selectedAgent={selectedAgent}
                 agentLoading={agentLoading}
-                agentBusy={agentBusy}
+                agentBusy={agentBusy || agentOptionsLoading}
                 onAgentChange={onAgentChange}
+                onRequestOptions={onRequestAgentOptions}
                 open={openSelect === 'agent'}
                 onOpenChange={(open) => setOpenSelect(open ? 'agent' : null)}
                 triggerRef={agentTriggerRef}
