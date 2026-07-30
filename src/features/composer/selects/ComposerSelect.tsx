@@ -9,6 +9,8 @@ export function ComposerSelect(
     onOpenChange,
     onValueChange,
     open,
+    onOptionPointerMove,
+    onOptionsPointerLeave,
     options,
     placeholder,
     tone,
@@ -21,11 +23,13 @@ export function ComposerSelect(
     onValueChange: (value: string) => void
     options: { label: string; value: string }[]
     placeholder?: string
-    tone: 'agent' | 'behavior' | 'command' | 'improve' | 'model' | 'thinking'
+    tone: 'agent' | 'behavior' | 'command' | 'improve' | 'model' | 'prompt' | 'thinking'
     value: string
     loading?: boolean
     open?: boolean
     onOpenChange?: (open: boolean) => void
+    onOptionPointerMove?: (value: string) => void
+    onOptionsPointerLeave?: () => void
     triggerRef?: RefObject<HTMLButtonElement | null>
   },
 ) {
@@ -49,11 +53,12 @@ export function ComposerSelect(
           position='popper'
           sideOffset={7}
         >
-          <Select.Viewport>
+          <Select.Viewport onPointerLeave={onOptionsPointerLeave}>
             {options.map((option) => (
               <Select.Item
                 className='composer-select-option'
                 key={option.value}
+                onPointerMove={() => onOptionPointerMove?.(option.value)}
                 value={option.value}
               >
                 <Select.ItemText>{option.label}</Select.ItemText>
@@ -69,7 +74,9 @@ export function ComposerSelect(
 
 /** Uses consistent SVG pictograms independent of a font or emoji set. */
 function ComposerSelectIcon(
-  { tone }: { tone: 'agent' | 'behavior' | 'command' | 'improve' | 'model' | 'thinking' },
+  { tone }: {
+    tone: 'agent' | 'behavior' | 'command' | 'improve' | 'model' | 'prompt' | 'thinking'
+  },
 ) {
   if (tone === 'model')
     return (
@@ -78,6 +85,19 @@ function ComposerSelectIcon(
           d='m2.5 5 5.5-2.5L13.5 5 8 7.5 2.5 5Zm0 3L8 10.5 13.5 8M2.5 11 8 13.5l5.5-2.5'
           fill='none'
           stroke='currentColor'
+          strokeLinejoin='round'
+          strokeWidth='1.4'
+        />
+      </svg>
+    )
+  if (tone === 'prompt')
+    return (
+      <svg aria-hidden='true' className='composer-select-icon' viewBox='0 0 16 16'>
+        <path
+          d='M3 2.5h10v11H3zM5.2 5.5h5.6M5.2 8h5.6M5.2 10.5h3.2'
+          fill='none'
+          stroke='currentColor'
+          strokeLinecap='round'
           strokeLinejoin='round'
           strokeWidth='1.4'
         />

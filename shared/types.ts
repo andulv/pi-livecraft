@@ -185,11 +185,17 @@ export interface SessionStats {
   }
 }
 
+export interface PromptTemplate {
+  name: string
+  content: string
+}
+
 export interface SessionSnapshot {
   state: JsonObject | null
   messages: JsonObject[]
   models: JsonObject[]
   commands: JsonObject[]
+  promptTemplates: PromptTemplate[]
   stats: SessionStats | null
   liveEvents: Array<{ data: JsonObject; sequence: number }>
 }

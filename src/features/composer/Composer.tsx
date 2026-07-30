@@ -8,7 +8,12 @@ import {
   type FormEvent,
 } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import type { JsonObject, SessionSnapshot, SessionSummary } from '../../../shared/types.ts'
+import type {
+  JsonObject,
+  PromptTemplate,
+  SessionSnapshot,
+  SessionSummary,
+} from '../../../shared/types.ts'
 import { maxComposerImages, prepareComposerImage, type ComposerImage } from './composer-images.ts'
 import {
   ensureCompactCommand,
@@ -20,6 +25,7 @@ import {
 import { AgentSelect } from './selects/AgentSelect.tsx'
 import { BehaviorSelect } from './selects/BehaviorSelect.tsx'
 import { ModelSelect } from './selects/ModelSelect.tsx'
+import { PromptSelect } from './selects/PromptSelect.tsx'
 import { ThinkingSelect } from './selects/ThinkingSelect.tsx'
 import { ComposerSelect } from './selects/ComposerSelect.tsx'
 import { ComposerStatusBar } from './status-bar/ComposerStatusBar.tsx'
@@ -88,6 +94,7 @@ export const Composer = memo(function Composer({
   const [openSelect, setOpenSelect] = useState<'agent' | 'model' | 'thinking' | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const promptPreviewOriginal = useRef<string | undefined>(undefined)
   const agentTriggerRef = useRef<HTMLButtonElement>(null)
   const modelTriggerRef = useRef<HTMLButtonElement>(null)
   const thinkingTriggerRef = useRef<HTMLButtonElement>(null)
@@ -170,6 +177,26 @@ export const Composer = memo(function Composer({
     } catch {
       // Storage can be unavailable in private browsing; the in-memory draft still works.
     }
+  }
+
+  /** Shows a template without persisting it, retaining the existing draft until a selection is made. */
+  function previewPrompt(prompt: PromptTemplate): void {
+    if (promptPreviewOriginal.current === undefined) promptPreviewOriginal.current = message
+    setMessage(prompt.content)
+  }
+
+  /** Restores the draft when a prompt menu preview ends without an explicit selection. */
+  function endPromptPreview(): void {
+    if (promptPreviewOriginal.current === undefined) return
+    setMessage(promptPreviewOriginal.current)
+    promptPreviewOriginal.current = undefined
+  }
+
+  /** Replaces and persists the draft after a prompt template has been explicitly selected. */
+  function selectPrompt(prompt: PromptTemplate): void {
+    promptPreviewOriginal.current = undefined
+    setDraftMessage(prompt.content)
+    textareaRef.current?.focus()
   }
 
   /** Sends text and images in the same RPC command, restoring the draft on failure. */
@@ -442,6 +469,15 @@ export const Composer = memo(function Composer({
               onOpenChange={(open) => setOpenSelect(open ? 'thinking' : null)}
               triggerRef={thinkingTriggerRef}
             />
+            <Tooltip label='Insert a configured prompt'>
+              <PromptSelect
+                onOpenChange={() => setOpenSelect(null)}
+                onPreview={previewPrompt}
+                onPreviewEnd={endPromptPreview}
+                onSelect={selectPrompt}
+                prompts={snapshot.promptTemplates}
+              />
+            </Tooltip>
 
             {running && <BehaviorSelect behavior={behavior} onChange={setBehavior} />}
             <Tooltip label='Improve prompt'>

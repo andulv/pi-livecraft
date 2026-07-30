@@ -20,6 +20,7 @@ const emptySnapshot: SessionSnapshot = {
   messages: [],
   models: [],
   commands: [],
+  promptTemplates: [],
   stats: null,
   liveEvents: [],
 }
