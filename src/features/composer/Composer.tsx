@@ -507,8 +507,8 @@ export const Composer = memo(function Composer({
                 }}
                 options={[
                   { label: 'Clarify', value: 'clarify' },
-                  { label: 'Explore ideas', value: 'ideate' },
-                  { label: 'Be precise', value: 'precise' },
+                  { label: 'Ideate', value: 'ideate' },
+                  { label: 'Precise', value: 'precise' },
                 ]}
                 loading={improving}
                 placeholder='Improve'
