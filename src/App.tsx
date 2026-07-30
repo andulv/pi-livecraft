@@ -641,18 +641,24 @@ function App() {
   }, [refreshSnapshot, selectedId, showToast])
   /** Sends the current draft with the behavior supported by the active session. */
   const handleComposerSend = useCallback(
-    async (message: string, images: JsonObject[], behavior: 'steer' | 'followUp') => {
+    async (
+      message: string,
+      images: JsonObject[],
+      behavior: 'steer' | 'followUp',
+      isCommand: boolean,
+    ) => {
       const command: JsonObject = { type: 'prompt', message, images }
-      const isSteering = selectedSessionStatus === 'running' && behavior === 'steer'
+      const isSteering = !isCommand && selectedSessionStatus === 'running' && behavior === 'steer'
       if (selectedSessionStatus === 'running') command.streamingBehavior = behavior
       if (isSteering) addPendingSteering(message)
-      const optimisticId = !isSteering ? addOptimisticUserMessage(message) : undefined
+      const optimisticId = !isSteering && !isCommand ? addOptimisticUserMessage(message) : undefined
       try {
         await sendPiCommand(selectedId, command)
         const sentSession = sessions.find((session) => session.id === selectedId)
-        const shouldNameSession = sentSession?.name === 'Nouvelle session' && !snapshot
-          .messages
-          .some((entry) => entry.role === 'user')
+        const shouldNameSession = !isCommand && sentSession?.name === 'Nouvelle session'
+          && !snapshot
+            .messages
+            .some((entry) => entry.role === 'user')
         if (sentSession && shouldNameSession) nameSessionFromFirstPrompt(sentSession, message)
         await refreshSessions()
         setScrollToBottomRequest((current) => current + 1)

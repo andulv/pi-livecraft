@@ -2,8 +2,17 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   ensureCompactCommand,
+  isCommandDraft,
   isCompactCommandDraft,
 } from '../src/features/composer/composer-utils.ts'
+
+test('detects only slash commands exposed by Pi', () => {
+  const commands = [{ name: 'agent' }, { name: 'session-name' }]
+  assert.equal(isCommandDraft('/agent frontend', commands), true)
+  assert.equal(isCommandDraft('  /SESSION-NAME demo', commands), true)
+  assert.equal(isCommandDraft('/unknown', commands), false)
+  assert.equal(isCommandDraft('agent', commands), false)
+})
 
 test('detects /compact with no arguments', () => {
   assert.equal(isCompactCommandDraft('/compact'), true)

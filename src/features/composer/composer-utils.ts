@@ -11,6 +11,13 @@ export function formatTokens(value: number): string {
   return value >= 1000 ? `${Math.round(value / 1000)}k` : String(value)
 }
 
+/** Returns true when the draft starts with a slash command exposed by Pi. */
+export function isCommandDraft(text: string, commands: JsonObject[]): boolean {
+  const name = /^\/([^\s]+)/.exec(text.trim())?.[1].toLowerCase()
+  return name !== undefined
+    && commands.some((command) => String(command.name).toLowerCase() === name)
+}
+
 /** Returns true when the trimmed draft is exactly the /compact slash command with no arguments. */
 export function isCompactCommandDraft(text: string): boolean {
   return text.trim() === '/compact'

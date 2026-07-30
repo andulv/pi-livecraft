@@ -18,6 +18,7 @@ import { maxComposerImages, prepareComposerImage, type ComposerImage } from './c
 import {
   ensureCompactCommand,
   formatTokens,
+  isCommandDraft,
   isCompactCommandDraft,
   isObject,
   readComposerDraft,
@@ -71,7 +72,12 @@ export const Composer = memo(function Composer({
   commands: JsonObject[]
   running: boolean
   compacting: boolean
-  onSend: (message: string, images: JsonObject[], behavior: 'steer' | 'followUp') => Promise<void>
+  onSend: (
+    message: string,
+    images: JsonObject[],
+    behavior: 'steer' | 'followUp',
+    isCommand: boolean,
+  ) => Promise<void>
   onAbort: () => Promise<JsonObject>
   onImprovePrompt: (
     prompt: string,
@@ -121,9 +127,7 @@ export const Composer = memo(function Composer({
     : 'off'
   /** Snapshot commands augmented with the local compact command when Pi doesn't expose it. */
   const allCommands = ensureCompactCommand(commands)
-  const pendingCommandName = /^\/([^\s]+)/.exec(message)?.[1].toLowerCase()
-  const commandPending = pendingCommandName !== undefined
-    && allCommands.some((command) => String(command.name).toLowerCase() === pendingCommandName)
+  const commandPending = isCommandDraft(message, allCommands)
 
   useEffect(() => {
     if (submitRequest > 0) formRef.current?.requestSubmit()
@@ -233,6 +237,7 @@ export const Composer = memo(function Composer({
         nextMessage,
         images.map(({ data, mimeType }) => ({ type: 'image', data, mimeType })),
         behavior,
+        commandPending,
       )
     } catch (cause) {
       setDraftMessage(nextMessage)
