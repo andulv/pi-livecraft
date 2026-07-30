@@ -1,10 +1,11 @@
-import { lazy, memo, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import { CopyButton } from './CopyButton.tsx'
 import { canHighlightFile } from './file-preview.ts'
 import { parseMarkdownFrontmatter } from './markdown-frontmatter.ts'
+import { csvSourcePreview, parseCsvPreview, type CsvPreview } from './csv-preview.ts'
 import {
   editDiffDisplayLines,
   formatToolCallTooltip,
@@ -146,14 +147,21 @@ export const ToolCallCard = memo(function ToolCallCard({
   const resolvedSizeLabel = `Input: ${inputLength} characters. Output: ${outputLength} characters.`
   const writeContent = name === 'write' ? toolWriteContent(args) : null
   const content = name === 'write' && !resultError && writeContent ? writeContent : displayedOutput
-  const isRenderable = display.kind === 'markdown' || display.kind === 'html'
-    || display.kind === 'svg'
-  const hasRenderedPreview = isRenderable && hasResult && !expanded
+  const isRenderable = display.kind === 'csv' || display.kind === 'markdown'
+    || display.kind === 'html' || display.kind === 'svg'
+  const hasRenderedPreview = isRenderable && hasResult && !expanded && !resultError
   const hasCodePreview = display.kind === 'code' && hasResult && !expanded
     && canHighlightFile(content)
   const isNearViewport = useInView(cardRef, hasCodePreview || hasRenderedPreview)
   const contentError = resultError
-  const preview = toolTextPreview(content)
+  const preview = display.kind === 'csv'
+    ? {
+      text: content.length > maxPreviewChars
+        ? `${content.slice(0, maxPreviewChars)}…`
+        : content,
+      remainingLineCount: 0,
+    }
+    : toolTextPreview(content)
   const streamingArgs = streaming || interrupted ? input : undefined
   const streamingTruncated = Boolean(streamingArgs && streamingArgs.length > maxPreviewChars)
   const streamingPreviewText = streamingArgs && streamingArgs.length > maxPreviewChars
@@ -322,8 +330,10 @@ export const ToolCallCard = memo(function ToolCallCard({
                 : (
                   <ToolCallPreview
                     call={{ name, args }}
-                    content={display.kind === 'svg' || display
-                          .kind === 'html'
+                    content={display.kind === 'csv' || display
+                          .kind === 'svg'
+                        || display
+                            .kind === 'html'
                         || display
                             .kind === 'markdown'
                       ? content
@@ -368,7 +378,7 @@ function NumberedPre({ content, startLine }: { content: string; startLine: numbe
   )
 }
 
-/** Displays a clickable preview for code files, HTML files, resolved SVGs, and Markdown. */
+/** Displays a clickable preview for CSV, code, HTML, resolved SVG, and Markdown files. */
 function ToolCallPreview({
   call,
   content,
@@ -389,8 +399,8 @@ function ToolCallPreview({
   const display = call.name === 'read' || call.name === 'write'
     ? readContentDisplay(call.args)
     : { kind: 'text' as const }
-  const isRenderable = display.kind === 'markdown' || display.kind === 'html'
-    || display.kind === 'svg'
+  const isRenderable = display.kind === 'csv' || display.kind === 'markdown'
+    || display.kind === 'html' || display.kind === 'svg'
   const remainingLabel = isRenderable
     ? 'View source'
     : `Click to view ${remainingLineCount} more ${remainingLineCount === 1 ? 'line' : 'lines'}`
@@ -399,16 +409,27 @@ function ToolCallPreview({
   const svgPreview = display.kind === 'svg' && content.trim().length > 0
   const htmlPreview = display.kind === 'html' && showHtmlPreview
   const markdownPreview = display.kind === 'markdown'
+  const csvPreview = display.kind === 'csv'
+  const parsedCsv = useMemo(
+    () => csvPreview && isNearViewport ? parseCsvPreview(content) : null,
+    [content, csvPreview, isNearViewport],
+  )
   const filePath = toolFilePath(call.args)
   const isReadOrWrite = call.name === 'read' || call.name === 'write'
   const startLine = isReadOrWrite ? readStartingLineNumber(call.args) : 1
-  const plainPreview = isReadOrWrite
+  const plainPreview = csvPreview
+    ? <pre>{content.length > 400 ? `${content.slice(0, 400)}…` : content}</pre>
+    : isReadOrWrite
     ? <NumberedPre content={content} startLine={startLine} />
     : <pre>{content}</pre>
 
   return (
     <button className='tool-call-preview' onClick={onClick} type='button'>
-      {markdownPreview
+      {csvPreview
+        ? isNearViewport && parsedCsv
+          ? <CsvTable preview={parsedCsv} />
+          : plainPreview
+        : markdownPreview
         ? isNearViewport
           ? (
             <div className='tool-call-markdown-preview'>
@@ -461,6 +482,49 @@ function ToolCallPreview({
   )
 }
 
+/** Renders a bounded CSV table without materializing the complete file in the DOM. */
+function CsvTable({ preview }: { preview: CsvPreview }) {
+  const [header, ...body] = preview.rows
+  if (!header) return <pre className='tool-call-csv-empty'>No CSV rows.</pre>
+
+  return (
+    <div className='tool-call-csv-preview'>
+      <table aria-label='CSV preview'>
+        <thead>
+          <tr>
+            {header.map((cell, index) => <th key={index} scope='col' title={cell}>{cell}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {body.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {row.map((cell, columnIndex) => <td key={columnIndex} title={cell}>{cell}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {preview.truncated && (
+        <p className='tool-call-csv-notice'>
+          Preview limited for performance.
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** Displays a bounded CSV source while preserving the complete value for copying. */
+function CsvSourceContent({ content, onCollapse }: { content: string; onCollapse: () => void }) {
+  const source = csvSourcePreview(content)
+  return (
+    <section className='tool-call-content tool-call-csv-source' onClick={onCollapse}>
+      {source.truncated && (
+        <p className='tool-call-notice'>Source preview limited to 20,000 characters.</p>
+      )}
+      <pre>{source.text}</pre>
+    </section>
+  )
+}
+
 /** Displays the full result in its appropriate format instead of the preview. */
 function ToolCallContent({
   call,
@@ -500,6 +564,9 @@ function ToolCallContent({
     : rawContentDisplay.kind === 'markdown'
     ? ({ kind: 'code' as const, language: 'markdown' })
     : rawContentDisplay
+  if (rawContentDisplay.kind === 'csv')
+    return <CsvSourceContent content={content} onCollapse={onCollapse} />
+
   const isRenderable = rawContentDisplay.kind === 'markdown'
     || rawContentDisplay.kind === 'html'
     || rawContentDisplay.kind === 'svg'

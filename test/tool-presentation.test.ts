@@ -70,7 +70,8 @@ test('builds browser file URLs from Linux, Windows, and WSL paths', () => {
   )
 })
 
-test('detects Markdown, HTML and supported code formats read from the repository', () => {
+test('detects CSV, Markdown, HTML and supported code formats read from the repository', () => {
+  assert.deepEqual(readContentDisplay({ path: 'data/export.csv' }), { kind: 'csv' })
   assert.deepEqual(readContentDisplay({ path: 'docs/guide.md' }), { kind: 'markdown' })
   assert.deepEqual(readContentDisplay({ path: 'src/App.tsx' }), {
     kind: 'code',

@@ -651,6 +651,55 @@
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
+.tool-call-csv-preview {
+  max-height: 380px;
+  overflow: auto;
+  padding: 9px 10px 0;
+  text-align: left;
+}
+.tool-call-csv-preview table {
+  min-width: max-content;
+  border-collapse: collapse;
+  font: 11px/1.5 ui-monospace, monospace;
+}
+.tool-call-csv-preview th,
+.tool-call-csv-preview td {
+  width: 180px;
+  max-width: 240px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-call-csv-preview th {
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 650;
+}
+.tool-call-csv-notice {
+  margin: 7px 0 9px;
+  color: var(--muted);
+  font: 10px/1.5 ui-sans-serif, system-ui, sans-serif;
+}
+.tool-call-csv-empty {
+  margin: 0;
+  padding: 9px 10px;
+  font: 11px/1.5 ui-monospace, monospace;
+}
+.tool-call-csv-source {
+  max-height: 540px;
+  overflow: auto;
+}
+.tool-call-csv-source > pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 9px 10px;
+  color: inherit;
+  font: 11px/1.5 ui-monospace, monospace;
+  white-space: pre;
+}
 .tool-call-svg-preview {
   display: block;
   max-width: 100%;

@@ -7,7 +7,7 @@ import type { ToolCall } from './tool-protocol.ts'
 export { truncateToolText } from './tool-call-presentations/shared.ts'
 
 export interface ReadContentDisplay {
-  kind: 'code' | 'html' | 'markdown' | 'svg' | 'text'
+  kind: 'code' | 'csv' | 'html' | 'markdown' | 'svg' | 'text'
   language?: string
 }
 
@@ -217,6 +217,7 @@ export function readContentDisplay(args: unknown): ReadContentDisplay {
   if (!path) return { kind: 'text' }
 
   const extension = path.match(/\.([^./]+)$/)?.[1]?.toLowerCase()
+  if (extension === 'csv') return { kind: 'csv' }
   if (extension === 'md' || extension === 'markdown') return { kind: 'markdown' }
   if (extension === 'htm' || extension === 'html') return { kind: 'html' }
   if (extension === 'svg') return { kind: 'svg' }
