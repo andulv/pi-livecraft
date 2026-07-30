@@ -60,35 +60,30 @@ For a bug, trace the common cause before protecting symptoms. For any extra tool
 - Do not add a database, frontend router, state manager, or UI library without demonstrated need.
 - Before visual UI work, load the project-specific `livecraft-ui` skill. Do not load another visual skill unless explicitly requested, and do not load any for state, API, data, or event wiring without visual impact.
 
+## Execute safely
+
+A direct request authorizes reversible local edits, targeted checks, and a task-only commit. Ask immediately before deleting files, data, or user content; installing dependencies or running unrequested network commands; including pre-existing work; pushing, publishing, deploying, or taking another external, irreversible, or sensitive action. Never expose secrets.
+
+Before the first mutation, run `git status --short` once. Preserve pre-existing work and inspect its diff only when it overlaps files you must change.
+
 ## Make the smallest compatible change
 
-- Reuse the repository's helpers, types, patterns, dependencies, and native platform capabilities before adding code.
-- Add no speculative abstraction, dependency, configuration, compatibility path, or capability.
-- Keep validation at trust boundaries and preserve unrelated APIs, protocols, and data formats.
-- Put new files in the smallest coherent owning area. Avoid generic `utils` or `common` buckets unless shared ownership is already demonstrated.
-- Remove imports, styles, files, and documentation made obsolete by the change. Do not include generated artifacts, logs, or local environment files.
-- Before a compatibility break, stop and report the behavior change, impact, and migration.
-- Use English for identifiers, filenames, code comments, and JSDoc. Document non-obvious application contracts, invariants, side effects, or rationale; do not document by line count or paraphrase obvious code.
-- Keep TypeScript strict and code explicit. Follow the repository formatter instead of hand-formatting around it.
+- Reuse existing helpers, types, patterns, dependencies, and platform capabilities. Add no speculative abstraction, dependency, configuration, compatibility path, or capability.
+- Validate trust boundaries and preserve unrelated APIs, protocols, and formats. Put new files in the smallest owning area; avoid generic `utils` or `common` buckets without demonstrated shared ownership.
+- Remove obsolete code, styles, files, and documentation. Do not include generated artifacts, logs, or local environment files. Before a compatibility break, stop and report its behavior, impact, and migration.
+- Use English for identifiers, filenames, comments, and JSDoc. Keep TypeScript strict and explicit, use the repository formatter, and document non-obvious contracts, invariants, side effects, or rationale without paraphrasing code.
 
 ## Validate proportionately
 
-Choose the smallest check that proves the changed behavior. Each command must add distinct evidence.
+Choose the smallest check that proves the changed behavior; each command must add distinct evidence.
 
-- Documentation or simple configuration: targeted reread or syntax check only.
-- Local behavior: the nearest focused test first; add one only for non-trivial logic, a reproducible regression, or a durable contract.
-- TypeScript source: run Oxlint and the focused test, typecheck, or build that covers the actual risk. Do not run every check by ritual.
-- Reserve full tests and builds for cross-cutting contracts, public APIs, dependencies, security, data, or high-regression paths.
-- Do not repeat a focused check inside a broader suite unless the broader run adds useful coverage.
-- Reread changed files and check for accidental edits or apparent secrets. Diagnose a relevant failure; do not hide it or commit through it.
+- For documentation or simple configuration, use a targeted reread or syntax check. For local behavior, use the nearest focused test; add one only for non-trivial logic, a reproducible regression, or a durable contract.
+- For TypeScript, run Oxlint plus the focused test, typecheck, or build that covers the risk. Reserve broad checks for cross-cutting or high-regression changes.
+- Do not duplicate checks. Reread changed files, check for accidental edits or apparent secrets, and never hide a relevant failure or commit through it.
 
 Useful commands:
 
 ```bash
-npm run dev
-npm run dev:manager
-npm run dev:backend
-npm run dev:frontend
 npm run typecheck
 npm run lint
 npm run format:check -- <paths>
@@ -102,11 +97,8 @@ The Pi RPC integration test requires a configured `pi` command. Its `/agent` cov
 
 `npm run eval:documentation-routing` launches external model calls and may incur cost. Run it only with explicit approval.
 
-## Preserve the worktree and finish cleanly
+## Finish cleanly
 
-Before the first mutation, run `git status --short` once. Preserve all pre-existing work and inspect an existing diff only if it overlaps the files you must change.
-
-- Stage only your files or hunks with `git add -- <targets>`; never use a blind global add.
-- Commit only after relevant validation passes. Use a real Gitmoji and a concise imperative French subject, without a conventional prefix.
-- Never include another contributor's changes without explicit approval, and never push implicitly.
-- Report the resulting behavior and essential files, checks actually run and their result, then the commit identifier and message. Mention a risk or follow-up only when real.
+- Stage only your files or hunks with `git add -- <targets>`; never use a blind global add or include another contributor's work.
+- Commit after relevant validation passes, using a real Gitmoji and a concise imperative French subject without a conventional prefix. Never push implicitly.
+- Report the result, essential files, checks actually run, and commit identifier. Mention a risk or follow-up only when real.
