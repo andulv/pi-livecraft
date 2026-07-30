@@ -1,6 +1,6 @@
 <div align="center">
 
-#  ❖ Pi Livecraft ❖
+#  ⤿ Pi Livecraft ⤾
 
 **Pi does the agentic stuff. Livecraft gives it a live editable React app.**
 
