@@ -2,7 +2,7 @@
 
 # Pi Livecraft
 
-**Pi does the agentic stuff. Livecraft gives it a morphable React app.**
+**Pi does the agentic stuff. Livecraft gives it a live editable React app.**
 
 The repository is set up to be forked and changed while you use it. 
 
