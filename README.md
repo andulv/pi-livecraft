@@ -4,7 +4,7 @@
 
 **Pi does the agentic stuff. Livecraft gives it a morphable React app.**
 
-The repository is set up to be forked and changed while you use it.
+The repository is set up to be forked and changed while you use it. 
 
 [![Built with Pi](https://img.shields.io/badge/Built%20with-Pi.dev-6C63FF?style=flat-square&logo=terminal&logoColor=white)](https://pi.dev)
 [![Fork this repo](https://img.shields.io/badge/Fork_this_repo-2ea44f?style=flat-square&logo=github)](https://github.com/sebastienservouze/pi-livecraft/fork)
@@ -31,7 +31,7 @@ You configure Pi as usual. Livecraft just calls it instead of keeping a second p
 
 **Pi already provides an exceptional experience in the terminal, no doubt about it.**
 
-Sadly, a terminal can't (yet) do it all. A browser is handy for the parts that benefit from space and interactivity: graphs, small buttons, and advanced interactions (images, 3D?).
+Sadly, a terminal can't (yet) do it all. A browser is handy for the parts that benefit from space and interactivity: graphs, small buttons, and advanced interactions (images, videos, 3D?).
 
 For example, I embedded a **Session Analysis widget** that lets you monitor usage, token consumption, and cost in real time, as well as identify the costliest tool calls based on multiple criteria.
 
