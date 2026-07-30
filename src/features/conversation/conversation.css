@@ -46,6 +46,7 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 .message {
+  position: relative;
   margin: 0 0 26px;
 }
 .message.user {
@@ -91,7 +92,7 @@
   padding: 0 2px;
 }
 .message.assistant > .content {
-  padding-right: 34px;
+  padding-right: 42px;
 }
 .custom-message {
   max-width: 760px;
@@ -415,11 +416,18 @@
   color: color-mix(in srgb, var(--accent) 40%, var(--ink));
   font: 12px/1.5 ui-monospace, monospace;
 }
-.context-session-button {
+.conversation-actions {
   position: absolute;
   z-index: 1;
   top: 6px;
   right: 7px;
+  display: flex;
+  gap: 5px;
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 140ms ease-out, transform 140ms ease-out;
+}
+.conversation-action-button {
   display: grid;
   place-items: center;
   width: 26px;
@@ -429,57 +437,57 @@
   border-radius: 6px;
   background: var(--surface-raised);
   color: var(--muted);
-  opacity: 0;
-  transform: translateY(2px);
   transition:
-    opacity 140ms ease-out,
-    transform 140ms ease-out,
     border-color 140ms ease-out,
-    color 140ms ease-out;
+    color 140ms ease-out,
+    transform 100ms ease-out;
 }
-.context-session-button svg {
+.conversation-action-button svg {
   width: 14px;
   height: 14px;
 }
-.message:hover > .context-session-button,
-.message:focus-within > .context-session-button,
-.tool-call:hover > .context-session-button,
-.tool-call:focus-within > .context-session-button {
+.message:hover > .conversation-actions,
+.message:focus-within > .conversation-actions,
+.tool-call:hover > .conversation-actions,
+.tool-call:focus-within > .conversation-actions {
   opacity: 1;
   transform: translateY(0);
 }
-.context-session-button:hover {
+.conversation-action-button:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
 }
-.context-session-button:focus-visible {
+.conversation-action-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   opacity: 1;
-  transform: translateY(0);
 }
-.context-session-button:disabled {
-  cursor: wait;
-  opacity: 0.55;
+.conversation-action-button:active:not(:disabled) {
+  transform: scale(0.97);
 }
-.tool-call > .context-session-button {
+.conversation-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: none;
+}
+.message.user:has(> .message-actions) {
+  padding-right: 48px;
+}
+.tool-call > .conversation-actions {
   top: 5px;
 }
-.tool-call:hover:has(> .context-session-button) > .tool-call-heading,
-.tool-call:focus-within:has(> .context-session-button) > .tool-call-heading {
-  padding-right: 40px;
+.tool-call:has(> .conversation-actions) > .tool-call-heading {
+  padding-right: 80px;
 }
 @media (hover: none) {
-  .context-session-button {
+  .conversation-actions {
     opacity: 1;
     transform: none;
   }
-  .tool-call:has(> .context-session-button) > .tool-call-heading {
-    padding-right: 40px;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .context-session-button {
+  .conversation-actions,
+  .conversation-action-button {
     transition: none;
   }
 }

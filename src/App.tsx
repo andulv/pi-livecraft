@@ -703,13 +703,6 @@ function App() {
   const questionnaireInComposer = questionnaire?.sessionId === selectedId
     && snapshotSessionId === selectedId
 
-  const handleContextSessionStart = useCallback(
-    async (draft: string): Promise<void> => {
-      await startAndSelectSession(() => createSession(workspacePath), undefined, draft)
-    },
-    [startAndSelectSession, workspacePath],
-  )
-
   const markComposerDraftApplied = useCallback((id: string) => {
     setComposerDraftRequest((current) => current?.id === id ? undefined : current)
   }, [])
@@ -999,12 +992,10 @@ function App() {
                     messages={snapshot.messages}
                     navigationRequest={conversationNavigation}
                     onError={handleConversationError}
-                    onStartSession={handleContextSessionStart}
                     pendingSteering={pendingSteering}
                     repositoryRoot={gitSnapshot?.root}
                     scrollToBottomRequest={scrollToBottomRequest}
                     toolExecutions={toolExecutions}
-                    workspacePath={workspacePath}
                   />
                   <Tooltip
                     label={`${conversationViewDetail.label} — ${conversationViewDetail.description}`}

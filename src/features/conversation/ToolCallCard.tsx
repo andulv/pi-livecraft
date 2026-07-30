@@ -2,8 +2,7 @@ import { lazy, memo, Suspense, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import { getWorkspaceFilePath } from '../../api.ts'
-import { fileContextDraft } from './context-session.ts'
+import { CopyButton } from './CopyButton.tsx'
 import { canHighlightFile } from './file-preview.ts'
 import {
   editDiffDisplayLines,
@@ -49,46 +48,6 @@ export function Markdown({ children }: { children: string }) {
   return <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
 }
 
-/** Opens a session with a context draft without sending it immediately. */
-export function ContextSessionButton(
-  { onClick, onError }: { onClick: () => Promise<void>; onError?: (cause: unknown) => void },
-) {
-  const [busy, setBusy] = useState(false)
-
-  async function activate(): Promise<void> {
-    setBusy(true)
-    try {
-      await onClick()
-    } catch (cause) {
-      onError?.(cause)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Tooltip label='Continue in a new session'>
-      <button
-        aria-label='Continue in a new session'
-        className='context-session-button'
-        disabled={busy}
-        onClick={() => void activate()}
-        type='button'
-      >
-        <svg aria-hidden='true' viewBox='0 0 16 16'>
-          <path
-            d='M8 3.5v9M3.5 8h9'
-            fill='none'
-            stroke='currentColor'
-            strokeLinecap='round'
-            strokeWidth='1.5'
-          />
-        </svg>
-      </button>
-    </Tooltip>
-  )
-}
-
 interface ToolCallCardProps {
   animateLiveChanges?: boolean
   args: unknown
@@ -98,7 +57,6 @@ interface ToolCallCardProps {
   interrupted?: boolean
   name: string
   onError: (cause: unknown) => void
-  onStartSession: (draft: string) => Promise<void>
   repositoryRoot?: string | null
   partialResultContent?: unknown
   resultContent?: unknown
@@ -106,7 +64,6 @@ interface ToolCallCardProps {
   resultError?: boolean
   streaming?: boolean
   targeted?: boolean
-  workspacePath: string
 }
 
 /** Displays the official card whose full result replaces the preview when expanded. */
@@ -119,7 +76,6 @@ export const ToolCallCard = memo(function ToolCallCard({
   interrupted = false,
   name,
   onError,
-  onStartSession,
   partialResultContent,
   repositoryRoot,
   resultContent,
@@ -127,7 +83,6 @@ export const ToolCallCard = memo(function ToolCallCard({
   resultError,
   streaming = false,
   targeted = false,
-  workspacePath,
 }: ToolCallCardProps) {
   const pending = !hasResult
   const active = pending && !interrupted
@@ -251,15 +206,10 @@ export const ToolCallCard = memo(function ToolCallCard({
           </small>
         </button>
       </Tooltip>
-      {filePath && (name === 'read' || name === 'write') && hasResult && (
-        <ContextSessionButton
-          onClick={async () => {
-            const { absolutePath } = await getWorkspaceFilePath(workspacePath, filePath)
-            await onStartSession(fileContextDraft(absolutePath))
-          }}
-          onError={onError}
-        />
-      )}
+      <div className='conversation-actions tool-call-actions'>
+        <CopyButton label='Copy tool input' onError={onError} value={input} />
+        {hasResult && <CopyButton label='Copy tool output' onError={onError} value={output} />}
+      </div>
       <div className={`tool-call-body${hasBody ? ' visible' : ''}`}>
         <div>
           {(streaming || interrupted) && (

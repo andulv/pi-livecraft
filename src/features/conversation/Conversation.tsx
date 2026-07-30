@@ -27,8 +27,8 @@ import {
 } from './message-reconciliation.ts'
 import { toolCallsInMessage, toolResultInMessage, type ToolExecution } from './tool-protocol.ts'
 import type { SessionAnalysisTarget } from '../session-analysis/session-analysis.ts'
-import { outputContextDraft } from './context-session.ts'
-import { ContextSessionButton, Markdown, ToolCallCard } from './ToolCallCard.tsx'
+import { CopyButton } from './CopyButton.tsx'
+import { Markdown, ToolCallCard } from './ToolCallCard.tsx'
 import {
   isNearConversationBottom,
   resumesAutoScrollAfterDownwardScroll,
@@ -48,9 +48,7 @@ export function Conversation(
     repositoryRoot,
     scrollToBottomRequest,
     toolExecutions,
-    workspacePath,
     onError,
-    onStartSession,
   }: {
     activity: Activity | null
     agentName?: string
@@ -63,9 +61,7 @@ export function Conversation(
     repositoryRoot?: string | null
     scrollToBottomRequest: number
     toolExecutions: ToolExecution[]
-    workspacePath: string
     onError: (cause: unknown) => void
-    onStartSession: (draft: string) => Promise<void>
   },
 ) {
   const allMessages = messages
@@ -328,7 +324,7 @@ export function Conversation(
                 key={entry.key}
               >
                 {isVisibleConversationMessage(message) && (
-                  <MessageCard message={message} onStartSession={onStartSession} />
+                  <MessageCard message={message} onError={onError} />
                 )}
                 {calls.map((call) => {
                   const execution = executionsByCallId.get(call.id)
@@ -343,7 +339,6 @@ export function Conversation(
                       key={call.id}
                       name={call.name}
                       onError={onError}
-                      onStartSession={onStartSession}
                       partialResultContent={execution?.partialResult?.content}
                       repositoryRoot={repositoryRoot}
                       resultContent={result?.content}
@@ -351,7 +346,6 @@ export function Conversation(
                       resultError={result?.isError}
                       streaming={execution?.status === 'generating'}
                       targeted={highlightedTarget === `tool:${call.id}`}
-                      workspacePath={workspacePath}
                     />
                   )
                 })}
@@ -374,7 +368,7 @@ export function Conversation(
                       <MessageCard
                         key='message'
                         message={part.message}
-                        onStartSession={onStartSession}
+                        onError={onError}
                       />
                     )
                     : null
@@ -394,7 +388,6 @@ export function Conversation(
                       .call
                       .name}
                     onError={onError}
-                    onStartSession={onStartSession}
                     partialResultContent={execution?.partialResult?.content}
                     repositoryRoot={repositoryRoot}
                     resultContent={result?.content}
@@ -402,7 +395,6 @@ export function Conversation(
                     resultError={result?.isError}
                     streaming={execution?.status === 'generating'}
                     targeted={highlightedTarget === `tool:${part.call.id}`}
-                    workspacePath={workspacePath}
                   />
                 )
               })}
@@ -424,7 +416,6 @@ export function Conversation(
               key={execution.id}
               name={execution.name}
               onError={onError}
-              onStartSession={onStartSession}
               partialResultContent={execution.partialResult?.content}
               repositoryRoot={repositoryRoot}
               resultContent={execution.result?.content}
@@ -432,7 +423,6 @@ export function Conversation(
               resultError={execution.result?.isError}
               streaming={execution.status === 'generating'}
               targeted={highlightedTarget === `tool:${execution.id}`}
-              workspacePath={workspacePath}
             />
           ))}
         {pendingSteering.map((message, index) => (
@@ -486,34 +476,36 @@ export function Conversation(
 
 const MessageCard = memo(
   function MessageCard(
-    { message, onStartSession }: {
+    { message, onError }: {
       message: JsonObject
-      onStartSession: (draft: string) => Promise<void>
+      onError: (cause: unknown) => void
     },
   ) {
     if (message.role === 'custom' && typeof message.customType === 'string')
       return <DefaultCustomMessage message={message} />
-    return <DefaultMessageCard message={message} onStartSession={onStartSession} />
+    return <DefaultMessageCard message={message} onError={onError} />
   },
 )
 
 const DefaultMessageCard = memo(
   function DefaultMessageCard(
-    { message, onStartSession }: {
+    { message, onError }: {
       message: JsonObject
-      onStartSession: (draft: string) => Promise<void>
+      onError: (cause: unknown) => void
     },
   ) {
     const role = String(message.role)
     const timestamp = typeof message.timestamp === 'number' ? new Date(message.timestamp) : null
     const time = timestamp && !Number.isNaN(timestamp.getTime()) ? timestamp : null
-    const output = role === 'assistant' ? visibleText(message.content ?? message.output) : ''
+    const text = visibleText(message.content ?? message.output)
     return (
       <article className={`message ${role}`}>
-        <div className='content'>{renderContent(message.content ?? message.output)}</div>
-        {output && (
-          <ContextSessionButton onClick={() => onStartSession(outputContextDraft(output))} />
+        {text && (
+          <div className='conversation-actions message-actions'>
+            <CopyButton label='Copy message' onError={onError} value={text} />
+          </div>
         )}
+        <div className='content'>{renderContent(message.content ?? message.output)}</div>
         {role === 'user' && time && (
           <time
             className='message-time'
