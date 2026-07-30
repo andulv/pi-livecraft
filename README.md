@@ -19,19 +19,33 @@ A local web workbench for Pi that is meant to be forked, reshaped, simplified, a
 
 ## Pi is the clever part
 
-Pi owns the providers, models, sessions, history, tools, commands, and extensions. It reasons, writes the code, and runs the tools. Livecraft does not replace that runtime or duplicate its configuration. It talks to `pi --mode rpc` through Pi's public protocol and presents the result in a local React interface.
+Pi owns the providers, models, sessions, history, tools, commands, and extensions. It reasons, writes the code, and runs the tools.
 
-You still configure Pi as usual. Livecraft asks Pi what is available and displays it. Its own settings are deliberately less exciting: themes, shortcuts, panel sizes, drafts, and a few local workflow preferences.
+Livecraft gives that work a local web interface. It adds panels, previews, buttons, and a few useful opinions without replacing Pi or duplicating its configuration.
 
-Think of Livecraft as an intentionally oversized, editable web extension around Pi. The useful idea comes from Pi's small, composable design and public APIs. Livecraft is merely one enthusiastic consequence of that design.
+You still configure Pi as usual. Livecraft simply asks what is available and displays it.
+
+Its own settings are deliberately less exciting: themes, shortcuts, panel sizes, drafts, and a few local workflow preferences.
+
+Think of Livecraft as an intentionally oversized, editable web extension around Pi.
+
+The useful idea comes from Pi's small, composable design. Livecraft is merely one enthusiastic consequence of it.
 
 ## Why Livecraft?
 
-Pi is already excellent in a terminal. Some interactions simply benefit from a visual surface: comparing token usage between turns, keeping an eye on several sessions, reading a large diff, answering a structured question, or jumping from an analysis chart back to the tool call that caused the spike.
+Pi is already excellent in a terminal.
 
-Livecraft provides that surface, but the more interesting part is that Pi can modify it while you use it. Notice something annoying, ask Pi to change the application, review the diff, and try the result without abandoning the session that started the work. Frontend and backend updates preserve Pi processes. Changes to the manager wait for an explicit guarded restart, because surprise restarts are rarely delightful.
+Some interactions simply benefit from a visual surface. It is easier to compare token usage between turns, keep an eye on several sessions, read a large diff, answer a structured question, or jump from an analysis chart back to the tool call that caused the spike.
 
-The repository includes focused guides for its main composition points. Point Pi at the [documentation index](/docs/README.md) and it can usually find the right owner and the smallest relevant check without turning the whole codebase into an archaeological site.
+Livecraft provides that surface.
+
+The more interesting part is that Pi can modify it while you use it. Notice something annoying, ask Pi to change the application, review the diff, and try the result in the same session.
+
+Most application changes appear without interrupting the conversation that requested them. The less interesting machinery that makes this possible is explained later, after the useful bits.
+
+The repository also includes focused guides for its main composition points.
+
+Point Pi at the [documentation index](/docs/README.md) and it can usually find the right owner and the smallest relevant check without turning the whole codebase into an archaeological site.
 
 ## Quick start
 
@@ -58,7 +72,7 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173). That is the whole ceremony.
 - **Workspaces and parallel sessions:** create, switch, reopen, and monitor Pi sessions across several directories. Active and newly completed sessions stay visible so attention can move without guesswork.
 - **A Pi-native composer:** send text and images, use slash commands, stop a request, choose models and thinking levels exposed by Pi, and steer or queue follow-ups while Pi is working.
 - **Per-session drafts:** unfinished prompts survive session switches and failed sends.
-- **Optional prompt rewrites:** ask a disposable Pi process for a rewrite without changing the current conversation.
+- **Cheap isolated runs:** launch a disposable Pi prompt from any widget, command, or UI action. It picks the cheapest available model by default, returns one answer, and leaves the active conversation untouched. The included prompt rewriter is one example.
 - **Extension dialogs:** handle Pi's standard select, confirm, input, and editor requests, plus versioned structured questionnaires from Livecraft extensions.
 - **Optional agent picker:** when Pi exposes the `/agent` command, Livecraft can present its available agents without taking ownership of their configuration.
 
@@ -86,7 +100,11 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173). That is the whole ceremony.
 
 ## Forks are the point
 
-This repository is a starting point, not a subscription. Your fork is expected to diverge, and there is no prize for keeping it synchronized with upstream. Use it for a while, notice a small friction, ask Pi to remove that friction, and repeat until the application fits the way you work.
+This repository is a starting point, not a subscription. Your fork is expected to diverge.
+
+There is no prize for keeping it synchronized with upstream.
+
+Use it for a while, notice a small friction, ask Pi to remove that friction, and repeat until the application fits the way you work.
 
 A few reasonable first mutations:
 
@@ -97,11 +115,17 @@ A few reasonable first mutations:
 - remove every feature you do not enjoy using;
 - add something objectively unnecessary but personally delightful.
 
-There is no canonical setup. The original repository only moves forward through bug fixes. New workflows and product choices belong in the forks that need them. That is not fragmentation here. That is the plan.
+There is no canonical setup.
+
+The original repository only moves forward through bug fixes. New workflows and product choices belong in the forks that need them.
+
+That is not fragmentation here. That is the plan.
 
 ## Where to start changing things
 
-The README shows what exists. The guides explain where to put the next idea without making you memorize the repository first.
+The README shows what exists.
+
+The guides explain where to put the next idea without making you memorize the repository first.
 
 | You want to... | Start here |
 | --- | --- |
@@ -114,11 +138,19 @@ The README shows what exists. The guides explain where to put the next idea with
 | Present UI from a Pi extension | [Dialog contract](/src/features/dialogs/README.md) and [Pi extensions](/pi-extensions/README.md) |
 | Send another command to Pi | [Pi RPC guide](/docs/HOW-TO-TALK-TO-PI.md) |
 | Run a prompt without touching the session | [Isolated prompt guide](/docs/HOW-TO-RUN-ISOLATED-PROMPT.md) |
-| Cross frontend, backend, manager, or Pi boundaries | [Architecture guide](/docs/ARCHITECTURE.md) |
+| Understand how the browser, local services, and Pi connect | [Architecture guide](/docs/ARCHITECTURE.md) |
 
 The [documentation index](/docs/README.md) links the feature contracts, backend capabilities, widgets, and focused checks behind each surface.
 
 ## Under the hood, briefly
+
+Everything runs locally, with only a few moving pieces.
+
+The browser displays the application. A local backend handles Livecraft features and carries Pi's events back to the page.
+
+A small service called the manager starts and owns the Pi processes. Keeping it separate means that refreshing the page or restarting the backend does not close those processes.
+
+A tiny supervisor starts the manager and replaces it only after the manager accepts an explicit restart request.
 
 ```mermaid
 flowchart LR
@@ -137,16 +169,26 @@ flowchart LR
     Manager <-->|"Pi public RPC"| Pi(["Pi<br/><code>pi --mode rpc</code>"])
 ```
 
-The manager is the sole owner of Pi processes. This lets Vite update the interface and lets the backend restart without closing active sessions. Manager runtime changes produce a persistent notice instead of an interruption. A replacement happens only after the user requests it and the manager confirms that Pi is idle. Sessions remain available in history afterwards.
+That separation lets Vite update the interface and lets the backend restart without closing active sessions.
 
-Livecraft uses Pi's public RPC and extension APIs for everything Pi-related. Local capabilities such as Git, todos, terminal launching, and browser preferences stay on the Livecraft side of the boundary. Read the [architecture guide](/docs/ARCHITECTURE.md) for the full flow and the [manager lifecycle guide](/docs/MANAGER-LIFECYCLE.md) before touching process supervision.
+If the manager's own code changes, Livecraft shows a persistent notice instead of interrupting Pi. A replacement happens only after the user asks for it and the manager confirms that Pi is idle.
+
+Any Pi session closed during that restart remains available in history afterwards.
+
+The manager talks to Pi through its public RPC protocol. Livecraft extensions use Pi's public extension API.
+
+Local capabilities such as Git, todos, terminal launching, and browser preferences stay on the Livecraft side of the boundary.
+
+Read the [architecture guide](/docs/ARCHITECTURE.md) for the full flow. Read the [manager lifecycle guide](/docs/MANAGER-LIFECYCLE.md) before touching process supervision.
 
 ## Optional Pi extras
 
-These are configured in Pi. Livecraft simply knows how to make their results pleasant to use.
+These extensions are configured in Pi.
+
+Livecraft simply knows how to make their results pleasant to use.
 
 - **[@nerisma/pi-agents](https://github.com/sebastienservouze/pi-agents):** adds specialized agents with focused prompts, restricted tool sets, and isolated delegation. When Pi exposes `/agent`, Livecraft displays an agent picker.
-- **[pi-auto-title](https://github.com/sebastienservouze/pi-auto-title):** names sessions from their first prompt, which makes parallel histories much easier to scan.
+- **[@nerisma/pi-auto-title](https://github.com/sebastienservouze/pi-auto-title):** names sessions from their first prompt, which makes parallel histories much easier to scan.
 
 <details>
 <summary><strong>Troubleshooting</strong></summary>
@@ -177,7 +219,11 @@ The Pi RPC integration test additionally requires a configured Pi installation.
 
 ## Built with Pi, for Pi ❤️
 
-Pi Livecraft exists because Pi is unusually pleasant to extend and unusually good at understanding the software around it. The clever architecture is Pi's. This repository is what happened when someone enjoyed that architecture a little too much.
+Pi Livecraft exists because Pi is unusually pleasant to extend and unusually good at understanding the software around it.
+
+The clever architecture is Pi's.
+
+This repository is what happened when someone enjoyed that architecture a little too much.
 
 ## Contributing
 
