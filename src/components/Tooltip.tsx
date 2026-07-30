@@ -10,9 +10,11 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
   const [mounted, setMounted] = useState(false)
   const [entered, setEntered] = useState(false)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
+  const hostRef = useRef<HTMLSpanElement>(null)
   const triggerRef = useRef<Element | null>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
   const pointerDismissed = useRef(false)
+  const dismissalListener = useRef<((event: PointerEvent) => void) | null>(null)
   const showTimer = useRef<number | null>(null)
   const hideTimer = useRef<number | null>(null)
 
@@ -70,7 +72,11 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
 
   // Clean up pending timers when the component unmounts.
   useEffect(() => {
-    return () => clearTimers()
+    return () => {
+      clearTimers()
+      if (dismissalListener.current)
+        window.removeEventListener('pointermove', dismissalListener.current)
+    }
   }, [clearTimers])
 
   function show(eventTarget: EventTarget | null): void {
@@ -93,6 +99,22 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
     }, HIDE_TRANSITION_MS)
   }
 
+  // Keep a clicked tooltip dismissed until the pointer physically moves beyond its trigger.
+  function dismissPointer(): void {
+    pointerDismissed.current = true
+    if (!dismissalListener.current) {
+      const releaseDismissal = (event: PointerEvent): void => {
+        if (!(event.target instanceof Node) || hostRef.current?.contains(event.target)) return
+        pointerDismissed.current = false
+        window.removeEventListener('pointermove', releaseDismissal)
+        dismissalListener.current = null
+      }
+      dismissalListener.current = releaseDismissal
+      window.addEventListener('pointermove', releaseDismissal)
+    }
+    hide()
+  }
+
   return (
     <>
       <span
@@ -100,15 +122,10 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
         onBlur={hide}
         onClick={hide}
         onFocus={(event) => show(event.target)}
-        onPointerDown={() => {
-          pointerDismissed.current = true
-          hide()
-        }}
+        onPointerDown={dismissPointer}
         onPointerEnter={(event) => show(event.target)}
-        onPointerLeave={() => {
-          pointerDismissed.current = false
-          hide()
-        }}
+        onPointerLeave={hide}
+        ref={hostRef}
       >
         {children}
       </span>
