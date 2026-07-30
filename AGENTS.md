@@ -46,7 +46,7 @@ npm test -- --test-name-pattern="test name" test/file.test.ts
 npm test                    # full suite
 ```
 
-The integration test requires a configured `pi` command and the `/agent` extension. Pi documentation is installed at `$(npm root -g)/@earendil-works/pi-coding-agent/docs/`.
+The Pi RPC integration test requires a configured `pi` command. Its `/agent` coverage is skipped when that extension is unavailable. Pi documentation is installed at `$(npm root -g)/@earendil-works/pi-coding-agent/docs/`.
 
 
 
