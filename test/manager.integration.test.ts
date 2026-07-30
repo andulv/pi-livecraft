@@ -358,7 +358,7 @@ test('improves a prompt with a direction preset', { timeout: 10_000 }, async () 
     const improved = await client.request('improve_prompt', {
       sessionId: sessionId(opened),
       prompt: 'Fix it',
-      direction: 'concise',
+      direction: 'ideate',
     })
     assert.deepEqual(improved.data, {
       prompt: 'Fix the failing behavior and validate the result.',

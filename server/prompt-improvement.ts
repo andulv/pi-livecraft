@@ -11,20 +11,10 @@ export async function loadPromptImprovementSystemPrompt(): Promise<string> {
 const improvementDirections: Record<string, string> = {
   clarify:
     'Clarify the request. Make the expected outcome, scope, and constraints explicit only when they are already implied by the draft.',
-  precise:
-    'Make the request precise and unambiguous. Preserve all existing facts and constraints; do not add assumptions.',
-  actionable:
-    'Rewrite this as direct, actionable instructions with a clear expected result. Do not add steps, requirements, or decisions.',
   ideate:
-    'Rewrite this as an ideation request. Ask for several concrete options and their trade-offs, preserving the draft\'s stated context and constraints.',
-  debug:
-    'Rewrite this as a bug-investigation request. Emphasize reproducing the issue, identifying the root cause, and validating the fix without inventing symptoms.',
-  plan:
-    'Rewrite this as an implementation-planning request. Ask to inspect the existing code, propose the smallest compatible change, and identify validation.',
-  concise:
-    'Make the request shorter and direct. Remove redundant wording while preserving every requirement and constraint.',
-  review:
-    'Rewrite this as a code-review request. Focus on concrete correctness, security, maintainability, and regression risks relevant to the draft.',
+    'Encourage the model to suggest ideas, alternatives, or approaches relevant to the draft. Do not impose a format, count, or structure.',
+  precise:
+    'Make the request precise and unambiguous. Use specific, well-defined terms. Preserve all existing facts and constraints; do not add assumptions.',
 }
 
 /** Returns the direction instruction for a valid preset key, or undefined for an invalid or missing key. */

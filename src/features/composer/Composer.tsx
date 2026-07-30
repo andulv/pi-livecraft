@@ -503,18 +503,12 @@ export const Composer = memo(function Composer({
                 disabled={improving || submitting || !message.trim()}
                 onValueChange={(value) => {
                   setImprovePreset(value)
-                  void improveDraft(value === '_default' ? undefined : value)
+                  void improveDraft(value)
                 }}
                 options={[
-                  { label: 'Improve', value: '_default' },
                   { label: 'Clarify', value: 'clarify' },
-                  { label: 'Be precise', value: 'precise' },
-                  { label: 'Make actionable', value: 'actionable' },
                   { label: 'Explore ideas', value: 'ideate' },
-                  { label: 'Debug', value: 'debug' },
-                  { label: 'Plan feature', value: 'plan' },
-                  { label: 'Be concise', value: 'concise' },
-                  { label: 'Request review', value: 'review' },
+                  { label: 'Be precise', value: 'precise' },
                 ]}
                 loading={improving}
                 placeholder='Improve'
