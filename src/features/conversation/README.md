@@ -18,3 +18,18 @@ Tool calls are displayed by `ToolCallCard` in `src/features/conversation/ToolCal
 By default, the tool header exposes its full title on hover. Once the call is resolved, its status displays the character counts of its serialized JSON arguments (`↘`) and raw text output (`↗`); these values remain available to hover and screen readers. Code and text files show a four-line preview; a click expands the full output. HTML, SVG, and Markdown files are rendered directly in the card (HTML in a sandboxed iframe, SVG as an image, Markdown via React-Markdown); a "View source" label toggles to syntax-highlighted code with line numbers. Markdown previews and their source views are capped at 380px with vertical scroll; HTML and SVG previews and their source views are capped at 540px.
 
 Follow the [step-by-step guide](/docs/HOW-TO-TOOL-PRESENTATION.md) before adding a presentation. Add one only when a tool genuinely provides information that is easier to understand in another form.
+
+## Conversation copy actions
+
+`CopyButton.tsx` provides the shared copy action for visible conversation content. The action
+is available on hover or keyboard focus for messages and tool calls, and remains visible on
+touch devices. It uses the browser Clipboard API, reports failures through the conversation
+error handler, and exposes its label through the shared `Tooltip` component.
+
+- Text messages expose one copy action when visible text exists.
+- Tool calls expose the serialized input (`↘`) and, once a result exists, the raw output (`↗`).
+  Output remains copyable for error results; pending calls have no output action.
+- Directional markers distinguish the two tool actions without adding visible button text.
+
+Keep these actions icon-only, accessible by keyboard, and colocated with their owning content.
+Reuse `CopyButton` rather than duplicating clipboard state or tooltip behavior.

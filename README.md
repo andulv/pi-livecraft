@@ -47,6 +47,7 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173). That's it.
 
 - **Session workspace:** create, switch, and reopen parallel Pi sessions across multiple workspaces, with active and newly completed sessions surfaced in the sidebar so you can monitor ongoing work and jump wherever attention is needed.
 - **Live execution:** inspect responses, activity, usage, rich tool calls, file previews, and extension dialogs as they happen.
+- **Conversation actions:** hover a message to copy its text, or a tool call to copy its input and output; directional arrows distinguish the two tool values.
 - **Session analysis:** track context, tokens, costs per turn, tool activity, and failures, then jump back to the relevant message or call.
 - **Provider quotas:** monitor OpenAI Codex windows and GitHub Copilot usage from the right rail.
 - **Git workspace:** review status, diffs, touched files, and unpushed commits; commit, push, or revert without changing context.
