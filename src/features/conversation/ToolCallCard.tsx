@@ -39,7 +39,6 @@ function useInView(ref: RefObject<HTMLElement | null>, enabled: boolean): boolea
 interface ToolCallCardProps {
   animateLiveChanges?: boolean
   args: unknown
-  darkMode: boolean
   hasResult: boolean
   id: string
   interrupted?: boolean
@@ -58,7 +57,6 @@ interface ToolCallCardProps {
 export const ToolCallCard = memo(function ToolCallCard({
   animateLiveChanges = false,
   args,
-  darkMode,
   hasResult,
   id,
   interrupted = false,
@@ -277,7 +275,6 @@ export const ToolCallCard = memo(function ToolCallCard({
                   <ToolCallContent
                     call={{ name, args }}
                     content={content}
-                    darkMode={darkMode}
                     onCollapse={() => setExpanded(false)}
                     renderingCode={renderingCode}
                     resultDetails={resultDetails}
@@ -296,7 +293,6 @@ export const ToolCallCard = memo(function ToolCallCard({
                       ? content
                       : preview
                         .text}
-                    darkMode={darkMode}
                     isNearViewport={isNearViewport}
                     onClick={activate}
                     showHtmlPreview={!contentError}

@@ -35,7 +35,6 @@ export function Conversation(
     agentName,
     messages,
     liveMessages,
-    darkMode,
     detailedView,
     navigationRequest,
     pendingSteering,
@@ -48,7 +47,6 @@ export function Conversation(
     agentName?: string
     messages: JsonObject[]
     liveMessages: LiveMessage[]
-    darkMode: boolean
     detailedView: boolean
     navigationRequest?: { id: number; target: SessionAnalysisTarget }
     pendingSteering: string[]
@@ -336,7 +334,6 @@ export function Conversation(
                   return (
                     <ToolCallCard
                       args={call.args}
-                      darkMode={darkMode}
                       hasResult={result !== undefined}
                       id={call.id}
                       interrupted={execution?.status === 'interrupted'}
@@ -383,7 +380,6 @@ export function Conversation(
                   <ToolCallCard
                     animateLiveChanges
                     args={part.call.args}
-                    darkMode={darkMode}
                     hasResult={result !== undefined}
                     id={part.call.id}
                     interrupted={execution?.status === 'interrupted'}
@@ -413,7 +409,6 @@ export function Conversation(
             <ToolCallCard
               animateLiveChanges
               args={execution.args}
-              darkMode={darkMode}
               hasResult={execution.result !== undefined}
               id={execution.id}
               interrupted={execution.status === 'interrupted'}

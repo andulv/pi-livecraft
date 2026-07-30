@@ -41,7 +41,6 @@ function NumberedPre({ content, startLine }: { content: string; startLine: numbe
 export function ToolCallPreview({
   call,
   content,
-  darkMode,
   isNearViewport,
   onClick,
   remainingLineCount,
@@ -49,7 +48,6 @@ export function ToolCallPreview({
 }: {
   call: { name: string; args: unknown }
   content: string
-  darkMode: boolean
   isNearViewport: boolean
   onClick: () => void
   remainingLineCount: number
@@ -128,7 +126,6 @@ export function ToolCallPreview({
               showLineNumbers={isReadOrWrite}
               startingLineNumber={isReadOrWrite ? startLine : undefined}
               lineNumberStyle={isReadOrWrite ? lineNumberStyle : undefined}
-              darkMode={darkMode}
               wrapLongLines
             >
               {content}
@@ -188,7 +185,6 @@ function CsvSourceContent({ content, onCollapse }: { content: string; onCollapse
 export function ToolCallContent({
   call,
   content,
-  darkMode,
   onCollapse,
   renderingCode,
   resultDetails,
@@ -196,7 +192,6 @@ export function ToolCallContent({
 }: {
   call: { name: string; args: unknown }
   content: string
-  darkMode: boolean
   onCollapse: () => void
   renderingCode: boolean
   resultDetails?: unknown
@@ -252,7 +247,6 @@ export function ToolCallContent({
             showLineNumbers={isReadOrWrite}
             startingLineNumber={isReadOrWrite ? startLine : undefined}
             lineNumberStyle={isReadOrWrite ? lineNumberStyle : undefined}
-            darkMode={darkMode}
             wrapLongLines
           >
             {content}
