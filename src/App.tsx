@@ -54,6 +54,10 @@ import { DirectoryPicker } from './features/workspace/DirectoryPicker.tsx'
 import { sidebarSessions } from './features/workspace/sidebar-sessions.ts'
 import { useWorkspaceSessions } from './features/workspace/useWorkspaceSessions.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
+import {
+  clampWorkspaceSidebarWidth,
+  readWorkspaceSidebarWidth,
+} from './features/workspace/workspace-sidebar.ts'
 import { CommandPalette, type PaletteCommand } from './features/commands/CommandPalette.tsx'
 import {
   commandDefinitions,
@@ -123,7 +127,10 @@ function App() {
   const [dialog, setDialog] = useState<UiDialog | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
 
-  // Workspace tools and right sidebar
+  // Workspace tools and sidebars
+  const [workspaceSidebarWidth, setWorkspaceSidebarWidth] = useState(() =>
+    readWorkspaceSidebarWidth(window.localStorage.getItem('pi-livecraft.workspace-sidebar-width'))
+  )
   const [gitSnapshot, setGitSnapshot] = useState<GitSnapshot | null>(null)
   const [quotas, setQuotas] = useState<QuotaSnapshot | null>(null)
   const [activeRightWidget, setActiveRightWidget] = useState<RightWidget | null>(
@@ -327,7 +334,13 @@ function App() {
     toast.sessionId === null || toast.sessionId === selectedId
   )
 
-  // Right sidebar preferences
+  // Sidebar preferences
+  const updateWorkspaceSidebarWidth = useCallback((width: number) => {
+    const nextWidth = clampWorkspaceSidebarWidth(width)
+    window.localStorage.setItem('pi-livecraft.workspace-sidebar-width', String(nextWidth))
+    setWorkspaceSidebarWidth(nextWidth)
+  }, [])
+
   const updateRightSidebarWidth = useCallback((width: number) => {
     const nextWidth = clampRightSidebarWidth(width)
     window.localStorage.setItem('pi-livecraft.right-sidebar-width', String(nextWidth))
@@ -973,7 +986,10 @@ function App() {
       className={`app-shell ${
         rightPanelVisible ? 'right-sidebar-visible' : 'right-sidebar-collapsed'
       }`}
-      style={{ '--right-sidebar-width': `${rightSidebarWidth}px` } as CSSProperties}
+      style={{
+        '--right-sidebar-width': `${rightSidebarWidth}px`,
+        '--workspace-sidebar-width': `${workspaceSidebarWidth}px`,
+      } as CSSProperties}
     >
       <WorkspaceSidebar
         compactingSessionIds={compactingSessionIds}
@@ -983,6 +999,7 @@ function App() {
         sentSessions={sentSessions}
         sessions={sessions}
         selectedId={selectedId}
+        width={workspaceSidebarWidth}
         workspacePath={workspacePath}
         onChooseWorkspace={() => setDirectoryPickerOpen(true)}
         onCreate={async () => {
@@ -995,6 +1012,7 @@ function App() {
         onSelectSession={setSelectedId}
         onError={(cause) => showToast('error', messageOf(cause))}
         onOpenSettings={() => setSettingsOpen(true)}
+        onResize={updateWorkspaceSidebarWidth}
       />
 
       <main className='workspace'>

@@ -1,4 +1,5 @@
 .sidebar {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -7,6 +8,36 @@
   overflow: hidden;
   border-right: 1px solid var(--line);
   background: var(--sidebar);
+}
+.sidebar-resize-handle {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: -5px;
+  bottom: 0;
+  width: 10px;
+  cursor: col-resize;
+  touch-action: none;
+  outline: 0;
+}
+.sidebar-resize-handle::after {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  width: 2px;
+  height: 40px;
+  border-radius: 2px;
+  background: transparent;
+  content: "";
+  transform: translateY(-50%);
+  transition: background 180ms ease;
+}
+.sidebar-resize-handle:hover::after,
+.sidebar-resize-handle:focus-visible::after {
+  background: var(--accent);
+}
+.sidebar-resize-handle:focus-visible::after {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .brand {

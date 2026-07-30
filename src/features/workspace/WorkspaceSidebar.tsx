@@ -1,9 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type { RecentSession, SessionSummary } from '../../../shared/types.ts'
 import { sessionIndicator } from './session-indicator.ts'
 import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
 import { otherWorkspaceSessions, sidebarSessions } from './sidebar-sessions.ts'
+import { maxWorkspaceSidebarWidth, minWorkspaceSidebarWidth } from './workspace-sidebar.ts'
 
 interface WorkspaceSidebarProps {
   compactingSessionIds: ReadonlySet<string>
@@ -13,6 +21,7 @@ interface WorkspaceSidebarProps {
   sentSessions: RecentSession[]
   sessions: SessionSummary[]
   selectedId: string
+  width: number
   workspacePath: string
   onChooseWorkspace: () => void
   onCreate: () => Promise<void>
@@ -20,6 +29,7 @@ interface WorkspaceSidebarProps {
   onSelectOtherWorkspaceSession: (session: SessionSummary) => void
   onSelectSession: (sessionId: string) => void
   onOpenSettings: () => void
+  onResize: (width: number) => void
   onError: (cause: unknown) => void
 }
 
@@ -32,6 +42,7 @@ export function WorkspaceSidebar({
   sentSessions,
   sessions,
   selectedId,
+  width,
   workspacePath,
   onChooseWorkspace,
   onCreate,
@@ -39,6 +50,7 @@ export function WorkspaceSidebar({
   onSelectOtherWorkspaceSession,
   onSelectSession,
   onOpenSettings,
+  onResize,
   onError,
 }: WorkspaceSidebarProps) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
@@ -57,8 +69,57 @@ export function WorkspaceSidebar({
     selectedSessionRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [selectedId, visibleSessions])
 
+  function startResize(event: ReactPointerEvent<HTMLDivElement>): void {
+    const handle = event.currentTarget
+    const initialX = event.clientX
+    const initialWidth = width
+    handle.setPointerCapture(event.pointerId)
+
+    const resize = (moveEvent: PointerEvent): void =>
+      onResize(initialWidth + moveEvent.clientX - initialX)
+    const stop = (): void => {
+      handle.removeEventListener('pointermove', resize)
+      handle.removeEventListener('pointerup', stop)
+      handle.removeEventListener('pointercancel', stop)
+      handle.removeEventListener('lostpointercapture', stop)
+    }
+
+    handle.addEventListener('pointermove', resize)
+    handle.addEventListener('pointerup', stop)
+    handle.addEventListener('pointercancel', stop)
+    handle.addEventListener('lostpointercapture', stop)
+  }
+
+  function resizeWithKeyboard(event: ReactKeyboardEvent<HTMLDivElement>): void {
+    const adjustment = event.key === 'ArrowLeft' ? -16 : event.key === 'ArrowRight' ? 16 : 0
+    if (adjustment) {
+      event.preventDefault()
+      onResize(width + adjustment)
+    }
+    if (event.key === 'Home') {
+      event.preventDefault()
+      onResize(minWorkspaceSidebarWidth)
+    }
+    if (event.key === 'End') {
+      event.preventDefault()
+      onResize(maxWorkspaceSidebarWidth)
+    }
+  }
+
   return (
     <aside className='sidebar'>
+      <div
+        aria-label='Resize session sidebar'
+        aria-orientation='vertical'
+        aria-valuemax={maxWorkspaceSidebarWidth}
+        aria-valuemin={minWorkspaceSidebarWidth}
+        aria-valuenow={width}
+        className='sidebar-resize-handle'
+        onKeyDown={resizeWithKeyboard}
+        onPointerDown={startResize}
+        role='separator'
+        tabIndex={0}
+      />
       <div className='brand'>
         <span className='brand-mark'>π</span>
         <div>

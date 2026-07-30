@@ -66,6 +66,7 @@
   .app-shell.right-sidebar-collapsed {
     grid-template-columns: 238px minmax(0, 1fr) 48px;
   }
+  .sidebar-resize-handle,
   .right-sidebar-resize-handle {
     display: none;
   }

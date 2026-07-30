@@ -86,7 +86,7 @@ button:disabled, select:disabled {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 296px minmax(0, 1fr);
+  grid-template-columns: var(--workspace-sidebar-width, 296px) minmax(0, 1fr);
   height: 100dvh;
   overflow: hidden;
   background: var(--canvas);
@@ -94,10 +94,12 @@ button:disabled, select:disabled {
 }
 .app-shell.right-sidebar-visible {
   grid-template-columns:
-    296px minmax(0, 1fr) calc(var(--right-sidebar-width, 300px) + 48px);
+    var(--workspace-sidebar-width, 296px) minmax(0, 1fr)
+    calc(var(--right-sidebar-width, 300px) + 48px);
 }
 .app-shell.right-sidebar-collapsed {
-  grid-template-columns: 296px minmax(0, 1fr) 48px;
+  grid-template-columns:
+    var(--workspace-sidebar-width, 296px) minmax(0, 1fr) 48px;
 }
 
 .workspace {
