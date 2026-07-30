@@ -1,6 +1,6 @@
 # Documentation
 
-Pi Livecraft is documented in layers: begin with the guide closest to your goal, then follow a deeper link only when the change crosses a boundary.
+Pi Livecraft is documented in layers: begin with the system you want to build on, then follow a deeper link only when the change crosses a boundary. Implementation guides describe the project's supported composition points; feature README files record their local contracts.
 
 ## Find the right place
 
@@ -12,7 +12,8 @@ Pi Livecraft is documented in layers: begin with the guide closest to your goal,
 - **Add a preference, persisted UI state, or settings tab:** [how to settings](/docs/HOW-TO-SETTINGS.md), then [settings and preferences](/src/features/settings/README.md).
 - **Customise colours or add a theme:** [how to theme](/docs/HOW-TO-THEME.md).
 - **Add a right sidebar widget:** [step-by-step guide](/docs/HOW-TO-WIDGET.md), then [contract reference](/src/features/right-sidebar/README.md).
-- **Change a tool call display:** [step-by-step guide](/docs/HOW-TO-TOOL-PRESENTATION.md), then [contract reference](/src/features/conversation/README.md).
+- **Add an action to a message or tool call:** [step-by-step guide](/docs/HOW-TO-CONVERSATION-ACTION.md), then [conversation contract](/src/features/conversation/README.md).
+- **Change a tool call display:** [step-by-step guide](/docs/HOW-TO-TOOL-PRESENTATION.md), then [conversation contract](/src/features/conversation/README.md).
 - **Change extension dialogs or questionnaires:** [dialog protocol](/src/features/dialogs/README.md), then [Pi extensions](/pi-extensions/README.md).
 - **Change transient notices or errors:** [notifications](/src/features/notifications/README.md).
 - **Change Git, quotas, terminal, or todos on the server:** [backend capabilities](/server/features/README.md).
@@ -27,6 +28,7 @@ Step-by-step walkthroughs for common tasks. Each guide is self-contained: start 
 
 - **[Modify the composer](/docs/HOW-TO-COMPOSER.md)** — add a toolbar button, dropdown, or session stat.
 - **[Add a widget](/docs/HOW-TO-WIDGET.md)** — sidebar widget, API endpoint, and backend capability.
+- **[Add a conversation action](/docs/HOW-TO-CONVERSATION-ACTION.md)** — contextual action on a message or tool call.
 - **[Add a tool call presentation](/docs/HOW-TO-TOOL-PRESENTATION.md)** — custom display for a Pi tool in the conversation.
 - **[Add a palette command](/docs/HOW-TO-PALETTE-COMMAND.md)** — palette entry, keyboard shortcut, and execution.
 - **[Add or modify a settings tab](/docs/HOW-TO-SETTINGS.md)** — new tab, section component, and persistence.

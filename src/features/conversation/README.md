@@ -19,17 +19,14 @@ By default, the tool header exposes its full title on hover. Once the call is re
 
 Follow the [step-by-step guide](/docs/HOW-TO-TOOL-PRESENTATION.md) before adding a presentation. Add one only when a tool genuinely provides information that is easier to understand in another form.
 
-## Conversation copy actions
+## Contextual conversation actions
 
-`CopyButton.tsx` provides the shared copy action for visible conversation content. The action
-is available on hover or keyboard focus for messages and tool calls, and remains visible on
-touch devices. It uses the browser Clipboard API, reports failures through the conversation
-error handler, and exposes its label through the shared `Tooltip` component.
+Messages and tool calls expose contextual actions through explicit composition rather than a registry. `DefaultMessageCard` in `Conversation.tsx` owns actions on ordinary messages; `ToolCallCard.tsx` owns actions on tool calls. Both reuse the `.conversation-actions` styles in `conversation.css`, which reveal actions on hover or keyboard focus and keep them visible on touch devices. Unknown custom messages rendered by `DefaultCustomMessage` do not currently expose this surface.
 
-- Text messages expose one copy action when visible text exists.
-- Tool calls expose the serialized input (`↘`) and, once a result exists, the raw output (`↗`).
-  Output remains copyable for error results; pending calls have no output action.
-- Directional markers distinguish the two tool actions without adding visible button text.
+`CopyButton.tsx` is the current shared action implementation, not the extension contract. It uses the browser Clipboard API, reports failures through `onError`, and exposes its accessible label through the shared `Tooltip` component.
 
-Keep these actions icon-only, accessible by keyboard, and colocated with their owning content.
-Reuse `CopyButton` rather than duplicating clipboard state or tooltip behavior.
+- Text messages expose one copy action when `visibleText()` returns content.
+- Tool calls always expose their serialized input (`↘`) and expose raw output (`↗`) once a result exists, including error results.
+- Pending calls have no output action. Directional markers distinguish tool actions without visible button text.
+
+Follow the [conversation action guide](/docs/HOW-TO-CONVERSATION-ACTION.md) to add another action. Keep actions icon-only, keyboard-accessible, colocated with their owning content, and explicit in the relevant renderer. Do not introduce a registry unless actions need genuinely dynamic selection.

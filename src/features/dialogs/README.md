@@ -17,3 +17,9 @@ owning session. `App.tsx` owns the cross-session queue and decides which request
 Unknown or malformed specialized payloads must not be treated as questionnaires. Keep validation
 in the shared parser so the extension and frontend agree on the same versioned contract. Main
 coverage: `test/ask-user-question.test.ts`.
+
+## Build on the dialog system
+
+Use Pi's existing generic `select`, `confirm`, `input`, and `editor` requests when they fit; `dialog-protocol.ts` already recognizes them and `Dialogs.tsx` renders them. A new specialized presentation is justified only when its payload or interaction cannot use those public fields.
+
+For a specialized request, define and validate a versioned payload in `shared/`, recognize it in `dialog-protocol.ts`, compose its UI in `Dialogs.tsx`, and return the result through the existing `extension_ui_response` command. The producing extension and frontend must share the parser, and parser coverage must include malformed and unsupported versions. Keep queue ownership in `App.tsx` and browser-specific behavior out of `pi-extensions/`.

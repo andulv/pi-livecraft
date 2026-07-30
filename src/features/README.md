@@ -6,8 +6,8 @@ Start with the area that owns the behavior. Read `App.tsx` only when state coord
 
 - `workspace/` selects directories and creates, reopens, or switches sessions. See [workspace and sessions](/src/features/workspace/README.md).
 - `composer/` prepares prompts, images, slash commands, and per-session drafts. See [composer](/src/features/composer/README.md).
-- `conversation/` owns the selected session's snapshot, live-event replay, streaming state, activity, usage, tool calls, and file previews. See [conversation](/src/features/conversation/README.md).
-- `dialogs/` handles versioned UI requests sent by Pi extensions. See [extension dialogs](/src/features/dialogs/README.md).
+- `conversation/` owns the selected session's snapshot, live-event replay, streaming state, activity, usage, tool calls, file previews, and contextual message/tool actions. See [conversation](/src/features/conversation/README.md), [conversation actions](/docs/HOW-TO-CONVERSATION-ACTION.md), and [tool presentations](/docs/HOW-TO-TOOL-PRESENTATION.md).
+- `dialogs/` handles generic Pi UI requests and versioned specialized requests sent by Pi extensions. See [extension dialogs](/src/features/dialogs/README.md).
 
 ## Application controls
 
