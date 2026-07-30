@@ -24,8 +24,8 @@ import { MessageCard, TurnUsage } from './MessageCard.tsx'
 import { isVisibleConversationMessage } from './message-display.ts'
 import { ToolCallCard } from './ToolCallCard.tsx'
 import {
-  isNearConversationBottom,
   resumesAutoScrollAfterDownwardScroll,
+  suspendsAutoScrollAfterUpwardScroll,
 } from './conversation-scroll.ts'
 
 /** Assembles history, the live stream, and tool executions according to the selected detail level. */
@@ -230,7 +230,10 @@ export function Conversation(
     const previousScrollTop = previousScrollTopRef.current
     previousScrollTopRef.current = el.scrollTop
     if (navigationInProgressRef.current) return
-    if (upwardScrollIntentRef.current && el.scrollTop < previousScrollTop) {
+    if (
+      upwardScrollIntentRef.current
+      && suspendsAutoScrollAfterUpwardScroll(previousScrollTop, el.scrollTop)
+    ) {
       upwardScrollIntentRef.current = false
       suspendAutoScroll()
       return
@@ -247,23 +250,9 @@ export function Conversation(
     setShowScrollToBottom(false)
   }
 
-  /** Suspends following only for input that can move the viewport away from the response. */
+  /** Stops following as soon as deliberate upward movement is observed. */
   function suspendAutoScroll(): void {
-    const conversation = conversationRef.current
-    if (
-      conversation && isNearConversationBottom(
-        conversation.scrollTop,
-        conversation.scrollHeight,
-        conversation.clientHeight,
-      )
-    ) {
-      autoScrollRef.current = true
-      previousScrollTopRef.current = conversation.scrollTop
-      setShowScrollToBottom(false)
-      return
-    }
     autoScrollRef.current = false
-    if (conversation) previousScrollTopRef.current = conversation.scrollTop
     setShowScrollToBottom(true)
   }
 

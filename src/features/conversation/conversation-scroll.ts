@@ -9,6 +9,14 @@ export function isNearConversationBottom(
   return scrollHeight - scrollTop - clientHeight < NEAR_BOTTOM_THRESHOLD
 }
 
+/** Identifies any upward movement that should stop following live output. */
+export function suspendsAutoScrollAfterUpwardScroll(
+  previousScrollTop: number,
+  scrollTop: number,
+): boolean {
+  return scrollTop < previousScrollTop
+}
+
 /** Identifies a manual downward scroll that has returned near the conversation end. */
 export function resumesAutoScrollAfterDownwardScroll(
   previousScrollTop: number,
