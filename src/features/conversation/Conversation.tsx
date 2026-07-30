@@ -126,6 +126,7 @@ export function Conversation(
   const conversationContentRef = useRef<HTMLDivElement>(null)
   const autoScrollRef = useRef(true)
   const previousScrollTopRef = useRef(0)
+  const upwardScrollIntentRef = useRef(false)
   /** Prevents onScroll from re-enabling auto-scroll during a navigation scroll. */
   const navigationInProgressRef = useRef(false)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
@@ -229,14 +230,15 @@ export function Conversation(
     }
   }, [navigationRequest])
 
-  /** Resumes automatic scrolling only when the user scrolls downward back near the bottom. */
+  /** Tracks scrolling without mistaking layout-driven Markdown reflows for user input. */
   function handleConversationScroll(): void {
     const el = conversationRef.current
     if (!el) return
     const previousScrollTop = previousScrollTopRef.current
     previousScrollTopRef.current = el.scrollTop
     if (navigationInProgressRef.current) return
-    if (el.scrollTop < previousScrollTop) {
+    if (upwardScrollIntentRef.current && el.scrollTop < previousScrollTop) {
+      upwardScrollIntentRef.current = false
       suspendAutoScroll()
       return
     }
@@ -272,13 +274,21 @@ export function Conversation(
     setShowScrollToBottom(true)
   }
 
+  /** Marks the current frame as containing deliberate upward scrolling. */
+  function markUpwardScrollIntent(): void {
+    upwardScrollIntentRef.current = true
+    requestAnimationFrame(() => {
+      upwardScrollIntentRef.current = false
+    })
+  }
+
   function handleConversationWheel(event: WheelEvent<HTMLDivElement>): void {
-    if (event.deltaY < 0) suspendAutoScroll()
+    if (event.deltaY < 0) markUpwardScrollIntent()
   }
 
   function handleConversationKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
     if (['ArrowUp', 'PageUp', 'Home'].includes(event.key) || (event.key === ' ' && event.shiftKey))
-      suspendAutoScroll()
+      markUpwardScrollIntent()
   }
 
   /** Resumes automatic scrolling and returns to the bottom of the conversation. */
@@ -299,10 +309,10 @@ export function Conversation(
       className='conversation'
       onKeyDown={handleConversationKeyDown}
       onPointerMove={(event) => {
-        if (event.buttons > 0) suspendAutoScroll()
+        if (event.buttons > 0) markUpwardScrollIntent()
       }}
       onScroll={handleConversationScroll}
-      onTouchMove={suspendAutoScroll}
+      onTouchMove={markUpwardScrollIntent}
       onWheel={handleConversationWheel}
       ref={conversationRef}
       tabIndex={0}
