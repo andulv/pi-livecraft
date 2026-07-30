@@ -17,6 +17,7 @@ import {
   resetGitCommit,
   restartManager,
   revertGitCommit,
+  savePrompt,
   sendPiCommand,
   subscribeManagerEvents,
 } from './api.ts'
@@ -688,6 +689,19 @@ function App() {
     (prompt: string, direction?: string) => improvePrompt(selectedId, prompt, direction),
     [selectedId],
   )
+  /** Persists the draft through Pi's prompt directories and confirms its scope to the user. */
+  const handleSavePrompt = useCallback(async (
+    scope: 'global' | 'project',
+    name: string,
+    content: string,
+  ) => {
+    const saved = await savePrompt(selectedSession?.cwd ?? workspacePath, scope, name, content)
+    showToast(
+      'notice',
+      `Prompt “${name}” saved ${scope === 'global' ? 'globally' : 'for this project'}.`,
+    )
+    return saved
+  }, [selectedSession?.cwd, showToast, workspacePath])
   const handleComposerSelectOpened = useCallback(() => setRequestedSelect(null), [])
   const sessionAnalysis = useMemo(() =>
     selectedSession && snapshotSessionId === selectedSession.id
@@ -991,7 +1005,6 @@ function App() {
                   <Conversation
                     activity={displayedActivity}
                     agentName={selectedSession.activeAgent}
-                    darkMode={activeTheme.mode === 'dark'}
                     detailedView={conversationView === 'detailed'}
                     key={selectedSession.id}
                     liveMessages={liveMessages}
@@ -1065,6 +1078,7 @@ function App() {
                       onSend={handleComposerSend}
                       onAbort={handleComposerAbort}
                       onImprovePrompt={handlePromptImprovement}
+                      onSavePrompt={handleSavePrompt}
                       onError={handleConversationError}
                       requestedSelect={requestedSelect}
                       onSelectOpened={handleComposerSelectOpened}

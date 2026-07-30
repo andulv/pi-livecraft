@@ -188,6 +188,7 @@ export interface SessionStats {
 export interface PromptTemplate {
   name: string
   content: string
+  description?: string
 }
 
 export interface SessionSnapshot {

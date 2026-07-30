@@ -50,6 +50,7 @@ export const Composer = memo(function Composer({
   onSend,
   onAbort,
   onImprovePrompt,
+  onSavePrompt,
   onError,
   requestedSelect,
   onSelectOpened,
@@ -83,6 +84,11 @@ export const Composer = memo(function Composer({
     prompt: string,
     direction?: string,
   ) => Promise<{ prompt: string; cost?: number }>
+  onSavePrompt: (
+    scope: 'global' | 'project',
+    name: string,
+    content: string,
+  ) => Promise<PromptTemplate>
   onError: (cause: unknown) => void
   requestedSelect?: 'agent' | 'model' | 'thinking' | null
   onSelectOpened?: () => void
@@ -99,6 +105,7 @@ export const Composer = memo(function Composer({
   const [improving, setImproving] = useState(false)
   const [improvePreset, setImprovePreset] = useState('')
   const [previewingPrompt, setPreviewingPrompt] = useState(false)
+  const [savedPrompts, setSavedPrompts] = useState<PromptTemplate[]>([])
   const [suggestion, setSuggestion] = useState<
     { original: string; improved: string; cost?: number }
   >()
@@ -128,6 +135,11 @@ export const Composer = memo(function Composer({
   /** Snapshot commands augmented with the local compact command when Pi doesn't expose it. */
   const allCommands = ensureCompactCommand(commands)
   const commandPending = isCommandDraft(message, allCommands)
+  const promptTemplates = [...savedPrompts, ...snapshot.promptTemplates].filter((
+    prompt,
+    index,
+    all,
+  ) => all.findIndex((candidate) => candidate.name === prompt.name) === index)
 
   useEffect(() => {
     if (submitRequest > 0) formRef.current?.requestSubmit()
@@ -213,6 +225,30 @@ export const Composer = memo(function Composer({
     setPreviewingPrompt(false)
     setDraftMessage(prompt.content)
     textareaRef.current?.focus()
+  }
+
+  /** Names and persists the current draft as a Pi prompt template in the selected scope. */
+  async function savePrompt(scope: 'global' | 'project'): Promise<void> {
+    const suggestedName = message
+      .trim()
+      .split(/\s+/)
+      .slice(0, 5)
+      .join('-')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'prompt'
+    const name = window
+      .prompt('Prompt name (letters, numbers, hyphens, or underscores)', suggestedName)
+      ?.trim()
+    if (!name) return
+    try {
+      const saved = await onSavePrompt(scope, name, message)
+      setSavedPrompts((
+        current,
+      ) => [saved, ...current.filter((prompt) => prompt.name !== saved.name)])
+    } catch (cause) {
+      onError(cause)
+    }
   }
 
   /** Sends text and images in the same RPC command, restoring the draft on failure. */
@@ -493,11 +529,13 @@ export const Composer = memo(function Composer({
             />
             <Tooltip label='Insert a configured prompt'>
               <PromptSelect
+                canSave={Boolean(message.trim())}
                 onOpenChange={() => setOpenSelect(null)}
                 onPreview={previewPrompt}
                 onPreviewEnd={endPromptPreview}
+                onSave={(scope) => void savePrompt(scope)}
                 onSelect={selectPrompt}
-                prompts={snapshot.promptTemplates}
+                prompts={promptTemplates}
               />
             </Tooltip>
 

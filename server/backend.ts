@@ -26,7 +26,7 @@ import {
 } from './features/todos/todo-store.ts'
 import { readWorkspaceFile, WorkspaceFileError } from './workspace-file.ts'
 import { activeSessionMessages, LiveSessionEvents } from './session-snapshot.ts'
-import { loadPromptTemplates } from './prompt-templates.ts'
+import { loadPromptTemplates, savePromptTemplate } from './prompt-templates.ts'
 import { externalWorkspacePath, openExplorer } from './system-integration.ts'
 import type {
   DirectoryListing,
@@ -299,6 +299,29 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       throw new HttpError(400, 'Working directory and commit hash are required')
     const cwd = await resolveWorkingDirectory(body.cwd)
     sendJson(response, 200, await revertGitCommit(cwd, body.hash))
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/prompts') {
+    const body = await readJsonBody(request)
+    if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
+    if (body.scope !== 'project' && body.scope !== 'global')
+      throw new HttpError(400, 'Prompt scope must be project or global')
+    if (typeof body.name !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(body.name))
+      throw new HttpError(
+        400,
+        'Prompt name must use 1–80 letters, numbers, hyphens, or underscores',
+      )
+    if (typeof body.content !== 'string' || !body.content.trim() || body.content.length > 100_000)
+      throw new HttpError(400, 'Prompt content must contain between 1 and 100,000 characters')
+    try {
+      const cwd = await resolveWorkingDirectory(body.cwd)
+      sendJson(response, 201, await savePromptTemplate(cwd, body.scope, body.name, body.content))
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST')
+        throw new HttpError(409, `Prompt “${body.name}” already exists in this location`)
+      throw error
+    }
     return
   }
 

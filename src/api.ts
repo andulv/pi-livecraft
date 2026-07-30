@@ -7,6 +7,7 @@ import type {
   GitSnapshot,
   JsonObject,
   ManagerEvent,
+  PromptTemplate,
   QuotaSnapshot,
   RecentSession,
   SessionSnapshot,
@@ -164,6 +165,19 @@ export async function revertGitCommit(cwd: string, hash: string): Promise<GitRev
   return request<GitRevertResult>('/api/git/revert', {
     method: 'POST',
     body: JSON.stringify({ cwd, hash }),
+  })
+}
+
+/** Persists a draft using Pi's project or user prompt-template convention. */
+export async function savePrompt(
+  cwd: string,
+  scope: 'global' | 'project',
+  name: string,
+  content: string,
+): Promise<PromptTemplate> {
+  return request<PromptTemplate>('/api/prompts', {
+    method: 'POST',
+    body: JSON.stringify({ cwd, scope, name, content }),
   })
 }
 

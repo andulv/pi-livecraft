@@ -21,7 +21,7 @@ export function ComposerSelect(
     ariaLabel: string
     disabled?: boolean
     onValueChange: (value: string) => void
-    options: { label: string; value: string }[]
+    options: { description?: string; kind?: 'action'; label: string; value: string }[]
     placeholder?: string
     tone: 'agent' | 'behavior' | 'command' | 'improve' | 'model' | 'prompt' | 'thinking'
     value: string
@@ -56,12 +56,17 @@ export function ComposerSelect(
           <Select.Viewport onPointerLeave={onOptionsPointerLeave}>
             {options.map((option) => (
               <Select.Item
-                className='composer-select-option'
+                className={`composer-select-option${option.kind === 'action' ? ' action' : ''}`}
                 key={option.value}
                 onPointerMove={() => onOptionPointerMove?.(option.value)}
                 value={option.value}
               >
-                <Select.ItemText>{option.label}</Select.ItemText>
+                <Select.ItemText>
+                  <span className='composer-select-option-copy'>
+                    <span>{option.label}</span>
+                    {option.description && <small>{option.description}</small>}
+                  </span>
+                </Select.ItemText>
                 <Select.ItemIndicator aria-hidden='true'>✓</Select.ItemIndicator>
               </Select.Item>
             ))}

@@ -447,8 +447,41 @@
   line-height: 1.35;
   cursor: pointer;
 }
+.composer-select-option-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.composer-select-option-copy > span,
+.composer-select-option-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-select-option-copy small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+.composer-select-option.action {
+  background: var(--surface-raised);
+  color: var(--accent-hover);
+  font-weight: 700;
+}
+.composer-select-option.action .composer-select-option-copy > span::before {
+  content: "+";
+  display: inline-block;
+  width: 14px;
+  color: var(--accent);
+}
+.composer-select-option.action + .composer-select-option:not(.action) {
+  border-top: 1px solid var(--line);
+}
 .composer-select-option[data-highlighted] {
   background: color-mix(in srgb, var(--ink) 6%, var(--surface));
+}
+.composer-select-option.action[data-highlighted] {
+  background: var(--accent-soft);
 }
 .composer-select-content.improve .composer-select-option[data-highlighted] {
   background: var(--secondary-soft);
