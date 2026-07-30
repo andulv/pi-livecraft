@@ -238,17 +238,9 @@ export const Composer = memo(function Composer({
     textareaRef.current?.focus()
   }
 
-  /** Opens the prompt naming dialog with a compact filename inferred from the draft. */
+  /** Opens a blank naming dialog for the selected Pi prompt scope. */
   function openPromptSaveDialog(scope: 'global' | 'project'): void {
-    const name = message
-      .trim()
-      .split(/\s+/)
-      .slice(0, 5)
-      .join('-')
-      .toLowerCase()
-      .replace(/[^a-z0-9_-]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'prompt'
-    setPromptSave({ content: message, name, scope })
+    setPromptSave({ content: message, name: '', scope })
   }
 
   /** Persists the named template while keeping the dialog open when the backend rejects it. */
