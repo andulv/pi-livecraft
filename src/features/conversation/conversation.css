@@ -868,6 +868,9 @@
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+.tool-call-frontmatter-value {
+  white-space: pre-wrap;
+}
 .tool-call-markdown {
   padding: 14px 16px 18px;
   font: 13px/1.65 ui-sans-serif, system-ui, sans-serif;

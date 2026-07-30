@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import { CopyButton } from './CopyButton.tsx'
 import { canHighlightFile } from './file-preview.ts'
+import { parseMarkdownFrontmatter } from './markdown-frontmatter.ts'
 import {
   editDiffDisplayLines,
   formatToolCallTooltip,
@@ -44,8 +45,37 @@ function useInView(ref: React.RefObject<HTMLElement | null>, enabled: boolean): 
   return inView
 }
 
-export function Markdown({ children }: { children: string }) {
-  return <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
+export function Markdown(
+  { children, renderFrontmatter = false }: { children: string; renderFrontmatter?: boolean },
+) {
+  const frontmatter = renderFrontmatter ? parseMarkdownFrontmatter(children) : null
+  const body = frontmatter?.body ?? children
+
+  return (
+    <>
+      {frontmatter && frontmatter.entries.length > 0 && (
+        <table className='tool-call-frontmatter'>
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {frontmatter.entries.map(({ key, value }) => (
+              <tr key={key}>
+                <th scope='row'>{key}</th>
+                <td>
+                  <code className='tool-call-frontmatter-value'>{value}</code>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
+    </>
+  )
 }
 
 interface ToolCallCardProps {
@@ -382,7 +412,7 @@ function ToolCallPreview({
         ? isNearViewport
           ? (
             <div className='tool-call-markdown-preview'>
-              <Markdown>{content}</Markdown>
+              <Markdown renderFrontmatter>{content}</Markdown>
             </div>
           )
           : plainPreview
