@@ -154,7 +154,8 @@ export function Conversation(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollToBottomRequest])
 
-  useEffect(() => {
+  // Disable resize-driven live scrolling before newly shown tool calls can resize the thread.
+  useLayoutEffect(() => {
     if (!navigationRequest) return
     const targetKey = navigationTargetKey(navigationRequest.target)
     const selector = navigationRequest.target.kind === 'tool'
