@@ -207,8 +207,15 @@ export const ToolCallCard = memo(function ToolCallCard({
         </button>
       </Tooltip>
       <div className='conversation-actions tool-call-actions'>
-        <CopyButton label='Copy tool input' onError={onError} value={input} />
-        {hasResult && <CopyButton label='Copy tool output' onError={onError} value={output} />}
+        <CopyButton direction='input' label='Copy tool input' onError={onError} value={input} />
+        {hasResult && (
+          <CopyButton
+            direction='output'
+            label='Copy tool output'
+            onError={onError}
+            value={output}
+          />
+        )}
       </div>
       <div className={`tool-call-body${hasBody ? ' visible' : ''}`}>
         <div>

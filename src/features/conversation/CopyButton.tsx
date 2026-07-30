@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 
 interface CopyButtonProps {
+  direction?: 'input' | 'output'
   label: string
   onError: (cause: unknown) => void
   value: string
 }
 
 /** Copies a conversation value and reports a short success state through its tooltip. */
-export function CopyButton({ label, onError, value }: CopyButtonProps) {
+export function CopyButton({ direction, label, onError, value }: CopyButtonProps) {
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -48,6 +49,18 @@ export function CopyButton({ label, onError, value }: CopyButtonProps) {
             fill='none'
             stroke='currentColor'
           />
+          {direction && (
+            <path
+              d={direction === 'input'
+                ? 'M8.5 9.5 11 12m0 0v-2m0 2H9'
+                : 'M8.5 11.5 11 9m0 0v2m0-2H9'}
+              fill='none'
+              stroke='currentColor'
+              strokeLinecap='round'
+              strokeLinejoin='round'
+              strokeWidth='1.25'
+            />
+          )}
         </svg>
       </button>
     </Tooltip>
