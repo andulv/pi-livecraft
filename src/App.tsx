@@ -720,8 +720,17 @@ function App() {
     toolExecutions,
   ])
   const questionnaire = dialog && isAskUserQuestionDialog(dialog.request) ? dialog : null
+  const questionnaireSession = questionnaire
+    ? sessions.find((session) => session.id === questionnaire.sessionId)
+    : undefined
   const questionnaireInComposer = questionnaire?.sessionId === selectedId
     && snapshotSessionId === selectedId
+  const openQuestionnaireSession = questionnaireSession && questionnaireSession.id !== selectedId
+    ? () =>
+      questionnaireSession.cwd === workspacePath
+        ? setSelectedId(questionnaireSession.id)
+        : selectWorkspace(questionnaireSession.cwd, questionnaireSession.id)
+    : undefined
 
   const markComposerDraftApplied = useCallback((id: string) => {
     setComposerDraftRequest((current) => current?.id === id ? undefined : current)
@@ -1199,11 +1208,10 @@ function App() {
               .id,
           )}
           dialog={questionnaire}
-          sessionName={sessions
-            .find((session) => session.id === questionnaire.sessionId)
-            ?.name}
+          sessionName={questionnaireSession?.name}
           onClose={() => closeDialog(questionnaire)}
           onError={(cause) => showToast('error', messageOf(cause))}
+          onOpenSession={openQuestionnaireSession}
         />
       )}
       {dialog && !questionnaire && (

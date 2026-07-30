@@ -27,12 +27,13 @@ function stripMarkdown(text: string): string {
 
 /** Presents one question at a time, identifies its session, and keeps responses until batch-sent to Pi. */
 export function AskUserQuestionDialog(
-  { canMinimize, dialog, sessionName, onClose, onError }: {
+  { canMinimize, dialog, sessionName, onClose, onError, onOpenSession }: {
     canMinimize: boolean
     dialog: UiDialog
     sessionName?: string
     onClose: () => void
     onError: (cause: unknown) => void
+    onOpenSession?: () => void
   },
 ) {
   const request = parseQuestionnaire(dialog.request)
@@ -142,7 +143,7 @@ export function AskUserQuestionDialog(
       >
         <div className='ask-user-question-heading'>
           <div className='ask-user-question-heading-row'>
-            <div>
+            <div className='ask-user-question-heading-copy'>
               <span>
                 {sessionName ? `Question from session “${sessionName}”` : 'Pi needs your input'}
               </span>
@@ -150,24 +151,35 @@ export function AskUserQuestionDialog(
                 Question {activeQuestion + 1} sur {request.questions.length}
               </strong>
             </div>
-            {canMinimize && (
-              <button
-                className='ask-user-question-minimize'
-                onClick={() => setMinimized(true)}
-                aria-label='Hide question'
-                type='button'
-              >
-                <svg aria-hidden='true' width='16' height='16' viewBox='0 0 16 16' fill='none'>
-                  <path
-                    d='M4 6l4 4 4-4'
-                    stroke='currentColor'
-                    strokeWidth='1.5'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                  />
-                </svg>
-              </button>
-            )}
+            <div className='ask-user-question-heading-actions'>
+              {onOpenSession && (
+                <button
+                  className='ask-user-question-open-session'
+                  onClick={onOpenSession}
+                  type='button'
+                >
+                  Open session
+                </button>
+              )}
+              {canMinimize && (
+                <button
+                  className='ask-user-question-minimize'
+                  onClick={() => setMinimized(true)}
+                  aria-label='Hide question'
+                  type='button'
+                >
+                  <svg aria-hidden='true' width='16' height='16' viewBox='0 0 16 16' fill='none'>
+                    <path
+                      d='M4 6l4 4 4-4'
+                      stroke='currentColor'
+                      strokeWidth='1.5'
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
         </div>
         <nav aria-label='Questionnaire questions' className='ask-user-question-tabs'>

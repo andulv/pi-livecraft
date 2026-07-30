@@ -36,10 +36,16 @@
   justify-content: space-between;
   gap: 12px;
 }
-.ask-user-question-heading-row > div {
+.ask-user-question-heading-copy {
   display: grid;
   min-width: 0;
   gap: 3px;
+}
+.ask-user-question-heading-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 5px;
 }
 .ask-user-question-heading span {
   overflow-wrap: anywhere;
@@ -263,33 +269,50 @@
   opacity: 0.5;
 }
 
-/* Minimize button in heading */
+/* Session and minimize actions in heading */
+.ask-user-question-open-session,
 .ask-user-question-minimize {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  margin-top: -2px;
+  height: 30px;
   border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 0;
+  border-radius: 7px;
   background: transparent;
-  color: var(--muted);
   transition:
     border-color 180ms ease,
     background 180ms ease,
     color 180ms ease,
     transform 180ms ease;
 }
-.ask-user-question-minimize:hover {
+.ask-user-question-open-session {
+  padding: 0 9px;
+  color: var(--accent-hover);
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.ask-user-question-minimize {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  padding: 0;
+  color: var(--muted);
+}
+.ask-user-question-open-session:hover:not(:disabled),
+.ask-user-question-minimize:hover:not(:disabled) {
   border-color: var(--line-strong);
   background: var(--surface);
   color: var(--ink);
   transform: translateY(-1px);
 }
-.ask-user-question-minimize:active {
-  transform: scale(0.92);
+.ask-user-question-open-session:active:not(:disabled),
+.ask-user-question-minimize:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.ask-user-question-open-session:focus-visible,
+.ask-user-question-minimize:focus-visible,
+.ask-user-question-minimized:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Minimized bar above composer */
@@ -340,6 +363,7 @@
   .ask-user-question-tabs button,
   .ask-user-options button,
   .ask-user-question-actions button,
+  .ask-user-question-open-session,
   .ask-user-question-minimize,
   .ask-user-question-minimized {
     transition: none !important;
