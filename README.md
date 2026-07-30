@@ -19,9 +19,11 @@ A local web workbench for Pi that is meant to be forked, reshaped, simplified, a
 
 ## Pi is the clever part
 
-Pi owns the providers, models, sessions, history, tools, commands, and extensions. It reasons, writes the code, and runs the tools.
+> **Pi is the agent. Livecraft is the workbench.**
 
-Livecraft gives that work a local web interface. It adds panels, previews, buttons, and a few useful opinions without replacing Pi or duplicating its configuration.
+**Pi owns the work.** Providers, models, sessions, history, tools, commands, and extensions all stay with Pi. It reasons, writes the code, and runs the tools.
+
+**Livecraft arranges the view.** It adds panels, previews, buttons, and a few useful opinions without replacing Pi or duplicating its configuration.
 
 You still configure Pi as usual. Livecraft simply asks what is available and displays it.
 
@@ -29,17 +31,23 @@ Its own settings are deliberately less exciting: themes, shortcuts, panel sizes,
 
 Think of Livecraft as an intentionally oversized, editable web extension around Pi.
 
-The useful idea comes from Pi's small, composable design. Livecraft is merely one enthusiastic consequence of it.
+*The useful idea comes from Pi's small, composable design. Livecraft is merely one enthusiastic consequence of it.*
 
 ## Why Livecraft?
 
+> **Some things are easier to scan, click, and compare than to scroll past.**
+
 Pi is already excellent in a terminal.
 
-Some interactions simply benefit from a visual surface. It is easier to compare token usage between turns, keep an eye on several sessions, read a large diff, answer a structured question, or jump from an analysis chart back to the tool call that caused the spike.
+A visual surface helps when you want to compare token usage between turns, keep an eye on several sessions, read a large diff, answer a structured question, or jump from an analysis chart back to the tool call that caused the spike.
 
-Livecraft provides that surface.
+The more interesting part is that Pi can modify that surface while you use it.
 
-The more interesting part is that Pi can modify it while you use it. Notice something annoying, ask Pi to change the application, review the diff, and try the result in the same session.
+**The loop stays deliberately short:**
+
+1. Notice something annoying.
+2. Ask Pi to change the application.
+3. Review the diff and try the result in the same session.
 
 Most application changes appear without interrupting the conversation that requested them. The less interesting machinery that makes this possible is explained later, after the useful bits.
 
