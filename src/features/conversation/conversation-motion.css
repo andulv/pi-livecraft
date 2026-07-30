@@ -1,0 +1,28 @@
+.conversation-entry, .tool-call.entering, .tool-call-result.entering {
+  animation: conversation-entry-in 180ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+@keyframes conversation-entry-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}
+@keyframes turn-usage-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .conversation-entry,
+  .tool-call.entering,
+  .tool-call-result.entering,
+  .activity-action,
+  .pending-steering-status i,
+  .pi-activity .activity-text,
+  .turn-usage {
+    animation: none;
+  }
+  .tool-call-body {
+    transition: none;
+  }
+}

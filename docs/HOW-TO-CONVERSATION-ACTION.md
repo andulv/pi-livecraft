@@ -10,7 +10,7 @@ Ordinary messages and tool calls have separate data contracts:
 
 | Surface | Composition point | Available data |
 |---|---|---|
-| Ordinary message | `DefaultMessageCard` in [`Conversation.tsx`](/src/features/conversation/Conversation.tsx) | Message object and visible text returned by `visibleText()` |
+| Ordinary message | `DefaultMessageCard` in [`MessageCard.tsx`](/src/features/conversation/MessageCard.tsx) | Message object and visible text returned by `visibleText()` |
 | Tool call | `ToolCallCard` in [`ToolCallCard.tsx`](/src/features/conversation/ToolCallCard.tsx) | Name, arguments, pending/resolved state, raw result, and error state |
 
 Add the action only to the surface that owns the required data. Unknown custom messages use `DefaultCustomMessage` and do not currently expose contextual actions.
@@ -40,7 +40,7 @@ Every conversation action must:
 - use the shared [`Tooltip`](/src/components/README.md) when the icon has no visible text;
 - avoid appearing when the required value is unavailable;
 - remain colocated with the content it affects;
-- preserve the shared hover, focus, touch, and reduced-motion behavior in `conversation.css`.
+- preserve the shared hover, focus, touch, and reduced-motion behavior in `conversation-actions.css`.
 
 For tool calls, do not offer a result action before `hasResult` is true. Error results still have raw output and may expose result actions.
 
@@ -59,8 +59,8 @@ Check the affected surface with keyboard focus and pointer hover, then in a touc
 
 | File | Purpose |
 |---|---|
-| `src/features/conversation/Conversation.tsx` | Ordinary message action composition |
+| `src/features/conversation/MessageCard.tsx` | Ordinary message action composition |
 | `src/features/conversation/ToolCallCard.tsx` | Tool call action composition |
 | `src/features/conversation/<Action>.tsx` | Optional reusable stateful action |
-| `src/features/conversation/conversation.css` | Shared action layout only when the existing container is insufficient |
+| `src/features/conversation/conversation-actions.css` | Shared action layout only when the existing container is insufficient |
 | `test/<focused-test>.test.ts` | Non-trivial pure behavior |

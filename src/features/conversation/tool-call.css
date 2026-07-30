@@ -1,0 +1,507 @@
+.tool-call {
+  position: relative;
+  max-width: 760px;
+  margin: 0 2px 18px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent) 3%, var(--surface));
+  color: color-mix(in srgb, var(--accent) 40%, var(--ink));
+  font: 12px/1.5 ui-monospace, monospace;
+}
+.tool-call.error {
+  border-color: color-mix(in srgb, var(--danger) 25%, var(--line));
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.tool-call.interrupted {
+  border-color: color-mix(in srgb, var(--warning) 40%, var(--line));
+  background: color-mix(in srgb, var(--warning) 5%, var(--surface));
+  color: var(--warning-strong);
+}
+.tool-call-heading {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 8px 10px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.tool-call-heading:not(:disabled):hover {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+.tool-call-heading:not(:disabled):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.tool-call-heading > span:first-child {
+  color: var(--accent);
+  font-size: 14px;
+}
+.tool-call-command {
+  min-width: 0;
+  color: inherit;
+  font: 11px ui-monospace, monospace;
+}
+.tool-call-command > code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-call-range {
+  flex: 0 0 auto;
+  font: 11px ui-monospace, monospace;
+}
+.tool-call-heading small {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 5px;
+  margin-left: auto;
+  color: currentColor;
+  font: 10px ui-monospace, monospace;
+}
+.tool-call-spinner {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-width: 1.5px;
+}
+.tool-call-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 180ms cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 120ms ease-out;
+}
+.tool-call-body.visible {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.tool-call-body > div {
+  min-height: 0;
+  overflow: hidden;
+}
+.tool-call-raw-args {
+  display: block;
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+  padding: 9px 10px;
+  background: color-mix(
+    in srgb,
+    var(--accent) 2%,
+    color-mix(in srgb, var(--surface) 97%, var(--canvas))
+  );
+  color: inherit;
+  font: 11px/1.5 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  text-align: left;
+  cursor: pointer;
+}
+.tool-call-writing {
+  display: block;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 10%, transparent);
+  padding: 5px 10px;
+  color: var(--muted);
+  font: 10px/1.5 ui-sans-serif, system-ui, sans-serif;
+}
+.tool-call-preview {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+  padding: 0;
+  background: color-mix(
+    in srgb,
+    var(--accent) 2%,
+    color-mix(in srgb, var(--surface) 97%, var(--canvas))
+  );
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tool-call-preview:hover {
+  background: color-mix(
+    in srgb,
+    var(--accent) 4%,
+    color-mix(in srgb, var(--surface) 93%, var(--canvas))
+  );
+}
+.tool-call-preview:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.tool-call-csv-preview {
+  max-height: 380px;
+  overflow: auto;
+  padding: 9px 10px 0;
+  text-align: left;
+}
+.tool-call-csv-preview table {
+  min-width: max-content;
+  border-collapse: collapse;
+  font: 11px/1.5 ui-monospace, monospace;
+}
+.tool-call-csv-preview th,
+.tool-call-csv-preview td {
+  width: 180px;
+  max-width: 240px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-call-csv-preview th {
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 650;
+}
+.tool-call-csv-notice {
+  margin: 7px 0 9px;
+  color: var(--muted);
+  font: 10px/1.5 ui-sans-serif, system-ui, sans-serif;
+}
+.tool-call-csv-empty {
+  margin: 0;
+  padding: 9px 10px;
+  font: 11px/1.5 ui-monospace, monospace;
+}
+.tool-call-csv-source {
+  max-height: 540px;
+  overflow: auto;
+}
+.tool-call-csv-source > pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 9px 10px;
+  color: inherit;
+  font: 11px/1.5 ui-monospace, monospace;
+  white-space: pre;
+}
+.tool-call-svg-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 540px;
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
+}
+.tool-call-html-preview {
+  display: block;
+  width: 100%;
+  max-height: 540px;
+  height: 540px;
+  border: 0;
+  background: var(--surface);
+}
+.tool-call-preview pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 9px 10px 4px;
+  background: transparent;
+  color: inherit;
+  font: 11px/1.5 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.tool-call-preview > span {
+  display: block;
+  padding: 0 10px 9px;
+  color: var(--muted);
+  font: 10px/1.5 ui-sans-serif, system-ui, sans-serif;
+}
+.tool-call-preview > span + span {
+  padding-top: 0;
+}
+.tool-call-content {
+  border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--accent) 2%,
+    color-mix(in srgb, var(--surface) 97%, var(--canvas))
+  );
+  cursor: pointer;
+}
+.tool-call-edit-diff {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+.tool-call-edit-change {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+  border-radius: 6px;
+}
+.tool-call-edit-change h4 {
+  margin: 0;
+  padding: 5px 8px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  font: 10px/1.4 ui-sans-serif, system-ui, sans-serif;
+}
+.tool-call-edit-line {
+  display: grid;
+  grid-template-columns: 32px 14px minmax(0, 1fr);
+}
+.tool-call-edit-line > span {
+  padding: 2px 0;
+  color: var(--subtle);
+  font: 11px/1.5 ui-monospace, monospace;
+  text-align: right;
+  user-select: none;
+}
+.tool-call-edit-line > i {
+  padding: 2px 0;
+  font-style: normal;
+  text-align: center;
+}
+.tool-call-edit-line pre {
+  min-width: 0;
+  margin: 0;
+  padding: 2px 8px;
+  font: 11px/1.5 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.tool-call-edit-line.removed {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.tool-call-edit-line.removed > span,
+.tool-call-edit-line.removed > i {
+  color: color-mix(in srgb, var(--danger) 60%, var(--surface));
+}
+.tool-call-edit-line.removed .diff-seg-removed {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--danger) 18%, var(--surface));
+  color: var(--danger);
+  font-weight: 700;
+}
+.tool-call-edit-line.added .diff-seg-added {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--success) 18%, var(--surface));
+  color: var(--success);
+  font-weight: 700;
+}
+.tool-call-edit-line.added {
+  background: color-mix(in srgb, var(--success) 13%, var(--surface));
+  color: var(--success);
+}
+.tool-call-edit-line.added > span,
+.tool-call-edit-line.added > i {
+  color: var(--success);
+}
+.tool-call-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  color: var(--muted);
+}
+.tool-call-notice {
+  margin: 10px 10px 0;
+  color: var(--muted);
+  font: 11px/1.5 ui-sans-serif, system-ui, sans-serif;
+}
+.tool-call-content.tool-call-content-scrollable {
+  max-height: 540px;
+  overflow-y: auto;
+}
+.tool-call-content.tool-call-content-markdown {
+  max-height: 380px;
+  overflow-y: auto;
+}
+.tool-call-content.tool-call-content-scrollable > pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 9px 10px;
+  color: inherit;
+  font: 11px/1.5 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.tool-call-content > pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 9px 10px;
+  color: inherit;
+  font: 11px/1.5 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.tool-call-markdown-preview {
+  max-height: 380px;
+  overflow-y: auto;
+  padding: 14px 16px 18px;
+  font: 13px/1.65 ui-sans-serif, system-ui, sans-serif;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.tool-call-markdown-preview > :first-child {
+  margin-top: 0;
+}
+.tool-call-markdown-preview > :last-child {
+  margin-bottom: 0;
+}
+.tool-call-markdown-preview p {
+  margin: 0 0 11px;
+}
+.tool-call-markdown-preview h1,
+.tool-call-markdown-preview h2,
+.tool-call-markdown-preview h3,
+.tool-call-markdown-preview h4,
+.tool-call-markdown-preview h5,
+.tool-call-markdown-preview h6 {
+  margin: 14px 0 8px;
+  line-height: 1.3;
+  color: var(--accent);
+}
+.tool-call-markdown-preview strong {
+  color: color-mix(in srgb, var(--accent) 82%, transparent);
+}
+.tool-call-markdown-preview ul ::marker,
+.tool-call-markdown-preview ol ::marker {
+  color: var(--accent);
+}
+.tool-call-markdown-preview :not(pre) > code {
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  font: 11px ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+.tool-call-markdown-preview pre {
+  overflow-x: auto;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  font: 11px/1.5 ui-monospace, monospace;
+  white-space: pre-wrap;
+}
+.tool-call-markdown-preview table {
+  table-layout: fixed;
+  width: 100%;
+  margin: 0 0 11px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.tool-call-markdown-preview th, .tool-call-markdown-preview td {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  text-align: left;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.tool-call-frontmatter-value {
+  white-space: pre-wrap;
+}
+.tool-call-markdown {
+  padding: 14px 16px 18px;
+  font: 13px/1.65 ui-sans-serif, system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+.tool-call-markdown > :first-child {
+  margin-top: 0;
+}
+.tool-call-markdown > :last-child {
+  margin-bottom: 0;
+}
+.tool-call-markdown p {
+  margin: 0 0 11px;
+}
+.tool-call-markdown h1,
+.tool-call-markdown h2,
+.tool-call-markdown h3,
+.tool-call-markdown h4,
+.tool-call-markdown h5,
+.tool-call-markdown h6 {
+  margin: 14px 0 8px;
+  line-height: 1.3;
+}
+.tool-call-markdown h1,
+.tool-call-markdown h2,
+.tool-call-markdown h3,
+.tool-call-markdown h4,
+.tool-call-markdown h5,
+.tool-call-markdown h6 {
+  color: var(--accent);
+}
+.tool-call-markdown strong {
+  color: color-mix(in srgb, var(--accent) 82%, transparent);
+}
+.tool-call-markdown ul ::marker,
+.tool-call-markdown ol ::marker {
+  color: var(--accent);
+}
+.tool-call-markdown :not(pre) > code {
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  font: 11px ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+.tool-call-markdown pre {
+  overflow-x: auto;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  font: 11px/1.5 ui-monospace, monospace;
+  white-space: pre-wrap;
+}
+.tool-call-markdown table {
+  table-layout: fixed;
+  width: 100%;
+  margin: 0 0 11px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.tool-call-markdown th, .tool-call-markdown td {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  text-align: left;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.tool-call-syntax {
+  font: 11px/1.5 ui-monospace, monospace !important;
+}
+.tool-call-syntax code {
+  background: transparent !important;
+}
+.tool-call-numbered-pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: 11px/1.5 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.tool-call-numbered-pre > div {
+  display: grid;
+  grid-template-columns: 2.5em minmax(0, 1fr);
+}
+.tool-call-numbered-pre > div > span {
+  padding: 2px 4px 2px 0;
+  color: var(--subtle);
+  text-align: right;
+  user-select: none;
+}

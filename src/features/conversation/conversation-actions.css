@@ -1,0 +1,75 @@
+.conversation-actions {
+  position: absolute;
+  z-index: 1;
+  top: 6px;
+  right: 7px;
+  display: flex;
+  gap: 5px;
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 140ms ease-out, transform 140ms ease-out;
+}
+.conversation-action-button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  transition:
+    border-color 140ms ease-out,
+    color 140ms ease-out,
+    transform 100ms ease-out;
+}
+.conversation-action-button svg {
+  width: 14px;
+  height: 14px;
+}
+.message:hover > .conversation-actions,
+.message:focus-within > .conversation-actions,
+.tool-call:hover > .conversation-actions,
+.tool-call:focus-within > .conversation-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+.conversation-action-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.conversation-action-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  opacity: 1;
+}
+.conversation-action-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.conversation-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: none;
+}
+.message.user:has(> .message-actions) {
+  padding-right: 48px;
+}
+.tool-call > .conversation-actions {
+  top: 5px;
+}
+.tool-call:has(> .conversation-actions) > .tool-call-heading {
+  padding-right: 80px;
+}
+@media (hover: none) {
+  .conversation-actions {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .conversation-actions,
+  .conversation-action-button {
+    transition: none;
+  }
+}

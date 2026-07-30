@@ -583,3 +583,46 @@
 .icon-button.danger svg {
   width: 13px;
 }
+
+.slash-commands {
+  position: absolute;
+  right: 8px;
+  bottom: calc(100% + 8px);
+  left: 8px;
+  z-index: 20;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 14%);
+  max-height: 200px;
+  overflow-y: auto;
+  animation: slash-in 120ms ease-out;
+}
+.slash-command-item {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 8px 12px;
+  color: var(--ink);
+  font: 12px/1.5 ui-monospace, monospace;
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+.slash-command-item:first-child {
+  border-radius: 8px 8px 0 0;
+}
+.slash-command-item:last-child {
+  border-radius: 0 0 8px 8px;
+}
+.slash-command-item:hover, .slash-command-item.selected {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.slash-command-name {
+  font-weight: 700;
+}
+.slash-command-desc {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}

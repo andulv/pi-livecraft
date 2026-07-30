@@ -8,12 +8,25 @@ Pure protocol, reconciliation, and display rules stay separate:
 
 - `tool-protocol.ts` interprets tool calls and execution updates;
 - `message-reconciliation.ts` merges history with live messages;
+- `message-display.ts` identifies protocol content visible in the thread;
 - `tool-presentation.ts` and `tool-call-presentations/` describe tool-specific display;
 - `event-sequence.ts` accepts new sequence numbers and rejects duplicates.
 
+Presentation follows the same ownership boundaries:
+
+- `Conversation.tsx` assembles the thread and owns scrolling and navigation;
+- `MessageCard.tsx` renders protocol messages and turn usage;
+- `ActivityIndicator.tsx` renders the current Pi activity;
+- `Markdown.tsx` owns Markdown and front matter rendering;
+- `ToolCallCard.tsx` owns tool state, actions, and expansion;
+- `ToolCallOutput.tsx` renders file previews and expanded output;
+- `ToolCallEditDiff.tsx` renders edit diffs.
+
+Styles are split by the same surfaces: `conversation.css` for the viewport and empty/loading states, `messages.css`, `tool-call.css`, `conversation-actions.css`, `activity.css`, and `conversation-motion.css`. Composer slash-command styles remain in `composer.css`.
+
 ## Tool call presentations
 
-Tool calls are displayed by `ToolCallCard` in `src/features/conversation/ToolCallCard.tsx`. The presentation is selected by `toolCallPresentation()` in `src/features/conversation/tool-presentation.ts`.
+Tool calls are composed by `ToolCallCard` in `src/features/conversation/ToolCallCard.tsx`; previews and expanded results live in `ToolCallOutput.tsx`. The presentation is selected by `toolCallPresentation()` in `src/features/conversation/tool-presentation.ts`.
 
 By default, the tool header exposes its full title on hover. Once the call is resolved, its status displays the character counts of its serialized JSON arguments (`↘`) and raw text output (`↗`); these values remain available to hover and screen readers. Code and text files show a four-line preview; a click expands the full output. HTML, SVG, and Markdown files are rendered directly in the card (HTML in a sandboxed iframe, SVG as an image, Markdown via React-Markdown); a "View source" label toggles to syntax-highlighted code with line numbers. Markdown previews and their source views are capped at 380px with vertical scroll; HTML and SVG previews and their source views are capped at 540px.
 
@@ -21,7 +34,7 @@ Follow the [step-by-step guide](/docs/HOW-TO-TOOL-PRESENTATION.md) before adding
 
 ## Contextual conversation actions
 
-Messages and tool calls expose contextual actions through explicit composition rather than a registry. `DefaultMessageCard` in `Conversation.tsx` owns actions on ordinary messages; `ToolCallCard.tsx` owns actions on tool calls. Both reuse the `.conversation-actions` styles in `conversation.css`, which reveal actions on hover or keyboard focus and keep them visible on touch devices. Unknown custom messages rendered by `DefaultCustomMessage` do not currently expose this surface.
+Messages and tool calls expose contextual actions through explicit composition rather than a registry. `DefaultMessageCard` in `MessageCard.tsx` owns actions on ordinary messages; `ToolCallCard.tsx` owns actions on tool calls. Both reuse the `.conversation-actions` styles in `conversation-actions.css`, which reveal actions on hover or keyboard focus and keep them visible on touch devices. Unknown custom messages rendered by `DefaultCustomMessage` do not currently expose this surface.
 
 `CopyButton.tsx` is the current shared action implementation, not the extension contract. It uses the browser Clipboard API, reports failures through `onError`, and exposes its accessible label through the shared `Tooltip` component.
 

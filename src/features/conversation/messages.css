@@ -1,0 +1,242 @@
+.message {
+  position: relative;
+  margin: 0 0 26px;
+}
+.message.user {
+  width: fit-content;
+  max-width: 78%;
+  margin-left: auto;
+  padding: 13px 16px;
+  border-radius: 14px 14px 4px;
+  background: var(--accent);
+  color: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+.message.user.pending-steering {
+  border: 1px dashed var(--line-strong);
+  background: var(--surface-raised);
+  color: var(--ink);
+  box-shadow: none;
+}
+.pending-steering-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--muted);
+  font: 10px/1.4 ui-monospace, monospace;
+}
+.pending-steering-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pending-steering-pulse 1.2s ease-in-out infinite;
+}
+@keyframes pending-steering-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.message.assistant {
+  position: relative;
+  max-width: 760px;
+  padding: 0 2px;
+}
+.message.assistant > .content {
+  padding-right: 42px;
+}
+.custom-message {
+  max-width: 760px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-raised);
+}
+.custom-message-type {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font: 10px/1.4 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+.turn-usage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  margin: 11px 0 13px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
+  color: var(--muted);
+  font: 10px ui-monospace, monospace;
+  animation: turn-usage-fade-in 300ms ease-out both;
+}
+.turn-usage div {
+  display: inline-flex;
+  gap: 4px;
+}
+.turn-usage dt {
+  color: var(--subtle);
+}
+.turn-usage dd {
+  margin: 0;
+  color: var(--ink);
+}
+.message-time {
+  display: block;
+  margin-top: 8px;
+  color: color-mix(in srgb, var(--surface) 76%, transparent);
+  font: 10px ui-monospace, monospace;
+  text-align: right;
+}
+.message-image {
+  display: block;
+  max-width: min(100%, 480px);
+  max-height: 420px;
+  margin: 0 0 10px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+.content {
+  overflow-wrap: anywhere;
+  font: 14px/1.7 ui-sans-serif, system-ui, sans-serif;
+}
+.content > :first-child, .reasoning > :first-child {
+  margin-top: 0;
+}
+.content > :last-child, .reasoning > :last-child {
+  margin-bottom: 0;
+}
+.content p {
+  margin: 0 0 13px;
+}
+.reasoning {
+  margin: 0 0 13px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.reasoning pre {
+  overflow-x: auto;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  font: 11px/1.55 ui-monospace, monospace;
+  white-space: pre-wrap;
+}
+.reasoning :not(pre) > code {
+  overflow-wrap: anywhere;
+}
+.content h1, .content h2, .content h3, .content h4, .content h5, .content h6 {
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.message.assistant .content h1,
+.message.assistant .content h2,
+.message.assistant .content h3,
+.message.assistant .content h4,
+.message.assistant .content h5,
+.message.assistant .content h6 {
+  color: var(--accent);
+}
+.content h1,
+.content h2,
+.tool-call-markdown-preview h1,
+.tool-call-markdown-preview h2,
+.tool-call-markdown h1,
+.tool-call-markdown h2 {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--line);
+}
+.message.assistant .content strong {
+  color: color-mix(in srgb, var(--accent) 82%, transparent);
+}
+.message.assistant .content ul ::marker,
+.message.assistant .content ol ::marker {
+  color: var(--accent);
+}
+.message.assistant .content .reasoning strong {
+  color: inherit;
+}
+.message.assistant .content .reasoning h1,
+.message.assistant .content .reasoning h2,
+.message.assistant .content .reasoning h3,
+.message.assistant .content .reasoning h4,
+.message.assistant .content .reasoning h5,
+.message.assistant .content .reasoning h6,
+.message.assistant .content .reasoning ul ::marker,
+.message.assistant .content .reasoning ol ::marker {
+  color: inherit;
+}
+.content pre {
+  overflow-x: auto;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--canvas) 60%, var(--surface));
+  font: 12px/1.6 ui-monospace, monospace;
+  white-space: pre-wrap;
+}
+.content :not(pre) > code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  color: var(--ink);
+  font: 12px ui-monospace, monospace;
+}
+.content a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+.content table {
+  width: 100%;
+  margin: 0 0 13px;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: fixed;
+}
+.content th, .content td {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  text-align: left;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.content th {
+  background: var(--accent-soft);
+  font-weight: 650;
+}
+.user .content a {
+  color: var(--surface);
+  text-decoration: underline;
+}
+.user .content pre {
+  border-color: color-mix(in srgb, var(--surface) 13%, transparent);
+  background: color-mix(in srgb, var(--canvas) 60%, var(--ink));
+}
+.pending-steering .content pre {
+  border-color: var(--line);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+.message.system {
+  margin: 4px 0;
+  padding: 4px 0;
+  color: var(--subtle);
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-align: center;
+}
+.message.system.error {
+  margin: 6px 0;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 12px;
+}

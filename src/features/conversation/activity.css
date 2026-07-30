@@ -1,0 +1,84 @@
+.pi-activity.is-compacting {
+  color: var(--warning-strong);
+}
+.activity-signal.compacting svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  animation: compact-gear-spin 2s linear infinite;
+}
+.pi-activity {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--accent);
+  font: 12px/1.55 ui-monospace, monospace;
+  white-space: nowrap;
+}
+.conversation-activity {
+  margin: 0 2px 18px;
+}
+.activity-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pi-activity:not(.is-exited):not(.is-disconnected) .activity-text {
+  animation: activity-text-breathe 1.8s ease-in-out infinite;
+}
+.activity-action {
+  display: inline-block;
+  animation: activity-action-in 220ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+@keyframes activity-action-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+@keyframes activity-text-breathe {
+  0%, 100% {
+    opacity: 0.82;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.activity-signal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 17px;
+  height: 18px;
+}
+.activity-signal i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: activity-wave 900ms cubic-bezier(0.25, 1, 0.5, 1) infinite;
+}
+.activity-signal i:nth-child(2) {
+  animation-delay: 120ms;
+}
+.activity-signal i:nth-child(3) {
+  animation-delay: 240ms;
+}
+.pi-activity.is-exited .activity-signal i,
+.pi-activity.is-disconnected .activity-signal i {
+  animation: none;
+}
+.pi-activity.is-exited, .pi-activity.is-disconnected {
+  color: var(--muted);
+}
+@keyframes activity-wave {
+  0%, 60%, 100% {
+    opacity: 0.45;
+    transform: translateY(2px) scale(0.8);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.15);
+  }
+}
