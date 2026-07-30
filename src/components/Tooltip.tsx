@@ -12,6 +12,7 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
   const triggerRef = useRef<Element | null>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
+  const pointerDismissed = useRef(false)
   const showTimer = useRef<number | null>(null)
   const hideTimer = useRef<number | null>(null)
 
@@ -73,7 +74,7 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
   }, [clearTimers])
 
   function show(eventTarget: EventTarget | null): void {
-    if (!(eventTarget instanceof Element)) return
+    if (pointerDismissed.current || !(eventTarget instanceof Element)) return
     clearTimers()
     triggerRef.current = eventTarget
     showTimer.current = window.setTimeout(() => {
@@ -99,8 +100,15 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
         onBlur={hide}
         onClick={hide}
         onFocus={(event) => show(event.target)}
+        onPointerDown={() => {
+          pointerDismissed.current = true
+          hide()
+        }}
         onPointerEnter={(event) => show(event.target)}
-        onPointerLeave={hide}
+        onPointerLeave={() => {
+          pointerDismissed.current = false
+          hide()
+        }}
       >
         {children}
       </span>
