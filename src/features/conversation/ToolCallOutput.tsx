@@ -1,4 +1,12 @@
-import { lazy, Suspense, useMemo, type CSSProperties } from 'react'
+import {
+  lazy,
+  Suspense,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
 import { canHighlightFile } from './file-preview.ts'
 import { Markdown } from './Markdown.tsx'
 import { csvSourcePreview, parseCsvPreview, type CsvPreview } from './csv-preview.ts'
@@ -37,7 +45,7 @@ function NumberedPre({ content, startLine }: { content: string; startLine: numbe
   )
 }
 
-/** Displays a clickable preview for CSV, code, HTML, resolved SVG, and Markdown files. */
+/** Displays a clickable preview and retains its measured footprint while its expensive content is offscreen. */
 export function ToolCallPreview({
   call,
   content,
@@ -53,6 +61,22 @@ export function ToolCallPreview({
   remainingLineCount: number
   showHtmlPreview: boolean
 }) {
+  const previewRef = useRef<HTMLButtonElement>(null)
+  const [renderedHeight, setRenderedHeight] = useState<number>()
+  useLayoutEffect(() => {
+    if (!isNearViewport) return
+    const preview = previewRef.current
+    if (!preview) return
+    const updateHeight = () => {
+      const height = preview.getBoundingClientRect().height
+      setRenderedHeight((current) => current === height ? current : height)
+    }
+    updateHeight()
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(preview)
+    return () => observer.disconnect()
+  }, [isNearViewport])
+
   const display = call.name === 'read' || call.name === 'write'
     ? readContentDisplay(call.args)
     : { kind: 'text' as const }
@@ -80,8 +104,18 @@ export function ToolCallPreview({
     ? <NumberedPre content={content} startLine={startLine} />
     : <pre>{content}</pre>
 
+  if (!isNearViewport && renderedHeight !== undefined) {
+    return (
+      <div
+        aria-hidden='true'
+        className='tool-call-preview-placeholder'
+        style={{ height: renderedHeight }}
+      />
+    )
+  }
+
   return (
-    <button className='tool-call-preview' onClick={onClick} type='button'>
+    <button className='tool-call-preview' onClick={onClick} ref={previewRef} type='button'>
       {csvPreview
         ? isNearViewport && parsedCsv
           ? <CsvTable preview={parsedCsv} />
