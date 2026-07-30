@@ -7,10 +7,17 @@ import { JsonLineDecoder, encodeJsonLine } from '../server/jsonl.ts'
 import { isObject } from '../shared/is-object.ts'
 import type { JsonObject } from '../shared/types.ts'
 
+interface EvidenceRequirement {
+  label: string
+  paths: string[]
+}
+
 interface DocumentationCase {
   name: string
   prompt: string
   expectedDocuments: string[]
+  expectedEvidence: EvidenceRequirement[]
+  allowedDocuments?: string[]
 }
 
 interface ToolCallTrace {
@@ -28,6 +35,17 @@ interface RoutingScore {
   readDocuments: string[]
 }
 
+interface ExplorationScore {
+  evidenceComplete: boolean
+  evidenceCoverage: number
+  coveredEvidence: string[]
+  toolCalls: number
+  repeatedReads: string[]
+  failedCalls: number
+  unscopedSearches: number
+  offRouteDocuments: string[]
+}
+
 const documentationCases: DocumentationCase[] = [
   {
     name: 'composer',
@@ -38,6 +56,14 @@ const documentationCases: DocumentationCase[] = [
       'docs/HOW-TO-COMPOSER.md',
       'src/features/composer/README.md',
     ],
+    expectedEvidence: [
+      { label: 'composer owner', paths: ['src/features/composer/Composer.tsx'] },
+      {
+        label: 'select primitive',
+        paths: ['src/features/composer/selects/ComposerSelect.tsx'],
+      },
+    ],
+    allowedDocuments: ['.pi/skills/livecraft-ui/SKILL.md'],
   },
   {
     name: 'settings',
@@ -48,6 +74,11 @@ const documentationCases: DocumentationCase[] = [
       'docs/HOW-TO-SETTINGS.md',
       'src/features/settings/README.md',
     ],
+    expectedEvidence: [
+      { label: 'settings owner', paths: ['src/features/settings/SettingsPanel.tsx'] },
+      { label: 'application wiring', paths: ['src/App.tsx'] },
+    ],
+    allowedDocuments: ['.pi/skills/livecraft-ui/SKILL.md'],
   },
   {
     name: 'manager lifecycle',
@@ -57,6 +88,20 @@ const documentationCases: DocumentationCase[] = [
       'docs/README.md',
       'docs/MANAGER-LIFECYCLE.md',
     ],
+    expectedEvidence: [
+      {
+        label: 'supervision owner',
+        paths: [
+          'server/manager-supervisor.ts',
+          'server/manager-runtime-monitor.ts',
+        ],
+      },
+      { label: 'manager owner', paths: ['server/manager.ts'] },
+    ],
+    allowedDocuments: [
+      'docs/ARCHITECTURE.md',
+      'src/features/manager/README.md',
+    ],
   },
   {
     name: 'isolated prompt',
@@ -65,6 +110,17 @@ const documentationCases: DocumentationCase[] = [
     expectedDocuments: [
       'docs/README.md',
       'docs/HOW-TO-RUN-ISOLATED-PROMPT.md',
+    ],
+    expectedEvidence: [
+      { label: 'isolated prompt owner', paths: ['server/run-isolated-prompt.ts'] },
+      {
+        label: 'server integration',
+        paths: ['server/manager.ts', 'server/backend.ts'],
+      },
+    ],
+    allowedDocuments: [
+      'docs/ARCHITECTURE.md',
+      'server/features/README.md',
     ],
   },
 ]
@@ -97,6 +153,62 @@ function scoreDocumentationRouting(
     routingFirst,
     readDocuments: successfulReads,
   }
+}
+
+/** Measures whether exploration found the minimum source evidence without common waste signals. */
+function scoreExploration(
+  cwd: string,
+  testCase: DocumentationCase,
+  trace: ToolCallTrace[],
+): ExplorationScore {
+  const successfulReads = trace
+    .filter((call) =>
+      call.name === 'read' && call.isError === false && typeof call.args.path === 'string'
+    )
+    .map((call) => normalizePath(cwd, call.args.path as string))
+  const coveredEvidence = testCase
+    .expectedEvidence
+    .filter((requirement) => requirement.paths.some((path) => successfulReads.includes(path)))
+    .map((requirement) => requirement.label)
+  const evidenceCoverage = coveredEvidence.length / testCase.expectedEvidence.length
+  const seenReads = new Set<string>()
+  const repeatedReads = new Set<string>()
+  for (const path of successfulReads) {
+    if (seenReads.has(path)) repeatedReads.add(path)
+    else seenReads.add(path)
+  }
+  const allowedDocuments = new Set([
+    ...testCase.expectedDocuments,
+    ...(testCase.allowedDocuments ?? []),
+  ])
+  const offRouteDocuments = [
+    ...new Set(
+      successfulReads.filter((path) => isGuidanceDocument(path) && !allowedDocuments.has(path)),
+    ),
+  ]
+  return {
+    evidenceComplete: evidenceCoverage === 1,
+    evidenceCoverage,
+    coveredEvidence,
+    toolCalls: trace.length,
+    repeatedReads: [...repeatedReads],
+    failedCalls: trace.filter((call) => call.isError === true).length,
+    unscopedSearches: trace.filter((call) => isUnscopedSearch(cwd, call)).length,
+    offRouteDocuments,
+  }
+}
+
+function isGuidanceDocument(path: string): boolean {
+  return path.endsWith('/README.md')
+    || path.endsWith('/SKILL.md')
+    || path.startsWith('docs/') && path.endsWith('.md')
+}
+
+function isUnscopedSearch(cwd: string, call: ToolCallTrace): boolean {
+  if (call.name !== 'find' && call.name !== 'grep') return false
+  if (typeof call.args.path !== 'string') return true
+  const path = normalizePath(cwd, call.args.path)
+  return path === '' || path === '.'
 }
 
 function normalizePath(cwd: string, path: string): string {
@@ -150,6 +262,32 @@ test('scores documentation coverage, order, and initial routing independently', 
   assert.equal(failedGuide.compliance, false)
 })
 
+test('scores evidence coverage and exploration waste independently', () => {
+  const cwd = process.cwd()
+  const testCase = documentationCases.find(({ name }) => name === 'composer')
+  assert.ok(testCase)
+  const trace = [
+    ...testCase.expectedDocuments.map((path) => traceRead(path)),
+    traceRead('src/features/composer/Composer.tsx'),
+    traceRead('src/features/composer/selects/ComposerSelect.tsx'),
+    traceRead('src/features/composer/Composer.tsx'),
+    { id: 'root-search', name: 'grep', args: { pattern: 'Composer' }, isError: false },
+    traceRead('docs/ARCHITECTURE.md'),
+    traceRead('missing.ts', true),
+  ]
+
+  assert.deepEqual(scoreExploration(cwd, testCase, trace), {
+    evidenceComplete: true,
+    evidenceCoverage: 1,
+    coveredEvidence: ['composer owner', 'select primitive'],
+    toolCalls: 9,
+    repeatedReads: ['src/features/composer/Composer.tsx'],
+    failedCalls: 1,
+    unscopedSearches: 1,
+    offRouteDocuments: ['docs/ARCHITECTURE.md'],
+  })
+})
+
 test(
   'evaluates documentation routing with a real read-only Pi agent',
   { timeout: 60 * 60_000 },
@@ -159,37 +297,78 @@ test(
     const provider = process.env.PI_DOC_ROUTING_PROVIDER ?? 'opencode-go'
     const model = process.env.PI_DOC_ROUTING_MODEL ?? 'deepseek-v4-pro'
     const thinking = process.env.PI_DOC_ROUTING_THINKING ?? 'high'
-    const results: Array<
-      { testCase: DocumentationCase; score: RoutingScore; cost?: number; trace: ToolCallTrace[] }
-    > = []
+    const testCases = selectDocumentationCases(process.env.PI_DOC_ROUTING_CASES)
+    const results: Array<{
+      testCase: DocumentationCase
+      routing: RoutingScore
+      exploration: ExplorationScore
+      cost?: number
+      trace: ToolCallTrace[]
+    }> = []
 
     console.log(
-      `\nDocumentation routing evaluation: ${provider}/${model}, thinking=${thinking}, repeats=${repeats}`,
+      `\nAgent guidance evaluation: ${provider}/${model}, thinking=${thinking}, repeats=${repeats}, cases=${
+        testCases.map(({ name }) => name).join(', ')
+      }`,
     )
-    for (const testCase of documentationCases) {
+    for (const testCase of testCases) {
       for (let attempt = 1; attempt <= repeats; attempt += 1) {
         const run = await runReadOnlyPrompt(cwd, testCase.prompt, provider, model, thinking)
-        const score = scoreDocumentationRouting(cwd, testCase.expectedDocuments, run.trace)
-        results.push({ testCase, score, cost: run.cost, trace: run.trace })
+        const routing = scoreDocumentationRouting(cwd, testCase.expectedDocuments, run.trace)
+        const exploration = scoreExploration(cwd, testCase, run.trace)
+        results.push({ testCase, routing, exploration, cost: run.cost, trace: run.trace })
         console.log(
-          `${testCase.name} #${attempt}: compliance=${score.compliance} coverage=${
-            formatRate(score.coverage)
-          } ordered=${score.ordered} routingFirst=${score.routingFirst}`,
+          `${testCase.name} #${attempt}: compliance=${
+            routing.compliance && exploration.evidenceComplete
+          } routing=${routing.compliance} evidence=${
+            formatRate(exploration.evidenceCoverage)
+          } calls=${exploration.toolCalls} repeats=${exploration.repeatedReads.length} failed=${exploration.failedCalls} unscoped=${exploration.unscopedSearches} offRoute=${exploration.offRouteDocuments.length}`,
         )
-        console.log(`  expected: ${testCase.expectedDocuments.join(' -> ')}`)
+        console.log(`  expected route: ${testCase.expectedDocuments.join(' -> ')}`)
+        console.log(`  covered evidence: ${exploration.coveredEvidence.join(', ') || '(none)'}`)
+        if (exploration.repeatedReads.length > 0)
+          console.log(`  repeated reads: ${exploration.repeatedReads.join(', ')}`)
+        if (exploration.offRouteDocuments.length > 0)
+          console.log(`  off-route documents: ${exploration.offRouteDocuments.join(', ')}`)
         console.log(`  tools: ${formatTrace(cwd, run.trace)}`)
       }
     }
 
-    const compliance = results.filter(({ score }) => score.compliance).length / results.length
-    const coverage = results.reduce((sum, { score }) => sum + score.coverage, 0) / results.length
-    const ordered = results.filter(({ score }) => score.ordered).length / results.length
-    const routingFirst = results.filter(({ score }) => score.routingFirst).length / results.length
+    const compliance = results
+      .filter(({ routing, exploration }) => routing.compliance && exploration.evidenceComplete)
+      .length / results.length
+    const routingCompliance = results.filter(({ routing }) => routing.compliance).length
+      / results.length
+    const evidenceCoverage = results.reduce(
+      (sum, { exploration }) => sum + exploration.evidenceCoverage,
+      0,
+    ) / results.length
+    const toolCalls = results.reduce((sum, { exploration }) => sum + exploration.toolCalls, 0)
+    const repeatedReads = results.reduce(
+      (sum, { exploration }) => sum + exploration.repeatedReads.length,
+      0,
+    )
+    const failedCalls = results.reduce(
+      (sum, { exploration }) => sum + exploration.failedCalls,
+      0,
+    )
+    const unscopedSearches = results.reduce(
+      (sum, { exploration }) => sum + exploration.unscopedSearches,
+      0,
+    )
+    const offRouteDocuments = results.reduce(
+      (sum, { exploration }) => sum + exploration.offRouteDocuments.length,
+      0,
+    )
     const totalCost = results.reduce((sum, result) => sum + (result.cost ?? 0), 0)
     console.log(
-      `Summary: compliance=${formatRate(compliance)} coverage=${formatRate(coverage)} ordered=${
-        formatRate(ordered)
-      } routingFirst=${formatRate(routingFirst)} cost=$${totalCost.toFixed(4)}`,
+      `Summary: compliance=${formatRate(compliance)} routing=${
+        formatRate(routingCompliance)
+      } evidence=${
+        formatRate(evidenceCoverage)
+      } calls=${toolCalls} repeats=${repeatedReads} failed=${failedCalls} unscoped=${unscopedSearches} offRoute=${offRouteDocuments} cost=$${
+        totalCost.toFixed(4)
+      }`,
     )
   },
 )
@@ -346,6 +525,17 @@ class RpcEvaluationProcess {
     }
     this.#pending.clear()
   }
+}
+
+/** Selects an ordered subset of evaluation cases and rejects misspelled names. */
+function selectDocumentationCases(value: string | undefined): DocumentationCase[] {
+  if (!value) return documentationCases
+  const names = value.split(',').map((name) => name.trim()).filter(Boolean)
+  return names.map((name) => {
+    const testCase = documentationCases.find((candidate) => candidate.name === name)
+    if (!testCase) throw new Error(`Unknown documentation routing case: ${name}`)
+    return testCase
+  })
 }
 
 function positiveInteger(value: string | undefined, fallback: number): number {
