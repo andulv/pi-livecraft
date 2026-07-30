@@ -26,7 +26,7 @@ import {
 } from './features/todos/todo-store.ts'
 import { readWorkspaceFile, WorkspaceFileError } from './workspace-file.ts'
 import { activeSessionMessages, LiveSessionEvents } from './session-snapshot.ts'
-import { loadGlobalPromptTemplates, loadPromptTemplates } from './prompt-templates.ts'
+import { loadPromptTemplates } from './prompt-templates.ts'
 import { externalWorkspacePath, openExplorer } from './system-integration.ts'
 import type {
   DirectoryListing,
@@ -337,20 +337,12 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       piCommand(sessionId, { type: 'get_session_stats' }),
     ])
     const commandList = arrayData(commands, 'commands')
-    const [sessionPromptTemplates, globalPromptTemplates] = await Promise.all([
-      loadPromptTemplates(commandList),
-      loadGlobalPromptTemplates(),
-    ])
-    const promptTemplates = new Map(
-      globalPromptTemplates.map((template) => [template.name, template]),
-    )
-    for (const template of sessionPromptTemplates) promptTemplates.set(template.name, template)
     const snapshot: SessionSnapshot = {
       state: objectData(state),
       messages: activeSessionMessages(arrayData(entries, 'entries'), objectData(entries)?.leafId),
       models: arrayData(models, 'models'),
       commands: commandList,
-      promptTemplates: [...promptTemplates.values()],
+      promptTemplates: await loadPromptTemplates(commandList),
       stats: objectData(stats),
       liveEvents: liveSessionEvents.get(sessionId)?.snapshot() ?? [],
     }

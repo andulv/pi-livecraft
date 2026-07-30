@@ -1,6 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { readFile } from 'node:fs/promises'
 import type { JsonObject, PromptTemplate } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 
@@ -15,29 +13,6 @@ export async function loadPromptTemplates(commands: JsonObject[]): Promise<Promp
     const path = promptTemplatePath(command)
     return path ? [{ name: command.name, path }] : []
   })
-  return loadPromptTemplateFiles(templates)
-}
-
-/** Loads global templates on every snapshot so newly configured user prompts do not require a session restart. */
-export async function loadGlobalPromptTemplates(
-  directory = join(homedir(), '.pi', 'agent', 'prompts'),
-): Promise<PromptTemplate[]> {
-  try {
-    const entries = await readdir(directory, { withFileTypes: true })
-    return loadPromptTemplateFiles(
-      entries
-        .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
-        .map((entry) => ({ name: entry.name.slice(0, -3), path: join(directory, entry.name) })),
-    )
-  } catch {
-    return []
-  }
-}
-
-/** Reads template files independently so one unavailable resource cannot hide the other prompts. */
-async function loadPromptTemplateFiles(
-  templates: Array<{ name: string; path: string }>,
-): Promise<PromptTemplate[]> {
   const contents = await Promise.all(templates.map(async (template) => {
     try {
       return {
