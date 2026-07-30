@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import './tooltip.css'
 
-const SHOW_DELAY_MS = 800
+const SHOW_DELAY_MS = 600
 const HIDE_TRANSITION_MS = 150
 
 /** Renders a tooltip in the document layer so parent containers cannot clip it. Delays appearance to avoid flicker during quick pointer movement and fades in/out with a CSS transition. */
