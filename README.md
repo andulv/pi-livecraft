@@ -1,13 +1,14 @@
 <div align="center">
 
-# Pi Livecraft
+#  ❖ Pi Livecraft ❖
 
 **Pi does the agentic stuff. Livecraft gives it a live editable React app.**
 
 The repository is set up to be forked and changed while you use it. 
 
-[![Built with Pi](https://img.shields.io/badge/Built%20with-Pi.dev-6C63FF?style=flat-square&logo=terminal&logoColor=white)](https://pi.dev)
-[![Fork this repo](https://img.shields.io/badge/Fork_this_repo-2ea44f?style=flat-square&logo=github)](https://github.com/sebastienservouze/pi-livecraft/fork)
+[![Built with Pi](https://img.shields.io/badge/Built%20with-Pi.dev%20❤️-6C63FF?style=flat-square&logo=terminal&logoColor=white)](https://pi.dev)
+[![GitHub stars](https://img.shields.io/github/stars/sebastienservouze/pi-livecraft?style=flat-square&logo=github)](https://github.com/sebastienservouze/pi-livecraft/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/sebastienservouze/pi-livecraft?style=flat-square&logo=github)](https://github.com/sebastienservouze/pi-livecraft/forks)
 [![License](https://img.shields.io/github/license/sebastienservouze/pi-livecraft?style=flat-square)](LICENSE)
 
 [Why Livecraft?](#why-livecraft) · [Quick start](#quick-start) · [What is included](#what-is-already-in-the-box) · [Make it yours](#make-it-yours) · [Docs](/docs/README.md)
