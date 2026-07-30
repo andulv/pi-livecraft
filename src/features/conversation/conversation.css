@@ -763,6 +763,10 @@
   max-height: 540px;
   overflow-y: auto;
 }
+.tool-call-content.tool-call-content-markdown {
+  max-height: 380px;
+  overflow-y: auto;
+}
 .tool-call-content.tool-call-content-scrollable > pre {
   margin: 0;
   border: 0;
@@ -784,7 +788,7 @@
   white-space: pre-wrap;
 }
 .tool-call-markdown-preview {
-  max-height: 540px;
+  max-height: 380px;
   overflow-y: auto;
   padding: 14px 16px 18px;
   font: 13px/1.65 ui-sans-serif, system-ui, sans-serif;

@@ -517,7 +517,9 @@ function ToolCallContent({
     || rawContentDisplay.kind === 'html'
     || rawContentDisplay.kind === 'svg'
   const contentClassName = isRenderable
-    ? 'tool-call-content tool-call-content-scrollable'
+    ? `tool-call-content tool-call-content-scrollable${
+      rawContentDisplay.kind === 'markdown' ? ' tool-call-content-markdown' : ''
+    }`
     : 'tool-call-content'
   const isReadOrWrite = call.name === 'read' || call.name === 'write'
   const startLine = isReadOrWrite ? readStartingLineNumber(call.args) : 1
