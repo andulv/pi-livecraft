@@ -106,11 +106,18 @@ export const Composer = memo(function Composer({
   const [improvePreset, setImprovePreset] = useState('')
   const [previewingPrompt, setPreviewingPrompt] = useState(false)
   const [savedPrompts, setSavedPrompts] = useState<PromptTemplate[]>([])
+  const [promptSave, setPromptSave] = useState<{
+    content: string
+    name: string
+    scope: 'global' | 'project'
+  }>()
+  const [savingPrompt, setSavingPrompt] = useState(false)
   const [suggestion, setSuggestion] = useState<
     { original: string; improved: string; cost?: number }
   >()
   const [openSelect, setOpenSelect] = useState<'agent' | 'model' | 'thinking' | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
+  const promptSaveDialogRef = useRef<HTMLDialogElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const promptPreviewOriginal = useRef<string | undefined>(undefined)
   const agentTriggerRef = useRef<HTMLButtonElement>(null)
@@ -144,6 +151,10 @@ export const Composer = memo(function Composer({
   useEffect(() => {
     if (submitRequest > 0) formRef.current?.requestSubmit()
   }, [submitRequest])
+
+  useEffect(() => {
+    if (promptSave && !promptSaveDialogRef.current?.open) promptSaveDialogRef.current?.showModal()
+  }, [promptSave])
 
   // oxlint-disable react-hooks/exhaustive-deps
   useEffect(() => {
@@ -227,9 +238,9 @@ export const Composer = memo(function Composer({
     textareaRef.current?.focus()
   }
 
-  /** Names and persists the current draft as a Pi prompt template in the selected scope. */
-  async function savePrompt(scope: 'global' | 'project'): Promise<void> {
-    const suggestedName = message
+  /** Opens the prompt naming dialog with a compact filename inferred from the draft. */
+  function openPromptSaveDialog(scope: 'global' | 'project'): void {
+    const name = message
       .trim()
       .split(/\s+/)
       .slice(0, 5)
@@ -237,17 +248,26 @@ export const Composer = memo(function Composer({
       .toLowerCase()
       .replace(/[^a-z0-9_-]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'prompt'
-    const name = window
-      .prompt('Prompt name (letters, numbers, hyphens, or underscores)', suggestedName)
-      ?.trim()
-    if (!name) return
+    setPromptSave({ content: message, name, scope })
+  }
+
+  /** Persists the named template while keeping the dialog open when the backend rejects it. */
+  async function savePrompt(): Promise<void> {
+    if (!promptSave || savingPrompt) return
+    if (!promptSaveDialogRef.current?.querySelector('input')?.reportValidity()) return
+    setSavingPrompt(true)
     try {
-      const saved = await onSavePrompt(scope, name, message)
-      setSavedPrompts((
-        current,
-      ) => [saved, ...current.filter((prompt) => prompt.name !== saved.name)])
+      const saved = await onSavePrompt(promptSave.scope, promptSave.name, promptSave.content)
+      setSavedPrompts((current) => [
+        saved,
+        ...current.filter((prompt) => prompt.name !== saved.name),
+      ])
+      promptSaveDialogRef.current?.close()
+      setPromptSave(undefined)
     } catch (cause) {
       onError(cause)
+    } finally {
+      setSavingPrompt(false)
     }
   }
 
@@ -533,7 +553,7 @@ export const Composer = memo(function Composer({
                 onOpenChange={() => setOpenSelect(null)}
                 onPreview={previewPrompt}
                 onPreviewEnd={endPromptPreview}
-                onSave={(scope) => void savePrompt(scope)}
+                onSave={openPromptSaveDialog}
                 onSelect={selectPrompt}
                 prompts={promptTemplates}
               />
@@ -581,7 +601,8 @@ export const Composer = memo(function Composer({
               <button
                 aria-label={commandPending ? 'Run command' : 'Send message'}
                 className={`icon-button send${commandPending ? ' command' : ''}`}
-                disabled={submitting || preparingImages || (!message.trim() && images.length === 0)}
+                disabled={submitting || preparingImages
+                  || (!message.trim() && images.length === 0)}
                 type='submit'
               >
                 {commandPending
@@ -610,6 +631,67 @@ export const Composer = memo(function Composer({
           contextPercentValue={contextPercentValue}
         />
       </div>
+      {promptSave && (
+        <dialog
+          aria-labelledby='prompt-save-title'
+          className='prompt-save-dialog'
+          onCancel={(event) => {
+            if (savingPrompt) event.preventDefault()
+            else setPromptSave(undefined)
+          }}
+          onClose={() => setPromptSave(undefined)}
+          ref={promptSaveDialogRef}
+        >
+          <div>
+            <header>
+              <span>{promptSave.scope === 'global' ? 'Global prompt' : 'Project prompt'}</span>
+              <h2 id='prompt-save-title'>Save prompt</h2>
+              <p>
+                {promptSave.scope === 'global'
+                  ? '~/.pi/agent/prompts/<name>.md'
+                  : '.pi/prompts/<name>.md'}
+              </p>
+            </header>
+            <label htmlFor='prompt-save-name'>Prompt name</label>
+            <input
+              aria-describedby='prompt-save-hint'
+              autoFocus
+              id='prompt-save-name'
+              maxLength={80}
+              onChange={(event) => setPromptSave({ ...promptSave, name: event.target.value })}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter') return
+                event.preventDefault()
+                void savePrompt()
+              }}
+              pattern='[A-Za-z0-9][A-Za-z0-9_-]{0,79}'
+              required
+              spellCheck={false}
+              value={promptSave.name}
+            />
+            <small id='prompt-save-hint'>
+              Letters, numbers, hyphens, and underscores. This becomes the /command name.
+            </small>
+            <div className='prompt-save-actions'>
+              <button
+                disabled={savingPrompt}
+                onClick={() => promptSaveDialogRef.current?.close()}
+                type='button'
+              >
+                Cancel
+              </button>
+              <button
+                className='primary'
+                disabled={savingPrompt}
+                onClick={() => void savePrompt()}
+                type='button'
+              >
+                {savingPrompt ? 'Saving…' : 'Save prompt'}
+              </button>
+            </div>
+          </div>
+        </dialog>
+      )}
     </form>
   )
 })
