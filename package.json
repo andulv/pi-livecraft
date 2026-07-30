@@ -50,7 +50,8 @@
     "vite": "^8.1.1"
   },
   "lint-staged": {
-    "*.{ts,tsx,json,css,html}": "dprint fmt"
+    "*.{ts,tsx,css,html}": "dprint fmt",
+    "!(*-lock).json": "dprint fmt"
   },
   "allowScripts": {
     "dprint@0.55.2": true
