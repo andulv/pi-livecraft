@@ -36,10 +36,11 @@ Follow the [step-by-step guide](/docs/HOW-TO-TOOL-PRESENTATION.md) before adding
 
 Messages and tool calls expose contextual actions through explicit composition rather than a registry. `DefaultMessageCard` in `MessageCard.tsx` owns actions on ordinary messages; `ToolCallCard.tsx` owns actions on tool calls. Both reuse the `.conversation-actions` styles in `conversation-actions.css`, which reveal actions on hover or keyboard focus and keep them visible on touch devices. Unknown custom messages rendered by `DefaultCustomMessage` do not currently expose this surface.
 
-`CopyButton.tsx` is the current shared action implementation, not the extension contract. It uses the browser Clipboard API, reports failures through `onError`, and exposes its accessible label through the shared `Tooltip` component.
+Action components are implementations, not the extension contract. `CopyButton.tsx` uses the browser Clipboard API, while `OpenFileButton.tsx` delegates to the local backend so the operating system can launch the file. Both report failures through `onError` and expose accessible labels through the shared `Tooltip` component.
 
 - Text messages expose one copy action when `visibleText()` returns content.
 - Tool calls always expose their serialized input (`↘`) and expose raw output (`↗`) once a result exists, including error results.
-- Pending calls have no output action. Directional markers distinguish tool actions without visible button text.
+- Successful `read`, `write`, and `edit` calls expose an action that opens their file with its default application from the session working directory.
+- Pending calls have no output or file action. Directional markers distinguish copy actions without visible button text.
 
 Follow the [conversation action guide](/docs/HOW-TO-CONVERSATION-ACTION.md) to add another action. Keep actions icon-only, keyboard-accessible, colocated with their owning content, and explicit in the relevant renderer. Do not introduce a registry unless actions need genuinely dynamic selection.

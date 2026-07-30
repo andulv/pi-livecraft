@@ -13,11 +13,11 @@ export class WorkspaceFileError extends Error {
   }
 }
 
-/** Reads an existing text file without allowing access outside the working directory, including through a symbolic link. */
-export async function readWorkspaceFile(
+/** Resolves an existing file without allowing access outside the working directory. */
+export async function resolveWorkspaceFilePath(
   workspacePath: string,
   requestedPath: string,
-): Promise<WorkspaceFile> {
+): Promise<string> {
   const root = await realpath(workspacePath)
   let path: string
   try {
@@ -29,8 +29,17 @@ export async function readWorkspaceFile(
   if (!pathFromRoot || pathFromRoot.startsWith('..') || isAbsolute(pathFromRoot))
     throw new WorkspaceFileError('File must be inside the working directory', 403)
 
+  if (!(await stat(path)).isFile()) throw new WorkspaceFileError('Path must be a file', 400)
+  return path
+}
+
+/** Reads an existing text file within the working directory. */
+export async function readWorkspaceFile(
+  workspacePath: string,
+  requestedPath: string,
+): Promise<WorkspaceFile> {
+  const path = await resolveWorkspaceFilePath(workspacePath, requestedPath)
   const file = await stat(path)
-  if (!file.isFile()) throw new WorkspaceFileError('Path must be a file', 400)
   if (file.size > maxWorkspaceFileSize) throw new WorkspaceFileError('File exceeds 2 MiB', 413)
 
   return { path, content: await readFile(path, 'utf8') }

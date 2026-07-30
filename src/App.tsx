@@ -1041,6 +1041,7 @@ function App() {
                     pendingSteering={pendingSteering}
                     repositoryRoot={gitSnapshot?.root}
                     scrollToBottomRequest={scrollToBottomRequest}
+                    workingDirectory={selectedSession.cwd}
                     toolExecutions={toolExecutions}
                   />
                   <Tooltip

@@ -61,6 +61,10 @@
 .tool-call:has(> .conversation-actions) > .tool-call-heading {
   padding-right: 80px;
 }
+.tool-call:has(> .conversation-actions > .open-file-action)
+  > .tool-call-heading {
+  padding-right: 112px;
+}
 @media (hover: none) {
   .conversation-actions {
     opacity: 1;

@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState, type RefObject } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import { CopyButton } from './CopyButton.tsx'
 import { canHighlightFile } from './file-preview.ts'
+import { OpenFileButton } from './OpenFileButton.tsx'
 import {
   formatToolCallTooltip,
   formatToolData,
@@ -51,6 +52,7 @@ interface ToolCallCardProps {
   resultError?: boolean
   streaming?: boolean
   targeted?: boolean
+  workingDirectory: string
 }
 
 /** Displays the official card whose full result replaces the preview when expanded. */
@@ -69,11 +71,16 @@ export const ToolCallCard = memo(function ToolCallCard({
   resultError,
   streaming = false,
   targeted = false,
+  workingDirectory,
 }: ToolCallCardProps) {
   const pending = !hasResult
   const active = pending && !interrupted
-  const filePath = name === 'read' || name === 'write' ? toolFilePath(args) : null
-  const display = filePath ? readContentDisplay({ path: filePath }) : { kind: 'text' as const }
+  const filePath = name === 'read' || name === 'write' || name === 'edit'
+    ? toolFilePath(args)
+    : null
+  const display = filePath && name !== 'edit'
+    ? readContentDisplay({ path: filePath })
+    : { kind: 'text' as const }
   const [expanded, setExpanded] = useState(name === 'edit')
   const [partialOutputExpanded, setPartialOutputExpanded] = useState(false)
   const [codeRendered, setCodeRendered] = useState(false)
@@ -208,6 +215,9 @@ export const ToolCallCard = memo(function ToolCallCard({
             onError={onError}
             value={output}
           />
+        )}
+        {hasResult && !contentError && filePath && (
+          <OpenFileButton cwd={workingDirectory} onError={onError} path={filePath} />
         )}
       </div>
       <div className={`tool-call-body${hasBody ? ' visible' : ''}`}>

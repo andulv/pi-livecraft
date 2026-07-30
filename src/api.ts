@@ -106,6 +106,13 @@ export async function getWorkspaceFile(cwd: string, path: string): Promise<Works
   )
 }
 
+export async function openWorkspaceFile(cwd: string, path: string): Promise<void> {
+  await request<void>('/api/files/open', {
+    method: 'POST',
+    body: JSON.stringify({ cwd, path }),
+  })
+}
+
 export async function getWorkspaceFilePath(
   cwd: string,
   path: string,

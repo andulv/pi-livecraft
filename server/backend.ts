@@ -24,10 +24,14 @@ import {
   parseTodoItems,
   saveWorkspaceTodos,
 } from './features/todos/todo-store.ts'
-import { readWorkspaceFile, WorkspaceFileError } from './workspace-file.ts'
+import {
+  readWorkspaceFile,
+  resolveWorkspaceFilePath,
+  WorkspaceFileError,
+} from './workspace-file.ts'
 import { activeSessionMessages, LiveSessionEvents } from './session-snapshot.ts'
 import { loadPromptTemplates, savePromptTemplate } from './prompt-templates.ts'
-import { externalWorkspacePath, openExplorer } from './system-integration.ts'
+import { externalWorkspacePath, openPath } from './system-integration.ts'
 import type {
   DirectoryListing,
   JsonObject,
@@ -174,7 +178,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   if (method === 'POST' && url.pathname === '/api/explorer') {
     const body = await readJsonBody(request)
     if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
-    await openExplorer(await resolveWorkingDirectory(body.cwd))
+    await openPath(await resolveWorkingDirectory(body.cwd))
     sendJson(response, 200, {})
     return
   }
@@ -210,6 +214,22 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
           ? file
           : { absolutePath: file.path, path: await externalWorkspacePath(file.path) },
       )
+    } catch (error) {
+      if (error instanceof WorkspaceFileError) throw new HttpError(error.status, error.message)
+      throw error
+    }
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/files/open') {
+    const body = await readJsonBody(request)
+    if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
+    if (typeof body.path !== 'string' || !body.path)
+      throw new HttpError(400, 'File path is required')
+    try {
+      const cwd = await resolveWorkingDirectory(body.cwd)
+      await openPath(await resolveWorkspaceFilePath(cwd, body.path))
+      sendJson(response, 200, {})
     } catch (error) {
       if (error instanceof WorkspaceFileError) throw new HttpError(error.status, error.message)
       throw error

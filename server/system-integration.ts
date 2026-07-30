@@ -16,13 +16,13 @@ export function getWslDistributionName(env: NodeJS.ProcessEnv = process.env): st
   return env.WSL_DISTRO_NAME || undefined
 }
 
-/** Opens the workspace directory using the native file browser for the current Linux environment. */
-export async function openExplorer(
-  workspacePath: string,
+/** Opens a file or directory with its default application in the current Linux environment. */
+export async function openPath(
+  path: string,
   platform = getDesktopPlatform(),
 ): Promise<void> {
   const command = platform === 'wsl' ? 'explorer.exe' : 'xdg-open'
-  await openApplication(command, await externalWorkspacePath(workspacePath, platform))
+  await openApplication(command, await externalWorkspacePath(path, platform))
 }
 
 /** Returns the path format expected by the browser or desktop integration. */
@@ -56,9 +56,9 @@ function convertWslPath(workspacePath: string): Promise<string> {
 }
 
 /** Detaches a desktop application so restarting the backend never closes it. */
-function openApplication(command: string, workspacePath: string): Promise<void> {
+function openApplication(command: string, path: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, [workspacePath], { detached: true, stdio: 'ignore' })
+    const child = spawn(command, [path], { detached: true, stdio: 'ignore' })
     child.once('error', reject)
     child.once('spawn', () => {
       child.unref()

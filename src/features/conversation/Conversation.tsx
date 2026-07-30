@@ -41,6 +41,7 @@ export function Conversation(
     repositoryRoot,
     scrollToBottomRequest,
     toolExecutions,
+    workingDirectory,
     onError,
   }: {
     activity: Activity | null
@@ -53,6 +54,7 @@ export function Conversation(
     repositoryRoot?: string | null
     scrollToBottomRequest: number
     toolExecutions: ToolExecution[]
+    workingDirectory: string
     onError: (cause: unknown) => void
   },
 ) {
@@ -333,6 +335,7 @@ export function Conversation(
                       partialResultContent={execution?.partialResult?.content}
                       repositoryRoot={repositoryRoot}
                       resultContent={result?.content}
+                      workingDirectory={workingDirectory}
                       resultDetails={result?.details}
                       resultError={result?.isError}
                       streaming={execution?.status === 'generating'}
@@ -381,6 +384,7 @@ export function Conversation(
                     partialResultContent={execution?.partialResult?.content}
                     repositoryRoot={repositoryRoot}
                     resultContent={result?.content}
+                    workingDirectory={workingDirectory}
                     resultDetails={result?.details}
                     resultError={result?.isError}
                     streaming={execution?.status === 'generating'}
@@ -408,6 +412,7 @@ export function Conversation(
               partialResultContent={execution.partialResult?.content}
               repositoryRoot={repositoryRoot}
               resultContent={execution.result?.content}
+              workingDirectory={workingDirectory}
               resultDetails={execution.result?.details}
               resultError={execution.result?.isError}
               streaming={execution.status === 'generating'}

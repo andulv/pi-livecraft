@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { WorkspaceFileError, readWorkspaceFile } from '../server/workspace-file.ts'
+import {
+  readWorkspaceFile,
+  resolveWorkspaceFilePath,
+  WorkspaceFileError,
+} from '../server/workspace-file.ts'
 
 test('reads a text file from the workspace and rejects its root', async () => {
+  const path = await resolveWorkspaceFilePath(process.cwd(), 'package.json')
   const file = await readWorkspaceFile(process.cwd(), 'package.json')
 
+  assert.equal(path, file.path)
   assert.equal(file.path.endsWith('/package.json'), true)
   assert.match(file.content, /"name": "pi-livecraft"/)
   await assert.rejects(readWorkspaceFile(process.cwd(), '.'), (error: unknown) => {
