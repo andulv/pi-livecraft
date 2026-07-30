@@ -1,4 +1,4 @@
-import type { RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { ComposerSelect } from './ComposerSelect.tsx'
 import { capitalizeLabel } from '../composer-utils.ts'
 
@@ -26,17 +26,36 @@ export function AgentSelect(
     triggerRef: RefObject<HTMLButtonElement | null>
   },
 ) {
+  const pendingOpenRef = useRef(false)
+
+  // Open the select when options arrive after a user-requested fetch.
+  useEffect(() => {
+    if (pendingOpenRef.current && agentOptions.length > 0 && !agentBusy) {
+      pendingOpenRef.current = false
+      onOpenChange(true)
+    }
+  }, [agentOptions.length, agentBusy, onOpenChange])
+
   return (
     <ComposerSelect
       ariaLabel='Agent'
       disabled={agentLoading || (agentBusy && agentOptions.length === 0)}
       onValueChange={onAgentChange}
-      onOpenChange={(open) => {
-        if (open && agentOptions.length === 0 && !agentBusy) onRequestOptions?.()
-        onOpenChange(open)
+      onOpenChange={(nextOpen) => {
+        if (nextOpen && agentOptions.length === 0 && !agentBusy) {
+          pendingOpenRef.current = true
+          onRequestOptions?.()
+          return
+        }
+        onOpenChange(nextOpen)
       }}
       open={open}
-      options={agentOptions.map((agent) => ({ label: capitalizeLabel(agent), value: agent }))}
+      options={selectedAgent && !agentOptions.includes(selectedAgent)
+        ? [
+          { label: capitalizeLabel(selectedAgent), value: selectedAgent },
+          ...agentOptions.map((agent) => ({ label: capitalizeLabel(agent), value: agent })),
+        ]
+        : agentOptions.map((agent) => ({ label: capitalizeLabel(agent), value: agent }))}
       placeholder={agentLoading || (agentBusy && agentOptions.length === 0)
         ? 'Loading…'
         : 'Choose an agent'}
