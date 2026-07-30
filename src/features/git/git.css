@@ -294,6 +294,19 @@
   font-size: 12px;
   line-height: 1.5;
 }
+.git-error {
+  max-height: 7.5em;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  margin: 8px 10px;
+  border-left: 2px solid var(--danger);
+  padding: 5px 8px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
 .git-actions {
   display: grid;
   gap: 7px;

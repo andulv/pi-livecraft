@@ -31,6 +31,7 @@ export function GitWidget(
   const [fileDiff, setFileDiff] = useState<GitFileDiff | null>(null)
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [exitingCommits, setExitingCommits] = useState<ReadonlySet<string>>(new Set())
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [errorTarget, setErrorTarget] = useState<ErrorTarget | null>(null)
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const hasChanges = snapshot.files.length > 0
@@ -43,16 +44,27 @@ export function GitWidget(
     return () => clearTimeout(errorTimerRef.current)
   }, [errorTarget])
 
-  /** Clears the error highlight so the next action can re-trigger it. */
-  const clearError = useCallback(() => setErrorTarget(null), [])
+  /** Clears the current Git error so the next action can report independently. */
+  const clearError = useCallback(() => {
+    setErrorMessage(null)
+    setErrorTarget(null)
+  }, [])
+
+  /** Reports a failed Git action inside the widget and highlights its control when available. */
+  function reportError(error: unknown, target?: ErrorTarget): void {
+    setErrorMessage(error instanceof Error ? error.message : 'Git command failed.')
+    setErrorTarget(target ?? null)
+  }
 
   /** Loads the requested diff before replacing the widget's file list. */
   async function selectFile(path: string, commitHash?: string): Promise<void> {
+    clearError()
     setSelectedPath(path)
     try {
       setFileDiff(await onFileSelect(path, commitHash))
-    } catch {
+    } catch (error) {
       setSelectedPath(null)
+      reportError(error)
     }
   }
 
@@ -64,8 +76,8 @@ export function GitWidget(
       await onCommit(message)
       setMessage('')
       await onRefresh()
-    } catch {
-      setErrorTarget('commit')
+    } catch (error) {
+      reportError(error, 'commit')
     } finally {
       setBusy(false)
     }
@@ -83,8 +95,8 @@ export function GitWidget(
       await new Promise((r) => setTimeout(r, 300))
       await onRefresh()
       setExitingCommits(new Set())
-    } catch {
-      setErrorTarget('push')
+    } catch (error) {
+      reportError(error, 'push')
     } finally {
       setBusy(false)
     }
@@ -100,8 +112,8 @@ export function GitWidget(
     try {
       await onDiscard(path)
       await onRefresh()
-    } catch {
-      setErrorTarget('discard')
+    } catch (error) {
+      reportError(error, 'discard')
     } finally {
       setBusy(false)
     }
@@ -122,8 +134,8 @@ export function GitWidget(
       await new Promise((r) => setTimeout(r, 300))
       await onRefresh()
       setExitingCommits(new Set())
-    } catch {
-      setErrorTarget('commit')
+    } catch (error) {
+      reportError(error, 'commit')
     } finally {
       setBusy(false)
     }
@@ -137,8 +149,8 @@ export function GitWidget(
     try {
       await onRevert(hash)
       await onRefresh()
-    } catch {
-      setErrorTarget('commit')
+    } catch (error) {
+      reportError(error, 'commit')
     } finally {
       setBusy(false)
     }
@@ -149,8 +161,8 @@ export function GitWidget(
     clearError()
     try {
       await onRefresh()
-    } catch {
-      setErrorTarget('refresh')
+    } catch (error) {
+      reportError(error, 'refresh')
     }
   }
 
@@ -242,6 +254,7 @@ export function GitWidget(
           </>
         )}
     >
+      {errorMessage && <p className='git-error' role='alert'>{errorMessage}</p>}
       {fileDiff || selectedPath
         ? fileDiff ? <GitDiff diff={fileDiff.diff} /> : <p className='git-empty'>Loading diff…</p>
         : (
