@@ -75,6 +75,10 @@
 .composer textarea::placeholder {
   color: var(--muted);
 }
+.composer.previewing-prompt textarea {
+  background: color-mix(in srgb, var(--accent-soft) 48%, transparent);
+  box-shadow: inset 3px 0 var(--accent);
+}
 .prompt-suggestion {
   border-top: 1px solid var(--line);
   padding: 12px;

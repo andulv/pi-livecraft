@@ -88,6 +88,7 @@ export const Composer = memo(function Composer({
   const [submitting, setSubmitting] = useState(false)
   const [improving, setImproving] = useState(false)
   const [improvePreset, setImprovePreset] = useState('')
+  const [previewingPrompt, setPreviewingPrompt] = useState(false)
   const [suggestion, setSuggestion] = useState<
     { original: string; improved: string; cost?: number }
   >()
@@ -182,6 +183,7 @@ export const Composer = memo(function Composer({
   /** Shows a template without persisting it, retaining the existing draft until a selection is made. */
   function previewPrompt(prompt: PromptTemplate): void {
     if (promptPreviewOriginal.current === undefined) promptPreviewOriginal.current = message
+    setPreviewingPrompt(true)
     setMessage(prompt.content)
   }
 
@@ -190,11 +192,13 @@ export const Composer = memo(function Composer({
     if (promptPreviewOriginal.current === undefined) return
     setMessage(promptPreviewOriginal.current)
     promptPreviewOriginal.current = undefined
+    setPreviewingPrompt(false)
   }
 
   /** Replaces and persists the draft after a prompt template has been explicitly selected. */
   function selectPrompt(prompt: PromptTemplate): void {
     promptPreviewOriginal.current = undefined
+    setPreviewingPrompt(false)
     setDraftMessage(prompt.content)
     textareaRef.current?.focus()
   }
@@ -303,7 +307,11 @@ export const Composer = memo(function Composer({
     : ''
 
   return (
-    <form className='composer' onSubmit={(event) => void submit(event)} ref={formRef}>
+    <form
+      className={`composer${previewingPrompt ? ' previewing-prompt' : ''}`}
+      onSubmit={(event) => void submit(event)}
+      ref={formRef}
+    >
       {images.length > 0 && (
         <div aria-label='Images to send' className='composer-images'>
           {images.map((image, index) => (
