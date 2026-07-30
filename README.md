@@ -93,11 +93,11 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173). That is the whole ceremony.
 
 ### Keep workspace tools nearby
 
-- **[Git](/src/features/git/README.md):** review status, diffs, changed files, and unpushed commits; commit, push, reset, or revert while keeping the conversation in view.
-- **[Provider quotas](/src/features/quotas/README.md):** monitor normalized OpenAI Codex and GitHub Copilot usage windows.
-- **[Todos](/src/features/todo/README.md):** maintain an ordered task list per workspace and start a Pi session from a task.
-- **[Terminal](/src/features/terminal/README.md):** open an external Linux or WSL terminal in the current workspace from the rail, palette, or a shortcut.
-- **[Session analysis](/src/features/session-analysis/README.md):** keep the session's requests, models, tools, costs, and failures one click away.
+- **Git:** review status, diffs, changed files, and unpushed commits; commit, push, reset, or revert while keeping the conversation in view.
+- **Provider quotas:** monitor normalized OpenAI Codex and GitHub Copilot usage windows.
+- **Todos:** maintain an ordered task list per workspace and start a Pi session from a task.
+- **Terminal:** open an external Linux or WSL terminal in the current workspace from the rail, palette, or a shortcut.
+- **Session analysis:** keep the session's requests, models, tools, costs, and failures one click away.
 
 ### Shape the workbench
 
