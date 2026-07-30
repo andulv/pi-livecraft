@@ -101,8 +101,9 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173). That is the whole ceremony.
 
 ### Shape the workbench
 
+- **Editable color themes:** start from Light or Dark, duplicate and rename a palette, then tune its eight source colors. Livecraft derives the rest and keeps your themes in the browser, saving one surprisingly dull afternoon.
 - **Command palette and editable shortcuts:** commands share one registry, including commands generated automatically for sidebar widgets.
-- **Local preferences:** themes, conversation display, workspace restoration, shortcuts, terminal command, panel sizes, and widget state stay in the browser.
+- **Local preferences:** conversation display, workspace restoration, shortcuts, terminal command, panel sizes, and widget state stay in the browser.
 - **Flexible layout:** resize or collapse the side panels and keep the tools useful to your workflow.
 - **Notifications:** transient notices and persistent errors remain visible without inventing another global notification universe.
 
