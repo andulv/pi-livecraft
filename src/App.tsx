@@ -93,8 +93,19 @@ import './features/commands/commands.css'
 const emptyAgentOptions: string[] = []
 const conversationViewDetails = {
   simple: { label: 'Simplified view', description: 'Messages only, without tool calls' },
+  'semi-detailed': {
+    label: 'Semi-detailed view',
+    description: 'Tool headers only; click one to expand it',
+  },
   detailed: { label: 'Detailed view', description: 'Visible calls with expandable preview' },
 } as const
+type ConversationView = keyof typeof conversationViewDetails
+
+function nextConversationView(current: ConversationView): ConversationView {
+  if (current === 'simple') return 'semi-detailed'
+  if (current === 'semi-detailed') return 'detailed'
+  return 'simple'
+}
 /** Orchestrates workspace state, Pi events, and UI panels. */
 function App() {
   // Workspace and sessions
@@ -106,9 +117,10 @@ function App() {
     state: 'disconnected',
     canRestart: false,
   })
-  const [conversationView, setConversationView] = useState<'detailed' | 'simple'>(() => {
+  const [conversationView, setConversationView] = useState<ConversationView>(() => {
     const stored = window.localStorage.getItem('pi-livecraft.conversation-view')
     if (stored === 'detailed' || stored === 'simple-expanded') return 'detailed'
+    if (stored === 'semi-detailed') return 'semi-detailed'
     if (stored === 'simple') return 'simple'
     return window.localStorage.getItem('pi-livecraft.detailed-view') === 'false'
       ? 'simple'
@@ -829,7 +841,7 @@ function App() {
     }
     if (id === 'toggle-conversation-view') {
       setConversationView((current) => {
-        const next = current === 'simple' ? 'detailed' : 'simple'
+        const next = nextConversationView(current)
         window.localStorage.setItem('pi-livecraft.conversation-view', next)
         return next
       })
@@ -1032,7 +1044,7 @@ function App() {
                   <Conversation
                     activity={displayedActivity}
                     agentName={selectedSession.activeAgent}
-                    detailedView={conversationView === 'detailed'}
+                    conversationView={conversationView}
                     key={selectedSession.id}
                     liveMessages={liveMessages}
                     messages={snapshot.messages}
@@ -1052,7 +1064,7 @@ function App() {
                       className={`chat-detail-toggle ${conversationView}`}
                       onClick={() =>
                         setConversationView((current) => {
-                          const next = current === 'simple' ? 'detailed' : 'simple'
+                          const next = nextConversationView(current)
                           window.localStorage.setItem('pi-livecraft.conversation-view', next)
                           return next
                         })}

@@ -35,7 +35,7 @@ export function Conversation(
     agentName,
     messages,
     liveMessages,
-    detailedView,
+    conversationView,
     navigationRequest,
     pendingSteering,
     repositoryRoot,
@@ -48,7 +48,7 @@ export function Conversation(
     agentName?: string
     messages: JsonObject[]
     liveMessages: LiveMessage[]
-    detailedView: boolean
+    conversationView: 'simple' | 'semi-detailed' | 'detailed'
     navigationRequest?: { id: number; target: SessionAnalysisTarget }
     pendingSteering: string[]
     repositoryRoot?: string | null
@@ -58,6 +58,8 @@ export function Conversation(
     onError: (cause: unknown) => void
   },
 ) {
+  const showToolCalls = conversationView !== 'simple'
+  const semiDetailed = conversationView === 'semi-detailed'
   const allMessages = messages
   const { visibleMessages, toolCallIds, resultsByCallId } = useMemo(
     () => {
@@ -306,7 +308,7 @@ export function Conversation(
           const { message } = entry
           if (entry.source === 'history') {
             const index = entry.historyIndex
-            const calls = detailedView ? toolCallsInMessage(message) : []
+            const calls = showToolCalls ? toolCallsInMessage(message) : []
             const usage = usagesByMessage.get(index)
             if (!isVisibleConversationMessage(message) && calls.length === 0) return null
             return (
@@ -327,6 +329,7 @@ export function Conversation(
                     <ToolCallCard
                       args={call.args}
                       hasResult={result !== undefined}
+                      semiDetailed={semiDetailed}
                       id={call.id}
                       interrupted={execution?.status === 'interrupted'}
                       key={call.id}
@@ -349,7 +352,7 @@ export function Conversation(
           }
 
           const parts = assistantTurnParts(message)
-          const calls = detailedView
+          const calls = showToolCalls
             ? parts.flatMap((part) => part.kind === 'tool' ? [part.call] : [])
             : []
           if (!isVisibleConversationMessage(message) && calls.length === 0) return null
@@ -366,7 +369,7 @@ export function Conversation(
                       />
                     )
                     : null
-                if (!detailedView) return null
+                if (!showToolCalls) return null
                 const execution = executionsByCallId.get(part.call.id)
                 const result = execution?.result
                 return (
@@ -374,6 +377,7 @@ export function Conversation(
                     animateLiveChanges
                     args={part.call.args}
                     hasResult={result !== undefined}
+                    semiDetailed={semiDetailed}
                     id={part.call.id}
                     interrupted={execution?.status === 'interrupted'}
                     key={part.call.id}
@@ -395,7 +399,7 @@ export function Conversation(
             </div>
           )
         })}
-        {detailedView && toolExecutions
+        {showToolCalls && toolExecutions
           .filter((execution) =>
             !toolCallIds.has(execution.id) && !liveToolCallIds.has(execution.id)
           )
@@ -404,6 +408,7 @@ export function Conversation(
               animateLiveChanges
               args={execution.args}
               hasResult={execution.result !== undefined}
+              semiDetailed={semiDetailed}
               id={execution.id}
               interrupted={execution.status === 'interrupted'}
               key={execution.id}

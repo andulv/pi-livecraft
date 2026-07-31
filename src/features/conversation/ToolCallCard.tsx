@@ -50,6 +50,7 @@ interface ToolCallCardProps {
   resultContent?: unknown
   resultDetails?: unknown
   resultError?: boolean
+  semiDetailed?: boolean
   streaming?: boolean
   targeted?: boolean
   workingDirectory: string
@@ -69,6 +70,7 @@ export const ToolCallCard = memo(function ToolCallCard({
   resultContent,
   resultDetails,
   resultError,
+  semiDetailed = false,
   streaming = false,
   targeted = false,
   workingDirectory,
@@ -82,6 +84,7 @@ export const ToolCallCard = memo(function ToolCallCard({
     ? readContentDisplay({ path: filePath })
     : { kind: 'text' as const }
   const [expanded, setExpanded] = useState(name === 'edit')
+  const [semiExpanded, setSemiExpanded] = useState(false)
   const [partialOutputExpanded, setPartialOutputExpanded] = useState(false)
   const [codeRendered, setCodeRendered] = useState(false)
   const [argsExpanded, setArgsExpanded] = useState(false)
@@ -138,9 +141,17 @@ export const ToolCallCard = memo(function ToolCallCard({
     return () => window.clearTimeout(timeout)
   }, [codeRendered, display.kind, expanded])
 
-  /** Expands or collapses the tool call output. */
-  const activate = () => setExpanded((isExpanded) => !isExpanded)
+  useEffect(() => {
+    if (semiDetailed) setSemiExpanded(false)
+  }, [semiDetailed])
 
+  /** Expands the call from its header-only presentation or toggles its full result. */
+  const activate = () => {
+    if (semiDetailed) setSemiExpanded((isExpanded) => !isExpanded)
+    else setExpanded((isExpanded) => !isExpanded)
+  }
+
+  const showDetails = !semiDetailed || semiExpanded
   const hasBody = streaming || interrupted || hasResult || Boolean(partialOutput)
 
   return (
@@ -153,9 +164,9 @@ export const ToolCallCard = memo(function ToolCallCard({
     >
       <Tooltip label={tooltip}>
         <button
-          aria-expanded={hasResult ? expanded : undefined}
+          aria-expanded={semiDetailed ? semiExpanded : hasResult ? expanded : undefined}
           className='tool-call-heading'
-          disabled={!hasResult}
+          disabled={!hasResult && !semiDetailed}
           onClick={activate}
           type='button'
         >
@@ -220,7 +231,7 @@ export const ToolCallCard = memo(function ToolCallCard({
           <OpenFileButton cwd={workingDirectory} onError={onError} path={filePath} />
         )}
       </div>
-      <div className={`tool-call-body${hasBody ? ' visible' : ''}`}>
+      <div className={`tool-call-body${hasBody && showDetails ? ' visible' : ''}`}>
         <div>
           {(streaming || interrupted) && (
             <>
