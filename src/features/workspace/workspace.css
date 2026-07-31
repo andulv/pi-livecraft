@@ -214,7 +214,8 @@
   gap: 4px;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 2px;
+  margin-right: -12px;
+  padding-right: 14px;
   scrollbar-width: thin;
 }
 .session-list::-webkit-scrollbar {
@@ -269,10 +270,12 @@
 }
 .session-item strong {
   font-size: 13px;
+  font-weight: 500;
   letter-spacing: -0.01em;
 }
 .session-item.selected strong {
   color: var(--accent-hover);
+  font-weight: 650;
 }
 .session-item small {
   margin-top: 2px;
@@ -303,7 +306,8 @@
   gap: 4px;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 2px;
+  margin-right: -12px;
+  padding-right: 14px;
   scrollbar-width: thin;
 }
 .other-session-list::-webkit-scrollbar {
@@ -319,6 +323,7 @@
 .session-item.working strong,
 .session-item.compacting strong,
 .session-item.waiting strong {
+  font-weight: 650;
   animation: activity-text-breathe 1.8s ease-in-out infinite;
 }
 .session-item.working strong {
@@ -338,6 +343,7 @@
 }
 .session-item.complete:not(.selected) strong {
   color: var(--accent-hover);
+  font-weight: 650;
 }
 @keyframes complete-arrive {
   from {
