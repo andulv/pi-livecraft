@@ -6,13 +6,7 @@
   overflow-x: clip;
   padding: 42px max(28px, calc((100% - 900px) / 2)) 30px;
   scrollbar-gutter: stable;
-  background:
-    radial-gradient(
-      ellipse 70% 28% at 8% 0%,
-      color-mix(in srgb, var(--accent) 7%, transparent),
-      transparent 72%
-    ),
-    var(--surface-raised);
+  background: var(--surface-raised);
 }
 .conversation::after {
   position: absolute;
@@ -25,7 +19,7 @@
   content: "";
   background: linear-gradient(
     to top,
-    color-mix(in srgb, var(--accent) 14%, transparent),
+    color-mix(in srgb, var(--accent) 18%, transparent),
     transparent 34%
   );
 }
