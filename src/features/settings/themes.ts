@@ -80,7 +80,7 @@ const NEON_PALETTE: ThemePalette = {
   canvas: '#171225',
   surface: '#211a35',
   ink: '#f5efff',
-  accent: '#a78bfa',
+  accent: '#e58ab8',
   secondary: '#5de7ff',
   success: '#72f1a8',
   warning: '#ffd166',
