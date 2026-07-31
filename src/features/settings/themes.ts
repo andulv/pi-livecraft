@@ -16,8 +16,10 @@ export type ThemeMode = 'light' | 'dark'
 
 export type ThemePalette = Record<ThemeVariable, string>
 
+export type BuiltInThemeId = 'light' | 'dark' | 'gipity' | 'anttropik'
+
 export interface ThemePreset {
-  id: 'light' | 'dark'
+  id: BuiltInThemeId
   name: string
   mode: ThemeMode
   palette: ThemePalette
@@ -63,9 +65,33 @@ const DARK_PALETTE: ThemePalette = {
   danger: '#e26e63',
 }
 
-export const BUILT_IN_THEMES: [ThemePreset, ThemePreset] = [
+const GIPITY_PALETTE: ThemePalette = {
+  canvas: '#ffffff',
+  surface: '#f7f7f8',
+  ink: '#2d2d2d',
+  accent: '#202123',
+  secondary: '#6e6e80',
+  success: '#10a37f',
+  warning: '#b7791f',
+  danger: '#c53030',
+}
+
+const ANTTROPIK_PALETTE: ThemePalette = {
+  canvas: '#f7f5f0',
+  surface: '#fffefa',
+  ink: '#3d392f',
+  accent: '#d97757',
+  secondary: '#b56b4d',
+  success: '#5d8064',
+  warning: '#bd861f',
+  danger: '#bd5148',
+}
+
+export const BUILT_IN_THEMES: ThemePreset[] = [
   { id: 'light', name: 'Light', mode: 'light', palette: LIGHT_PALETTE, builtIn: true },
   { id: 'dark', name: 'Dark', mode: 'dark', palette: DARK_PALETTE, builtIn: true },
+  { id: 'gipity', name: 'GiPiTy', mode: 'light', palette: GIPITY_PALETTE, builtIn: true },
+  { id: 'anttropik', name: 'AntTropik', mode: 'light', palette: ANTTROPIK_PALETTE, builtIn: true },
 ]
 
 // ── Persistence keys ───────────────────────────────────────────────
@@ -217,8 +243,8 @@ export function persistThemePreferences(prefs: ThemePreferences): void {
 
 /** Resolves the active theme, always falling back to Light. */
 export function resolveActiveTheme(prefs: ThemePreferences): Theme {
-  if (prefs.active === 'dark') return BUILT_IN_THEMES[1]
-  if (prefs.active === 'light') return BUILT_IN_THEMES[0]
+  const builtIn = BUILT_IN_THEMES.find((theme) => theme.id === prefs.active)
+  if (builtIn) return builtIn
   const user = prefs.themes.find((t) => t.id === prefs.active)
   if (user) return user
   return BUILT_IN_THEMES[0]
@@ -231,7 +257,7 @@ export function allThemes(prefs: ThemePreferences): Theme[] {
 
 /** Whether an id belongs to a built-in preset. */
 export function isBuiltIn(id: string): boolean {
-  return id === 'light' || id === 'dark'
+  return BUILT_IN_THEMES.some((theme) => theme.id === id)
 }
 
 // ── Mutations (all pure – return new prefs) ────────────────────────
@@ -263,11 +289,8 @@ export function duplicateTheme(
   sourceId: string,
   newName: string,
 ): ThemePreferences {
-  const source = sourceId === 'light'
-    ? BUILT_IN_THEMES[0]
-    : sourceId === 'dark'
-    ? BUILT_IN_THEMES[1]
-    : prefs.themes.find((t) => t.id === sourceId)
+  const source = BUILT_IN_THEMES.find((theme) => theme.id === sourceId)
+    ?? prefs.themes.find((t) => t.id === sourceId)
   if (!source) return prefs
   return createTheme(prefs, newName || `${source.name} copy`, source.mode, source.palette)
 }
@@ -330,7 +353,7 @@ export function deleteTheme(prefs: ThemePreferences, id: string): ThemePreferenc
 
 /** Sets the active theme. Unknown ids are silently ignored. */
 export function setActiveTheme(prefs: ThemePreferences, id: string): ThemePreferences {
-  if (id === 'light' || id === 'dark' || prefs.themes.some((t) => t.id === id)) {
+  if (isBuiltIn(id) || prefs.themes.some((t) => t.id === id)) {
     return { ...prefs, active: id }
   }
   return prefs

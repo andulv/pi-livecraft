@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  allThemes,
   applyThemePalette,
   BUILT_IN_THEMES,
   createTheme,
@@ -92,6 +93,18 @@ test('resolveActiveTheme retourne light preset par défaut', () => {
 
 test('resolveActiveTheme retourne dark preset', () => {
   assert.equal(resolveActiveTheme({ active: 'dark', themes: [] }).id, 'dark')
+})
+
+test('les thèmes GiPiTy et AntTropik sont des presets disponibles par défaut', () => {
+  assert.deepEqual(BUILT_IN_THEMES.map((theme) => theme.name), [
+    'Light',
+    'Dark',
+    'GiPiTy',
+    'AntTropik',
+  ])
+  assert.equal(allThemes(basePrefs).length, 4)
+  assert.equal(resolveActiveTheme({ active: 'gipity', themes: [] }).name, 'GiPiTy')
+  assert.equal(setActiveTheme(basePrefs, 'anttropik').active, 'anttropik')
 })
 
 test('resolveActiveTheme retourne un thème utilisateur s\'il est actif', () => {
