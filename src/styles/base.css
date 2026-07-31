@@ -108,7 +108,13 @@ button:disabled, select:disabled {
   grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
-  background: var(--surface-raised);
+  background:
+    linear-gradient(
+      to top,
+      color-mix(in srgb, var(--accent) 18%, transparent),
+      transparent 34%
+    ),
+    var(--surface-raised);
 }
 
 /* ── Dark mode overrides (colour values derived from palette variables) ── */
