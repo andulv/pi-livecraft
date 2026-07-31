@@ -12,10 +12,10 @@
       color-mix(in srgb, var(--accent) 7%, transparent),
       transparent 72%
     ),
-    radial-gradient(
-    ellipse 60% 24% at 92% 100%,
+    linear-gradient(
+    to top,
     color-mix(in srgb, var(--secondary) 6%, transparent),
-    transparent 72%
+    transparent 22%
   ),
     var(--surface-raised);
 }
