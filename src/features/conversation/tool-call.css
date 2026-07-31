@@ -325,6 +325,14 @@
   color: var(--muted);
   font: 11px/1.5 ui-sans-serif, system-ui, sans-serif;
 }
+.tool-call.semi-detailed .tool-call-content,
+.tool-call.semi-detailed .tool-call-preview {
+  max-height: 540px;
+  overflow-y: auto;
+}
+.tool-call.semi-detailed .tool-call-content-markdown {
+  max-height: 380px;
+}
 .tool-call-content.tool-call-content-scrollable {
   max-height: 540px;
   overflow-y: auto;

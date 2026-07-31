@@ -24,7 +24,7 @@ Presentation follows the same ownership boundaries:
 
 Styles are split by the same surfaces: `conversation.css` for the viewport and empty/loading states, `messages.css`, `tool-call.css`, `conversation-actions.css`, `activity.css`, and `conversation-motion.css`. Composer slash-command styles remain in `composer.css`.
 
-Conversation views are simplified (messages only), semi-detailed (tool headers only, each expandable), or detailed (calls with their previews).
+Conversation views are simplified (messages only), semi-detailed (tool headers only; expanded calls show their full output with the existing scroll limits), or detailed (calls with their previews).
 
 ## Tool call presentations
 

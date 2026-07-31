@@ -147,8 +147,12 @@ export const ToolCallCard = memo(function ToolCallCard({
 
   /** Expands the call from its header-only presentation or toggles its full result. */
   const activate = () => {
-    if (semiDetailed) setSemiExpanded((isExpanded) => !isExpanded)
-    else setExpanded((isExpanded) => !isExpanded)
+    if (semiDetailed) {
+      if (!semiExpanded) setExpanded(true)
+      setSemiExpanded((isExpanded) => !isExpanded)
+      return
+    }
+    setExpanded((isExpanded) => !isExpanded)
   }
 
   const showDetails = !semiDetailed || semiExpanded
@@ -158,7 +162,9 @@ export const ToolCallCard = memo(function ToolCallCard({
     <article
       className={`tool-call${animateLiveChanges && streaming ? ' entering' : ''}${
         contentError ? ' error' : ''
-      }${interrupted ? ' interrupted' : ''}${targeted ? ' conversation-target' : ''}`}
+      }${interrupted ? ' interrupted' : ''}${semiDetailed ? ' semi-detailed' : ''}${
+        targeted ? ' conversation-target' : ''
+      }`}
       data-tool-call-id={id}
       ref={cardRef}
     >
