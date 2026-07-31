@@ -257,7 +257,7 @@
 .session-item.selected {
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   background: color-mix(in srgb, var(--accent) 18%, var(--surface));
-  box-shadow: var(--shadow-soft);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--ink) 12%, transparent);
 }
 .session-item > span:last-child {
   flex: 1;
