@@ -121,7 +121,6 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
         className='tooltip-host'
         onBlur={hide}
         onClick={hide}
-        onFocus={(event) => show(event.target)}
         onPointerDown={dismissPointer}
         onPointerEnter={(event) => show(event.target)}
         onPointerLeave={hide}
