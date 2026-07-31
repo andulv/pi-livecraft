@@ -7,7 +7,7 @@
   padding: 20px 14px 15px;
   overflow: hidden;
   border-right: 1px solid var(--line);
-  background: var(--sidebar);
+  background: var(--surface);
 }
 .sidebar-resize-handle {
   position: absolute;
@@ -56,17 +56,16 @@
   flex: 0 0 auto;
   width: 32px;
   height: 32px;
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: 8px;
   padding: 0;
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: transparent;
   color: var(--muted);
   cursor: pointer;
   transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
 }
 .theme-toggle:hover {
-  border-color: var(--accent-soft);
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
   color: var(--accent-hover);
 }
 .theme-toggle:focus-visible {
@@ -154,10 +153,10 @@
   gap: 4px;
   width: 100%;
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: 10px;
-  padding: 9px 10px;
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  padding: 8px 10px;
+  background: transparent;
   color: var(--ink);
   text-align: left;
   transition: background 180ms ease, border-color 180ms ease;
@@ -241,7 +240,7 @@
     transform 180ms ease;
 }
 .session-item:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 .session-item:focus-visible {
   outline: 2px solid var(--accent);
@@ -256,9 +255,8 @@
   transform: none;
 }
 .session-item.selected {
-  border-color: color-mix(in srgb, var(--surface) 82%, transparent);
-  background: var(--surface);
-  box-shadow: var(--shadow-soft);
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
 }
 .session-item > span:last-child {
   flex: 1;
@@ -333,7 +331,7 @@
 
 /* completion — light accent tint with one-shot arrival and slow breathe */
 .session-item.complete:not(.selected) {
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
   animation: complete-arrive 800ms ease-out;
 }
 .session-item.complete:not(.selected) strong {
@@ -342,7 +340,7 @@
 @keyframes complete-arrive {
   from {
     box-shadow: inset 0 0 0 999px
-      color-mix(in srgb, var(--accent) 14%, var(--surface));
+      color-mix(in srgb, var(--accent) 8%, var(--surface));
   }
 }
 .session-status-indicator {
