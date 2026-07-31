@@ -44,7 +44,7 @@ export interface ThemePreferences {
 // ── Built-in palettes ──────────────────────────────────────────────
 
 const LIGHT_PALETTE: ThemePalette = {
-  canvas: '#f4f6f4',
+  canvas: '#fafafc',
   surface: '#ffffff',
   ink: '#1d2924',
   accent: '#23776d',

@@ -6,7 +6,7 @@
   min-width: 0;
   padding: 20px 14px 15px;
   overflow: hidden;
-  border-right: 1px solid var(--line);
+  border-right: 1px solid var(--panel-line);
   background: var(--surface);
 }
 .sidebar-resize-handle {

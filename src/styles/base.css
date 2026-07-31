@@ -1,6 +1,6 @@
 :root {
   /* ── 8 source colours (overridden by JS for custom themes) ── */
-  --canvas: #f4f6f4;
+  --canvas: #fafafc;
   --surface: #ffffff;
   --ink: #1d2924;
   --accent: #23776d;
@@ -15,6 +15,7 @@
   --muted: color-mix(in srgb, var(--ink) 55%, var(--canvas));
   --subtle: color-mix(in srgb, var(--ink) 42%, var(--canvas));
   --line: color-mix(in srgb, var(--ink) 12%, var(--canvas));
+  --panel-line: color-mix(in srgb, var(--ink) 4%, var(--canvas));
   --line-strong: color-mix(in srgb, var(--ink) 20%, var(--canvas));
 
   /* ── Derived accent variants ── */
@@ -108,13 +109,7 @@ button:disabled, select:disabled {
   grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
-  background:
-    linear-gradient(
-      to top,
-      color-mix(in srgb, var(--accent) 6%, transparent),
-      transparent 34%
-    ),
-    var(--surface-raised);
+  background: var(--surface);
 }
 
 /* ── Dark mode overrides (colour values derived from palette variables) ── */
