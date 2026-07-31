@@ -256,8 +256,7 @@
 }
 .session-item.selected {
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
-  box-shadow: 0 3px 10px color-mix(in srgb, var(--ink) 12%, transparent);
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface));
 }
 .session-item > span:last-child {
   flex: 1;
@@ -272,6 +271,9 @@
 .session-item strong {
   font-size: 13px;
   letter-spacing: -0.01em;
+}
+.session-item.selected strong {
+  color: var(--accent-hover);
 }
 .session-item small {
   margin-top: 2px;
