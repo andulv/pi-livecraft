@@ -6,6 +6,18 @@
   overflow-x: clip;
   padding: 42px max(28px, calc((100% - 900px) / 2)) 30px;
   scrollbar-gutter: stable;
+  background:
+    radial-gradient(
+      ellipse 70% 28% at 8% 0%,
+      color-mix(in srgb, var(--accent) 7%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+    ellipse 60% 24% at 92% 100%,
+    color-mix(in srgb, var(--secondary) 6%, transparent),
+    transparent 72%
+  ),
+    var(--surface-raised);
 }
 .conversation-content {
   min-width: 0;
