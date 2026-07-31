@@ -85,19 +85,30 @@
   outline: 0;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
 }
-.chat-detail-toggle.detailed,
-.chat-detail-toggle.semi-detailed {
+.chat-detail-toggle.detailed {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
 }
 .chat-detail-toggle.detailed:hover,
-.chat-detail-toggle.detailed:focus-visible,
-.chat-detail-toggle.semi-detailed:hover,
-.chat-detail-toggle.semi-detailed:focus-visible {
+.chat-detail-toggle.detailed:focus-visible {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
+}
+.chat-detail-toggle.semi-detailed {
+  border-color: var(--secondary);
+  background: var(--secondary-soft);
+  color: var(--secondary);
+}
+.chat-detail-toggle.semi-detailed:hover,
+.chat-detail-toggle.semi-detailed:focus-visible {
+  border-color: var(--secondary);
+  background: var(--secondary-soft);
+  color: var(--secondary);
+}
+.chat-detail-toggle.semi-detailed:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--secondary) 14%, transparent);
 }
 .chat-detail-toggle-icon {
   flex: 0 0 14px;
