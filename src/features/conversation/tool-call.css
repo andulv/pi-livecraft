@@ -9,6 +9,14 @@
   color: color-mix(in srgb, var(--accent) 40%, var(--ink));
   font: 12px/1.5 ui-monospace, monospace;
 }
+.tool-call.semi-detailed {
+  border-color: color-mix(in srgb, var(--accent) 16%, var(--line));
+  background: color-mix(in srgb, var(--accent) 1%, var(--surface));
+  color: color-mix(in srgb, var(--accent) 26%, var(--ink));
+}
+.tool-call.semi-detailed .tool-call-heading > span:first-child {
+  color: color-mix(in srgb, var(--accent) 78%, var(--muted));
+}
 .tool-call.error {
   border-color: color-mix(in srgb, var(--danger) 25%, var(--line));
   background: var(--danger-soft);
