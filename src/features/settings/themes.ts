@@ -367,12 +367,12 @@ export function applyThemePalette(element: { style: ThemeStyle }, palette: Theme
 export function shadowForMode(mode: ThemeMode): Record<'shadow' | 'shadow-soft', string> {
   return mode === 'dark'
     ? {
-      shadow: '0 8px 32px color-mix(in srgb, var(--ink) 40%, transparent)',
-      'shadow-soft': '0 3px 12px color-mix(in srgb, var(--ink) 30%, transparent)',
+      shadow: '0 8px 24px rgb(0 0 0 / 24%)',
+      'shadow-soft': '0 3px 10px rgb(0 0 0 / 18%)',
     }
     : {
-      shadow: '0 18px 45px color-mix(in srgb, var(--ink) 10%, transparent)',
-      'shadow-soft': '0 5px 18px color-mix(in srgb, var(--ink) 7%, transparent)',
+      shadow: '0 12px 30px rgb(0 0 0 / 7%)',
+      'shadow-soft': '0 4px 14px rgb(0 0 0 / 5%)',
     }
 }
 

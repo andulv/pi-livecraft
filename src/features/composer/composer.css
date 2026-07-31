@@ -86,7 +86,7 @@
   padding: 0;
   background: var(--surface);
   color: var(--ink);
-  box-shadow: 0 24px 70px rgb(0 0 0 / 24%);
+  box-shadow: var(--shadow);
 }
 .prompt-save-dialog::backdrop {
   background: color-mix(in srgb, var(--ink) 22%, transparent);
@@ -525,7 +525,7 @@
   border: 1px solid var(--line-strong);
   border-radius: 10px;
   background: var(--surface);
-  box-shadow: 0 15px 32px rgb(0 0 0 / 16%);
+  box-shadow: var(--shadow-soft);
   animation: select-in 160ms ease-out;
 }
 .composer-select-content.model {
@@ -735,7 +735,7 @@
   border: 1px solid var(--line-strong);
   border-radius: 9px;
   background: var(--surface);
-  box-shadow: 0 12px 28px rgb(0 0 0 / 14%);
+  box-shadow: var(--shadow-soft);
   max-height: 200px;
   overflow-y: auto;
   animation: slash-in 120ms ease-out;
