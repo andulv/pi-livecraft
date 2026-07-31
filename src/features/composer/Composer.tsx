@@ -541,7 +541,7 @@ export const Composer = memo(function Composer({
             />
             <Tooltip label='Insert a configured prompt'>
               <PromptSelect
-                canSave={Boolean(message.trim())}
+                canSave={Boolean(message.trim()) && !previewingPrompt}
                 onOpenChange={() => setOpenSelect(null)}
                 onPreview={previewPrompt}
                 onPreviewEnd={endPromptPreview}
