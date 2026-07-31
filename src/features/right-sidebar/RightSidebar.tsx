@@ -15,7 +15,6 @@ import type {
   QuotaSnapshot,
   SessionSummary,
 } from '../../../shared/types.ts'
-import { getTodos } from '../../api.ts'
 import { GitWidget } from '../git/GitWidget.tsx'
 import { QuotaWidget } from '../quotas/QuotaWidget.tsx'
 import { railQuota, type QuotaProvider } from '../quotas/quota-display.ts'
@@ -25,6 +24,7 @@ import type {
   SessionAnalysisTarget,
 } from '../session-analysis/session-analysis.ts'
 import { TodoWidget } from '../todo/TodoWidget.tsx'
+import { loadTodos } from '../todo/todo-cache.ts'
 import { maxRightSidebarWidth, minRightSidebarWidth, type RightWidget } from './right-sidebar.ts'
 import { WidgetLayout } from './WidgetLayout.tsx'
 
@@ -99,7 +99,7 @@ export function RightSidebar({
     if (activeWidget === 'todo') return
     let cancelled = false
     setTodoOpenCount(null)
-    void getTodos(workspacePath)
+    void loadTodos(workspacePath)
       .then((todos) => {
         if (!cancelled) setTodoOpenCount(todos.filter((todo) => !todo.completed).length)
       })

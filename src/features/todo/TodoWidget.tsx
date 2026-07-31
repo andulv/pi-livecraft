@@ -9,11 +9,12 @@ import {
 } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type { SessionSummary, TodoItem, TodoSessionLink } from '../../../shared/types.ts'
-import { getTodos, updateTodos } from '../../api.ts'
+import { updateTodos } from '../../api.ts'
 import { reorderTodoItems, sortTodoItemsForDisplay } from './todo-order.ts'
 import { promptSessionTitle } from '../composer/prompt-title.ts'
 import { sessionIndicator } from '../workspace/session-indicator.ts'
 import { SessionStatusIndicator } from '../workspace/SessionStatusIndicator.tsx'
+import { cacheTodos, loadTodos } from './todo-cache.ts'
 
 /** Displays and edits the persistent task list for the current workspace. */
 export function TodoWidget(
@@ -70,7 +71,7 @@ export function TodoWidget(
     setTodos([])
     sessionNameSyncKey.current = ''
     todosWorkspace.current = null
-    void getTodos(workspacePath)
+    void loadTodos(workspacePath, reloadRequest > 0)
       .then((nextTodos) => {
         if (cancelled) return
         todosWorkspace.current = workspacePath
@@ -94,6 +95,7 @@ export function TodoWidget(
     setError('')
     try {
       const savedTodos = await updateTodos(workspacePath, nextTodos)
+      cacheTodos(workspacePath, savedTodos)
       setTodos(savedTodos)
       onOpenCountChange(openCount(savedTodos))
       return true
