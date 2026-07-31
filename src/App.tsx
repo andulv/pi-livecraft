@@ -1201,6 +1201,7 @@ function App() {
         activeSessionId={selectedId}
         activeWidget={activeRightWidget}
         analysis={sessionAnalysis}
+        analysisAvailable={analysisAvailable}
         compactingSessionIds={compactingSessionIds}
         completedSessionIds={completedSessionIds}
         currentQuotaProvider={currentQuotaProvider}

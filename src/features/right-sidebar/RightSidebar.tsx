@@ -41,6 +41,7 @@ export function RightSidebar({
   activeSessionId,
   activeWidget,
   analysis,
+  analysisAvailable,
   compactingSessionIds,
   completedSessionIds,
   currentQuotaProvider,
@@ -68,6 +69,7 @@ export function RightSidebar({
   activeSessionId: string
   activeWidget: RightWidget | null
   analysis: SessionAnalysis | null
+  analysisAvailable: boolean
   compactingSessionIds: ReadonlySet<string>
   completedSessionIds: ReadonlySet<string>
   currentQuotaProvider: QuotaProvider | undefined
@@ -226,7 +228,7 @@ export function RightSidebar({
         </div>
       )}
       <div className='right-sidebar-rail'>
-        {analysis && (
+        {analysisAvailable && (
           <Tooltip label='Session analysis'>
             <button
               aria-controls={activeWidget === 'analysis' ? 'analysis-panel' : undefined}
@@ -239,7 +241,9 @@ export function RightSidebar({
               type='button'
             >
               <span aria-hidden='true'>∑</span>
-              {analysis.failedToolCalls > 0 && <small>{analysis.failedToolCalls}</small>}
+              {analysis && analysis.failedToolCalls > 0 && (
+                <small>{analysis.failedToolCalls}</small>
+              )}
             </button>
           </Tooltip>
         )}
