@@ -65,6 +65,14 @@
   > .tool-call-heading {
   padding-right: 112px;
 }
+@media (hover: hover) {
+  .message.user:has(> .message-actions) {
+    padding-right: 16px;
+  }
+  .message.user > .message-actions {
+    right: calc(100% + 7px);
+  }
+}
 @media (hover: none) {
   .conversation-actions {
     opacity: 1;
