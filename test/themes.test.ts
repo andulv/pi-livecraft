@@ -95,16 +95,17 @@ test('resolveActiveTheme retourne dark preset', () => {
   assert.equal(resolveActiveTheme({ active: 'dark', themes: [] }).id, 'dark')
 })
 
-test('les thèmes GiPiTy et AntTropik sont des presets disponibles par défaut', () => {
+test('les thèmes intégrés sont disponibles par défaut', () => {
   assert.deepEqual(BUILT_IN_THEMES.map((theme) => theme.name), [
     'Light',
     'Dark',
+    'Néon',
     'GiPiTy',
     'AntTropik',
   ])
-  assert.equal(allThemes(basePrefs).length, 4)
-  assert.equal(resolveActiveTheme({ active: 'gipity', themes: [] }).name, 'GiPiTy')
-  assert.equal(setActiveTheme(basePrefs, 'anttropik').active, 'anttropik')
+  assert.equal(allThemes(basePrefs).length, 5)
+  assert.equal(resolveActiveTheme({ active: 'neon', themes: [] }).mode, 'dark')
+  assert.equal(setActiveTheme(basePrefs, 'neon').active, 'neon')
 })
 
 test('resolveActiveTheme retourne un thème utilisateur s\'il est actif', () => {

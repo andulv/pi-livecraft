@@ -46,7 +46,7 @@ The following tokens are computed from the 8 source colours and **must not** be 
 ## Creating a new theme
 
 1. Open Settings via the gear icon.
-2. Under **Color themes**, click **Duplicate** on any built-in preset (Light, Dark, GiPiTy, or AntTropik).
+2. Under **Color themes**, click **Duplicate** on any built-in preset (Light, Dark, Néon, GiPiTy, or AntTropik).
 3. Name your theme.
 4. Edit the 8 source colours. Each input accepts a 6-digit hex code (`#rrggbb`).
 5. Select your theme from the dropdown to apply it.

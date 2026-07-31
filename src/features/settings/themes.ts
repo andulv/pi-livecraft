@@ -16,7 +16,7 @@ export type ThemeMode = 'light' | 'dark'
 
 export type ThemePalette = Record<ThemeVariable, string>
 
-export type BuiltInThemeId = 'light' | 'dark' | 'gipity' | 'anttropik'
+export type BuiltInThemeId = 'light' | 'dark' | 'gipity' | 'anttropik' | 'neon'
 
 export interface ThemePreset {
   id: BuiltInThemeId
@@ -76,6 +76,17 @@ const GIPITY_PALETTE: ThemePalette = {
   danger: '#c53030',
 }
 
+const NEON_PALETTE: ThemePalette = {
+  canvas: '#171225',
+  surface: '#211a35',
+  ink: '#f5efff',
+  accent: '#ff4fd8',
+  secondary: '#5de7ff',
+  success: '#72f1a8',
+  warning: '#ffd166',
+  danger: '#ff6b8b',
+}
+
 const ANTTROPIK_PALETTE: ThemePalette = {
   canvas: '#f7f5f0',
   surface: '#fffefa',
@@ -90,6 +101,7 @@ const ANTTROPIK_PALETTE: ThemePalette = {
 export const BUILT_IN_THEMES: ThemePreset[] = [
   { id: 'light', name: 'Light', mode: 'light', palette: LIGHT_PALETTE, builtIn: true },
   { id: 'dark', name: 'Dark', mode: 'dark', palette: DARK_PALETTE, builtIn: true },
+  { id: 'neon', name: 'Néon', mode: 'dark', palette: NEON_PALETTE, builtIn: true },
   { id: 'gipity', name: 'GiPiTy', mode: 'light', palette: GIPITY_PALETTE, builtIn: true },
   { id: 'anttropik', name: 'AntTropik', mode: 'light', palette: ANTTROPIK_PALETTE, builtIn: true },
 ]
