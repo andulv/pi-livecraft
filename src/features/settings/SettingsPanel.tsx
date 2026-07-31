@@ -2,7 +2,14 @@ import { type ReactNode, useEffect, useState } from 'react'
 import * as Select from '@radix-ui/react-select'
 import type { CommandDefinition, CommandId } from '../commands/command-registry.ts'
 import { shortcutFromEvent, shortcutConflicts } from '../commands/command-registry.ts'
-import { contrastColor, THEME_VARIABLES, type Theme, type ThemeVariable } from './themes.ts'
+import {
+  applyThemePalette,
+  contrastColor,
+  shadowForMode,
+  THEME_VARIABLES,
+  type Theme,
+  type ThemeVariable,
+} from './themes.ts'
 
 const themeVariableLabels: Record<ThemeVariable, string> = {
   canvas: 'Background',
@@ -96,6 +103,20 @@ function ThemeSettings(
     onCommitThemeName,
   }: ThemeSettingsProps,
 ) {
+  // Theme hovered in the dropdown, applied live to the app until the pointer leaves.
+  const [previewTheme, setPreviewTheme] = useState<Theme | undefined>(undefined)
+
+  useEffect(() => {
+    const theme = previewTheme ?? activeTheme
+    if (!theme) return
+    const root = document.documentElement
+    root.dataset.theme = theme.mode
+    applyThemePalette(root, theme.palette)
+    const shadows = shadowForMode(theme.mode)
+    root.style.setProperty('--shadow', shadows.shadow)
+    root.style.setProperty('--shadow-soft', shadows['shadow-soft'])
+  }, [activeTheme, previewTheme])
+
   return (
     <section className='theme-settings'>
       <p>
@@ -103,18 +124,25 @@ function ThemeSettings(
         hover states, and contrast colours are generated automatically.
       </p>
       <div className='theme-toolbar'>
-        <Select.Root onValueChange={onSelectTheme} value={activeTheme?.id ?? ''}>
+        <Select.Root
+          onOpenChange={(open) => {
+            if (!open) setPreviewTheme(undefined)
+          }}
+          onValueChange={onSelectTheme}
+          value={activeTheme?.id ?? ''}
+        >
           <Select.Trigger aria-label='Active color theme' className='theme-select-trigger'>
             <Select.Value placeholder='Choose a theme' />
             <Select.Icon className='theme-select-chevron' />
           </Select.Trigger>
           <Select.Portal>
             <Select.Content className='theme-select-content' position='popper' sideOffset={4}>
-              <Select.Viewport>
+              <Select.Viewport onPointerLeave={() => setPreviewTheme(undefined)}>
                 {themes.map((theme) => (
                   <Select.Item
                     className='theme-select-item'
                     key={theme.id}
+                    onPointerEnter={() => setPreviewTheme(theme)}
                     value={theme.id}
                     style={{
                       '--item-accent': theme.palette.accent,
