@@ -59,6 +59,22 @@ test('reconciles completed messages without collapsing distinct live turns', () 
   )
 })
 
+test('indexes repeated message content without reusing a streamed identity', () => {
+  const message = { role: 'assistant', timestamp: 10, content: [{ type: 'text', text: 'same' }] }
+  const live = [{ id: 'live-1', message }, { id: 'live-2', message }]
+
+  assert.deepEqual(
+    conversationMessageEntries([message, message], live).map(({ key, source }) => ({
+      key,
+      source,
+    })),
+    [
+      { key: 'live-1', source: 'history' },
+      { key: 'live-2', source: 'history' },
+    ],
+  )
+})
+
 test('preserves streamed identities when messages move into history', () => {
   const first = { role: 'assistant', timestamp: 10, content: [{ type: 'text', text: 'first' }] }
   const second = { role: 'assistant', timestamp: 11, content: [{ type: 'text', text: 'second' }] }

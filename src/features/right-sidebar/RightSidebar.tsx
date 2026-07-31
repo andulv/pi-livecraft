@@ -96,6 +96,7 @@ export function RightSidebar({
   const hasChanges = snapshot ? snapshot.files.length > 0 : false
 
   useEffect(() => {
+    if (activeWidget === 'todo') return
     let cancelled = false
     setTodoOpenCount(null)
     void getTodos(workspacePath)
@@ -108,7 +109,7 @@ export function RightSidebar({
     return () => {
       cancelled = true
     }
-  }, [workspacePath])
+  }, [activeWidget, workspacePath])
   const collapsed = activeWidget === null || (activeWidget === 'analysis' && !analysis)
     || (activeWidget === 'git' && !snapshot)
   const quotaSummary = railQuota(quotas, currentQuotaProvider)

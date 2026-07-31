@@ -84,21 +84,31 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
   }
 
   const header = parseHeader(lines[0])
-  if (!header || !lines.some(isMessageLine)) return null
-  const name = lines.reduce<string | undefined>(
-    (current, line) => parseSessionName(line) ?? current,
-    undefined,
-  )
-  const prompt = lines.reduce<string | undefined>(
-    (current, line) => current ?? parseUserPrompt(line),
-    undefined,
-  )
-  const lastMessageAt = lines.reduce<number | undefined>((current, line) => {
-    const timestamp = parseMessageTimestamp(line)
-    return timestamp === undefined || (current !== undefined && timestamp <= current)
-      ? current
-      : timestamp
-  }, undefined)
+  if (!header) return null
+  let hasMessage = false
+  let name: string | undefined
+  let prompt: string | undefined
+  let lastMessageAt: number | undefined
+  for (let index = 1; index < lines.length; index += 1) {
+    const value = parseLine(lines[index])
+    if (!value) continue
+    if (value.type === 'session_info' && typeof value.name === 'string' && value.name.trim()) {
+      name = value.name.trim()
+      continue
+    }
+    if (value.type !== 'message') continue
+    hasMessage = true
+    if (typeof value.timestamp === 'string') {
+      const timestamp = Date.parse(value.timestamp)
+      if (!Number.isNaN(timestamp) && (lastMessageAt === undefined || timestamp > lastMessageAt))
+        lastMessageAt = timestamp
+    }
+    if (prompt === undefined && isObject(value.message) && value.message.role === 'user') {
+      const content = textContent(value.message.content)
+      if (content && !content.startsWith('/')) prompt = shortenPrompt(content)
+    }
+  }
+  if (!hasMessage) return null
   const createdAt = Date.parse(header.timestamp)
   return {
     id: header.id,
@@ -110,64 +120,20 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
 }
 
 function parseHeader(line: string | undefined): PiSessionHeader | null {
+  const value = parseLine(line)
+  if (
+    !value || value.type !== 'session' || typeof value.id !== 'string'
+    || typeof value.timestamp !== 'string' || typeof value.cwd !== 'string'
+  ) return null
+  return { type: 'session', id: value.id, timestamp: value.timestamp, cwd: value.cwd }
+}
+
+function parseLine(line: string | undefined): Record<string, unknown> | null {
   try {
     const value: unknown = JSON.parse(line ?? '')
-    if (
-      !isObject(value) || value.type !== 'session' || typeof value.id !== 'string' || typeof value
-          .timestamp !== 'string'
-      || typeof value.cwd !== 'string'
-    ) return null
-    return { type: 'session', id: value.id, timestamp: value.timestamp, cwd: value.cwd }
+    return isObject(value) ? value : null
   } catch {
     return null
-  }
-}
-
-function isMessageLine(line: string): boolean {
-  try {
-    const value: unknown = JSON.parse(line)
-    return isObject(value) && value.type === 'message'
-  } catch {
-    return false
-  }
-}
-
-function parseMessageTimestamp(line: string): number | undefined {
-  try {
-    const value: unknown = JSON.parse(line)
-    if (!isObject(value) || value.type !== 'message' || typeof value.timestamp !== 'string')
-      return undefined
-    const timestamp = Date.parse(value.timestamp)
-    return Number.isNaN(timestamp) ? undefined : timestamp
-  } catch {
-    return undefined
-  }
-}
-
-function parseSessionName(line: string): string | undefined {
-  try {
-    const value: unknown = JSON.parse(line)
-    return isObject(value) && value.type === 'session_info' && typeof value.name === 'string'
-        && value.name.trim()
-      ? value.name.trim()
-      : undefined
-  } catch {
-    return undefined
-  }
-}
-
-function parseUserPrompt(line: string): string | undefined {
-  try {
-    const value: unknown = JSON.parse(line)
-    if (
-      !isObject(value) || value.type !== 'message' || !isObject(value.message)
-      || value.message.role !== 'user'
-    ) return undefined
-    const content = textContent(value.message.content)
-    if (!content || content.startsWith('/')) return undefined
-    return shortenPrompt(content)
-  } catch {
-    return undefined
   }
 }
 

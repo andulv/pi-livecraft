@@ -25,6 +25,15 @@ const emptySnapshot: SessionSnapshot = {
   liveEvents: [],
 }
 
+const snapshotRefreshDelayMs = 100
+
+interface SnapshotRefreshRequest {
+  sessionId: string
+  needsRefresh: boolean
+  cancelled: boolean
+  promise: Promise<SessionSnapshot | undefined>
+}
+
 /** Owns the selected conversation snapshot, live stream, replay, tools, and timing state. */
 export function useConversationRuntime(
   selectedId: string,
@@ -45,6 +54,7 @@ export function useConversationRuntime(
   >(new Map())
   const selectedIdRef = useRef(selectedId)
   const snapshotRefreshVersionRef = useRef(0)
+  const snapshotRefreshRef = useRef<SnapshotRefreshRequest | undefined>(undefined)
   const appliedPiEventSequenceRef = useRef(0)
   const toolStartedAtRef = useRef(new Map<string, number>())
   const requestStartedAtRef = useRef<number | undefined>(undefined)
@@ -91,39 +101,70 @@ export function useConversationRuntime(
   }, [])
 
   /** Synchronizes the selected snapshot and replays newer buffered manager events. */
-  const refreshSnapshot = useCallback(async (sessionId: string) => {
+  const refreshSnapshot = useCallback((sessionId: string): Promise<SessionSnapshot | undefined> => {
     if (!sessionId) {
+      const current = snapshotRefreshRef.current
+      if (current) current.cancelled = true
       setSnapshot(emptySnapshot)
       setSnapshotSessionId('')
-      return
+      return Promise.resolve(undefined)
     }
-    const version = ++snapshotRefreshVersionRef.current
-    try {
-      const nextSnapshot = await getSnapshot(sessionId)
-      if (version !== snapshotRefreshVersionRef.current || sessionId !== selectedIdRef.current)
-        return nextSnapshot
-      flushLiveUpdates()
-      setSnapshot(nextSnapshot)
-      setSnapshotSessionId(sessionId)
-      const latestLiveSequence = nextSnapshot.liveEvents.at(-1)?.sequence ?? 0
-      if (latestLiveSequence > appliedPiEventSequenceRef.current) {
-        clearLiveMessages()
-        setActivity(null)
-        setToolExecutions([])
-        appliedPiEventSequenceRef.current = 0
-        for (const liveEvent of nextSnapshot.liveEvents) {
-          replayEvent(
-            sessionId,
-            liveEvent.data,
-            liveEvent.sequence,
-          )
+    const current = snapshotRefreshRef.current
+    if (current?.sessionId === sessionId) {
+      current.needsRefresh = true
+      return current.promise
+    }
+    if (current) current.cancelled = true
+    const request = {
+      sessionId,
+      needsRefresh: false,
+      cancelled: false,
+    } as SnapshotRefreshRequest
+    request.promise = (async () => {
+      let nextSnapshot: SessionSnapshot | undefined
+      do {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, snapshotRefreshDelayMs))
+        if (request.cancelled) return nextSnapshot
+        request.needsRefresh = false
+        const version = ++snapshotRefreshVersionRef.current
+        try {
+          nextSnapshot = await getSnapshot(sessionId)
+          if (request.cancelled) return nextSnapshot
+          if (version !== snapshotRefreshVersionRef.current || sessionId !== selectedIdRef.current)
+            return nextSnapshot
+          flushLiveUpdates()
+          setSnapshot(nextSnapshot)
+          setSnapshotSessionId(sessionId)
+          const latestLiveSequence = nextSnapshot.liveEvents.at(-1)?.sequence ?? 0
+          if (latestLiveSequence > appliedPiEventSequenceRef.current) {
+            clearLiveMessages()
+            setActivity(null)
+            setToolExecutions([])
+            appliedPiEventSequenceRef.current = 0
+            for (const liveEvent of nextSnapshot.liveEvents) {
+              replayEvent(
+                sessionId,
+                liveEvent.data,
+                liveEvent.sequence,
+              )
+            }
+          }
+        } catch (cause) {
+          if (
+            !request.cancelled
+            && version === snapshotRefreshVersionRef.current
+            && sessionId === selectedIdRef.current
+          ) onError(cause)
+          return nextSnapshot
         }
-      }
+      } while (request.needsRefresh && !request.cancelled)
       return nextSnapshot
-    } catch (cause) {
-      if (version === snapshotRefreshVersionRef.current && sessionId === selectedIdRef.current)
-        onError(cause)
-    }
+    })()
+      .finally(() => {
+        if (snapshotRefreshRef.current === request) snapshotRefreshRef.current = undefined
+      })
+    snapshotRefreshRef.current = request
+    return request.promise
   }, [clearLiveMessages, flushLiveUpdates, onError, replayEvent])
 
   /** Applies a selected-session Pi event once, preserving stream sequence and replay order. */

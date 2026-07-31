@@ -101,6 +101,8 @@ const conversationViewDetails = {
 } as const
 type ConversationView = keyof typeof conversationViewDetails
 
+const gitRefreshDelayMs = 250
+
 function nextConversationView(current: ConversationView): ConversationView {
   if (current === 'simple') return 'semi-detailed'
   if (current === 'semi-detailed') return 'detailed'
@@ -195,6 +197,7 @@ function App() {
   // UI and capability synchronization
   const loadingTimerRef = useRef<number>(0)
   const gitRefreshVersionRef = useRef(0)
+  const gitRefreshTimerRef = useRef<number | undefined>(undefined)
   const agentResponsesSentRef = useRef(new Set<string>())
 
   // Conversation timing and quotas
@@ -422,6 +425,10 @@ function App() {
   // Workspace capabilities
   /** Refreshes Git state for the current directory. Throws when requested so callers can handle the error. */
   const refreshGit = useCallback(async (cwd = workspacePath, notifyOnError = false) => {
+    if (gitRefreshTimerRef.current !== undefined) {
+      window.clearTimeout(gitRefreshTimerRef.current)
+      gitRefreshTimerRef.current = undefined
+    }
     const version = ++gitRefreshVersionRef.current
     try {
       const nextSnapshot = await getGitSnapshot(cwd)
@@ -430,6 +437,15 @@ function App() {
       if (notifyOnError && version === gitRefreshVersionRef.current) throw cause
     }
   }, [workspacePath])
+  /** Schedules one Git refresh for a burst of completed tools. */
+  const scheduleGitRefresh = useCallback((cwd = workspacePath): void => {
+    if (gitRefreshTimerRef.current !== undefined)
+      window.clearTimeout(gitRefreshTimerRef.current)
+    gitRefreshTimerRef.current = window.setTimeout(() => {
+      gitRefreshTimerRef.current = undefined
+      void refreshGit(cwd)
+    }, gitRefreshDelayMs)
+  }, [refreshGit, workspacePath])
 
   /** Refreshes quotas, allowing manual clicks to bypass automatic throttling. */
   const refreshSessionQuotas = useCallback(
@@ -482,7 +498,15 @@ function App() {
   }, [agentBusy, refreshSnapshot, showToast])
 
   // Initial application synchronization
-  useEffect(() => void refreshGit(), [refreshGit])
+  useEffect(() => {
+    void refreshGit()
+    return () => {
+      if (gitRefreshTimerRef.current !== undefined) {
+        window.clearTimeout(gitRefreshTimerRef.current)
+        gitRefreshTimerRef.current = undefined
+      }
+    }
+  }, [refreshGit])
   useEffect(() => {
     void getQuotas().then(setQuotas).catch(() => undefined)
   }, [])
@@ -524,7 +548,7 @@ function App() {
           sessionId,
         )
       }
-      if (event.type === 'tool_execution_end') void refreshGit()
+      if (event.type === 'tool_execution_end') scheduleGitRefresh()
       if (
         event.type === 'extension_ui_request' && event.method === 'setStatus'
         && event.statusKey === 'agent'
@@ -583,8 +607,8 @@ function App() {
       clearActivity,
       handlePiEvent,
       markSessionCompleted,
-      refreshGit,
       refreshSessionQuotas,
+      scheduleGitRefresh,
       renameSession,
       selectCreatedSession,
       showToast,
@@ -728,20 +752,23 @@ function App() {
     return saved
   }, [selectedSession?.cwd, showToast, workspacePath])
   const handleComposerSelectOpened = useCallback(() => setRequestedSelect(null), [])
+  const analysisAvailable = selectedSession !== undefined
+    && snapshotSessionId === selectedSession.id
   const sessionAnalysis = useMemo(() =>
-    selectedSession && snapshotSessionId === selectedSession.id
-      ? analyzeSession(snapshot.messages, snapshot.stats, selectedSession.status === 'running', {
+    !analysisAvailable || activeRightWidget !== 'analysis'
+      ? null
+      : analyzeSession(snapshot.messages, snapshot.stats, selectedSession.status === 'running', {
         requestDurations: observedRequestDurations,
         toolDurations: observedToolDurations,
         toolExecutions,
-      })
-      : null, [
+      }), [
+    activeRightWidget,
+    analysisAvailable,
     observedRequestDurations,
     observedToolDurations,
     selectedSession,
     snapshot.messages,
     snapshot.stats,
-    snapshotSessionId,
     toolExecutions,
   ])
   const questionnaire = dialog && isAskUserQuestionDialog(dialog.request) ? dialog : null
@@ -767,7 +794,7 @@ function App() {
     const rightWidget = rightWidgetFromCommand(id)
     if (rightWidget) {
       if (
-        (rightWidget === 'analysis' && !sessionAnalysis)
+        (rightWidget === 'analysis' && !analysisAvailable)
         || (rightWidget === 'git' && !gitSnapshot?.repository)
       ) return
       openRightWidget(rightWidget)
@@ -859,7 +886,7 @@ function App() {
     selectWorkspace,
     selectedId,
     sentSessions,
-    sessionAnalysis,
+    analysisAvailable,
     setDirectoryPickerOpen,
     setSelectedId,
     showToast,
@@ -876,7 +903,7 @@ function App() {
     const selectedIndex = selectedId ? visibleIds.indexOf(selectedId) : -1
     return commandDefinitions.map((definition) => {
       const rightWidget = rightWidgetFromCommand(definition.id)
-      const unavailableWidget = (rightWidget === 'analysis' && !sessionAnalysis)
+      const unavailableWidget = (rightWidget === 'analysis' && !analysisAvailable)
         || (rightWidget === 'git' && !gitSnapshot?.repository)
       return {
         ...definition,
@@ -907,7 +934,7 @@ function App() {
     selectedId,
     selectedSession,
     sentSessions,
-    sessionAnalysis,
+    analysisAvailable,
     shortcuts,
     workspacePath,
   ])
