@@ -204,6 +204,19 @@ export const Composer = memo(function Composer({
     selectedCommand?.scrollIntoView({ block: 'nearest' })
   }, [slashFilter, slashIndex])
 
+  useEffect(() => {
+    if (!slashOpen) return
+    const handlePointerDown = (event: PointerEvent): void => {
+      if (!(event.target instanceof Node)) return
+      const dropdown = formRef.current?.querySelector<HTMLElement>('.slash-commands')
+      if (dropdown?.contains(event.target)) return
+      setSlashOpen(false)
+      setSlashIndex(-1)
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [slashOpen])
+
   /** Inserts the selected slash command into the textarea and closes the popover. */
   function selectSlashCommand(name: string): void {
     setDraftMessage(`/${name} `)
