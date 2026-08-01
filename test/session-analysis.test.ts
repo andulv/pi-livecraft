@@ -76,6 +76,7 @@ test('reconstruit les requêtes multi-appels et calcule les statistiques par ré
     ],
   )
   assert.equal(analysis.requests[0]?.durationMs, 1_250)
+  assert.equal(analysis.toolCalls[0]?.turnMessageIndex, 1)
   assert.equal(analysis.averageTurnCost, 0.02)
   assert.equal(analysis.medianTurnCost, 0.02)
   assert.equal(analysis.turnCount, 3)
@@ -240,6 +241,11 @@ test('prépare un prompt borné sans transmettre les sorties des outils', () => 
         content: [{ type: 'text', text: 'secret tool output' }],
         isError: true,
       },
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Réponse finale.' }],
+        usage: usage(50, 2, 450, 10, 0.04),
+      },
     ],
     null,
     false,
@@ -249,10 +255,14 @@ test('prépare un prompt borné sans transmettre les sorties des outils', () => 
 
   assert.ok(prompt.length < 4_000)
   assert.match(prompt, /"cacheReadPercentOfInput":88\.2/)
-  assert.match(prompt, /"topRequestPercentOfAttributedCost":100/)
+  assert.match(prompt, /"topTurnPercentOfVisibleTurnCost":66\.7/)
+  assert.match(prompt, /"costliestTurns":\[\{"turn":2,"cost":0\.04/)
+  assert.match(prompt, /"turn":1,"name":"read"/)
+  assert.match(prompt, /"tools":\["read"\]/)
   assert.match(prompt, /"observedFailurePercent":100/)
-  assert.match(prompt, /\*\*Cache & contexte\*\*/)
+  assert.match(prompt, /\*\*Turns clés\*\*/)
   assert.match(prompt, /"failed":true/)
+  assert.doesNotMatch(prompt, /costlyRequests|topRequest/)
   assert.doesNotMatch(prompt, /Inspecte la session/)
   assert.doesNotMatch(prompt, /secret tool output/)
 })

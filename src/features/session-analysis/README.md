@@ -14,7 +14,7 @@ The dashboard is derived in the frontend. Opening it does not call another model
 - individual tool calls ranked by input, output, observed duration, or failure;
 - tool distribution with call and failure counts;
 - the user requests that caused the most model cost;
-- an optional concise interpretation prioritizing cost concentration, cache/context efficiency, tool volume, measured latency, and explicit failures.
+- an optional concise interpretation prioritizing the costliest turns, their associated tools, cache/context efficiency, measured latency, and explicit failures.
 
 The rail badge reports the number of explicit tool failures. Empty sections explain which activity is still needed instead of displaying misleading zeroes.
 
