@@ -233,7 +233,7 @@ The Pi RPC integration test additionally requires a configured Pi installation.
 
 ## Demo
 
-https://github.com/user-attachments/assets/a01f53f7-8e82-4591-9d28-61ddb622c135
+
 
 ## Built with Pi, for Pi ❤️
 
