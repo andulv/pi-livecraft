@@ -14,7 +14,7 @@ The dashboard is derived in the frontend. Opening it does not call another model
 - individual tool calls ranked by input, output, observed duration, or failure;
 - tool distribution with call and failure counts;
 - the user requests that caused the most model cost;
-- an optional concise interpretation of cache usage, costly requests, tool volumes, and failures.
+- an optional concise interpretation prioritizing cost concentration, cache/context efficiency, tool volume, measured latency, and explicit failures.
 
 The rail badge reports the number of explicit tool failures. Empty sections explain which activity is still needed instead of displaying misleading zeroes.
 
@@ -28,7 +28,7 @@ Pi's session totals remain authoritative. When a total cost cannot be matched to
 
 Historical messages provide token and cost data. Request and tool durations are only available when they were observed during the current Pi Livecraft run, so reopened sessions can have complete costs but partial timing information.
 
-Tool input and output rankings measure serialized input and raw output size, not provider tokens. Individual tool calls have no monetary cost attribution; monetary costs belong to requests. A tool failure is counted only when Pi reports `isError === true`.
+Tool input and output rankings measure serialized input and raw output size, not provider tokens. Individual tool calls have no monetary cost attribution; monetary costs belong to requests. A tool failure is counted only when Pi reports `isError === true`. The interpretation reports duration signals only with their measurement coverage and treats partial data as such.
 
 ## Ownership and validation
 

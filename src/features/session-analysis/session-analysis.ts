@@ -244,12 +244,16 @@ export function buildSessionAnalysisPrompt(analysis: SessionAnalysis): string {
   const requestNumbers = new Map(
     analysis.requests.map((request, index) => [request.messageIndex, index + 1] as const),
   )
+  const percent = (value: number, total: number) =>
+    total > 0 ? Math.round(value / total * 1_000) / 10 : null
   const turnSnapshot = (turn: AnalyzedTurn) => ({
     turn: turn.number,
     cost: turn.cost,
-    cacheRead: turn.usage.cacheRead,
     cacheMiss: turn.usage.cacheMiss,
+    cacheRead: turn.usage.cacheRead,
+    cacheWrite: turn.usage.cacheWrite,
     output: turn.usage.output,
+    toolCalls: turn.toolCallCount,
   })
   const requestSnapshot = (request: AnalyzedRequest) => ({
     request: requestNumbers.get(request.messageIndex) ?? 0,
@@ -274,64 +278,116 @@ export function buildSessionAnalysisPrompt(analysis: SessionAnalysis): string {
     .sort((a, b) => b.cost - a.cost)
     .slice(0, 5)
     .map(requestSnapshot)
-  const cacheReadHighlights = [...analysis.turns]
-    .filter((turn) => turn.usage.cacheRead > 0)
-    .sort((a, b) => b.usage.cacheRead - a.usage.cacheRead)
+  const costliestTurns = [...analysis.turns]
+    .sort((a, b) => b.cost - a.cost)
     .slice(0, 4)
     .map(turnSnapshot)
-  const cacheMissHighlights = [...analysis.turns]
+  const cacheMissPeaks = [...analysis.turns]
     .filter((turn) => turn.usage.cacheMiss > 0)
     .sort((a, b) => b.usage.cacheMiss - a.usage.cacheMiss)
-    .slice(0, 4)
+    .slice(0, 3)
     .map(turnSnapshot)
-  const notableToolCalls = [...analysis.toolCalls]
-    .sort((a, b) =>
-      b.inputLength + b.outputLength - a.inputLength - a.outputLength
-      || Number(b.isError) - Number(a.isError)
-    )
-    .slice(0, 8)
+  const largestToolOutputs = [...analysis.toolCalls]
+    .filter((call) => call.outputLength > 0)
+    .sort((a, b) => b.outputLength - a.outputLength)
+    .slice(0, 4)
+    .map(toolCallSnapshot)
+  const slowestToolCalls = [...analysis.toolCalls]
+    .filter((call) => call.durationMs !== undefined)
+    .sort((a, b) => (b.durationMs ?? 0) - (a.durationMs ?? 0))
+    .slice(0, 4)
     .map(toolCallSnapshot)
   const failedToolCalls = analysis
     .toolCalls
     .filter((call) => call.isError)
     .slice(0, 5)
     .map(toolCallSnapshot)
+  const attributedTopThreeCost = costlyRequests
+    .slice(0, 3)
+    .reduce((total, request) => total + request.cost, 0)
+  const inputTokens = analysis.tokens.cacheMiss
+    + analysis.tokens.cacheRead
+    + analysis.tokens.cacheWrite
+  const observedToolCalls = analysis.toolCalls.length
+  const measuredToolDurations =
+    analysis.toolCalls.filter((call) => call.durationMs !== undefined).length
   const snapshot = {
-    summary: {
-      totalCost: analysis.costAvailable ? analysis.totalCost : null,
-      attributedCost: analysis.attributionAvailable ? analysis.attributedCost : null,
-      unattributedCost: analysis.unattributedCost,
-      turns: analysis.turnCount,
-      averageTurnCost: analysis.averageTurnCost,
-      medianTurnCost: analysis.medianTurnCost,
-      contextPercent: analysis.contextPercent ?? null,
-      totalToolCalls: analysis.totalToolCalls,
-      failedToolCalls: analysis.failedToolCalls,
+    indicators: {
+      cost: {
+        total: analysis.costAvailable ? analysis.totalCost : null,
+        attributed: analysis.attributionAvailable ? analysis.attributedCost : null,
+        unattributed: analysis.costAvailable && analysis.attributionAvailable
+          ? analysis.unattributedCost
+          : null,
+        turns: analysis.turnCount,
+        averagePerTurn: analysis.turnCount > 0 ? analysis.averageTurnCost : null,
+        medianPerTurn: analysis.turnCount > 0 ? analysis.medianTurnCost : null,
+        maximumPerTurn: costliestTurns[0]?.cost ?? null,
+        topRequestPercentOfAttributedCost: analysis.attributionAvailable
+          ? percent(costlyRequests[0]?.cost ?? 0, analysis.attributedCost)
+          : null,
+        topThreeRequestsPercentOfAttributedCost: analysis.attributionAvailable
+          ? percent(attributedTopThreeCost, analysis.attributedCost)
+          : null,
+      },
+      cacheAndContext: {
+        contextUsedPercent: analysis.contextPercent ?? null,
+        tokens: analysis.tokensAvailable
+          ? {
+            input: inputTokens,
+            cacheMiss: analysis.tokens.cacheMiss,
+            cacheRead: analysis.tokens.cacheRead,
+            cacheWrite: analysis.tokens.cacheWrite,
+            output: analysis.tokens.output,
+          }
+          : null,
+        cacheReadPercentOfInput: analysis.tokensAvailable
+          ? percent(analysis.tokens.cacheRead, inputTokens)
+          : null,
+        cacheMissPercentOfInput: analysis.tokensAvailable
+          ? percent(analysis.tokens.cacheMiss, inputTokens)
+          : null,
+      },
+      tools: {
+        totalCalls: analysis.totalToolCalls,
+        observedCalls: observedToolCalls,
+        averageCallsPerTurn: analysis.turnCount > 0 ? analysis.averageToolCallsPerTurn : null,
+        explicitFailures: analysis.failedToolCalls,
+        observedFailurePercent: percent(analysis.failedToolCalls, observedToolCalls),
+        pendingCalls: analysis.toolCalls.filter((call) => call.pending).length,
+        measuredDurations: measuredToolDurations,
+        durationCoveragePercent: percent(measuredToolDurations, observedToolCalls),
+      },
     },
-    tokens: analysis.tokensAvailable ? analysis.tokens : null,
-    costlyRequests,
-    cacheReadHighlights,
-    cacheMissHighlights,
-    tools: analysis.tools.slice(0, 12),
-    notableToolCalls,
-    failedToolCalls,
+    evidence: {
+      costlyRequests,
+      costliestTurns,
+      recentTurns: analysis.turns.slice(-4).map(turnSnapshot),
+      cacheMissPeaks,
+      mostUsedTools: analysis.tools.slice(0, 6),
+      largestToolOutputs,
+      slowestToolCalls,
+      failedToolCalls,
+    },
     dataQuality: {
       costAvailable: analysis.costAvailable,
       tokensAvailable: analysis.tokensAvailable,
       attributionAvailable: analysis.attributionAvailable,
-      toolDetailsPartial: analysis.toolCalls.length < analysis.totalToolCalls,
-      measuredToolDurations: analysis
-        .toolCalls
-        .filter((call) => call.durationMs !== undefined)
-        .length,
+      toolDetailsPartial: observedToolCalls < analysis.totalToolCalls,
+      incompleteRequests: analysis.requests.filter((request) => !request.complete).length,
     },
   }
   return [
-    'Interprète uniquement les métriques du snapshot JSON ci-dessous.',
-    'Réponds en français en 120 mots maximum : un bilan, jusqu’à trois constats appuyés par des valeurs, puis une action concrète si elle est justifiée.',
-    'Distingue les observations des interprétations et signale les données manquantes.',
-    'Un cacheRead élevé indique généralement une réutilisation efficace ; ce n’est pas un coût en soi.',
-    'Le coût monétaire est disponible au niveau des requêtes, pas de chaque tool call : ne l’invente pas.',
+    'Analyse uniquement le snapshot JSON ci-dessous. Hiérarchise les signaux utiles au lieu de paraphraser tous les KPI.',
+    'Réponds en français, en 120 mots maximum, avec exactement cette structure Markdown :',
+    '**Bilan** — une phrase qui qualifie la session sans jugement vague.',
+    '- **Coût** — concentration, écart moyenne/médiane, pic ou évolution notable.',
+    '- **Cache & contexte** — efficacité de réutilisation, cache miss/write et pression du contexte.',
+    '- **Outils** — fréquence, échecs explicites, gros outputs ou latence mesurée.',
+    '**Priorité** — une seule action concrète fondée sur le signal le plus important, ou « Aucune action prioritaire ».',
+    'Appuie chaque constat sur une ou deux valeurs. Si un axe est sain, dis-le ; si les données manquent ou sont partielles, nuance-le brièvement.',
+    'cacheReadPercentOfInput mesure la part des tokens d’entrée relus depuis le cache : une valeur élevée est généralement positive. Les longueurs des tools sont des caractères, pas des tokens ni un coût monétaire. Les durées ne valent que pour les appels mesurés.',
+    'N’attribue aucune cause non observée et ne déduis jamais le contenu de la conversation ou des tools.',
     '<session_analysis_json>',
     JSON.stringify(snapshot),
     '</session_analysis_json>',

@@ -96,7 +96,7 @@
   color: var(--ink);
 }
 .analysis-interpretation {
-  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   padding: 14px;
 }
 .analysis-interpretation > header {

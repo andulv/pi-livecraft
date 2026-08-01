@@ -248,7 +248,10 @@ test('prépare un prompt borné sans transmettre les sorties des outils', () => 
   const prompt = buildSessionAnalysisPrompt(analysis)
 
   assert.ok(prompt.length < 4_000)
-  assert.match(prompt, /"cacheRead":900/)
+  assert.match(prompt, /"cacheReadPercentOfInput":88\.2/)
+  assert.match(prompt, /"topRequestPercentOfAttributedCost":100/)
+  assert.match(prompt, /"observedFailurePercent":100/)
+  assert.match(prompt, /\*\*Cache & contexte\*\*/)
   assert.match(prompt, /"failed":true/)
   assert.doesNotMatch(prompt, /Inspecte la session/)
   assert.doesNotMatch(prompt, /secret tool output/)
