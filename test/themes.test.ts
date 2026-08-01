@@ -9,6 +9,7 @@ import {
   duplicateTheme,
   parseThemePreferences,
   renameTheme,
+  resetTheme,
   resolveActiveTheme,
   setActiveTheme,
   updateThemeColor,
@@ -85,6 +86,19 @@ test('parseThemePreferences retourne fallback quand active pointe vers un thème
   assert.deepEqual(result.themes, [])
 })
 
+test('parseThemePreferences restaure les overrides des thèmes intégrés', () => {
+  const palette = { ...BUILT_IN_THEMES[0].palette, accent: '#abcdef' }
+  const result = parseThemePreferences({
+    active: 'light',
+    themes: [],
+    builtInOverrides: { light: { name: 'Warm', mode: 'dark', palette } },
+  }, null)
+  const theme = resolveActiveTheme(result)
+  assert.equal(theme.name, 'Warm')
+  assert.equal(theme.mode, 'dark')
+  assert.equal(theme.palette.accent, '#abcdef')
+})
+
 // ── resolveActiveTheme ─────────────────────────────────────────────
 
 test('resolveActiveTheme retourne light preset par défaut', () => {
@@ -102,9 +116,11 @@ test('les thèmes intégrés sont disponibles par défaut', () => {
     'Néon',
     'GiPiTy',
     'AntTropik',
+    'Acid Pop',
   ])
-  assert.equal(allThemes(basePrefs).length, 5)
+  assert.equal(allThemes(basePrefs).length, 6)
   assert.equal(resolveActiveTheme({ active: 'neon', themes: [] }).mode, 'dark')
+  assert.equal(resolveActiveTheme({ active: 'acidpop', themes: [] }).palette.secondary, '#99ff33')
   assert.equal(setActiveTheme(basePrefs, 'neon').active, 'neon')
 })
 
@@ -210,9 +226,10 @@ test('renameTheme ignore un nom vide ou tout blanc', () => {
   assert.equal(renameTheme(prefs, id, '  ').themes[0].name, 'Keep')
 })
 
-test('renameTheme ne modifie pas les thèmes presets (même si appelé avec leur id)', () => {
-  const result = renameTheme(basePrefs, 'light', 'Gone')
-  assert.deepEqual(result, basePrefs)
+test('renameTheme renomme aussi les thèmes intégrés', () => {
+  const result = renameTheme(basePrefs, 'light', 'Warm')
+  assert.equal(resolveActiveTheme(result).name, 'Warm')
+  assert.equal(result.builtInOverrides?.light?.palette.canvas, '#fafafc')
 })
 
 // ── updateThemeColor ──────────────────────────────────────────────
@@ -240,9 +257,10 @@ test('updateThemeColor rejette les valeurs non-hex', () => {
   assert.deepEqual(updateThemeColor(prefs, id, 'canvas', '#1234567'), prefs)
 })
 
-test('updateThemeColor ignore les thèmes presets', () => {
+test('updateThemeColor modifie aussi les thèmes intégrés sans muter le preset', () => {
   const result = updateThemeColor(basePrefs, 'light', 'canvas', '#000000')
-  assert.deepEqual(result, basePrefs)
+  assert.equal(resolveActiveTheme(result).palette.canvas, '#000000')
+  assert.equal(BUILT_IN_THEMES[0].palette.canvas, '#fafafc')
 })
 
 // ── updateThemeMode ────────────────────────────────────────────────
@@ -254,9 +272,9 @@ test('updateThemeMode change le mode', () => {
   assert.equal(updated.themes[0].mode, 'dark')
 })
 
-test('updateThemeMode ignore les presets', () => {
+test('updateThemeMode modifie aussi les thèmes intégrés', () => {
   const result = updateThemeMode(basePrefs, 'light', 'dark')
-  assert.deepEqual(result, basePrefs)
+  assert.equal(resolveActiveTheme(result).mode, 'dark')
 })
 
 // ── deleteTheme ────────────────────────────────────────────────────
@@ -289,6 +307,16 @@ test('deleteTheme conserve active si un autre thème est supprimé', () => {
 test('deleteTheme ignore les presets', () => {
   assert.deepEqual(deleteTheme(basePrefs, 'light'), basePrefs)
   assert.deepEqual(deleteTheme(basePrefs, 'dark'), basePrefs)
+})
+
+test('resetTheme restaure un thème intégré et supprime son override', () => {
+  const edited = renameTheme(
+    updateThemeColor(basePrefs, 'light', 'accent', '#000000'),
+    'light',
+    'Custom light',
+  )
+  assert.notDeepEqual(edited, basePrefs)
+  assert.deepEqual(resetTheme(edited, 'light'), basePrefs)
 })
 
 // ── setActiveTheme ─────────────────────────────────────────────────

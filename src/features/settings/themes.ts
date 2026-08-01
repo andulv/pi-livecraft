@@ -16,7 +16,7 @@ export type ThemeMode = 'light' | 'dark'
 
 export type ThemePalette = Record<ThemeVariable, string>
 
-export type BuiltInThemeId = 'light' | 'dark' | 'gipity' | 'anttropik' | 'neon'
+export type BuiltInThemeId = 'light' | 'dark' | 'gipity' | 'anttropik' | 'neon' | 'acidpop'
 
 export interface ThemePreset {
   id: BuiltInThemeId
@@ -33,12 +33,19 @@ export interface UserTheme {
   palette: ThemePalette
 }
 
+export interface BuiltInThemeOverride {
+  name: string
+  mode: ThemeMode
+  palette: ThemePalette
+}
+
 /** Any theme the UI can display, preset or user-created. */
 export type Theme = ThemePreset | (UserTheme & { builtIn?: never })
 
 export interface ThemePreferences {
   active: string
   themes: UserTheme[]
+  builtInOverrides?: Partial<Record<BuiltInThemeId, BuiltInThemeOverride>>
 }
 
 // ── Built-in palettes ──────────────────────────────────────────────
@@ -98,12 +105,24 @@ const ANTTROPIK_PALETTE: ThemePalette = {
   danger: '#bd5148',
 }
 
+const ACID_POP_PALETTE: ThemePalette = {
+  canvas: '#201027',
+  surface: '#2f163b',
+  ink: '#fff4dc',
+  accent: '#ff4db8',
+  secondary: '#99ff33',
+  success: '#57f287',
+  warning: '#ffd166',
+  danger: '#ff6b6b',
+}
+
 export const BUILT_IN_THEMES: ThemePreset[] = [
   { id: 'light', name: 'Light', mode: 'light', palette: LIGHT_PALETTE, builtIn: true },
   { id: 'dark', name: 'Dark', mode: 'dark', palette: DARK_PALETTE, builtIn: true },
   { id: 'neon', name: 'Néon', mode: 'dark', palette: NEON_PALETTE, builtIn: true },
   { id: 'gipity', name: 'GiPiTy', mode: 'light', palette: GIPITY_PALETTE, builtIn: true },
   { id: 'anttropik', name: 'AntTropik', mode: 'light', palette: ANTTROPIK_PALETTE, builtIn: true },
+  { id: 'acidpop', name: 'Acid Pop', mode: 'dark', palette: ACID_POP_PALETTE, builtIn: true },
 ]
 
 // ── Persistence keys ───────────────────────────────────────────────
@@ -201,21 +220,46 @@ function validateThemePreferences(value: unknown): value is ThemePreferences {
     && p.themes.every(validateUserTheme)
 }
 
-/**
- * Normalizes every user theme palette in-place so stored JSON only
- * contains the 8 source colours going forward.
- */
+function normalizeBuiltInOverrides(
+  value: unknown,
+): Partial<Record<BuiltInThemeId, BuiltInThemeOverride>> | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const normalized: Partial<Record<BuiltInThemeId, BuiltInThemeOverride>> = {}
+  for (const [id, rawOverride] of Object.entries(value)) {
+    if (!isBuiltIn(id) || typeof rawOverride !== 'object' || rawOverride === null) continue
+    const override = rawOverride as Record<string, unknown>
+    const palette = normalizePalette(override.palette)
+    if (
+      typeof override.name === 'string'
+      && override.name.trim()
+      && (override.mode === 'light' || override.mode === 'dark')
+      && palette
+    ) {
+      normalized[id as BuiltInThemeId] = {
+        name: override.name.trim(),
+        mode: override.mode,
+        palette,
+      }
+    }
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined
+}
+
+/** Normalizes stored source palettes and built-in overrides. */
 function normalizePreferences(prefs: ThemePreferences): ThemePreferences {
-  return {
-    ...prefs,
+  const normalized: ThemePreferences = {
+    active: prefs.active,
     themes: prefs
       .themes
       .map((t) => {
-        const normalized = normalizePalette(t.palette)
-        return normalized ? { ...t, palette: normalized } : t
+        const palette = normalizePalette(t.palette)
+        return palette ? { ...t, palette } : t
       })
       .filter((t) => normalizePalette(t.palette) !== null),
   }
+  const builtInOverrides = normalizeBuiltInOverrides(prefs.builtInOverrides)
+  if (builtInOverrides) normalized.builtInOverrides = builtInOverrides
+  return normalized
 }
 
 // ── Parsing & migration ────────────────────────────────────────────
@@ -253,18 +297,25 @@ export function persistThemePreferences(prefs: ThemePreferences): void {
 
 // ── Domain queries ─────────────────────────────────────────────────
 
+function themeWithOverride(prefs: ThemePreferences, preset: ThemePreset): ThemePreset {
+  const override = prefs.builtInOverrides?.[preset.id]
+  return override
+    ? { ...preset, ...override, palette: { ...override.palette } }
+    : preset
+}
+
 /** Resolves the active theme, always falling back to Light. */
 export function resolveActiveTheme(prefs: ThemePreferences): Theme {
   const builtIn = BUILT_IN_THEMES.find((theme) => theme.id === prefs.active)
-  if (builtIn) return builtIn
+  if (builtIn) return themeWithOverride(prefs, builtIn)
   const user = prefs.themes.find((t) => t.id === prefs.active)
   if (user) return user
-  return BUILT_IN_THEMES[0]
+  return themeWithOverride(prefs, BUILT_IN_THEMES[0])
 }
 
 /** Every theme the user can select: presets first, then user themes. */
 export function allThemes(prefs: ThemePreferences): Theme[] {
-  return [...BUILT_IN_THEMES, ...prefs.themes]
+  return [...BUILT_IN_THEMES.map((theme) => themeWithOverride(prefs, theme)), ...prefs.themes]
 }
 
 /** Whether an id belongs to a built-in preset. */
@@ -273,6 +324,26 @@ export function isBuiltIn(id: string): boolean {
 }
 
 // ── Mutations (all pure – return new prefs) ────────────────────────
+
+/** Saves the complete current state of an editable built-in theme. */
+function updateBuiltInTheme(
+  prefs: ThemePreferences,
+  id: BuiltInThemeId,
+  changes: Partial<Pick<BuiltInThemeOverride, 'name' | 'mode' | 'palette'>>,
+): ThemePreferences {
+  const preset = BUILT_IN_THEMES.find((theme) => theme.id === id)
+  if (!preset) return prefs
+  const current = themeWithOverride(prefs, preset)
+  const override: BuiltInThemeOverride = {
+    name: changes.name ?? current.name,
+    mode: changes.mode ?? current.mode,
+    palette: { ...current.palette, ...(changes.palette ?? {}) },
+  }
+  return {
+    ...prefs,
+    builtInOverrides: { ...prefs.builtInOverrides, [id]: override },
+  }
+}
 
 /**
  * Creates a user theme from a source palette (defaults to Light preset).
@@ -285,7 +356,7 @@ export function createTheme(
   sourcePalette?: ThemePalette,
 ): ThemePreferences {
   const palette = sourcePalette ? { ...sourcePalette } : { ...LIGHT_PALETTE }
-  const allNames = [...BUILT_IN_THEMES, ...prefs.themes].map((t) => t.name)
+  const allNames = allThemes(prefs).map((t) => t.name)
   const theme: UserTheme = {
     id: crypto.randomUUID(),
     name: uniqueName(name.trim() || 'Custom', allNames),
@@ -301,35 +372,42 @@ export function duplicateTheme(
   sourceId: string,
   newName: string,
 ): ThemePreferences {
-  const source = BUILT_IN_THEMES.find((theme) => theme.id === sourceId)
-    ?? prefs.themes.find((t) => t.id === sourceId)
+  const source = allThemes(prefs).find((theme) => theme.id === sourceId)
   if (!source) return prefs
   return createTheme(prefs, newName || `${source.name} copy`, source.mode, source.palette)
 }
 
-/** Renames a user theme, deduplicating the name. Presets are immutable. */
+/** Renames a theme, deduplicating the name across built-in and user themes. */
 export function renameTheme(prefs: ThemePreferences, id: string, name: string): ThemePreferences {
   const trimmed = name.trim()
-  if (!trimmed || isBuiltIn(id)) return prefs
-  const allNames = [...BUILT_IN_THEMES, ...prefs.themes].filter((t) => t.id !== id).map((t) =>
-    t.name
-  )
+  if (!trimmed) return prefs
+  const allNames = allThemes(prefs).filter((t) => t.id !== id).map((t) => t.name)
+  const nextName = uniqueName(trimmed, allNames)
+  if (isBuiltIn(id)) {
+    return updateBuiltInTheme(prefs, id as BuiltInThemeId, { name: nextName })
+  }
   return {
     ...prefs,
-    themes: prefs.themes.map((t) =>
-      t.id === id ? { ...t, name: uniqueName(trimmed, allNames) } : t
-    ),
+    themes: prefs.themes.map((t) => t.id === id ? { ...t, name: nextName } : t),
   }
 }
 
-/** Updates a single palette variable on a user theme. Hex format is validated. */
+/** Updates a single palette variable. Hex format is validated. */
 export function updateThemeColor(
   prefs: ThemePreferences,
   id: string,
   variable: ThemeVariable,
   color: string,
 ): ThemePreferences {
-  if (!validateHex(color) || isBuiltIn(id)) return prefs
+  if (!validateHex(color)) return prefs
+  if (isBuiltIn(id)) {
+    const preset = BUILT_IN_THEMES.find((theme) => theme.id === id)
+    if (!preset) return prefs
+    const current = themeWithOverride(prefs, preset)
+    return updateBuiltInTheme(prefs, preset.id, {
+      palette: { ...current.palette, [variable]: color },
+    })
+  }
   return {
     ...prefs,
     themes: prefs.themes.map((t) =>
@@ -338,29 +416,39 @@ export function updateThemeColor(
   }
 }
 
-/** Updates the mode (light/dark) of a user theme. Presets are immutable. */
+/** Updates the mode (light/dark) of a theme. */
 export function updateThemeMode(
   prefs: ThemePreferences,
   id: string,
   mode: ThemeMode,
 ): ThemePreferences {
-  if (isBuiltIn(id)) return prefs
+  if (isBuiltIn(id)) return updateBuiltInTheme(prefs, id as BuiltInThemeId, { mode })
   return {
     ...prefs,
     themes: prefs.themes.map((t) => t.id === id ? { ...t, mode } : t),
   }
 }
 
-/**
- * Deletes a user theme. Falls back to Light if the active theme is deleted.
- * Presets are immutable.
- */
+/** Deletes a user theme. Falls back to Light if the active theme is deleted. */
 export function deleteTheme(prefs: ThemePreferences, id: string): ThemePreferences {
   if (isBuiltIn(id)) return prefs
   return {
+    ...prefs,
     active: prefs.active === id ? 'light' : prefs.active,
     themes: prefs.themes.filter((t) => t.id !== id),
   }
+}
+
+/** Restores a built-in theme to its shipped palette, name, and mode. */
+export function resetTheme(prefs: ThemePreferences, id: string): ThemePreferences {
+  if (!isBuiltIn(id) || !prefs.builtInOverrides?.[id as BuiltInThemeId]) return prefs
+  const builtInId = id as BuiltInThemeId
+  const { [builtInId]: _removed, ...remaining } = prefs.builtInOverrides
+  if (Object.keys(remaining).length === 0) {
+    const { builtInOverrides: _overrides, ...withoutOverrides } = prefs
+    return withoutOverrides
+  }
+  return { ...prefs, builtInOverrides: remaining }
 }
 
 /** Sets the active theme. Unknown ids are silently ignored. */

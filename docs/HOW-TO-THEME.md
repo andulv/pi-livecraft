@@ -43,10 +43,17 @@ The following tokens are computed from the 8 source colours and **must not** be 
 3. **Derived tokens** reference `var(--accent)`, `var(--ink)`, etc., so they update automatically when the source colours change.
 4. **`[data-theme="dark"]`** overrides the 8 source colours and `color-scheme`, and applies dark-specific rule overrides for fine-tuned contrast.
 
+## Editing a built-in theme
+
+1. Open Settings via the gear icon.
+2. Under **Color themes**, select any built-in theme (Light, Dark, Néon, GiPiTy, AntTropik, or Acid Pop).
+3. Edit its name or the 8 source colours. Changes are saved locally and applied immediately.
+4. Use **Restore default** to return to the shipped palette, name, and mode.
+
 ## Creating a new theme
 
 1. Open Settings via the gear icon.
-2. Under **Color themes**, click **Duplicate** on any built-in preset (Light, Dark, Néon, GiPiTy, or AntTropik).
+2. Under **Color themes**, click **New custom theme** to duplicate the active theme.
 3. Name your theme.
 4. Edit the 8 source colours. Each input accepts a 6-digit hex code (`#rrggbb`).
 5. Select your theme from the dropdown to apply it.

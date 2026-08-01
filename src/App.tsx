@@ -78,6 +78,7 @@ import {
   persistThemePreferences,
   readThemePreferences,
   renameTheme,
+  resetTheme,
   resolveActiveTheme,
   setActiveTheme,
   shadowForMode,
@@ -394,6 +395,10 @@ function App() {
 
   const deleteSelectedTheme = useCallback((id: string) => {
     setThemePreferences((current) => deleteTheme(current, id))
+  }, [])
+
+  const resetSelectedTheme = useCallback((id: string) => {
+    setThemePreferences((current) => resetTheme(current, id))
   }, [])
 
   useEffect(() => {
@@ -1307,6 +1312,7 @@ function App() {
           onRenameTheme={renameSelectedTheme}
           onUpdateThemeColor={updateSelectedThemeColor}
           onDeleteTheme={deleteSelectedTheme}
+          onResetTheme={resetSelectedTheme}
           onReset={() => {
             setShortcuts(defaultShortcuts)
             window.localStorage.setItem('pi-livecraft.shortcuts', JSON.stringify(defaultShortcuts))

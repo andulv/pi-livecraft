@@ -55,6 +55,7 @@ interface SettingsPanelProps {
   onRenameTheme: (id: string, name: string) => void
   onUpdateThemeColor: (id: string, variable: ThemeVariable, color: string) => void
   onDeleteTheme: (id: string) => void
+  onResetTheme: (id: string) => void
   onReset: () => void
   onClose: () => void
 }
@@ -85,6 +86,7 @@ interface ThemeSettingsProps {
   onDuplicateTheme: () => void
   onUpdateThemeColor: (id: string, variable: ThemeVariable, color: string) => void
   onDeleteTheme: (id: string) => void
+  onResetTheme: (id: string) => void
   onThemeNameChange: (name: string) => void
   onCommitThemeName: () => void
 }
@@ -99,6 +101,7 @@ function ThemeSettings(
     onDuplicateTheme,
     onUpdateThemeColor,
     onDeleteTheme,
+    onResetTheme,
     onThemeNameChange,
     onCommitThemeName,
   }: ThemeSettingsProps,
@@ -120,8 +123,9 @@ function ThemeSettings(
   return (
     <section className='theme-settings'>
       <p>
-        Choose a theme or duplicate one to edit its 8 source colors. Surfaces, text shades, borders,
-        hover states, and contrast colours are generated automatically.
+        Choose a theme and edit its 8 source colors directly. Built-in changes are saved locally and
+        can be restored anytime. Surfaces, text shades, borders, hover states, and contrast colours
+        are generated automatically.
       </p>
       <div className='theme-toolbar'>
         <Select.Root
@@ -183,13 +187,21 @@ function ThemeSettings(
                 value={themeName}
               />
             </label>
-            <button
-              disabled={!editableTheme}
-              onClick={() => onDeleteTheme(activeTheme.id)}
-              type='button'
-            >
-              Delete
-            </button>
+            {activeTheme.builtIn
+              ? (
+                <button onClick={() => onResetTheme(activeTheme.id)} type='button'>
+                  Restore default
+                </button>
+              )
+              : (
+                <button
+                  disabled={!editableTheme}
+                  onClick={() => onDeleteTheme(activeTheme.id)}
+                  type='button'
+                >
+                  Delete
+                </button>
+              )}
           </div>
           <div className='theme-colors'>
             {THEME_VARIABLES.map((variable) => (
@@ -321,6 +333,7 @@ export function SettingsPanel({
   onRenameTheme,
   onUpdateThemeColor,
   onDeleteTheme,
+  onResetTheme,
   onReset,
   onClose,
 }: SettingsPanelProps) {
@@ -329,14 +342,14 @@ export function SettingsPanel({
   const [themeName, setThemeName] = useState('')
   const conflicts = shortcutConflicts(shortcuts)
   const activeTheme = themes.find((theme) => theme.id === activeThemeId) ?? themes[0]
-  const editableTheme = activeTheme && !activeTheme.builtIn
+  const editableTheme = Boolean(activeTheme)
 
   useEffect(() => {
     setThemeName(activeTheme?.name ?? '')
   }, [activeTheme?.id, activeTheme?.name])
 
   const commitThemeName = () => {
-    if (editableTheme && themeName.trim() !== activeTheme.name)
+    if (activeTheme && themeName.trim() !== activeTheme.name)
       onRenameTheme(activeTheme.id, themeName)
   }
 
@@ -372,7 +385,7 @@ export function SettingsPanel({
         </div>
         <section className='settings-content'>
           {activeTab === 'themes' && (
-            <TabPanel id='settings-tab-themes' labelledBy='settings-tab-btn-themes'>
+            <TabPanel key='themes' id='settings-tab-themes' labelledBy='settings-tab-btn-themes'>
               <ThemeSettings
                 activeTheme={activeTheme}
                 editableTheme={editableTheme}
@@ -381,6 +394,7 @@ export function SettingsPanel({
                 onDuplicateTheme={onDuplicateTheme}
                 onSelectTheme={onSelectTheme}
                 onThemeNameChange={setThemeName}
+                onResetTheme={onResetTheme}
                 onUpdateThemeColor={onUpdateThemeColor}
                 themeName={themeName}
                 themes={themes}
@@ -388,7 +402,11 @@ export function SettingsPanel({
             </TabPanel>
           )}
           {activeTab === 'terminal' && (
-            <TabPanel id='settings-tab-terminal' labelledBy='settings-tab-btn-terminal'>
+            <TabPanel
+              key='terminal'
+              id='settings-tab-terminal'
+              labelledBy='settings-tab-btn-terminal'
+            >
               <TerminalSettings
                 onTerminalCommandChange={onTerminalCommandChange}
                 terminalCommand={terminalCommand}
@@ -396,14 +414,17 @@ export function SettingsPanel({
             </TabPanel>
           )}
           {activeTab === 'shortcuts' && (
-            <TabPanel id='settings-tab-shortcuts' labelledBy='settings-tab-btn-shortcuts'>
+            <TabPanel
+              key='shortcuts'
+              id='settings-tab-shortcuts'
+              labelledBy='settings-tab-btn-shortcuts'
+            >
               <ShortcutsSettings
                 capturing={capturing}
                 conflicts={conflicts}
                 definitions={definitions}
                 onChange={onChange}
-                onCaptureEnd={() =>
-                  setCapturing(null)}
+                onCaptureEnd={() => setCapturing(null)}
                 onCaptureStart={setCapturing}
                 shortcuts={shortcuts}
               />
