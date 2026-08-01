@@ -406,7 +406,7 @@
   animation: complete-arrive 800ms ease-out;
 }
 .session-item.complete:not(.selected) strong {
-  color: var(--accent-hover);
+  color: var(--ink);
   font-weight: 650;
 }
 @keyframes complete-arrive {
