@@ -421,43 +421,45 @@ export function TodoWidget(
                               </button>
                             </Tooltip>
                           )}
-                        {!todo.session && (
-                          <>
-                            <Tooltip label='Open a new session'>
-                              <button
-                                aria-label={`Open a new session with “${todo.text}”`}
-                                className='todo-start'
-                                disabled={busy || editingId !== null || startingId !== null}
-                                onClick={() => void startSession(todo)}
-                                type='button'
-                              >
-                                {startingId === todo.id ? '…' : '↗'}
-                              </button>
-                            </Tooltip>
-                            <Tooltip label='Open a session and send the prompt'>
-                              <button
-                                aria-label={`Open a new session and send “${todo.text}”`}
-                                className='todo-send'
-                                disabled={busy || editingId !== null || startingId !== null}
-                                onClick={() => void sendPrompt(todo)}
-                                type='button'
-                              >
-                                {startingId === todo.id ? '…' : '↑'}
-                              </button>
-                            </Tooltip>
-                          </>
-                        )}
-                        <Tooltip label='Delete'>
-                          <button
-                            aria-label={`Delete “${todo.text}”`}
-                            className='todo-delete'
-                            disabled={busy || startingId !== null}
-                            onClick={() => void removeTodo(todo)}
-                            type='button'
-                          >
-                            ×
-                          </button>
-                        </Tooltip>
+                        <div className='todo-actions'>
+                          {!todo.session && (
+                            <>
+                              <Tooltip label='Open a new session'>
+                                <button
+                                  aria-label={`Open a new session with “${todo.text}”`}
+                                  className='todo-start'
+                                  disabled={busy || editingId !== null || startingId !== null}
+                                  onClick={() => void startSession(todo)}
+                                  type='button'
+                                >
+                                  {startingId === todo.id ? '…' : '↗'}
+                                </button>
+                              </Tooltip>
+                              <Tooltip label='Open a session and send the prompt'>
+                                <button
+                                  aria-label={`Open a new session and send “${todo.text}”`}
+                                  className='todo-send'
+                                  disabled={busy || editingId !== null || startingId !== null}
+                                  onClick={() => void sendPrompt(todo)}
+                                  type='button'
+                                >
+                                  {startingId === todo.id ? '…' : '↑'}
+                                </button>
+                              </Tooltip>
+                            </>
+                          )}
+                          <Tooltip label='Delete'>
+                            <button
+                              aria-label={`Delete “${todo.text}”`}
+                              className='todo-delete'
+                              disabled={busy || startingId !== null}
+                              onClick={() => void removeTodo(todo)}
+                              type='button'
+                            >
+                              ×
+                            </button>
+                          </Tooltip>
+                        </div>
                       </li>
                     ))}
                   </ul>

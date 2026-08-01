@@ -22,12 +22,12 @@
   display: grid;
   gap: 4px;
   margin: 0;
-  padding: 10px;
+  padding: 10px 0 10px 10px;
   list-style: none;
 }
 .todo-list li {
   display: grid;
-  grid-template-columns: 18px 22px minmax(0, 1fr) repeat(3, 24px);
+  grid-template-columns: 18px 22px minmax(0, 1fr) 50px;
   align-items: center;
   gap: 4px;
   min-height: 38px;
@@ -70,6 +70,22 @@
 
 .todo-list li.todo-linked {
   grid-template-columns: 18px 22px minmax(0, 1fr) 24px;
+}
+.todo-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 24px);
+  align-items: center;
+  justify-items: center;
+  align-self: center;
+  width: 50px;
+  gap: 2px;
+}
+.todo-actions .todo-delete {
+  grid-column: 1 / -1;
+}
+.todo-list li.todo-linked .todo-actions {
+  grid-template-columns: 24px;
+  width: 24px;
 }
 .todo-indicator-placeholder {
   width: 18px;
