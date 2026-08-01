@@ -60,6 +60,7 @@ export function RightSidebar({
   onRefresh,
   onReset,
   onRevert,
+  onReview,
   onTodoNavigateSession,
   onTodoSendPrompt,
   onTodoStartSession,
@@ -88,6 +89,7 @@ export function RightSidebar({
   onRefresh: () => Promise<void>
   onReset: (hash: string) => Promise<GitResetResult>
   onRevert: (hash: string) => Promise<GitRevertResult>
+  onReview: (prompt: string) => Promise<void>
   onTodoNavigateSession: (link: { id: string; sessionPath: string }) => void
   onTodoSendPrompt: (message: string) => Promise<SessionSummary | null>
   onTodoStartSession: (message: string) => Promise<SessionSummary | null>
@@ -205,6 +207,7 @@ export function RightSidebar({
                 onRefresh={onRefresh}
                 onReset={onReset}
                 onRevert={onRevert}
+                onReview={onReview}
                 snapshot={snapshot}
               />
             )}
