@@ -197,6 +197,13 @@ export const Composer = memo(function Composer({
     slashOpen && String(command.name).toLowerCase().includes(slashFilter.toLowerCase())
   )
 
+  useLayoutEffect(() => {
+    const selectedCommand = formRef.current?.querySelector<HTMLElement>(
+      '.slash-commands [aria-selected="true"]',
+    )
+    selectedCommand?.scrollIntoView({ block: 'nearest' })
+  }, [slashFilter, slashIndex])
+
   /** Inserts the selected slash command into the textarea and closes the popover. */
   function selectSlashCommand(name: string): void {
     setDraftMessage(`/${name} `)
