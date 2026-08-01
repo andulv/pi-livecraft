@@ -239,6 +239,106 @@ export function analyzeSession(
   }
 }
 
+/** Builds a bounded, data-only prompt from the deterministic session report. */
+export function buildSessionAnalysisPrompt(analysis: SessionAnalysis): string {
+  const requestNumbers = new Map(
+    analysis.requests.map((request, index) => [request.messageIndex, index + 1] as const),
+  )
+  const turnSnapshot = (turn: AnalyzedTurn) => ({
+    turn: turn.number,
+    cost: turn.cost,
+    cacheRead: turn.usage.cacheRead,
+    cacheMiss: turn.usage.cacheMiss,
+    output: turn.usage.output,
+  })
+  const requestSnapshot = (request: AnalyzedRequest) => ({
+    request: requestNumbers.get(request.messageIndex) ?? 0,
+    cost: request.cost,
+    modelCalls: request.modelCallCount,
+    toolCalls: request.toolCalls.length,
+    failures: request.failedToolCalls,
+    durationMs: request.durationMs ?? null,
+    complete: request.complete,
+  })
+  const toolCallSnapshot = (call: AnalyzedToolCall) => ({
+    request: requestNumbers.get(call.requestMessageIndex) ?? 0,
+    name: call.name,
+    inputLength: call.inputLength,
+    outputLength: call.outputLength,
+    durationMs: call.durationMs ?? null,
+    failed: call.isError,
+    pending: call.pending,
+  })
+  const costlyRequests = [...analysis.requests]
+    .filter((request) => request.modelCallCount > 0)
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 5)
+    .map(requestSnapshot)
+  const cacheReadHighlights = [...analysis.turns]
+    .filter((turn) => turn.usage.cacheRead > 0)
+    .sort((a, b) => b.usage.cacheRead - a.usage.cacheRead)
+    .slice(0, 4)
+    .map(turnSnapshot)
+  const cacheMissHighlights = [...analysis.turns]
+    .filter((turn) => turn.usage.cacheMiss > 0)
+    .sort((a, b) => b.usage.cacheMiss - a.usage.cacheMiss)
+    .slice(0, 4)
+    .map(turnSnapshot)
+  const notableToolCalls = [...analysis.toolCalls]
+    .sort((a, b) =>
+      b.inputLength + b.outputLength - a.inputLength - a.outputLength
+      || Number(b.isError) - Number(a.isError)
+    )
+    .slice(0, 8)
+    .map(toolCallSnapshot)
+  const failedToolCalls = analysis
+    .toolCalls
+    .filter((call) => call.isError)
+    .slice(0, 5)
+    .map(toolCallSnapshot)
+  const snapshot = {
+    summary: {
+      totalCost: analysis.costAvailable ? analysis.totalCost : null,
+      attributedCost: analysis.attributionAvailable ? analysis.attributedCost : null,
+      unattributedCost: analysis.unattributedCost,
+      turns: analysis.turnCount,
+      averageTurnCost: analysis.averageTurnCost,
+      medianTurnCost: analysis.medianTurnCost,
+      contextPercent: analysis.contextPercent ?? null,
+      totalToolCalls: analysis.totalToolCalls,
+      failedToolCalls: analysis.failedToolCalls,
+    },
+    tokens: analysis.tokensAvailable ? analysis.tokens : null,
+    costlyRequests,
+    cacheReadHighlights,
+    cacheMissHighlights,
+    tools: analysis.tools.slice(0, 12),
+    notableToolCalls,
+    failedToolCalls,
+    dataQuality: {
+      costAvailable: analysis.costAvailable,
+      tokensAvailable: analysis.tokensAvailable,
+      attributionAvailable: analysis.attributionAvailable,
+      toolDetailsPartial: analysis.toolCalls.length < analysis.totalToolCalls,
+      measuredToolDurations: analysis
+        .toolCalls
+        .filter((call) => call.durationMs !== undefined)
+        .length,
+    },
+  }
+  return [
+    'Interprète uniquement les métriques du snapshot JSON ci-dessous.',
+    'Réponds en français en 120 mots maximum : un bilan, jusqu’à trois constats appuyés par des valeurs, puis une action concrète si elle est justifiée.',
+    'Distingue les observations des interprétations et signale les données manquantes.',
+    'Un cacheRead élevé indique généralement une réutilisation efficace ; ce n’est pas un coût en soi.',
+    'Le coût monétaire est disponible au niveau des requêtes, pas de chaque tool call : ne l’invente pas.',
+    '<session_analysis_json>',
+    JSON.stringify(snapshot),
+    '</session_analysis_json>',
+  ]
+    .join('\n')
+}
+
 function createActiveRequest(): MutableRequest {
   return {
     messageIndex: -1,

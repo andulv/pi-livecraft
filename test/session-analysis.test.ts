@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { analyzeSession } from '../src/features/session-analysis/session-analysis.ts'
+import {
+  analyzeSession,
+  buildSessionAnalysisPrompt,
+} from '../src/features/session-analysis/session-analysis.ts'
 
 const usage = (
   input: number,
@@ -219,4 +222,34 @@ test('rattache une exécution live orpheline à une requête navigable de secour
   assert.equal(analysis.averageToolCallsPerTurn, 0)
   assert.equal(analysis.tokensAvailable, false)
   assert.equal(analysis.toolCalls[0]?.requestMessageIndex, -1)
+})
+
+test('prépare un prompt borné sans transmettre les sorties des outils', () => {
+  const analysis = analyzeSession(
+    [
+      { role: 'user', content: 'Inspecte la session.' },
+      {
+        role: 'assistant',
+        content: [{ type: 'toolCall', id: 'call_1', name: 'read', arguments: { path: 'a' } }],
+        usage: usage(100, 4, 900, 20, 0.02),
+      },
+      {
+        role: 'toolResult',
+        toolCallId: 'call_1',
+        toolName: 'read',
+        content: [{ type: 'text', text: 'secret tool output' }],
+        isError: true,
+      },
+    ],
+    null,
+    false,
+  )
+
+  const prompt = buildSessionAnalysisPrompt(analysis)
+
+  assert.ok(prompt.length < 4_000)
+  assert.match(prompt, /"cacheRead":900/)
+  assert.match(prompt, /"failed":true/)
+  assert.doesNotMatch(prompt, /Inspecte la session/)
+  assert.doesNotMatch(prompt, /secret tool output/)
 })

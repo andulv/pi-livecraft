@@ -195,7 +195,11 @@ export function RightSidebar({
                   </div>
                 }
               >
-                <SessionAnalysisWidget analysis={analysis} onNavigate={onAnalysisNavigate} />
+                <SessionAnalysisWidget
+                  analysis={analysis}
+                  onNavigate={onAnalysisNavigate}
+                  sessionId={activeSessionId}
+                />
               </WidgetLayout>
             )}
             {activeWidget === 'git' && snapshot && (
