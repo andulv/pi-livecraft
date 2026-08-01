@@ -10,7 +10,7 @@
   padding: 7px 9px;
   background: var(--ink);
   color: var(--surface);
-  font: 0.6875rem/1.45 ui-monospace, monospace;
+  font: 11px/1.45 ui-monospace, monospace;
   pointer-events: none;
   white-space: pre-wrap;
   box-shadow: var(--shadow-soft);

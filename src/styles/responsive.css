@@ -136,13 +136,13 @@
     width: 35px;
     height: 35px;
     border-radius: 10px;
-    font-size: 1.375rem;
+    font-size: 22px;
   }
   .brand small {
     display: none;
   }
   .new-session {
-    font-size: 0.75rem;
+    font-size: 12px;
   }
   .conversation {
     padding: 20px 12px;
@@ -195,13 +195,5 @@
     border-left: 0;
     padding-top: 10px;
     padding-left: 4px;
-  }
-}
-
-/* Typography scales with the viewport so large screens (e.g. 4K) stay readable
-   without relying on browser zoom or a user preference. */
-@media (min-width: 3000px) {
-  html {
-    font-size: 110%;
   }
 }

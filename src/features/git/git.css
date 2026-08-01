@@ -14,7 +14,7 @@
   width: 29px;
   height: 29px;
   border-radius: 7px;
-  font-size: 1.125rem;
+  font-size: 18px;
 }
 .git-file-list {
   display: grid;
@@ -30,7 +30,7 @@
   min-height: 31px;
   padding: 4px 6px;
   border-radius: 6px;
-  font: 0.6875rem ui-monospace, monospace;
+  font: 11px ui-monospace, monospace;
 }
 .git-file-item:hover {
   background: color-mix(in srgb, var(--surface) 50%, var(--canvas));
@@ -66,7 +66,7 @@
   padding: 0;
   background: transparent;
   color: var(--muted);
-  font-size: 1rem;
+  font-size: 16px;
 }
 .git-file-item:hover .git-file-discard {
   color: var(--ink);
@@ -98,7 +98,7 @@
   border-radius: 7px;
   background: transparent;
   color: var(--muted);
-  font-size: 1.25rem;
+  font-size: 20px;
 }
 .git-back:hover {
   background: color-mix(in srgb, var(--surface) 70%, var(--canvas));
@@ -112,7 +112,7 @@
   overflow-x: auto;
   margin: 0;
   padding: 10px 0 18px;
-  font: 0.6875rem/1.5 ui-monospace, monospace;
+  font: 11px/1.5 ui-monospace, monospace;
 }
 .git-diff-line {
   display: grid;
@@ -157,7 +157,7 @@
   visibility: hidden;
 }
 .git-file-status {
-  font-size: 0.625rem;
+  font-size: 10px;
   font-weight: 800;
   text-align: center;
 }
@@ -182,7 +182,7 @@
   display: inline-flex;
   gap: 5px;
   color: var(--subtle);
-  font-size: 0.625rem;
+  font-size: 10px;
 }
 .git-file-counts b {
   color: var(--success);
@@ -202,7 +202,7 @@
   align-items: center;
   gap: 7px;
   margin: 0 6px 7px;
-  font-size: 0.6875rem;
+  font-size: 11px;
 }
 .git-commits h2 small {
   display: grid;
@@ -213,7 +213,7 @@
   padding: 0 5px;
   background: var(--accent-soft);
   color: var(--accent-hover);
-  font-size: 0.625rem;
+  font-size: 10px;
 }
 .git-commit {
   display: flex;
@@ -233,7 +233,7 @@
   min-width: 0;
   padding: 7px 6px;
   cursor: pointer;
-  font-size: 0.6875rem;
+  font-size: 11px;
 }
 .git-commits summary:hover {
   background: color-mix(in srgb, var(--surface) 50%, var(--canvas));
@@ -245,7 +245,7 @@
 .git-commits summary code {
   flex: 0 0 auto;
   color: var(--accent);
-  font: 700 0.625rem ui-monospace, monospace;
+  font: 700 10px ui-monospace, monospace;
 }
 .git-commits summary span {
   min-width: 0;
@@ -268,7 +268,7 @@
   padding: 0;
   background: transparent;
   color: var(--muted);
-  font-size: 1rem;
+  font-size: 16px;
 }
 .git-commit-action:hover:not(:disabled) {
   background: color-mix(in srgb, var(--surface) 70%, var(--canvas));
@@ -291,7 +291,7 @@
 .git-empty {
   margin: 4px 14px;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 12px;
   line-height: 1.5;
 }
 .git-error {
@@ -303,7 +303,7 @@
   padding: 5px 8px;
   background: var(--danger-soft);
   color: var(--danger);
-  font-size: 0.6875rem;
+  font-size: 11px;
   line-height: 1.4;
   white-space: pre-wrap;
 }
@@ -320,7 +320,7 @@
   padding: 8px 9px;
   background: var(--surface);
   color: var(--ink);
-  font-size: 0.75rem;
+  font-size: 12px;
   outline: 0;
 }
 .git-actions input:focus {
@@ -333,7 +333,7 @@
   padding: 8px 10px;
   background: var(--accent);
   color: var(--surface);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 750;
 }
 .git-actions button:hover:not(:disabled) {

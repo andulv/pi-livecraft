@@ -23,7 +23,7 @@
   background: transparent;
   color: var(--ink);
   outline: 0;
-  font-size: 1rem;
+  font-size: 16px;
 }
 .command-palette-list {
   max-height: 360px;
@@ -52,14 +52,14 @@
 .command-palette-list small {
   display: block;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: 11px;
 }
 .command-palette-list kbd {
   color: var(--muted);
-  font: 0.6875rem ui-monospace, monospace;
+  font: 11px ui-monospace, monospace;
 }
 .command-palette-list p {
   padding: 14px;
   color: var(--muted);
-  font-size: 0.8125rem;
+  font-size: 13px;
 }
