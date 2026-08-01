@@ -6,7 +6,10 @@
   transition: border-color 180ms ease-out, box-shadow 180ms ease-out;
 }
 .composer:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 48%, var(--line));
+  border-color: transparent;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(135deg, var(--accent), var(--secondary)) border-box;
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent),
     var(--shadow-soft);

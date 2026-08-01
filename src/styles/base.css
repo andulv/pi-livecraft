@@ -142,7 +142,7 @@ button:disabled, select:disabled {
 
   /* ── composer ── */
   .composer:focus-within {
-    border-color: color-mix(in srgb, var(--line-strong) 70%, var(--canvas));
+    border-color: transparent;
     box-shadow:
       0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent),
       var(--shadow-soft);
