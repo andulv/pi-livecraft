@@ -175,6 +175,7 @@ export function RightSidebar({
             aria-label={panelLabel(activeWidget)}
             className='right-sidebar-content'
             id={`${activeWidget}-panel`}
+            key={activeWidget ?? 'empty'}
           >
             {activeWidget === 'analysis' && analysis && (
               <WidgetLayout

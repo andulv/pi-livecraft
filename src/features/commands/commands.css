@@ -6,6 +6,7 @@
   place-items: start center;
   padding-top: 12vh;
   background: rgb(0 0 0 / 24%);
+  animation: command-palette-backdrop-in 160ms ease-out both;
 }
 .command-palette {
   width: min(560px, calc(100vw - 32px));
@@ -14,6 +15,31 @@
   background: var(--surface);
   box-shadow: var(--shadow);
   overflow: hidden;
+  animation: command-palette-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes command-palette-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes command-palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .command-palette-backdrop,
+  .command-palette {
+    animation: none;
+  }
 }
 .command-palette input {
   width: 100%;
