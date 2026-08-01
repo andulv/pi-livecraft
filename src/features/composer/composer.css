@@ -764,7 +764,11 @@
   font-weight: 700;
 }
 .slash-command-desc {
+  min-width: 0;
   margin-left: 8px;
+  overflow: hidden;
   color: var(--muted);
   font-size: 0.6875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

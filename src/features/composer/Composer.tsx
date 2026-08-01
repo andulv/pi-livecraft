@@ -412,6 +412,9 @@ export const Composer = memo(function Composer({
               role='option'
             >
               <span className='slash-command-name'>/{String(command.name)}</span>
+              {typeof command.description === 'string' && (
+                <span className='slash-command-desc'>{command.description}</span>
+              )}
             </div>
           ))}
         </div>
