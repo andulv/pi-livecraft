@@ -129,7 +129,7 @@ export function WorkspaceSidebar({
         <Tooltip label='Settings'>
           <button
             aria-label='Open settings'
-            className='theme-toggle'
+            className='settings-button'
             onClick={onOpenSettings}
             type='button'
           >
@@ -139,9 +139,18 @@ export function WorkspaceSidebar({
       </div>
       <div className='workspace-group'>
         <Tooltip label={workspacePath}>
-          <button className='workspace-path' onClick={onChooseWorkspace} type='button'>
-            <span>Current directory</span>
-            <strong>{workspacePath}</strong>
+          <button
+            aria-label={`Choose workspace: ${workspacePath}`}
+            className='workspace-path'
+            onClick={onChooseWorkspace}
+            type='button'
+          >
+            <WorkspaceIcon />
+            <div className='workspace-path-copy'>
+              <span>Current directory</span>
+              <strong>{workspacePath}</strong>
+            </div>
+            <ChevronIcon />
           </button>
         </Tooltip>
       </div>
@@ -264,6 +273,42 @@ function NewSessionButton(
     >
       {busy ? 'Starting…' : '＋ New session'}
     </button>
+  )
+}
+
+function WorkspaceIcon() {
+  return (
+    <svg
+      aria-hidden='true'
+      fill='none'
+      height='16'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='1.5'
+      viewBox='0 0 24 24'
+      width='16'
+    >
+      <path d='M3.5 6.5A1.5 1.5 0 0 1 5 5h4l2 2h8A1.5 1.5 0 0 1 20.5 8.5v9A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5v-11Z' />
+    </svg>
+  )
+}
+
+function ChevronIcon() {
+  return (
+    <svg
+      aria-hidden='true'
+      fill='none'
+      height='14'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='1.75'
+      viewBox='0 0 24 24'
+      width='14'
+    >
+      <path d='m9 6 6 6-6 6' />
+    </svg>
   )
 }
 
