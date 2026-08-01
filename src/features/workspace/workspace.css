@@ -258,6 +258,10 @@
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   background: color-mix(in srgb, var(--accent) 20%, var(--surface));
 }
+.session-item.selected.compacting {
+  border-color: color-mix(in srgb, var(--warning) 40%, transparent);
+  background: color-mix(in srgb, var(--warning) 20%, var(--surface));
+}
 .session-item > span:last-child {
   flex: 1;
   min-width: 0;
