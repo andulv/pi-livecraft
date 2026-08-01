@@ -272,7 +272,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   min-height: 0;
   overflow-y: auto;
   margin-right: -12px;
@@ -285,12 +285,12 @@
 .session-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  min-height: 36px;
+  min-height: 32px;
   border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 6px 10px;
+  border-radius: 8px;
+  padding: 5px 8px;
   background: transparent;
   color: inherit;
   text-align: left;
@@ -352,14 +352,14 @@
   display: flex;
   flex: 0 1 auto;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   min-height: 0;
   max-height: 35%;
-  padding-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid var(--line);
 }
 .other-workspace-sessions h2 {
-  margin: 0 10px;
+  margin: 0 8px;
   color: var(--muted);
   font-size: 11px;
   letter-spacing: 0.04em;
@@ -368,7 +368,7 @@
 .other-session-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   min-height: 0;
   overflow-y: auto;
   margin-right: -12px;
@@ -380,11 +380,6 @@
 }
 
 /* working / compacting text pulse */
-.session-item.working,
-.session-item.compacting,
-.session-item.complete:not(.selected) {
-  padding: 6px 10px;
-}
 .session-item.working strong,
 .session-item.compacting strong,
 .session-item.waiting strong {
