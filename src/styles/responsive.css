@@ -200,7 +200,7 @@
 
 /* Typography scales with the viewport so large screens (e.g. 4K) stay readable
    without relying on browser zoom or a user preference. */
-@media (min-width: 3000px) {
+@media (min-width: 2400px) {
   html {
     font-size: 110%;
   }
