@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
-import { Tooltip } from './components/Tooltip.tsx'
 import {
   commitChanges,
   createSession,
@@ -1088,11 +1087,9 @@ function App() {
                     workingDirectory={selectedSession.cwd}
                     toolExecutions={toolExecutions}
                   />
-                  <Tooltip
-                    label={`${conversationViewDetail.label} — ${conversationViewDetail.description}`}
-                  >
+                  <div className={`chat-detail-control ${conversationView}`}>
                     <button
-                      aria-label={`${conversationViewDetail.label}. ${conversationViewDetail.description}. Click to toggle view.`}
+                      aria-label={`${conversationViewDetail.label}. ${conversationViewDetail.description}. Hover or focus to choose another view.`}
                       className={`chat-detail-toggle ${conversationView}`}
                       onClick={() =>
                         setConversationView((current) => {
@@ -1108,7 +1105,36 @@ function App() {
                         <small>{conversationViewDetail.description}</small>
                       </span>
                     </button>
-                  </Tooltip>
+                    <div
+                      aria-label='Conversation view options'
+                      className='chat-detail-view-menu'
+                      role='group'
+                    >
+                      {(['simple', 'semi-detailed', 'detailed'] as const).map((view) => {
+                        const detail = conversationViewDetails[view]
+                        return (
+                          <button
+                            aria-pressed={view === conversationView}
+                            className={`chat-detail-option ${view}${
+                              view === conversationView ? ' selected' : ''
+                            }`}
+                            key={view}
+                            onClick={() => {
+                              setConversationView(view)
+                              window.localStorage.setItem('pi-livecraft.conversation-view', view)
+                            }}
+                            type='button'
+                          >
+                            <span aria-hidden='true' className='chat-detail-option-mark' />
+                            <span className='chat-detail-option-copy'>
+                              <strong>{detail.label}</strong>
+                              <small>{detail.description}</small>
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
                   <div className='composer-area'>
                     {questionnaire && questionnaireInComposer && (
                       <AskUserQuestionDialog
