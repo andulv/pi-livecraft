@@ -11,12 +11,12 @@ The repository is set up to be forked and changed while you use it.
 [![GitHub forks](https://img.shields.io/github/forks/sebastienservouze/pi-livecraft?style=flat-square&logo=github)](https://github.com/sebastienservouze/pi-livecraft/forks)
 [![License](https://img.shields.io/github/license/sebastienservouze/pi-livecraft?style=flat-square)](LICENSE)
 
-[Why Livecraft?](#why-livecraft) · [Quick start](#quick-start) · [What is included](#what-is-already-in-the-box) · [Make it yours](#make-it-yours) · [Docs](/docs/README.md)
+[Why Livecraft?](#why-livecraft) · [Quick start](#quick-start) · [What is included](#what-is-already-in-the-box) · [Make it yours](#make-it-yours) · [Docs](/docs/README.md) · [Demo](#demo)
 
 </div>
 
-<p align="center"><img src="./docs/assets/demo-pi-livecraft.gif" alt="Pi reshaping the Livecraft interface from a live session" width="1200" /></p>
-<p align="center"><sub>The demo shows Pi changing Livecraft from an open Livecraft session.</sub></p>
+<p align="center"><img src="https://github.com/user-attachments/assets/0398eb37-692c-4042-a197-942184f0235c" alt="Pi reshaping the Livecraft interface from a live session" width="960" /></p>
+<p align="center"><sub>Replacing Livecraft empty session page with Nyan Cat from the session itself</sub></p>
 
 ## Pi still does the work
 
@@ -230,6 +230,10 @@ npm run build
 The Pi RPC integration test additionally requires a configured Pi installation.
 
 </details>
+
+## Demo
+
+https://github.com/user-attachments/assets/a01f53f7-8e82-4591-9d28-61ddb622c135
 
 ## Built with Pi, for Pi ❤️
 
