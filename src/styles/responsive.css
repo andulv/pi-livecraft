@@ -202,6 +202,6 @@
    without relying on browser zoom or a user preference. */
 @media (min-width: 2400px) {
   html {
-    font-size: 110%;
+    font-size: 120%;
   }
 }
