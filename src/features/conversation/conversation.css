@@ -54,7 +54,7 @@
   transition: width 180ms ease;
 }
 .chat-detail-control:hover,
-.chat-detail-control:focus-within {
+.chat-detail-control:has(:focus-visible) {
   width: min(280px, calc(100vw - 32px));
 }
 .chat-detail-toggle {
@@ -79,7 +79,7 @@
     color 180ms ease;
 }
 .chat-detail-control:hover .chat-detail-toggle,
-.chat-detail-control:focus-within .chat-detail-toggle {
+.chat-detail-control:has(:focus-visible) .chat-detail-toggle {
   min-height: 43px;
   justify-content: flex-start;
   padding: 6px 9px;
@@ -131,7 +131,7 @@
   transition: max-width 180ms ease, margin-left 180ms ease, opacity 120ms ease;
 }
 .chat-detail-control:hover .chat-detail-toggle-copy,
-.chat-detail-control:focus-within .chat-detail-toggle-copy {
+.chat-detail-control:has(:focus-visible) .chat-detail-toggle-copy {
   max-width: 240px;
   margin-left: 8px;
   opacity: 1;
@@ -176,7 +176,7 @@
     visibility 0s linear 180ms;
 }
 .chat-detail-control:hover .chat-detail-view-menu,
-.chat-detail-control:focus-within .chat-detail-view-menu {
+.chat-detail-control:has(:focus-visible) .chat-detail-view-menu {
   max-height: 180px;
   margin-top: 5px;
   padding: 4px;
@@ -221,9 +221,17 @@
 }
 .chat-detail-option:hover:not(:disabled),
 .chat-detail-option:focus-visible {
-  border-color: var(--line-strong);
-  background: var(--surface);
-  color: var(--ink);
+  border-color: color-mix(
+    in srgb,
+    var(--chat-detail-option-color) 35%,
+    var(--line-strong)
+  );
+  background: color-mix(
+    in srgb,
+    var(--chat-detail-option-color) 8%,
+    var(--surface)
+  );
+  color: var(--chat-detail-option-color);
 }
 .chat-detail-option:focus-visible {
   outline: 0;
