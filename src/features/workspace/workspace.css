@@ -272,7 +272,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 3px;
+  gap: 0;
   min-height: 0;
   overflow-y: auto;
   margin-right: -12px;
@@ -368,7 +368,7 @@
 .other-session-list {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 0;
   min-height: 0;
   overflow-y: auto;
   margin-right: -12px;
