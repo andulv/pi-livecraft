@@ -2,7 +2,7 @@
   opacity: 0.45;
 }
 .quota-rail-value {
-  font: 700 10px/1 ui-monospace, monospace;
+  font: 700 0.625rem/1 ui-monospace, monospace;
   letter-spacing: -0.5px;
 }
 .quota-content {
@@ -24,7 +24,7 @@
 }
 .quota-provider-heading h2 {
   margin: 0;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .quota-provider-heading span {
   flex: 0 0 auto;
@@ -32,7 +32,7 @@
   padding: 3px 6px;
   background: var(--danger-soft);
   color: var(--danger);
-  font-size: 9px;
+  font-size: 0.5625rem;
   font-weight: 700;
 }
 .quota-row + .quota-row {
@@ -44,7 +44,7 @@
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 7px;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .quota-row-copy strong {
   min-width: 0;
@@ -56,7 +56,7 @@
 .quota-row-copy b {
   flex: 0 0 auto;
   color: var(--ink);
-  font: 700 10px ui-monospace, monospace;
+  font: 700 0.625rem ui-monospace, monospace;
 }
 .quota-bar {
   overflow: hidden;
@@ -75,7 +75,7 @@
   display: block;
   margin-top: 6px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 .quota-error {
   margin: 11px 0 0;
@@ -83,12 +83,12 @@
   padding: 8px 9px;
   background: var(--danger-soft);
   color: var(--danger);
-  font-size: 10px;
+  font-size: 0.625rem;
   line-height: 1.45;
 }
 .quota-empty, .quota-provider-empty {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.5;
 }
 .quota-empty {

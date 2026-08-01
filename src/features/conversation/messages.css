@@ -25,7 +25,7 @@
   gap: 6px;
   margin-top: 8px;
   color: var(--muted);
-  font: 10px/1.4 ui-monospace, monospace;
+  font: 0.625rem/1.4 ui-monospace, monospace;
 }
 .pending-steering-status i {
   width: 6px;
@@ -58,7 +58,7 @@
   display: block;
   margin-bottom: 7px;
   color: var(--muted);
-  font: 10px/1.4 ui-monospace, monospace;
+  font: 0.625rem/1.4 ui-monospace, monospace;
   overflow-wrap: anywhere;
 }
 .turn-usage {
@@ -69,7 +69,7 @@
   padding-bottom: 14px;
   border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
   color: var(--muted);
-  font: 10px ui-monospace, monospace;
+  font: 0.625rem ui-monospace, monospace;
   animation: turn-usage-fade-in 300ms ease-out both;
 }
 .turn-usage div {
@@ -87,7 +87,7 @@
   display: block;
   margin-top: 8px;
   color: color-mix(in srgb, var(--surface) 76%, transparent);
-  font: 10px ui-monospace, monospace;
+  font: 0.625rem ui-monospace, monospace;
   text-align: right;
 }
 .message-image {
@@ -100,7 +100,7 @@
 }
 .content {
   overflow-wrap: anywhere;
-  font: 14px/1.7 ui-sans-serif, system-ui, sans-serif;
+  font: 0.875rem/1.7 ui-sans-serif, system-ui, sans-serif;
 }
 .content > :first-child, .reasoning > :first-child {
   margin-top: 0;
@@ -114,7 +114,7 @@
 .reasoning {
   margin: 0 0 13px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
@@ -124,7 +124,7 @@
   border: 1px solid var(--line);
   border-radius: 7px;
   background: color-mix(in srgb, var(--accent) 7%, var(--surface));
-  font: 11px/1.55 ui-monospace, monospace;
+  font: 0.6875rem/1.55 ui-monospace, monospace;
   white-space: pre-wrap;
 }
 .reasoning :not(pre) > code {
@@ -178,7 +178,7 @@
   border: 1px solid var(--line);
   border-radius: 9px;
   background: color-mix(in srgb, var(--canvas) 60%, var(--surface));
-  font: 12px/1.6 ui-monospace, monospace;
+  font: 0.75rem/1.6 ui-monospace, monospace;
   white-space: pre-wrap;
 }
 .content :not(pre) > code {
@@ -186,7 +186,7 @@
   border-radius: 4px;
   background: color-mix(in srgb, var(--accent) 7%, var(--surface));
   color: var(--ink);
-  font: 12px ui-monospace, monospace;
+  font: 0.75rem ui-monospace, monospace;
 }
 .content a {
   color: var(--accent);
@@ -197,7 +197,7 @@
   width: 100%;
   margin: 0 0 13px;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 0.8125rem;
   table-layout: fixed;
 }
 .content th, .content td {
@@ -228,7 +228,7 @@
   margin: 4px 0;
   padding: 4px 0;
   color: var(--subtle);
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   line-height: 1.5;
   text-align: center;
 }
@@ -238,5 +238,5 @@
   border-radius: 6px;
   background: var(--danger-soft);
   color: var(--danger);
-  font-size: 12px;
+  font-size: 0.75rem;
 }

@@ -46,7 +46,7 @@
   padding: 0;
   background: var(--surface);
   color: var(--ink);
-  font-size: 15px;
+  font-size: 0.9375rem;
   line-height: 1;
 }
 .composer-image button:hover {
@@ -102,20 +102,20 @@
 }
 .prompt-save-dialog header span {
   color: var(--accent-hover);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 750;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .prompt-save-dialog h2 {
   margin: 3px 0 2px;
-  font-size: 18px;
+  font-size: 1.125rem;
   letter-spacing: -0.02em;
 }
 .prompt-save-dialog p,
 .prompt-save-dialog small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.45;
 }
 .prompt-save-dialog p {
@@ -125,7 +125,7 @@
 }
 .prompt-save-dialog label {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 .prompt-save-dialog input {
@@ -137,7 +137,7 @@
   outline: 0;
   background: var(--canvas);
   color: var(--ink);
-  font: 13px ui-monospace, monospace;
+  font: 0.8125rem ui-monospace, monospace;
   transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 .prompt-save-dialog input:focus-visible {
@@ -157,7 +157,7 @@
   padding: 0 12px;
   background: var(--surface);
   color: var(--ink);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   transition:
     border-color 180ms ease,
@@ -208,7 +208,7 @@
 }
 .prompt-comparison strong {
   color: var(--subtle);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 700;
 }
 .prompt-comparison p {
@@ -216,7 +216,7 @@
   margin: 5px 0 0;
   overflow: auto;
   color: var(--ink);
-  font: 12px/1.5 ui-monospace, monospace;
+  font: 0.75rem/1.5 ui-monospace, monospace;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
@@ -226,7 +226,7 @@
   gap: 12px;
   margin-top: 8px;
   color: var(--muted);
-  font: 10px ui-monospace, monospace;
+  font: 0.625rem ui-monospace, monospace;
 }
 .prompt-suggestion-actions {
   display: flex;
@@ -241,7 +241,7 @@
   padding: 0 10px;
   background: var(--surface);
   color: var(--ink);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 650;
 }
 .prompt-suggestion-actions button:hover {
@@ -277,13 +277,13 @@
   gap: 7px;
   min-width: 0;
   color: var(--muted);
-  font: 10px ui-monospace, monospace;
+  font: 0.625rem ui-monospace, monospace;
 }
 .composer-session strong {
   overflow: hidden;
   color: var(--ink);
   font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -305,11 +305,11 @@
 }
 .composer-stats b {
   color: var(--subtle);
-  font: 650 9px ui-sans-serif, system-ui, sans-serif;
+  font: 650 0.5625rem ui-sans-serif, system-ui, sans-serif;
 }
 .composer-stats small {
   color: currentColor;
-  font: 10px ui-monospace, monospace;
+  font: 0.625rem ui-monospace, monospace;
 }
 .composer-stats progress {
   width: 48px;
@@ -377,7 +377,7 @@
   padding: 0 8px;
   background: var(--surface);
   color: var(--ink);
-  font-size: 11px;
+  font-size: 0.6875rem;
   text-align: left;
   transition:
     border-color 180ms ease-out,
@@ -424,7 +424,7 @@
   padding: 0 8px;
   background: var(--surface);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
 }
 .composer-toggle:hover {
@@ -455,7 +455,7 @@
   width: 14px;
   height: 14px;
   color: currentColor;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   line-height: 1;
   text-align: center;
@@ -552,7 +552,7 @@
   padding: 8px 10px;
   outline: 0;
   color: var(--ink);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.35;
   cursor: pointer;
 }
@@ -569,7 +569,7 @@
 }
 .composer-select-option-copy small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 400;
 }
 .composer-select-option.action {
@@ -652,7 +652,7 @@
   align-items: center;
   gap: 8px;
   color: var(--warning-strong);
-  font: 10px ui-monospace, monospace;
+  font: 0.625rem ui-monospace, monospace;
   white-space: nowrap;
 }
 .composer-compacting-spinner {
@@ -746,7 +746,7 @@
   min-height: 34px;
   padding: 8px 12px;
   color: var(--ink);
-  font: 12px/1.5 ui-monospace, monospace;
+  font: 0.75rem/1.5 ui-monospace, monospace;
   cursor: pointer;
   transition: background 100ms ease;
 }
@@ -766,5 +766,5 @@
 .slash-command-desc {
   margin-left: 8px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }

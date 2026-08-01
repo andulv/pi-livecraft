@@ -66,12 +66,12 @@
   white-space: nowrap;
 }
 .widget-header strong {
-  font: 700 12px ui-monospace, monospace;
+  font: 700 0.75rem ui-monospace, monospace;
 }
 .widget-header span {
   margin-top: 4px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .widget-content {
   flex: 1;
@@ -135,7 +135,7 @@
   padding: 0 3px;
   background: var(--accent-soft);
   color: var(--accent-hover);
-  font: 8px ui-sans-serif, system-ui, sans-serif;
+  font: 0.5rem ui-sans-serif, system-ui, sans-serif;
 }
 .rail-tab[aria-expanded="true"] small {
   background: var(--surface);

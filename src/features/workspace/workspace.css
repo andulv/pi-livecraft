@@ -76,14 +76,14 @@
   display: block;
 }
 .brand strong {
-  font-size: 14px;
+  font-size: 0.875rem;
   letter-spacing: -0.02em;
   color: var(--accent);
 }
 .brand small {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .brand-mark {
   display: grid;
@@ -95,7 +95,7 @@
   border-radius: 11px;
   background: var(--accent);
   color: var(--on-accent);
-  font: 500 23px ui-monospace, monospace;
+  font: 500 1.4375rem ui-monospace, monospace;
   box-shadow: 0 3px 0 var(--accent-hover);
 }
 .brand-mark.large {
@@ -103,7 +103,7 @@
   height: 64px;
   margin: auto;
   border-radius: 18px;
-  font-size: 38px;
+  font-size: 2.375rem;
 }
 
 .workspace-group {
@@ -125,7 +125,7 @@
   border-radius: 8px;
   background: transparent;
   color: var(--ink);
-  font-size: 11.5px;
+  font-size: 0.71875rem;
   font-weight: 500;
   cursor: pointer;
   transition: background 180ms ease, border-color 180ms ease;
@@ -167,7 +167,7 @@
 }
 .workspace-path span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
 }
 .workspace-path strong {
@@ -175,7 +175,7 @@
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font: 12px/1.45 ui-monospace, monospace;
+  font: 0.75rem/1.45 ui-monospace, monospace;
   overflow-wrap: anywhere;
 }
 
@@ -269,7 +269,7 @@
   white-space: nowrap;
 }
 .session-item strong {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 500;
   letter-spacing: -0.01em;
 }
@@ -280,7 +280,7 @@
 .session-item small {
   margin-top: 2px;
   color: var(--muted);
-  font: 10px/1.3 ui-monospace, monospace;
+  font: 0.625rem/1.3 ui-monospace, monospace;
 }
 
 .other-workspace-sessions {
@@ -296,7 +296,7 @@
 .other-workspace-sessions h2 {
   margin: 0 10px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -412,7 +412,7 @@
 .empty-sidebar {
   padding: 14px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.5;
   text-align: center;
 }
@@ -420,7 +420,7 @@
 .session-list-loading {
   padding: 6px 10px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   animation: activity-text-breathe 1.8s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -440,7 +440,7 @@
   display: block;
   margin-bottom: 6px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .recent-workspaces > div {
   display: grid;
@@ -455,7 +455,7 @@
   padding: 7px 9px;
   background: var(--surface-raised);
   color: var(--ink);
-  font: 12px ui-monospace, monospace;
+  font: 0.75rem ui-monospace, monospace;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -468,7 +468,7 @@
 .directory-path-label {
   margin: 12px 0 5px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 .directory-path-input {
@@ -478,7 +478,7 @@
   padding: 10px 11px;
   background: var(--surface-raised);
   color: var(--ink);
-  font: 13px ui-monospace, monospace;
+  font: 0.8125rem ui-monospace, monospace;
 }
 .directory-path-input:focus {
   outline: 0;
@@ -488,7 +488,7 @@
 .modal .directory-path-hint {
   margin: 6px 0 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .directory-suggestions {
   max-height: 180px;
@@ -503,7 +503,7 @@
   padding: 8px 10px;
   color: var(--ink);
   cursor: pointer;
-  font: 12px ui-monospace, monospace;
+  font: 0.75rem ui-monospace, monospace;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

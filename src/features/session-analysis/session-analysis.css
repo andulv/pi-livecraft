@@ -19,13 +19,13 @@
 .analysis-summary dt {
   margin-bottom: 4px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 .analysis-summary dd {
   overflow: hidden;
   margin: 0;
   color: var(--ink);
-  font: 700 15px ui-monospace, monospace;
+  font: 700 0.9375rem ui-monospace, monospace;
   text-overflow: ellipsis;
 }
 .analysis-summary .danger dd {
@@ -38,7 +38,7 @@
   display: flex;
   justify-content: space-between;
   margin: 0 14px 7px;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .analysis-context > header span {
   color: var(--muted);
@@ -74,7 +74,7 @@
   justify-content: space-between;
   gap: 8px;
   min-width: 0;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 .analysis-tokens dt {
   color: var(--muted);
@@ -89,7 +89,7 @@
   padding: 10px 14px;
   background: var(--surface-raised);
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   line-height: 1.45;
 }
 .analysis-note strong {
@@ -108,11 +108,11 @@
 }
 .analysis-section h2 {
   margin: 0;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .analysis-section header > span {
   color: var(--subtle);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 .analysis-section select {
   max-width: 125px;
@@ -121,7 +121,7 @@
   padding: 3px 5px;
   background: var(--surface);
   color: var(--ink);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 .analysis-section select:focus-visible {
   outline: 2px solid var(--accent);
@@ -146,7 +146,7 @@
   border-radius: 4px;
   padding: 3px 4px;
   background: transparent;
-  font-size: 8px;
+  font-size: 0.5rem;
   cursor: pointer;
 }
 .token-chart-legend button:hover {
@@ -192,7 +192,7 @@
   position: absolute;
   right: 8px;
   color: var(--muted);
-  font: 8px ui-monospace, monospace;
+  font: 0.5rem ui-monospace, monospace;
   transform: translateY(-50%);
   white-space: nowrap;
 }
@@ -214,14 +214,14 @@
 }
 .chart-x-label, .chart-axis-title {
   fill: var(--muted);
-  font: 8px ui-monospace, monospace;
+  font: 0.5rem ui-monospace, monospace;
 }
 .chart-x-label, .chart-axis-title {
   text-anchor: middle;
 }
 .chart-axis-title {
   fill: var(--subtle);
-  font-size: 7px;
+  font-size: 0.4375rem;
 }
 .chart-point {
   cursor: pointer;
@@ -261,14 +261,14 @@
 }
 .chart-tooltip text {
   fill: var(--ink);
-  font: 9px ui-monospace, monospace;
+  font: 0.5625rem ui-monospace, monospace;
 }
 .chart-tooltip-cost {
   font-weight: 700;
 }
 .chart-tooltip-tools {
   fill: var(--muted);
-  font-size: 8px;
+  font-size: 0.5rem;
 }
 .chart-tooltip-turn {
   font-weight: 700;
@@ -283,7 +283,7 @@
   color: var(--warning-strong);
 }
 .token-tooltip-value {
-  font-size: 8px;
+  font-size: 0.5rem;
   font-weight: 650;
 }
 .token-tooltip-value.token-series-miss {
@@ -311,21 +311,21 @@
 }
 .tool-usage-ranking code {
   overflow: hidden;
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .tool-usage-ranking b {
   color: var(--accent);
-  font: 700 9px ui-monospace, monospace;
+  font: 700 0.5625rem ui-monospace, monospace;
   white-space: nowrap;
 }
 .tool-usage-ranking small {
   display: block;
   margin-top: 4px;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 0.5rem;
 }
 .tool-usage-bar {
   display: block;
@@ -379,17 +379,17 @@
   white-space: nowrap;
 }
 .analysis-ranking strong {
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 650;
 }
 .analysis-ranking small {
   margin-top: 4px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 .analysis-ranking button > b {
   color: var(--accent);
-  font: 700 10px ui-monospace, monospace;
+  font: 700 0.625rem ui-monospace, monospace;
   white-space: nowrap;
 }
 .tool-ranking strong {
@@ -406,7 +406,7 @@
   padding: 2px 5px;
   background: var(--surface-raised);
   color: var(--muted);
-  font-size: 8px;
+  font-size: 0.5rem;
   font-style: normal;
   font-weight: 600;
 }
@@ -421,7 +421,7 @@
   min-height: 29px;
   padding: 4px 6px;
   border-radius: 6px;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 .analysis-tools li:hover {
   background: var(--surface-raised);
@@ -442,7 +442,7 @@
 .analysis-empty {
   margin: 5px 6px 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.45;
 }
 .conversation-target {
