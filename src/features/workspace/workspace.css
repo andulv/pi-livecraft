@@ -346,6 +346,9 @@
   color: var(--accent-hover);
   font-weight: 650;
 }
+.session-item.selected:not(.working):not(.waiting):not(.compacting) strong {
+  color: var(--ink);
+}
 .session-item small {
   margin-top: 2px;
   color: var(--muted);
