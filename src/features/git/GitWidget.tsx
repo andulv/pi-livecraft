@@ -9,14 +9,13 @@ import type {
 } from '../../../shared/types.ts'
 import { WidgetLayout } from '../right-sidebar/WidgetLayout.tsx'
 import { parseGitDiff } from './git-diff.ts'
-import { commitReviewPrompt, uncommittedReviewPrompt } from './review-prompt.ts'
 
 /** Local git-error target — which element to shake on failure. */
-type ErrorTarget = 'push' | 'commit' | 'discard' | 'refresh' | 'review'
+type ErrorTarget = 'push' | 'commit' | 'discard' | 'refresh'
 
 /** Owns Git-specific selection, actions, and diff rendering inside the sidebar. */
 export function GitWidget(
-  { snapshot, onCommit, onDiscard, onFileSelect, onPush, onRefresh, onReset, onRevert, onReview }: {
+  { snapshot, onCommit, onDiscard, onFileSelect, onPush, onRefresh, onReset, onRevert }: {
     snapshot: GitSnapshot
     onCommit: (message: string) => Promise<void>
     onDiscard: (path?: string) => Promise<void>
@@ -25,7 +24,6 @@ export function GitWidget(
     onRefresh: () => Promise<void>
     onReset: (hash: string) => Promise<GitResetResult>
     onRevert: (hash: string) => Promise<GitRevertResult>
-    onReview: (prompt: string) => Promise<void>
   },
 ) {
   const [message, setMessage] = useState('')
@@ -35,18 +33,8 @@ export function GitWidget(
   const [exitingCommits, setExitingCommits] = useState<ReadonlySet<string>>(new Set())
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [errorTarget, setErrorTarget] = useState<ErrorTarget | null>(null)
-  const [reviewPaths, setReviewPaths] = useState<ReadonlySet<string>>(new Set())
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const hasChanges = snapshot.files.length > 0
-  const selectedReviewFiles = snapshot.files.filter(({ path }) => reviewPaths.has(path))
-
-  useEffect(() => {
-    const availablePaths = new Set(snapshot.files.map(({ path }) => path))
-    setReviewPaths((current) => {
-      const next = new Set([...current].filter((path) => availablePaths.has(path)))
-      return next.size === current.size ? current : next
-    })
-  }, [snapshot.files])
 
   /** Clears any stuck error highlight after the shake animation ends. */
   useEffect(() => {
@@ -178,42 +166,6 @@ export function GitWidget(
     }
   }
 
-  function toggleReviewPath(path: string): void {
-    setReviewPaths((current) => {
-      const next = new Set(current)
-      if (next.has(path)) next.delete(path)
-      else next.add(path)
-      return next
-    })
-  }
-
-  async function startReview(prompt: string): Promise<void> {
-    setBusy(true)
-    clearError()
-    try {
-      await onReview(prompt)
-    } catch (error) {
-      reportError(error, 'review')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  function reviewSelected(): void {
-    if (selectedReviewFiles.length === 0) return
-    void startReview(uncommittedReviewPrompt(selectedReviewFiles.map(({ path }) => path)))
-  }
-
-  function reviewAll(): void {
-    if (!hasChanges) return
-    void startReview(uncommittedReviewPrompt(snapshot.files.map(({ path }) => path)))
-  }
-
-  function reviewCommit(commit: GitSnapshot['commits'][number]): void {
-    if (commit.files.length === 0) return
-    void startReview(commitReviewPrompt(commit))
-  }
-
   return (
     <WidgetLayout
       footer={!selectedPath && (
@@ -254,26 +206,6 @@ export function GitWidget(
               type='button'
             >
               Reset
-            </button>
-          </div>
-          <div className='git-review-actions'>
-            <button
-              className={`git-review-button${errorTarget === 'review' ? ' shake' : ''}`}
-              disabled={busy || selectedReviewFiles.length === 0}
-              onClick={reviewSelected}
-              type='button'
-            >
-              Review selected{selectedReviewFiles.length > 0
-                ? ` (${selectedReviewFiles.length})`
-                : ''}
-            </button>
-            <button
-              className='git-review-button secondary'
-              disabled={busy || !hasChanges}
-              onClick={reviewAll}
-              type='button'
-            >
-              Review all
             </button>
           </div>
         </form>
@@ -331,14 +263,6 @@ export function GitWidget(
               <ul className='git-file-list'>
                 {snapshot.files.map((file) => (
                   <li className='git-file-item' key={file.path}>
-                    <input
-                      aria-label={`Select ${file.path} for review`}
-                      checked={reviewPaths.has(file.path)}
-                      className='git-review-checkbox'
-                      disabled={busy}
-                      onChange={() => toggleReviewPath(file.path)}
-                      type='checkbox'
-                    />
                     {file.status === 'added' || file.status === 'modified'
                       ? (
                         <button
@@ -423,26 +347,6 @@ export function GitWidget(
                         : <p className='git-empty'>No files modified.</p>}
                     </details>
                     <div className='git-commit-actions'>
-                      {commit.files.length > 0 && (
-                        <Tooltip label={`Review commit ${commit.hash.slice(0, 7)}`}>
-                          <button
-                            aria-label={`Review commit ${
-                              commit
-                                .hash
-                                .slice(0, 7)
-                            }`}
-                            className={`git-commit-action git-review${
-                              errorTarget === 'review' ? ' shake' : ''
-                            }`}
-                            disabled={busy}
-                            onClick={() =>
-                              reviewCommit(commit)}
-                            type='button'
-                          >
-                            ✦
-                          </button>
-                        </Tooltip>
-                      )}
                       <Tooltip label='Revert this commit'>
                         <button
                           aria-label={`Revert commit ${commit.hash.slice(0, 7)}`}

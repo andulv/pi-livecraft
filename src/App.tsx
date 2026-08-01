@@ -1229,9 +1229,6 @@ function App() {
         onRevert={async (hash) => {
           return await revertGitCommit(workspacePath, hash)
         }}
-        onReview={async (message) => {
-          await startAndSelectSession(() => createSession(workspacePath), undefined, message)
-        }}
         onTodoNavigateSession={(link) => {
           const active = sessions.find((s) => s.id === link.id)
           if (active) {
