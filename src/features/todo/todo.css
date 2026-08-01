@@ -27,13 +27,14 @@
 }
 .todo-list li {
   display: grid;
-  grid-template-columns: 18px 22px minmax(0, 1fr) 30px 30px 30px;
+  grid-template-columns: 18px 22px minmax(0, 1fr) repeat(3, 24px);
   align-items: center;
-  gap: 5px;
-  min-height: 42px;
+  gap: 4px;
+  min-height: 38px;
   border: 1px solid transparent;
   border-radius: 9px;
-  padding: 3px 4px;
+  padding: 3px 2px;
+  animation: todo-item-in 180ms ease-out;
   transition: background 140ms ease, border-color 140ms ease;
 }
 .todo-list li:hover {
@@ -42,6 +43,7 @@
 }
 .todo-list li.dragging {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
+  animation: none;
   opacity: 0.72;
 }
 .todo-drag {
@@ -67,7 +69,7 @@
 }
 
 .todo-list li.todo-linked {
-  grid-template-columns: 18px 22px minmax(0, 1fr) 30px;
+  grid-template-columns: 18px 22px minmax(0, 1fr) 24px;
 }
 .todo-indicator-placeholder {
   width: 18px;
@@ -180,14 +182,14 @@
   outline: 3px solid color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
-/* ── Action icon buttons (30 px compact controls) ── */
+/* ── Action icon buttons (24 px compact controls) ── */
 .todo-start,
 .todo-send,
 .todo-delete {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   border: 0;
   border-radius: 6px;
   padding: 0;
@@ -360,6 +362,14 @@
 @keyframes todo-pulse {
   to {
     opacity: 0.3;
+  }
+}
+@keyframes todo-item-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
