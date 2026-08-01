@@ -83,9 +83,12 @@
   min-height: 43px;
   justify-content: flex-start;
   padding: 6px 9px;
+}
+.chat-detail-control:hover .chat-detail-toggle.simple,
+.chat-detail-control:has(:focus-visible) .chat-detail-toggle.simple {
   border-color: var(--line-strong);
   background: var(--surface-raised);
-  color: var(--ink);
+  color: var(--muted);
 }
 .chat-detail-toggle:focus-visible {
   outline: 0;
