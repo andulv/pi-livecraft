@@ -11,7 +11,7 @@ The repository is set up to be forked and changed while you use it.
 [![GitHub forks](https://img.shields.io/github/forks/sebastienservouze/pi-livecraft?style=flat-square&logo=github)](https://github.com/sebastienservouze/pi-livecraft/forks)
 [![License](https://img.shields.io/github/license/sebastienservouze/pi-livecraft?style=flat-square)](LICENSE)
 
-[Why Livecraft?](#why-livecraft) · [Quick start](#quick-start) · [What is included](#what-is-already-in-the-box) · [Make it yours](#make-it-yours) · [Docs](/docs/README.md) · [Demo](#demo)
+[Why Livecraft?](#why-livecraft) · [Quick start](#quick-start) · [What is included](#what-is-already-in-the-box) · [Make it yours](#make-it-yours) · [Docs](/docs/README.md)
 
 </div>
 
@@ -230,10 +230,6 @@ npm run build
 The Pi RPC integration test additionally requires a configured Pi installation.
 
 </details>
-
-## Demo
-
-
 
 ## Built with Pi, for Pi ❤️
 
