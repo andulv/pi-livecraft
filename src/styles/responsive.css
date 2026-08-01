@@ -56,15 +56,18 @@
   }
 }
 
-@media (max-width: 850px) {
+@media (max-width: 1200px) {
+  /* Match desktop widths at the boundary, then preserve room for the conversation. */
   .app-shell {
-    grid-template-columns: 238px minmax(0, 1fr);
+    grid-template-columns: clamp(220px, 22.67vw, 272px) minmax(0, 1fr);
   }
   .app-shell.right-sidebar-visible {
-    grid-template-columns: 238px minmax(0, 1fr) 308px;
+    grid-template-columns:
+      clamp(220px, 22.67vw, 272px) minmax(0, 1fr)
+      clamp(288px, 29vw, 348px);
   }
   .app-shell.right-sidebar-collapsed {
-    grid-template-columns: 238px minmax(0, 1fr) 48px;
+    grid-template-columns: clamp(220px, 22.67vw, 272px) minmax(0, 1fr) 48px;
   }
   .sidebar-resize-handle,
   .right-sidebar-resize-handle {
@@ -78,7 +81,7 @@
   }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 900px) {
   .app-shell {
     display: flex;
     flex-direction: column;
@@ -92,13 +95,40 @@
     border-bottom: 1px solid var(--panel-line);
   }
   .brand {
+    grid-row: 1;
+    grid-column: 1;
     min-width: 0;
+    margin-bottom: 0;
+  }
+  .workspace-group {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+  .workspace-path {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .workspace-path span {
+    flex: 0 0 auto;
+  }
+  .workspace-path strong {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .new-session {
+    grid-row: 1;
+    grid-column: 2;
+    align-self: center;
     width: auto;
+    margin-bottom: 0;
     padding-inline: 13px;
   }
   .session-list {
+    grid-row: 3;
     grid-column: 1 / -1;
     display: flex;
     flex-direction: row;
@@ -120,7 +150,7 @@
     flex: 1;
   }
   .right-sidebar {
-    max-height: 38dvh;
+    max-height: 34dvh;
     border-top: 1px solid var(--panel-line);
   }
   .right-sidebar-panel {
@@ -181,7 +211,8 @@
   .composer-tools::-webkit-scrollbar {
     display: none;
   }
-  .composer-tools > * {
+  .composer-tools > *,
+  .composer-tools .composer-select {
     flex: 0 0 auto;
   }
   .composer-select {

@@ -1,4 +1,4 @@
-export const defaultWorkspaceSidebarWidth = 296
+export const defaultWorkspaceSidebarWidth = 272
 export const minWorkspaceSidebarWidth = 220
 export const maxWorkspaceSidebarWidth = 480
 

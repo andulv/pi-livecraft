@@ -87,7 +87,7 @@ button:disabled, select:disabled {
 
 .app-shell {
   display: grid;
-  grid-template-columns: var(--workspace-sidebar-width, 296px) minmax(0, 1fr);
+  grid-template-columns: var(--workspace-sidebar-width, 272px) minmax(0, 1fr);
   height: 100dvh;
   overflow: hidden;
   background: var(--canvas);
@@ -95,12 +95,12 @@ button:disabled, select:disabled {
 }
 .app-shell.right-sidebar-visible {
   grid-template-columns:
-    var(--workspace-sidebar-width, 296px) minmax(0, 1fr)
+    var(--workspace-sidebar-width, 272px) minmax(0, 1fr)
     calc(var(--right-sidebar-width, 300px) + 48px);
 }
 .app-shell.right-sidebar-collapsed {
   grid-template-columns:
-    var(--workspace-sidebar-width, 296px) minmax(0, 1fr) 48px;
+    var(--workspace-sidebar-width, 272px) minmax(0, 1fr) 48px;
 }
 
 .workspace {
@@ -129,15 +129,15 @@ button:disabled, select:disabled {
   .session-item.selected {
     border-color: color-mix(in srgb, var(--accent) 45%, transparent);
   }
-  .new-session {
+  .new-session:not(:disabled) {
     box-shadow:
-      0 4px 0 color-mix(in srgb, var(--accent-hover) 35%, black),
-      0 8px 14px rgb(0 0 0 / 18%);
+      0 2px 0 color-mix(in srgb, var(--accent-hover) 35%, black),
+      0 5px 10px rgb(0 0 0 / 18%);
   }
-  .new-session:hover {
+  .new-session:hover:not(:disabled) {
     box-shadow:
-      0 3px 0 color-mix(in srgb, var(--accent-hover) 25%, black),
-      0 6px 12px rgb(0 0 0 / 20%);
+      0 1px 0 color-mix(in srgb, var(--accent-hover) 25%, black),
+      0 4px 8px rgb(0 0 0 / 20%);
   }
 
   /* ── composer ── */

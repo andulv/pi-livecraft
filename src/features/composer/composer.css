@@ -1,6 +1,6 @@
 .composer {
   position: relative;
-  margin: 0 auto 20px;
+  margin: 0 auto 16px;
   overflow: visible;
   border-radius: 14px;
   transition: border-color 180ms ease-out, box-shadow 180ms ease-out;
@@ -60,7 +60,7 @@
 .composer textarea {
   display: block;
   width: 100%;
-  min-height: 92px;
+  min-height: 76px;
   max-height: 400px;
   field-sizing: content;
   resize: none;
