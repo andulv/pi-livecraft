@@ -421,7 +421,7 @@ export const Composer = memo(function Composer({
           if (next.startsWith('/') && allCommands.length > 0) {
             setSlashOpen(true)
             setSlashFilter(next.slice(1))
-            setSlashIndex(-1)
+            setSlashIndex(0)
           } else {
             setSlashOpen(false)
           }
