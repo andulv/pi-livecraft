@@ -9,7 +9,7 @@
   border-right: 1px solid var(--panel-line);
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--accent) 8%, var(--sidebar)) 0%,
+    color-mix(in srgb, var(--accent) 15%, var(--sidebar)) 0%,
     var(--sidebar) 100%
   );
 }
