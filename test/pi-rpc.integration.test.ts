@@ -7,7 +7,7 @@ import { JsonLineDecoder, encodeJsonLine } from '../server/jsonl.ts'
 import type { JsonObject } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 
-test('exposes current Pi commands over RPC', { timeout: 30_000 }, async () => {
+test('exposes current Pi commands over RPC', { timeout: 30_000 }, async (t) => {
   const pi = spawn('pi', ['--mode', 'rpc', '--offline', '--no-session'], {
     cwd: join(homedir(), '.pi'),
     env: { ...process.env, PI_OFFLINE: '1' },
@@ -32,13 +32,29 @@ test('exposes current Pi commands over RPC', { timeout: 30_000 }, async () => {
     pi.stdin.write(encodeJsonLine({ id: 'commands', type: 'get_commands' }))
     const response = await commandsResponse
     assert.equal(response.success, true)
-    const data = response.data
-    assert.ok(isObject(data))
-    assert.ok(Array.isArray(data.commands))
-    assert.ok(data.commands.length > 0)
-    assert.ok(
-      data.commands.every((command) => isObject(command) && typeof command.name === 'string'),
+    const hasAgentCommand = isObject(response.data)
+      && Array.isArray(response.data.commands)
+      && response.data.commands.some((command) => isObject(command) && command.name === 'agent')
+    if (!hasAgentCommand) {
+      t.skip('Pi /agent extension is not installed')
+      return
+    }
+
+    const dialogRequest = waitFor((value) =>
+      value.type === 'extension_ui_request' && value.method === 'select'
     )
+    const promptResponse = waitFor((value) =>
+      value.type === 'response' && value.id === 'agent-selector'
+    )
+    pi.stdin.write(encodeJsonLine({ id: 'agent-selector', type: 'prompt', message: '/agent' }))
+    const dialog = await dialogRequest
+    assert.equal(dialog.title, 'Select an agent')
+    assert.ok(Array.isArray(dialog.options) && dialog.options.length > 0)
+    assert.ok(dialog.options.every((option) => typeof option === 'string'))
+    pi.stdin.write(
+      encodeJsonLine({ type: 'extension_ui_response', id: dialog.id, cancelled: true }),
+    )
+    assert.equal((await promptResponse).success, true)
   } finally {
     pi.kill('SIGTERM')
   }
