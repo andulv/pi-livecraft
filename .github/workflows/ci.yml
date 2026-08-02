@@ -39,7 +39,7 @@ jobs:
 
       - name: Install Pi
         run: |
-          npm install --global --ignore-scripts @earendil-works/pi-coding-agent@0.83.0
+          npm install --global --ignore-scripts @earendil-works/pi-coding-agent@latest
           mkdir -p "$HOME/.pi"
 
       - name: Test
