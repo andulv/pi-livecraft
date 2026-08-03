@@ -4,8 +4,18 @@ import { isAbsolute, join, relative, sep } from 'node:path'
 import type { RecentSession } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 
-const sessionDirectory = process.env.PI_CODING_AGENT_SESSION_DIR
-  ?? join(homedir(), '.pi', 'agent', 'sessions')
+const sessionDirectory = resolvePiSessionDirectory(process.env, homedir())
+
+/** Resolves Pi's session storage using its configured profile before the default profile. */
+export function resolvePiSessionDirectory(
+  environment: { PI_CODING_AGENT_SESSION_DIR?: string; PI_CODING_AGENT_DIR?: string },
+  homeDirectory: string,
+): string {
+  return environment.PI_CODING_AGENT_SESSION_DIR
+    ?? (environment.PI_CODING_AGENT_DIR
+      ? join(environment.PI_CODING_AGENT_DIR, 'sessions')
+      : join(homeDirectory, '.pi', 'agent', 'sessions'))
+}
 
 interface PiSessionHeader {
   type: 'session'
@@ -76,6 +86,12 @@ async function listSessionFiles(directory: string): Promise<string[]> {
 
 /** Extracts a session's identity, name, and latest activity without loading its full history. */
 async function readPiSession(path: string, updatedAt: number): Promise<RecentSession | null> {
+  let canonicalPath: string
+  try {
+    canonicalPath = await realpath(path)
+  } catch {
+    return null
+  }
   let lines: string[]
   try {
     lines = (await readFile(path, 'utf8')).split('\n')
@@ -85,6 +101,12 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
 
   const header = parseHeader(lines[0])
   if (!header) return null
+  let cwd: string
+  try {
+    cwd = await realpath(header.cwd)
+  } catch {
+    return null
+  }
   let hasMessage = false
   let name: string | undefined
   let prompt: string | undefined
@@ -112,9 +134,9 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
   const createdAt = Date.parse(header.timestamp)
   return {
     id: header.id,
-    cwd: header.cwd,
+    cwd,
     name: name || prompt || 'New session',
-    sessionPath: path,
+    sessionPath: canonicalPath,
     updatedAt: lastMessageAt ?? (Number.isNaN(createdAt) ? updatedAt : createdAt),
   }
 }
