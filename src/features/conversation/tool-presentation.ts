@@ -158,10 +158,20 @@ export function toolTextPreview(
   text: string,
   maxLines = 4,
 ): { text: string; remainingLineCount: number } {
-  const lines = text.endsWith('\n') ? text.slice(0, -1).split('\n') : text.split('\n')
-  const remainingLineCount = Math.max(0, lines.length - maxLines)
+  const contentEnd = text.endsWith('\n') ? text.length - 1 : text.length
+  let lineCount = 1
+  let previewEnd = maxLines > 0 ? contentEnd : 0
+  let searchFrom = 0
+  while (searchFrom < contentEnd) {
+    const newline = text.indexOf('\n', searchFrom)
+    if (newline < 0 || newline >= contentEnd) break
+    lineCount += 1
+    if (lineCount === maxLines + 1) previewEnd = newline
+    searchFrom = newline + 1
+  }
+  const remainingLineCount = Math.max(0, lineCount - maxLines)
   if (remainingLineCount === 0) return { text, remainingLineCount }
-  return { text: `${lines.slice(0, maxLines).join('\n')}…`, remainingLineCount }
+  return { text: `${text.slice(0, previewEnd)}…`, remainingLineCount }
 }
 
 /** Builds a file:// URL compatible with POSIX paths, Windows paths, and WSL shares. */

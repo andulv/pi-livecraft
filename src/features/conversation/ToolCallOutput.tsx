@@ -51,6 +51,7 @@ export function ToolCallPreview({
   content,
   isNearViewport,
   onClick,
+  previewText,
   remainingLineCount,
   showHtmlPreview,
 }: {
@@ -58,6 +59,7 @@ export function ToolCallPreview({
   content: string
   isNearViewport: boolean
   onClick: () => void
+  previewText: string
   remainingLineCount: number
   showHtmlPreview: boolean
 }) {
@@ -98,11 +100,12 @@ export function ToolCallPreview({
   const filePath = toolFilePath(call.args)
   const isReadOrWrite = call.name === 'read' || call.name === 'write'
   const startLine = isReadOrWrite ? readStartingLineNumber(call.args) : 1
+  const plainContent = isNearViewport ? content : previewText
   const plainPreview = csvPreview
     ? <pre>{content.length > 400 ? `${content.slice(0, 400)}…` : content}</pre>
     : isReadOrWrite
-    ? <NumberedPre content={content} startLine={startLine} />
-    : <pre>{content}</pre>
+    ? <NumberedPre content={plainContent} startLine={startLine} />
+    : <pre>{plainContent}</pre>
 
   if (!isNearViewport && renderedHeight !== undefined) {
     return (

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import { lazy, memo, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { parseMarkdownFrontmatter } from './markdown-frontmatter.ts'
@@ -79,7 +79,7 @@ function MarkdownCode({
 }
 
 /** Renders conversation Markdown and optionally exposes validated front matter as a table. */
-export function Markdown(
+export const Markdown = memo(function Markdown(
   { children, renderFrontmatter = false }: { children: string; renderFrontmatter?: boolean },
 ) {
   const frontmatter = renderFrontmatter ? parseMarkdownFrontmatter(children) : null
@@ -119,4 +119,4 @@ export function Markdown(
       </ReactMarkdown>
     </>
   )
-}
+})

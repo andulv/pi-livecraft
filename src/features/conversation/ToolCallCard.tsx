@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, type RefObject } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import { CopyButton } from './CopyButton.tsx'
 import { canHighlightFile } from './file-preview.ts'
@@ -119,14 +119,18 @@ export const ToolCallCard = memo(function ToolCallCard({
     && canHighlightFile(content)
   const isNearViewport = useInView(cardRef, hasCodePreview || hasRenderedPreview)
   const contentError = resultError
-  const preview = display.kind === 'csv'
-    ? {
-      text: content.length > maxPreviewChars
-        ? `${content.slice(0, maxPreviewChars)}…`
-        : content,
-      remainingLineCount: 0,
-    }
-    : toolTextPreview(content)
+  const preview = useMemo(
+    () =>
+      display.kind === 'csv'
+        ? {
+          text: content.length > maxPreviewChars
+            ? `${content.slice(0, maxPreviewChars)}…`
+            : content,
+          remainingLineCount: 0,
+        }
+        : toolTextPreview(content),
+    [content, display.kind],
+  )
   const streamingArgs = streaming || interrupted ? input : undefined
   const streamingTruncated = Boolean(streamingArgs && streamingArgs.length > maxPreviewChars)
   const streamingPreviewText = streamingArgs && streamingArgs.length > maxPreviewChars
@@ -322,6 +326,8 @@ export const ToolCallCard = memo(function ToolCallCard({
                         .text}
                     isNearViewport={isNearViewport}
                     onClick={activate}
+                    previewText={preview
+                      .text}
                     showHtmlPreview={!contentError}
                     remainingLineCount={preview
                       .remainingLineCount}
