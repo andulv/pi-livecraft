@@ -7,6 +7,7 @@ const indicatorLabels: Record<SessionIndicator, string> = {
   waiting: 'Pi is waiting for your response',
   compacting: 'Pi is compacting the session',
   complete: 'Pi finished its turn',
+  idle: 'Pi is idle',
 }
 
 /** Reusable indicator using the same visual vocabulary as the workspace sidebar. */

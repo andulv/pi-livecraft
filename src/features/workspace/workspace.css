@@ -320,8 +320,8 @@
   transform: none;
 }
 .session-item.selected {
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  background: color-mix(in srgb, var(--accent) 20%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: var(--accent-soft);
 }
 .session-item.selected.compacting {
   border-color: color-mix(in srgb, var(--warning) 40%, transparent);
@@ -344,7 +344,7 @@
 }
 .session-item.selected strong {
   color: var(--accent-hover);
-  font-weight: 650;
+  font-weight: 400;
 }
 .session-item.selected:not(.working):not(.waiting):not(.compacting) strong {
   color: var(--ink);
@@ -405,17 +405,22 @@
 
 /* completion — light accent tint with one-shot arrival and slow breathe */
 .session-item.complete:not(.selected) {
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  background: var(--accent);
+  color: var(--surface);
   animation: complete-arrive 800ms ease-out;
 }
+.session-item.complete:not(.selected) strong,
+.session-item.complete:not(.selected) small,
+.session-item.complete:not(.selected) .session-status-indicator.complete {
+  color: var(--surface);
+}
 .session-item.complete:not(.selected) strong {
-  color: var(--accent-hover);
   font-weight: 650;
 }
 @keyframes complete-arrive {
   from {
     box-shadow: inset 0 0 0 999px
-      color-mix(in srgb, var(--accent) 8%, var(--surface));
+      color-mix(in srgb, var(--accent) 14%, var(--surface));
   }
 }
 .session-status-indicator {
@@ -428,6 +433,12 @@
   background: var(--accent);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
   animation: session-status-pulse 1.8s ease-out infinite;
+}
+.session-status-indicator.idle {
+  width: 8px;
+  height: 8px;
+  background: var(--subtle);
+  box-shadow: none;
 }
 .session-status-indicator.compacting {
   width: 16px;
@@ -463,7 +474,7 @@
   border-radius: 0;
   background: none;
   box-shadow: none;
-  color: var(--accent-hover);
+  color: var(--accent);
 }
 .session-status-indicator.complete svg {
   width: 14px;

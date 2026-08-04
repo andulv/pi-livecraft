@@ -26,6 +26,7 @@ export function otherWorkspaceSessions(
     session.cwd !== workspacePath
     && session.status !== 'exited'
     && sessionIndicator(session, '', compactingSessionIds, completedSessionIds) !== null
+    && sessionIndicator(session, '', compactingSessionIds, completedSessionIds) !== 'idle'
   )
   return [
     ...relevant.filter((session) =>

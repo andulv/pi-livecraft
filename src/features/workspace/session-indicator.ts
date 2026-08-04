@@ -1,9 +1,9 @@
 import type { SessionSummary } from '../../../shared/types.ts'
 import { isAgentSelector, isBlockingDialog } from '../dialogs/dialog-protocol.ts'
 
-export type SessionIndicator = 'working' | 'waiting' | 'compacting' | 'complete'
+export type SessionIndicator = 'working' | 'waiting' | 'compacting' | 'complete' | 'idle'
 
-/** Returns the single highest-priority state worth surfacing beside a session. */
+/** Returns the highest-priority state to surface beside a live Pi session. */
 export function sessionIndicator(
   session: SessionSummary | undefined,
   selectedId: string,
@@ -19,5 +19,6 @@ export function sessionIndicator(
     session.status === 'idle' && session.id !== selectedId
     && completedSessionIds.has(session.sessionPath ?? session.id)
   ) return 'complete'
+  if (session.status === 'idle') return 'idle'
   return null
 }

@@ -35,7 +35,14 @@ test('prioritizes attention and clears completed sessions when they are consulte
   )
   assert.equal(
     sessionIndicator({ ...session, status: 'idle' }, session.id, noneCompacting, completed),
-    null,
+    'idle',
+  )
+})
+
+test('marks a live idle session without a completion event as idle', () => {
+  assert.equal(
+    sessionIndicator({ ...session, status: 'idle' }, '', new Set(), new Set()),
+    'idle',
   )
 })
 
@@ -65,10 +72,10 @@ test('survives a page refresh: restored completed ids still show complete for id
     sessionIndicator({ ...session, status: 'running' }, '', new Set(), restored),
     'working',
   )
-  // Selected sessions never show complete.
+  // Selected sessions keep the linked-process idle marker instead of showing complete.
   assert.equal(
     sessionIndicator({ ...session, status: 'idle' }, session.id, new Set(), restored),
-    null,
+    'idle',
   )
 })
 
