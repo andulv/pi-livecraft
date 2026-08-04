@@ -27,6 +27,8 @@ import type {
 
 const host = '127.0.0.1'
 const port = readPort('PI_LIVECRAFT_MANAGER_PORT', 43_120)
+const minimumOpenSessionsPerWorkspace = 3
+const idleReuseAfterMs = 3 * 60_000
 const clients = new Set<Socket>()
 const sessions = new Map<string, ManagedSession>()
 const restartExitCode = readRestartExitCode()
@@ -48,6 +50,7 @@ interface ManagedSession {
   pendingUi: Map<string, JsonObject>
   inFlightRequests: number
   switching: boolean
+  idleSince: number | undefined
 }
 
 const server = createServer((socket) => {
@@ -164,7 +167,8 @@ async function refreshSessionActivity(): Promise<boolean> {
   )
   const activity = await Promise.all(managedSessions.map(async (session) => {
     const running = piHasActiveWork(await requestPi(session, { type: 'get_state' }, 5_000))
-    session.summary.status = running ? 'running' : 'idle'
+    if (running) markSessionRunning(session)
+    else markSessionIdle(session)
     return running || session.pendingUi.size > 0
   }))
   return activity.some(Boolean)
@@ -181,6 +185,20 @@ function piHasActiveWork(state: JsonObject): boolean {
   ) throw new Error('Pi returned an invalid session state')
   return state.data.isStreaming || state.data.isCompacting
     || state.data.pendingMessageCount > 0
+}
+
+function markSessionRunning(session: ManagedSession): void {
+  session.summary.status = 'running'
+  session.idleSince = undefined
+}
+
+function markSessionIdle(session: ManagedSession, resetIdleSince = false): void {
+  session.summary.status = 'idle'
+  if (resetIdleSince || session.idleSince === undefined) session.idleSince = Date.now()
+}
+
+function hasBeenIdleLongEnough(session: ManagedSession): boolean {
+  return session.idleSince !== undefined && Date.now() - session.idleSince > idleReuseAfterMs
 }
 
 async function createSession(request: ManagerRequest): Promise<SessionSummary> {
@@ -273,15 +291,21 @@ async function renameSession(request: ManagerRequest): Promise<{ name: string }>
   }
 }
 
-/** Reuses an available process in the workspace before starting another one. */
+/** Keeps three workspace sessions alive and reuses only long-idle processes. */
 async function startSession(summary: SessionSummary): Promise<void> {
-  const reusable = [...sessions.values()].find((session) =>
-    session.summary.cwd === summary.cwd
-    && session.summary.status === 'idle'
-    && session.pendingUi.size === 0
-    && session.inFlightRequests === 0
-    && !session.switching
-  )
+  const openSessions = [...sessions.values()]
+    .filter(({ summary: current }) => current.cwd === summary.cwd && current.status !== 'exited')
+    .length
+  const reusable = openSessions >= minimumOpenSessionsPerWorkspace
+    ? [...sessions.values()].find((session) =>
+      session.summary.cwd === summary.cwd
+      && session.summary.status === 'idle'
+      && session.pendingUi.size === 0
+      && session.inFlightRequests === 0
+      && !session.switching
+      && hasBeenIdleLongEnough(session)
+    )
+    : undefined
   if (reusable && await reuseSession(reusable, summary)) return
 
   const pi = new PiProcess(summary.cwd, summary.id, summary.sessionPath)
@@ -291,6 +315,7 @@ async function startSession(summary: SessionSummary): Promise<void> {
     pendingUi: new Map(),
     inFlightRequests: 0,
     switching: false,
+    idleSince: undefined,
   }
 
   sessions.set(summary.id, session)
@@ -312,7 +337,7 @@ async function startSession(summary: SessionSummary): Promise<void> {
       ? state.data.sessionFile
       : undefined
     if (sessionPath) summary.sessionPath = sessionPath
-    summary.status = 'idle'
+    markSessionIdle(session)
   } catch (error) {
     sessions.delete(summary.id)
     await pi.terminate()
@@ -327,7 +352,8 @@ async function reuseSession(session: ManagedSession, summary: SessionSummary): P
     const running = piHasActiveWork(
       await requestPi(session, { type: 'get_state' }, 5_000),
     )
-    session.summary.status = running ? 'running' : 'idle'
+    if (running) markSessionRunning(session)
+    else markSessionIdle(session)
     if (running || session.pendingUi.size > 0) return false
 
     const response = await requestPi(
@@ -344,11 +370,11 @@ async function reuseSession(session: ManagedSession, summary: SessionSummary): P
       ? state.data.sessionFile
       : undefined
     if (sessionPath) summary.sessionPath = sessionPath
-    summary.status = 'idle'
 
     sessions.delete(session.summary.id)
     session.summary = summary
     session.pendingUi.clear()
+    markSessionIdle(session, true)
     sessions.set(summary.id, session)
     return true
   } catch {
@@ -456,16 +482,21 @@ async function sendCommand(request: ManagerRequest): Promise<JsonObject> {
   if (request.command.type === 'extension_ui_response') {
     if (typeof request.command.id === 'string') session.pendingUi.delete(request.command.id)
     session.pi.send(request.command)
+    if (session.summary.status === 'idle' && session.pendingUi.size === 0)
+      markSessionIdle(session, true)
     return { success: true }
   }
 
   const startsAgent = request.command.type === 'prompt'
     && (typeof request.command.message !== 'string' || !request.command.message.startsWith('/'))
-  if (startsAgent) session.summary.status = 'running'
+  if (startsAgent) markSessionRunning(session)
   try {
-    return await requestPi(session, request.command)
+    const response = await requestPi(session, request.command)
+    if (!startsAgent && session.summary.status === 'idle' && session.pendingUi.size === 0)
+      markSessionIdle(session, true)
+    return response
   } catch (error) {
-    if (startsAgent && session.summary.status === 'running') session.summary.status = 'idle'
+    if (startsAgent && session.summary.status === 'running') markSessionIdle(session, true)
     throw error
   }
 }
@@ -476,8 +507,8 @@ function handlePiEvent(sessionId: string, session: ManagedSession, event: JsonOb
       ? event.name.trim()
       : 'Nouvelle session'
   }
-  if (event.type === 'agent_start') session.summary.status = 'running'
-  if (event.type === 'agent_settled') session.summary.status = 'idle'
+  if (event.type === 'agent_start') markSessionRunning(session)
+  if (event.type === 'agent_settled') markSessionIdle(session, true)
   if (
     event.type === 'extension_ui_request' && event.method === 'setStatus'
     && event.statusKey === 'agent'

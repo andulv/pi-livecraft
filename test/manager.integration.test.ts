@@ -217,7 +217,7 @@ test(
 )
 
 test(
-  'reuses idle Pi processes within a workspace and spawns when they are busy',
+  'keeps three Pi processes and does not reuse a recently idle one',
   { timeout: 10_000 },
   async () => {
     const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
@@ -247,55 +247,70 @@ test(
         }),
       )
 
-      const created = await client.request('create', { cwd: process.cwd() })
-      const createdId = sessionId(created)
-      assert.notEqual(createdId, firstId)
-      assert.equal(
-        processId(
-          await client.request('command', {
-            sessionId: createdId,
-            command: { type: 'process_id_test' },
-          }),
-        ),
-        firstPid,
-      )
-      assert.equal(sessionStatus(await client.request('list', {}), firstId), undefined)
-
-      assert.equal(
-        (await client.request('command', {
-          sessionId: createdId,
-          command: { type: 'prompt', message: 'Keep working' },
-        }))
-          .ok,
-        true,
-      )
-      const second = await client.request('open', {
-        cwd: process.cwd(),
-        name: 'Second',
-        sessionPath: join(directory, 'second.jsonl'),
-      })
+      const second = await client.request('create', { cwd: process.cwd() })
+      const secondId = sessionId(second)
       const secondPid = processId(
         await client.request('command', {
-          sessionId: sessionId(second),
+          sessionId: secondId,
           command: { type: 'process_id_test' },
         }),
       )
       assert.notEqual(secondPid, firstPid)
 
-      const third = await client.request('open', {
-        cwd: process.cwd(),
-        name: 'Third',
-        sessionPath: join(directory, 'third.jsonl'),
-      })
-      assert.equal(
-        processId(
-          await client.request('command', {
-            sessionId: sessionId(third),
-            command: { type: 'process_id_test' },
-          }),
-        ),
-        secondPid,
+      const third = await client.request('create', { cwd: process.cwd() })
+      const thirdId = sessionId(third)
+      const thirdPid = processId(
+        await client.request('command', {
+          sessionId: thirdId,
+          command: { type: 'process_id_test' },
+        }),
       )
+      assert.notEqual(thirdPid, firstPid)
+      assert.notEqual(thirdPid, secondPid)
+
+      const fourth = await client.request('open', {
+        cwd: process.cwd(),
+        name: 'Fourth',
+        sessionPath: join(directory, 'fourth.jsonl'),
+      })
+      const fourthId = sessionId(fourth)
+      const fourthPid = processId(
+        await client.request('command', {
+          sessionId: fourthId,
+          command: { type: 'process_id_test' },
+        }),
+      )
+      assert.notEqual(fourthPid, firstPid)
+      assert.notEqual(fourthPid, secondPid)
+      assert.notEqual(fourthPid, thirdPid)
+      assert.notEqual(sessionStatus(await client.request('list', {}), firstId), undefined)
+
+      for (const id of [firstId, secondId, thirdId, fourthId]) {
+        assert.equal(
+          (await client.request('command', {
+            sessionId: id,
+            command: { type: 'prompt', message: `Keep working: ${id}` },
+          }))
+            .ok,
+          true,
+        )
+      }
+
+      const fifth = await client.request('open', {
+        cwd: process.cwd(),
+        name: 'Fifth',
+        sessionPath: join(directory, 'fifth.jsonl'),
+      })
+      const fifthPid = processId(
+        await client.request('command', {
+          sessionId: sessionId(fifth),
+          command: { type: 'process_id_test' },
+        }),
+      )
+      assert.notEqual(fifthPid, firstPid)
+      assert.notEqual(fifthPid, secondPid)
+      assert.notEqual(fifthPid, thirdPid)
+      assert.notEqual(fifthPid, fourthPid)
     } finally {
       client.close()
       await stopProcess(manager)

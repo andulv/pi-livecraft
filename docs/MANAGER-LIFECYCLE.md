@@ -14,7 +14,7 @@ Process ownership must not move into the backend: doing so would make backend re
 
 ## Pi process allocation
 
-When a session is created or reopened, the manager first reassigns an idle Pi process from the same canonical working directory through Pi's public `new_session` or `switch_session` RPC command. A process is reusable only when it has no running work, in-flight RPC request, or pending blocking UI; otherwise the manager starts another process so sessions can continue concurrently. The replaced session remains persisted in Pi history and can be reopened later.
+When a session is created or reopened, the manager first keeps three live Pi processes for the same canonical working directory: the first three sessions always start their own process. Once that minimum is reached, it reassigns only an idle process that has remained unused for more than three minutes through Pi's public `new_session` or `switch_session` RPC command. A process is not reusable while it has running work, an in-flight RPC request, pending blocking UI, or recent activity; if no process qualifies, the manager starts another one. The pool may therefore grow beyond three processes during bursts, while the replaced session remains persisted in Pi history and can be reopened later.
 
 ## Runtime revision
 
