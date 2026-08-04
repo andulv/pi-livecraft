@@ -1,4 +1,5 @@
 import {
+  startTransition,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -24,6 +25,7 @@ import { MessageCard, TurnUsage } from './MessageCard.tsx'
 import { isVisibleConversationMessage } from './message-display.ts'
 import { ToolCallCard } from './ToolCallCard.tsx'
 import {
+  conversationHistoryStart,
   resumesAutoScrollAfterDownwardScroll,
   suspendsAutoScrollAfterUpwardScroll,
 } from './conversation-scroll.ts'
@@ -117,6 +119,19 @@ export function Conversation(
     allMessages,
     liveMessages,
   ])
+  const initialHistoryStart = useMemo(
+    () => conversationHistoryStart(allMessages, allMessages.length),
+    [allMessages],
+  )
+  const [historyStart, setHistoryStart] = useState(initialHistoryStart)
+  const renderedHistoryStart = Math.min(historyStart, initialHistoryStart)
+  const renderedMessageEntries = useMemo(
+    () =>
+      messageEntries.filter((entry) =>
+        entry.source === 'live' || entry.historyIndex >= renderedHistoryStart
+      ),
+    [messageEntries, renderedHistoryStart],
+  )
   const visibleLiveMessages = messageEntries.filter((entry) => entry.source === 'live')
   const conversationRef = useRef<HTMLDivElement>(null)
   const conversationContentRef = useRef<HTMLDivElement>(null)
@@ -127,6 +142,18 @@ export function Conversation(
   const navigationInProgressRef = useRef(false)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
   const [highlightedTarget, setHighlightedTarget] = useState<string>()
+
+  /** Mounts older history in bounded batches after the recent conversation has painted. */
+  useEffect(() => {
+    if (renderedHistoryStart === 0) return
+    const nextHistoryStart = conversationHistoryStart(allMessages, renderedHistoryStart)
+    const frame = window.requestAnimationFrame(() => {
+      startTransition(() => {
+        setHistoryStart((current) => Math.min(current, nextHistoryStart))
+      })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [allMessages, renderedHistoryStart])
 
   /** Keeps a followed conversation pinned to its latest rendered content before paint. */
   const scrollToLiveBottom = useCallback(() => {
@@ -158,9 +185,13 @@ export function Conversation(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollToBottomRequest])
 
-  // Disable resize-driven live scrolling before newly shown tool calls can resize the thread.
+  // Mount hidden targets first, then disable resize-driven live scrolling before navigation.
   useLayoutEffect(() => {
     if (!navigationRequest) return
+    if (renderedHistoryStart > 0) {
+      setHistoryStart(0)
+      return
+    }
     const targetKey = navigationTargetKey(navigationRequest.target)
     const selector = navigationRequest.target.kind === 'tool'
       ? `[data-tool-call-id="${CSS.escape(navigationRequest.target.id)}"]`
@@ -225,7 +256,7 @@ export function Conversation(
       window.clearTimeout(highlightTimeout)
       navigationInProgressRef.current = false
     }
-  }, [navigationRequest])
+  }, [navigationRequest, renderedHistoryStart])
 
   /** Tracks scrolling without mistaking layout-driven Markdown reflows for user input. */
   function handleConversationScroll(): void {
@@ -304,7 +335,7 @@ export function Conversation(
       tabIndex={0}
     >
       <div className='conversation-content' ref={conversationContentRef}>
-        {messageEntries.map((entry) => {
+        {renderedMessageEntries.map((entry) => {
           const { message } = entry
           if (entry.source === 'history') {
             const index = entry.historyIndex

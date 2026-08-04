@@ -53,6 +53,7 @@ export function useConversationRuntime(
     ReadonlyMap<number, number>
   >(new Map())
   const selectedIdRef = useRef(selectedId)
+  const snapshotSessionIdRef = useRef('')
   const snapshotRefreshVersionRef = useRef(0)
   const snapshotRefreshRef = useRef<SnapshotRefreshRequest | undefined>(undefined)
   const appliedPiEventSequenceRef = useRef(0)
@@ -105,6 +106,7 @@ export function useConversationRuntime(
     if (!sessionId) {
       const current = snapshotRefreshRef.current
       if (current) current.cancelled = true
+      snapshotSessionIdRef.current = ''
       setSnapshot(emptySnapshot)
       setSnapshotSessionId('')
       return Promise.resolve(undefined)
@@ -122,9 +124,13 @@ export function useConversationRuntime(
     } as SnapshotRefreshRequest
     request.promise = (async () => {
       let nextSnapshot: SessionSnapshot | undefined
+      // Fetch a newly selected session immediately, while retaining debounce for later refreshes.
+      let delayNextRefresh = snapshotSessionIdRef.current === sessionId
       do {
-        await new Promise<void>((resolve) => window.setTimeout(resolve, snapshotRefreshDelayMs))
+        if (delayNextRefresh)
+          await new Promise<void>((resolve) => window.setTimeout(resolve, snapshotRefreshDelayMs))
         if (request.cancelled) return nextSnapshot
+        delayNextRefresh = true
         request.needsRefresh = false
         const version = ++snapshotRefreshVersionRef.current
         try {
@@ -133,6 +139,7 @@ export function useConversationRuntime(
           if (version !== snapshotRefreshVersionRef.current || sessionId !== selectedIdRef.current)
             return nextSnapshot
           flushLiveUpdates()
+          snapshotSessionIdRef.current = sessionId
           setSnapshot(nextSnapshot)
           setSnapshotSessionId(sessionId)
           const latestLiveSequence = nextSnapshot.liveEvents.at(-1)?.sequence ?? 0
@@ -277,6 +284,7 @@ export function useConversationRuntime(
   useEffect(() => {
     clearLiveMessages()
     appliedPiEventSequenceRef.current = 0
+    snapshotSessionIdRef.current = ''
     setSnapshot(emptySnapshot)
     setSnapshotSessionId('')
     setPendingSteering([])
