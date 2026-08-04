@@ -12,6 +12,10 @@ The manager owns every `pi --mode rpc` process and must survive frontend and bac
 
 Process ownership must not move into the backend: doing so would make backend restarts terminate Pi sessions.
 
+## Pi process allocation
+
+When a session is created or reopened, the manager first reassigns an idle Pi process from the same canonical working directory through Pi's public `new_session` or `switch_session` RPC command. A process is reusable only when it has no running work, in-flight RPC request, or pending blocking UI; otherwise the manager starts another process so sessions can continue concurrently. The replaced session remains persisted in Pi history and can be reopened later.
+
 ## Runtime revision
 
 `server/manager-runtime-files.json` declares the local value-import graph loaded by `server/manager.ts`. The supervisor calculates its revision immediately before spawning the manager and passes that immutable identity to the child. The backend independently recalculates the same revision when the manifest or a declared file changes.

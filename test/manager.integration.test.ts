@@ -216,6 +216,94 @@ test(
   },
 )
 
+test(
+  'reuses idle Pi processes within a workspace and spawns when they are busy',
+  { timeout: 10_000 },
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
+    const port = 45_000 + (process.pid % 10_000)
+    await writeFakePi(directory)
+    const manager = spawn(process.execPath, ['server/manager.ts'], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        PATH: `${fakePiBin(directory)}${delimiter}${process.env.PATH}`,
+        PI_LIVECRAFT_MANAGER_PORT: String(port),
+      },
+      stdio: 'ignore',
+    })
+    const client = await connectManager(port)
+    try {
+      const first = await client.request('open', {
+        cwd: process.cwd(),
+        name: 'First',
+        sessionPath: join(directory, 'first.jsonl'),
+      })
+      const firstId = sessionId(first)
+      const firstPid = processId(
+        await client.request('command', {
+          sessionId: firstId,
+          command: { type: 'process_id_test' },
+        }),
+      )
+
+      const created = await client.request('create', { cwd: process.cwd() })
+      const createdId = sessionId(created)
+      assert.notEqual(createdId, firstId)
+      assert.equal(
+        processId(
+          await client.request('command', {
+            sessionId: createdId,
+            command: { type: 'process_id_test' },
+          }),
+        ),
+        firstPid,
+      )
+      assert.equal(sessionStatus(await client.request('list', {}), firstId), undefined)
+
+      assert.equal(
+        (await client.request('command', {
+          sessionId: createdId,
+          command: { type: 'prompt', message: 'Keep working' },
+        }))
+          .ok,
+        true,
+      )
+      const second = await client.request('open', {
+        cwd: process.cwd(),
+        name: 'Second',
+        sessionPath: join(directory, 'second.jsonl'),
+      })
+      const secondPid = processId(
+        await client.request('command', {
+          sessionId: sessionId(second),
+          command: { type: 'process_id_test' },
+        }),
+      )
+      assert.notEqual(secondPid, firstPid)
+
+      const third = await client.request('open', {
+        cwd: process.cwd(),
+        name: 'Third',
+        sessionPath: join(directory, 'third.jsonl'),
+      })
+      assert.equal(
+        processId(
+          await client.request('command', {
+            sessionId: sessionId(third),
+            command: { type: 'process_id_test' },
+          }),
+        ),
+        secondPid,
+      )
+    } finally {
+      client.close()
+      await stopProcess(manager)
+      await rm(directory, { force: true, recursive: true })
+    }
+  },
+)
+
 test('completes a manual compact without timeout', { timeout: 10_000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
   const port = 45_000 + (process.pid % 10_000)
@@ -368,7 +456,15 @@ async function writeFakePi(directory: string, emitStartupEvent = false): Promise
   const source = `#!/usr/bin/env node
 import readline from 'node:readline'
 const isolated = process.argv.includes('--no-session')
-const sessionPath = process.argv[process.argv.indexOf('--session') + 1]
+const sessionDirectory = ${JSON.stringify(directory)}
+const sessionArgument = process.argv.indexOf('--session')
+const sessionIdArgument = process.argv.indexOf('--session-id')
+let sessionPath = sessionArgument !== -1
+  ? process.argv[sessionArgument + 1]
+  : sessionIdArgument !== -1
+  ? sessionDirectory + '/' + process.argv[sessionIdArgument + 1] + '.jsonl'
+  : ''
+let createdSessionCount = 0
 const expectedExtensions = ${
     JSON.stringify([
       join(process.cwd(), 'pi-extensions/ask-user-question.ts'),
@@ -405,6 +501,23 @@ let streaming = false
 readline.createInterface({ input: process.stdin }).on('line', (line) => {
   const command = JSON.parse(line)
   if (command.type === 'quit_test') process.exit(0)
+  if (!isolated && command.type === 'process_id_test') {
+    console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: { pid: process.pid } }))
+    return
+  }
+  if (!isolated && command.type === 'new_session') {
+    createdSessionCount += 1
+    sessionPath = sessionDirectory + '/new-' + process.pid + '-' + createdSessionCount + '.jsonl'
+    streaming = false
+    console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: { cancelled: false } }))
+    return
+  }
+  if (!isolated && command.type === 'switch_session') {
+    sessionPath = command.sessionPath
+    streaming = false
+    console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: { cancelled: false } }))
+    return
+  }
   if (!isolated && command.type === 'hold_test') {
     setTimeout(() => console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: {} })), 150)
     return
@@ -593,6 +706,14 @@ function sessionStatus(response: ManagerResponse, id: string): unknown {
   if (!Array.isArray(response.data)) throw new Error('Invalid sessions response')
   const session = response.data.find((value) => isObject(value) && value.id === id)
   return isObject(session) ? session.status : undefined
+}
+
+function processId(response: ManagerResponse): number {
+  if (!isObject(response.data) || !isObject(response.data.data))
+    throw new Error('Invalid Pi response')
+  const pid = response.data.data.pid
+  if (typeof pid !== 'number') throw new Error('Invalid Pi process id')
+  return pid
 }
 
 function sessionPendingUi(response: ManagerResponse, id: string): unknown[] {

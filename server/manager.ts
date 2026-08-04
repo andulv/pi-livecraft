@@ -46,6 +46,8 @@ interface ManagedSession {
   summary: SessionSummary
   pi: PiProcess
   pendingUi: Map<string, JsonObject>
+  inFlightRequests: number
+  switching: boolean
 }
 
 const server = createServer((socket) => {
@@ -155,25 +157,28 @@ function listSessions(): SessionSummary[] {
 
 /** Reconciles cached session activity with Pi's live state before reporting or acting on it. */
 async function refreshSessionActivity(): Promise<boolean> {
-  const managedSessions = [...sessions.values()].filter(({ summary }) =>
-    summary.status !== 'exited'
+  const managedSessions = [...sessions.values()].filter(({ summary, switching }) =>
+    summary.status !== 'exited' && !switching
   )
   const activity = await Promise.all(managedSessions.map(async (session) => {
-    const state = await session.pi.request({ type: 'get_state' }, 5_000)
-    if (
-      !isObject(state.data)
-      || typeof state.data.isStreaming !== 'boolean'
-      || typeof state.data.isCompacting !== 'boolean'
-      || typeof state.data.pendingMessageCount !== 'number'
-      || !Number.isInteger(state.data.pendingMessageCount)
-      || state.data.pendingMessageCount < 0
-    ) throw new Error('Pi returned an invalid session state')
-    const running = state.data.isStreaming || state.data.isCompacting
-      || state.data.pendingMessageCount > 0
+    const running = piHasActiveWork(await requestPi(session, { type: 'get_state' }, 5_000))
     session.summary.status = running ? 'running' : 'idle'
     return running || session.pendingUi.size > 0
   }))
   return activity.some(Boolean)
+}
+
+function piHasActiveWork(state: JsonObject): boolean {
+  if (
+    !isObject(state.data)
+    || typeof state.data.isStreaming !== 'boolean'
+    || typeof state.data.isCompacting !== 'boolean'
+    || typeof state.data.pendingMessageCount !== 'number'
+    || !Number.isInteger(state.data.pendingMessageCount)
+    || state.data.pendingMessageCount < 0
+  ) throw new Error('Pi returned an invalid session state')
+  return state.data.isStreaming || state.data.isCompacting
+    || state.data.pendingMessageCount > 0
 }
 
 async function createSession(request: ManagerRequest): Promise<SessionSummary> {
@@ -204,12 +209,12 @@ async function openSession(request: ManagerRequest): Promise<SessionSummary> {
   const existing = [...sessions.values()].find(({ summary }) =>
     summary.sessionPath === request.sessionPath
   )
-  if (existing && existing.summary.status !== 'exited')
+  if (existing && existing.summary.status !== 'exited' && !existing.switching)
     return {
       ...existing.summary,
       pendingUi: [...existing.pendingUi.values()],
     }
-  if (existing) sessions.delete(existing.summary.id)
+  if (existing?.summary.status === 'exited') sessions.delete(existing.summary.id)
 
   const summary: SessionSummary = {
     id: randomUUID(),
@@ -224,20 +229,40 @@ async function openSession(request: ManagerRequest): Promise<SessionSummary> {
   return { ...summary, pendingUi: [] }
 }
 
-/** Records a session as soon as Pi starts so its early events can be queried without a race condition. */
+/** Reuses an available process in the workspace before starting another one. */
 async function startSession(summary: SessionSummary): Promise<void> {
+  const reusable = [...sessions.values()].find((session) =>
+    session.summary.cwd === summary.cwd
+    && session.summary.status === 'idle'
+    && session.pendingUi.size === 0
+    && session.inFlightRequests === 0
+    && !session.switching
+  )
+  if (reusable && await reuseSession(reusable, summary)) return
+
   const pi = new PiProcess(summary.cwd, summary.id, summary.sessionPath)
-  const session: ManagedSession = { summary, pi, pendingUi: new Map() }
+  const session: ManagedSession = {
+    summary,
+    pi,
+    pendingUi: new Map(),
+    inFlightRequests: 0,
+    switching: false,
+  }
 
   sessions.set(summary.id, session)
-  pi.on('event', (event: JsonObject) => handlePiEvent(summary.id, session, event))
+  pi.on('event', (event: JsonObject) => handlePiEvent(session.summary.id, session, event))
   pi.on('exit', (detail: unknown) => {
-    summary.status = 'exited'
-    broadcast({ kind: 'event', event: 'session_exited', sessionId: summary.id, data: detail })
+    session.summary.status = 'exited'
+    broadcast({
+      kind: 'event',
+      event: 'session_exited',
+      sessionId: session.summary.id,
+      data: detail,
+    })
   })
 
   try {
-    const state = await pi.request({ type: 'get_state' })
+    const state = await requestPi(session, { type: 'get_state' })
     const sessionPath = isObject(state.data) && typeof state.data.sessionFile === 'string'
       ? state.data.sessionFile
       : undefined
@@ -247,6 +272,58 @@ async function startSession(summary: SessionSummary): Promise<void> {
     sessions.delete(summary.id)
     await pi.terminate()
     throw error
+  }
+}
+
+/** Reassigns one idle Pi process without exposing the target session before the switch completes. */
+async function reuseSession(session: ManagedSession, summary: SessionSummary): Promise<boolean> {
+  session.switching = true
+  try {
+    const running = piHasActiveWork(
+      await requestPi(session, { type: 'get_state' }, 5_000),
+    )
+    session.summary.status = running ? 'running' : 'idle'
+    if (running || session.pendingUi.size > 0) return false
+
+    const response = await requestPi(
+      session,
+      summary.sessionPath
+        ? { type: 'switch_session', sessionPath: summary.sessionPath }
+        : { type: 'new_session' },
+    )
+    if (isObject(response.data) && response.data.cancelled === true) return false
+    if (session.pendingUi.size > 0) throw new Error('Pi left blocking UI pending after switching')
+
+    const state = await requestPi(session, { type: 'get_state' })
+    const sessionPath = isObject(state.data) && typeof state.data.sessionFile === 'string'
+      ? state.data.sessionFile
+      : undefined
+    if (sessionPath) summary.sessionPath = sessionPath
+    summary.status = 'idle'
+
+    sessions.delete(session.summary.id)
+    session.summary = summary
+    session.pendingUi.clear()
+    sessions.set(summary.id, session)
+    return true
+  } catch {
+    await session.pi.terminate()
+    return false
+  } finally {
+    session.switching = false
+  }
+}
+
+async function requestPi(
+  session: ManagedSession,
+  command: JsonObject,
+  timeoutMs?: number,
+): Promise<JsonObject> {
+  session.inFlightRequests += 1
+  try {
+    return await session.pi.request(command, timeoutMs)
+  } finally {
+    session.inFlightRequests -= 1
   }
 }
 
@@ -328,6 +405,8 @@ async function sendCommand(request: ManagerRequest): Promise<JsonObject> {
   const session = sessions.get(request.sessionId)
   if (!session) throw new Error('Unknown session')
   if (session.summary.status === 'exited') throw new Error('Pi session has exited')
+  if (session.switching && request.command.type !== 'extension_ui_response')
+    throw new Error('Pi session is switching')
 
   if (request.command.type === 'extension_ui_response') {
     if (typeof request.command.id === 'string') session.pendingUi.delete(request.command.id)
@@ -339,7 +418,7 @@ async function sendCommand(request: ManagerRequest): Promise<JsonObject> {
     && (typeof request.command.message !== 'string' || !request.command.message.startsWith('/'))
   if (startsAgent) session.summary.status = 'running'
   try {
-    return await session.pi.request(request.command)
+    return await requestPi(session, request.command)
   } catch (error) {
     if (startsAgent && session.summary.status === 'running') session.summary.status = 'idle'
     throw error
