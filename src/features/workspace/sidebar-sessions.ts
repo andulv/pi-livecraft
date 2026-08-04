@@ -1,7 +1,7 @@
 import type { RecentSession, SessionSummary } from '../../../shared/types.ts'
 import { sessionIndicator } from './session-indicator.ts'
 
-/** Adds only sent sessions still missing from persistence, preserving the server order otherwise. */
+/** Adds pending sessions and orders the visible list by latest activity. */
 export function sidebarSessions(
   recentSessions: RecentSession[],
   workspacePath: string,
@@ -12,7 +12,9 @@ export function sidebarSessions(
   const pending = sentSessions.filter((session) =>
     !recentIds.has(session.id) && !recentPaths.has(session.sessionPath)
   )
-  return [...pending, ...recentSessions].filter(({ cwd }) => cwd === workspacePath)
+  return [...pending, ...recentSessions]
+    .filter(({ cwd }) => cwd === workspacePath)
+    .sort((left, right) => right.updatedAt - left.updatedAt)
 }
 
 /** Lists attention-worthy sessions outside the current workspace, with active work first. */

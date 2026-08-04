@@ -42,6 +42,18 @@ test('uses persisted order once the sent session is returned', () => {
   ])
 })
 
+test('orders sessions by their latest activity', () => {
+  const older = { ...persisted, updatedAt: 100 }
+  const newer = {
+    ...persisted,
+    id: 'newer-id',
+    sessionPath: '/sessions/newer.jsonl',
+    updatedAt: 200,
+  }
+
+  assert.deepEqual(sidebarSessions([older, newer], '/workspace'), [newer, older])
+})
+
 // -- otherWorkspaceSessions ------------------------------------------------
 
 const remoteSession: SessionSummary = {
