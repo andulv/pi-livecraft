@@ -55,6 +55,7 @@ import { useWorkspaceSessions } from './features/workspace/useWorkspaceSessions.
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
 import {
   clampWorkspaceSidebarWidth,
+  readWorkspaceSidebarCollapsed,
   readWorkspaceSidebarWidth,
 } from './features/workspace/workspace-sidebar.ts'
 import { CommandPalette, type PaletteCommand } from './features/commands/CommandPalette.tsx'
@@ -144,6 +145,11 @@ function App() {
   // Workspace tools and sidebars
   const [workspaceSidebarWidth, setWorkspaceSidebarWidth] = useState(() =>
     readWorkspaceSidebarWidth(window.localStorage.getItem('pi-livecraft.workspace-sidebar-width'))
+  )
+  const [workspaceSidebarCollapsed, setWorkspaceSidebarCollapsed] = useState(() =>
+    readWorkspaceSidebarCollapsed(
+      window.localStorage.getItem('pi-livecraft.workspace-sidebar-collapsed'),
+    )
   )
   const [gitSnapshot, setGitSnapshot] = useState<GitSnapshot | null>(null)
   const [quotas, setQuotas] = useState<QuotaSnapshot | null>(null)
@@ -355,6 +361,15 @@ function App() {
     window.localStorage.setItem('pi-livecraft.workspace-sidebar-width', String(nextWidth))
     setWorkspaceSidebarWidth(nextWidth)
   }, [])
+
+  const toggleWorkspaceSidebar = useCallback(() => {
+    const nextCollapsed = !workspaceSidebarCollapsed
+    window.localStorage.setItem(
+      'pi-livecraft.workspace-sidebar-collapsed',
+      String(nextCollapsed),
+    )
+    setWorkspaceSidebarCollapsed(nextCollapsed)
+  }, [workspaceSidebarCollapsed])
 
   const updateRightSidebarWidth = useCallback((width: number) => {
     const nextWidth = clampRightSidebarWidth(width)
@@ -1026,7 +1041,7 @@ function App() {
 
   return (
     <div
-      className={`app-shell ${
+      className={`app-shell ${workspaceSidebarCollapsed ? 'workspace-sidebar-collapsed ' : ''}${
         rightPanelVisible ? 'right-sidebar-visible' : 'right-sidebar-collapsed'
       }`}
       style={{
@@ -1035,6 +1050,7 @@ function App() {
       } as CSSProperties}
     >
       <WorkspaceSidebar
+        collapsed={workspaceSidebarCollapsed}
         compactingSessionIds={compactingSessionIds}
         completedSessionIds={completedSessionIds}
         isRefreshing={isRefreshingSessions}
@@ -1056,6 +1072,7 @@ function App() {
         onError={(cause) => showToast('error', messageOf(cause))}
         onOpenSettings={() => setSettingsOpen(true)}
         onResize={updateWorkspaceSidebarWidth}
+        onToggleCollapsed={toggleWorkspaceSidebar}
       />
 
       <main className='workspace'>

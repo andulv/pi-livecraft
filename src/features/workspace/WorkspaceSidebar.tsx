@@ -14,6 +14,7 @@ import { otherWorkspaceSessions, sidebarSessions } from './sidebar-sessions.ts'
 import { maxWorkspaceSidebarWidth, minWorkspaceSidebarWidth } from './workspace-sidebar.ts'
 
 interface WorkspaceSidebarProps {
+  collapsed: boolean
   compactingSessionIds: ReadonlySet<string>
   completedSessionIds: ReadonlySet<string>
   isRefreshing: boolean
@@ -30,11 +31,13 @@ interface WorkspaceSidebarProps {
   onSelectSession: (sessionId: string) => void
   onOpenSettings: () => void
   onResize: (width: number) => void
+  onToggleCollapsed: () => void
   onError: (cause: unknown) => void
 }
 
 /** Displays the current workspace and opens or selects its recent Pi sessions. */
 export function WorkspaceSidebar({
+  collapsed,
   compactingSessionIds,
   completedSessionIds,
   isRefreshing,
@@ -51,6 +54,7 @@ export function WorkspaceSidebar({
   onSelectSession,
   onOpenSettings,
   onResize,
+  onToggleCollapsed,
   onError,
 }: WorkspaceSidebarProps) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
@@ -107,7 +111,23 @@ export function WorkspaceSidebar({
   }
 
   return (
-    <aside className='sidebar'>
+    <aside
+      aria-label='Session sidebar'
+      className={`sidebar${collapsed ? ' collapsed' : ''}`}
+    >
+      <div className='sidebar-rail'>
+        <Tooltip label='Expand session sidebar'>
+          <button
+            aria-expanded={false}
+            aria-label='Expand session sidebar'
+            className='sidebar-toggle'
+            onClick={onToggleCollapsed}
+            type='button'
+          >
+            <SidebarToggleIcon collapsed />
+          </button>
+        </Tooltip>
+      </div>
       <div
         aria-label='Resize session sidebar'
         aria-orientation='vertical'
@@ -134,6 +154,17 @@ export function WorkspaceSidebar({
             type='button'
           >
             <SettingsIcon />
+          </button>
+        </Tooltip>
+        <Tooltip label='Collapse session sidebar'>
+          <button
+            aria-expanded={true}
+            aria-label='Collapse session sidebar'
+            className='sidebar-toggle'
+            onClick={onToggleCollapsed}
+            type='button'
+          >
+            <SidebarToggleIcon collapsed={false} />
           </button>
         </Tooltip>
       </div>
@@ -273,6 +304,25 @@ function NewSessionButton(
     >
       {busy ? 'Starting…' : '＋ New session'}
     </button>
+  )
+}
+
+function SidebarToggleIcon({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg
+      aria-hidden='true'
+      fill='none'
+      height='16'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='1.75'
+      viewBox='0 0 24 24'
+      width='16'
+    >
+      <path d='M3 3v18' />
+      <path d={collapsed ? 'm9 6 6 6-6 6' : 'm15 6-6 6 6 6'} />
+    </svg>
   )
 }
 

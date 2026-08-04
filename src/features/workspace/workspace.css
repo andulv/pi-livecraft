@@ -13,6 +13,29 @@
     var(--sidebar) 100%
   );
 }
+.sidebar.collapsed {
+  width: 0;
+  height: 0;
+  padding: 0;
+  overflow: visible;
+  border-right: 0;
+  background: transparent;
+}
+.sidebar.collapsed > :not(.sidebar-rail) {
+  display: none;
+}
+.sidebar-rail {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  left: 12px;
+  display: none;
+  width: auto;
+  align-items: center;
+}
+.sidebar.collapsed .sidebar-rail {
+  display: flex;
+}
 .sidebar-resize-handle {
   position: absolute;
   z-index: 1;
@@ -55,7 +78,8 @@
   flex: 1;
   min-width: 0;
 }
-.settings-button {
+.settings-button,
+.sidebar-toggle {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -74,18 +98,55 @@
     transform 180ms ease,
     box-shadow 180ms ease;
 }
-.settings-button:hover {
+.settings-button:hover:not(:disabled),
+.sidebar-toggle:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--accent) 32%, var(--line-strong));
   background: var(--accent-soft);
   color: var(--accent-hover);
   transform: translateY(-1px);
 }
-.settings-button:focus-visible {
+.settings-button:focus-visible,
+.sidebar-toggle:focus-visible {
   outline: 0;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
 }
-.settings-button:active {
+.settings-button:active:not(:disabled),
+.sidebar-toggle:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+.settings-button:disabled,
+.sidebar-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+.sidebar-toggle {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 18px;
+  line-height: 1;
+}
+.sidebar.collapsed .sidebar-toggle {
+  width: 29px;
+  height: 29px;
+  border-color: var(--accent);
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.sidebar.collapsed .sidebar-toggle:hover:not(:disabled),
+.sidebar.collapsed .sidebar-toggle:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  transform: none;
+}
+.sidebar-toggle:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.sidebar.collapsed .sidebar-toggle:active:not(:disabled) {
   transform: translateY(0) scale(0.97);
 }
 .brand strong, .brand small {

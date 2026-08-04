@@ -6,7 +6,7 @@
 
 - `commands/` defines commands, default shortcuts, normalization, and conflict detection.
 - `settings/` captures shortcut changes and resets them.
-- `App.tsx` persists shortcuts, theme, conversation view, workspace restoration, and right sidebar state.
+- `App.tsx` persists shortcuts, theme, conversation view, workspace restoration, left and right sidebar state.
 - `composer/` persists drafts per session.
 
 All values stay in browser `localStorage`; never store secrets there. Readers must tolerate missing, malformed, and documented legacy values so a preference cannot prevent startup. The palette and Settings shortcuts remain fixed to keep both surfaces recoverable.

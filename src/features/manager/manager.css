@@ -37,6 +37,9 @@
   background: color-mix(in srgb, var(--warning) 10%, var(--surface));
   color: var(--warning-strong);
 }
+.app-shell.workspace-sidebar-collapsed .manager-runtime-control {
+  left: 52px;
+}
 
 .manager-runtime-control:focus-visible {
   outline: 0;
@@ -185,6 +188,9 @@
     background: color-mix(in srgb, var(--warning) 10%, var(--surface));
     color: var(--warning-strong);
   }
+  .app-shell.workspace-sidebar-collapsed .manager-runtime-control {
+    width: min(340px, calc(100vw - 64px));
+  }
   .manager-runtime-control.unknown {
     border-color: var(--line-strong);
     background: var(--surface);
@@ -228,5 +234,10 @@
   .manager-runtime-control:focus-visible,
   .manager-runtime-control:focus-within {
     width: calc(100% - 32px);
+  }
+  .app-shell.workspace-sidebar-collapsed .manager-runtime-control:hover,
+  .app-shell.workspace-sidebar-collapsed .manager-runtime-control:focus-visible,
+  .app-shell.workspace-sidebar-collapsed .manager-runtime-control:focus-within {
+    width: calc(100% - 64px);
   }
 }

@@ -69,6 +69,15 @@
   .app-shell.right-sidebar-collapsed {
     grid-template-columns: clamp(220px, 22.67vw, 272px) minmax(0, 1fr) 48px;
   }
+  .app-shell.workspace-sidebar-collapsed {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+  .app-shell.workspace-sidebar-collapsed.right-sidebar-visible {
+    grid-template-columns: 0 minmax(0, 1fr) clamp(288px, 29vw, 348px);
+  }
+  .app-shell.workspace-sidebar-collapsed.right-sidebar-collapsed {
+    grid-template-columns: 0 minmax(0, 1fr) 48px;
+  }
   .sidebar-resize-handle,
   .right-sidebar-resize-handle {
     display: none;
@@ -93,6 +102,17 @@
     padding: 12px 14px;
     border-right: 0;
     border-bottom: 1px solid var(--panel-line);
+  }
+  .sidebar.collapsed {
+    display: block;
+    flex: 0 0 0;
+    width: 0;
+    height: 0;
+    padding: 0;
+    border: 0;
+  }
+  .sidebar.collapsed .sidebar-rail {
+    width: auto;
   }
   .brand {
     grid-row: 1;
