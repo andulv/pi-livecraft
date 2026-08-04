@@ -276,11 +276,10 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 0;
+  gap: 2px;
   min-height: 0;
   overflow-y: auto;
-  margin-right: -12px;
-  padding-right: 14px;
+  margin-right: -10px;
   scrollbar-width: thin;
 }
 .session-list::-webkit-scrollbar {
@@ -294,7 +293,7 @@
   min-height: 32px;
   border: 1px solid transparent;
   border-radius: 8px;
-  padding: 5px 8px;
+  padding: 1px 8px;
   background: transparent;
   color: inherit;
   text-align: left;
@@ -375,11 +374,10 @@
 .other-session-list {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 2px;
   min-height: 0;
   overflow-y: auto;
   margin-right: -12px;
-  padding-right: 14px;
   scrollbar-width: thin;
 }
 .other-session-list::-webkit-scrollbar {
