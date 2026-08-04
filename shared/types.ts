@@ -120,6 +120,8 @@ export interface ManagerRequest {
     | 'list'
     | 'create'
     | 'open'
+    | 'close'
+    | 'rename'
     | 'command'
     | 'improve_prompt'
     | 'run_prompt'

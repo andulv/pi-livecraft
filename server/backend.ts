@@ -345,6 +345,29 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     return
   }
 
+  if (method === 'POST' && url.pathname === '/api/sessions/rename') {
+    const body = await readJsonBody(request)
+    if (typeof body.cwd !== 'string' || typeof body.sessionPath !== 'string') {
+      throw new HttpError(400, 'Working directory and session path are required')
+    }
+    if (
+      typeof body.name !== 'string' || !body.name.trim() || body.name.length > 120
+      || /[\r\n]/.test(body.name)
+    ) throw new HttpError(400, 'Session name must contain between 1 and 120 characters')
+    const cwd = await resolveWorkingDirectory(body.cwd)
+    const session = await loadPiSession(body.sessionPath)
+    if (session.cwd !== cwd)
+      throw new HttpError(400, 'Pi session does not belong to this working directory')
+    await manager.request({
+      action: 'rename',
+      cwd,
+      name: body.name.trim(),
+      sessionPath: session.sessionPath,
+    })
+    sendJson(response, 200, { name: body.name.trim() })
+    return
+  }
+
   if (method === 'POST' && url.pathname === '/api/sessions') {
     const body = await readJsonBody(request)
     const cwd = await resolveWorkingDirectory(typeof body.cwd === 'string' ? body.cwd : '~/.pi')
@@ -366,6 +389,17 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     }
     const session = await manager.request({ action: 'create', cwd })
     sendJson(response, 201, session)
+    return
+  }
+
+  const closeMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/close$/)
+  if (method === 'POST' && closeMatch) {
+    await readJsonBody(request)
+    await manager.request({
+      action: 'close',
+      sessionId: decodeURIComponent(closeMatch[1]),
+    })
+    sendJson(response, 200, { closed: true })
     return
   }
 

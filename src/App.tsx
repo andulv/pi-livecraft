@@ -288,6 +288,7 @@ function App() {
   )
   const {
     addPendingRequest,
+    closeManagedSession,
     completedSessionIds,
     creatingSession,
     directoryPickerOpen,
@@ -298,6 +299,7 @@ function App() {
     recentWorkspacePaths,
     refreshSessions,
     removePendingRequest,
+    renameManagedSession,
     renameSession,
     selectCreatedSession,
     selectedId,
@@ -1061,6 +1063,7 @@ function App() {
         width={workspaceSidebarWidth}
         workspacePath={workspacePath}
         onChooseWorkspace={() => setDirectoryPickerOpen(true)}
+        onCloseSession={closeManagedSession}
         onCreate={async () => {
           await startAndSelectSession(() => createSession(workspacePath))
         }}
@@ -1071,6 +1074,7 @@ function App() {
         onSelectSession={setSelectedId}
         onError={(cause) => showToast('error', messageOf(cause))}
         onOpenSettings={() => setSettingsOpen(true)}
+        onRenameSession={renameManagedSession}
         onResize={updateWorkspaceSidebarWidth}
         onToggleCollapsed={toggleWorkspaceSidebar}
       />

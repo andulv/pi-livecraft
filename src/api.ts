@@ -202,6 +202,24 @@ export async function openSession(cwd: string, sessionPath: string): Promise<Ses
   })
 }
 
+export async function closeSession(sessionId: string): Promise<void> {
+  await request<void>(`/api/sessions/${encodeURIComponent(sessionId)}/close`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+}
+
+export async function renameSession(
+  cwd: string,
+  sessionPath: string,
+  name: string,
+): Promise<void> {
+  await request<void>('/api/sessions/rename', {
+    method: 'POST',
+    body: JSON.stringify({ cwd, name, sessionPath }),
+  })
+}
+
 export async function getSnapshot(sessionId: string): Promise<SessionSnapshot> {
   return request<SessionSnapshot>(`/api/sessions/${encodeURIComponent(sessionId)}/snapshot`)
 }

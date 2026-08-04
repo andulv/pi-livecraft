@@ -1,6 +1,13 @@
 import type { RecentSession, SessionSummary } from '../../../shared/types.ts'
 import { sessionIndicator } from './session-indicator.ts'
 
+export interface SessionActionTarget {
+  cwd: string
+  name: string
+  sessionId?: string
+  sessionPath?: string
+}
+
 /** Adds pending sessions and orders the visible list by latest activity. */
 export function sidebarSessions(
   recentSessions: RecentSession[],
@@ -15,6 +22,28 @@ export function sidebarSessions(
   return [...pending, ...recentSessions]
     .filter(({ cwd }) => cwd === workspacePath)
     .sort((left, right) => right.updatedAt - left.updatedAt)
+}
+
+/** Picks the next visible active session after closing the selected one. */
+export function nextActiveSessionId(
+  closedSessionId: string,
+  sessions: SessionSummary[],
+  recentSessions: RecentSession[],
+  workspacePath: string,
+  sentSessions: RecentSession[] = [],
+): string | null {
+  const activeIds = sidebarSessions(recentSessions, workspacePath, sentSessions).flatMap(
+    (recent) => {
+      const active = sessions.find((session) =>
+        session.sessionPath === recent.sessionPath && session.status !== 'exited'
+      )
+      return active ? [active.id] : []
+    },
+  )
+  const closedIndex = activeIds.indexOf(closedSessionId)
+  return closedIndex >= 0
+    ? activeIds[closedIndex + 1] ?? activeIds[closedIndex - 1] ?? null
+    : activeIds[0] ?? null
 }
 
 /** Lists attention-worthy sessions outside the current workspace, with active work first. */

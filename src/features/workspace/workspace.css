@@ -649,3 +649,98 @@
   background: var(--accent-soft);
   color: var(--accent-hover);
 }
+
+/* Session context actions stay hidden until invoked by pointer or keyboard. */
+.session-context-menu {
+  position: fixed;
+  z-index: 45;
+  display: grid;
+  min-width: 190px;
+  gap: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 4px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.session-context-menu button {
+  width: 100%;
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 7px 9px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  text-align: left;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+.session-context-menu button:hover:not(:disabled),
+.session-context-menu button:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  outline: 0;
+}
+.session-context-menu button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.session-context-menu button.danger:hover:not(:disabled),
+.session-context-menu button.danger:focus-visible {
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.session-context-menu button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.session-rename-modal {
+  width: min(430px, 100%);
+  padding: 22px;
+}
+.session-rename-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+.session-rename-input {
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  padding: 10px 11px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+.session-rename-input:focus-visible {
+  outline: 0;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.session-rename-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.modal .session-rename-error {
+  margin: 7px 0 0;
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-context-menu button,
+  .session-rename-input {
+    transition: none;
+  }
+}

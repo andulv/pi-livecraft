@@ -110,8 +110,8 @@ async function handleRequest(socket: Socket, value: unknown): Promise<void> {
     return
   }
 
-  const tracksActivity = value.action === 'create' || value.action === 'open' || value
-        .action === 'command'
+  const tracksActivity = value.action === 'create' || value.action === 'open'
+    || value.action === 'close' || value.action === 'rename' || value.action === 'command'
     || value.action === 'improve_prompt' || value.action === 'run_prompt'
   if (tracksActivity) activeRequests += 1
   try {
@@ -137,6 +137,8 @@ async function handleRequest(socket: Socket, value: unknown): Promise<void> {
       data = listSessions()
     } else if (value.action === 'create') data = await createSession(value)
     else if (value.action === 'open') data = await openSession(value)
+    else if (value.action === 'close') data = await closeSession(value)
+    else if (value.action === 'rename') data = await renameSession(value)
     else if (value.action === 'improve_prompt') data = await improvePrompt(value)
     else if (value.action === 'run_prompt') data = await runPrompt(value)
     else data = await sendCommand(value)
@@ -229,6 +231,48 @@ async function openSession(request: ManagerRequest): Promise<SessionSummary> {
   return { ...summary, pendingUi: [] }
 }
 
+/** Stops a managed Pi process while leaving its persisted session available for reopening. */
+async function closeSession(request: ManagerRequest): Promise<{ closed: true }> {
+  if (typeof request.sessionId !== 'string') throw new Error('Session id is required')
+  const session = sessions.get(request.sessionId)
+  if (!session) throw new Error('Unknown session')
+  if (session.summary.status === 'exited') return { closed: true }
+
+  await session.pi.terminate()
+  if ((session.summary.status as SessionSummary['status']) !== 'exited') {
+    session.summary.status = 'exited'
+    broadcast({
+      kind: 'event',
+      event: 'session_exited',
+      sessionId: session.summary.id,
+      data: { reason: 'closed' },
+    })
+  }
+  return { closed: true }
+}
+
+/** Renames a persisted session through a disposable public Pi RPC process. */
+async function renameSession(request: ManagerRequest): Promise<{ name: string }> {
+  if (
+    typeof request.cwd !== 'string' || typeof request.name !== 'string'
+    || typeof request.sessionPath !== 'string'
+  ) throw new Error('Session cwd, name and path are required')
+  const name = request.name.trim()
+  if (!name || name.length > 120 || /[\r\n]/.test(name))
+    throw new Error('Session name must contain between 1 and 120 characters')
+  const cwd = await realpath(request.cwd)
+  if (!(await stat(cwd)).isDirectory()) throw new Error('Session cwd must be a directory')
+
+  const pi = new PiProcess(cwd, randomUUID(), request.sessionPath)
+  try {
+    await pi.request({ type: 'get_state' })
+    await pi.request({ type: 'set_session_name', name })
+    return { name }
+  } finally {
+    await pi.terminate()
+  }
+}
+
 /** Reuses an available process in the workspace before starting another one. */
 async function startSession(summary: SessionSummary): Promise<void> {
   const reusable = [...sessions.values()].find((session) =>
@@ -252,6 +296,7 @@ async function startSession(summary: SessionSummary): Promise<void> {
   sessions.set(summary.id, session)
   pi.on('event', (event: JsonObject) => handlePiEvent(session.summary.id, session, event))
   pi.on('exit', (detail: unknown) => {
+    if (session.summary.status === 'exited') return
     session.summary.status = 'exited'
     broadcast({
       kind: 'event',
@@ -478,8 +523,8 @@ function respond(socket: Socket, response: ManagerResponse): void {
 
 function isManagerRequest(value: unknown): value is ManagerRequest {
   if (!isObject(value) || typeof value.id !== 'string') return false
-  return value.action === 'list' || value.action === 'create' || value.action === 'open' || value
-        .action === 'command'
+  return value.action === 'list' || value.action === 'create' || value.action === 'open'
+    || value.action === 'close' || value.action === 'rename' || value.action === 'command'
     || value.action === 'improve_prompt' || value.action === 'run_prompt'
     || value.action === 'status' || value.action === 'restart'
 }

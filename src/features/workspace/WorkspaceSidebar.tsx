@@ -1,17 +1,30 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type { RecentSession, SessionSummary } from '../../../shared/types.ts'
 import { sessionIndicator } from './session-indicator.ts'
 import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
-import { otherWorkspaceSessions, sidebarSessions } from './sidebar-sessions.ts'
+import {
+  otherWorkspaceSessions,
+  sidebarSessions,
+  type SessionActionTarget,
+} from './sidebar-sessions.ts'
+import { SessionRenameDialog } from './SessionRenameDialog.tsx'
 import { maxWorkspaceSidebarWidth, minWorkspaceSidebarWidth } from './workspace-sidebar.ts'
+
+interface ContextMenuState {
+  target: SessionActionTarget
+  x: number
+  y: number
+}
 
 interface WorkspaceSidebarProps {
   collapsed: boolean
@@ -25,11 +38,13 @@ interface WorkspaceSidebarProps {
   width: number
   workspacePath: string
   onChooseWorkspace: () => void
+  onCloseSession: (sessionId: string) => Promise<void>
   onCreate: () => Promise<void>
   onOpenSession: (session: RecentSession) => Promise<void>
   onSelectOtherWorkspaceSession: (session: SessionSummary) => void
   onSelectSession: (sessionId: string) => void
   onOpenSettings: () => void
+  onRenameSession: (target: SessionActionTarget, name: string) => Promise<void>
   onResize: (width: number) => void
   onToggleCollapsed: () => void
   onError: (cause: unknown) => void
@@ -48,17 +63,24 @@ export function WorkspaceSidebar({
   width,
   workspacePath,
   onChooseWorkspace,
+  onCloseSession,
   onCreate,
   onOpenSession,
   onSelectOtherWorkspaceSession,
   onSelectSession,
   onOpenSettings,
+  onRenameSession,
   onResize,
   onToggleCollapsed,
   onError,
 }: WorkspaceSidebarProps) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [contextMenuPosition, setContextMenuPosition] = useState({ left: 0, top: 0 })
+  const [renameTarget, setRenameTarget] = useState<SessionActionTarget | null>(null)
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
+  const contextMenuRef = useRef<HTMLDivElement>(null)
+  const contextMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const visibleSessions = useMemo(
     () => sidebarSessions(recentSessions, workspacePath, sentSessions),
     [recentSessions, sentSessions, workspacePath],
@@ -72,6 +94,89 @@ export function WorkspaceSidebar({
   useEffect(() => {
     selectedSessionRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [selectedId, visibleSessions])
+
+  useLayoutEffect(() => {
+    if (!contextMenu || !contextMenuRef.current) return
+    const { width: menuWidth, height: menuHeight } = contextMenuRef.current.getBoundingClientRect()
+    const left = Math.min(
+      Math.max(8, contextMenu.x),
+      Math.max(8, window.innerWidth - menuWidth - 8),
+    )
+    const top = Math.min(
+      Math.max(8, contextMenu.y),
+      Math.max(8, window.innerHeight - menuHeight - 8),
+    )
+    setContextMenuPosition({ left, top })
+  }, [contextMenu])
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const dismissOnPointerDown = (event: PointerEvent): void => {
+      if (!(event.target instanceof Node) || !contextMenuRef.current?.contains(event.target)) {
+        setContextMenu(null)
+      }
+    }
+    const dismissOnKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setContextMenu(null)
+      contextMenuTriggerRef.current?.focus()
+    }
+    document.addEventListener('pointerdown', dismissOnPointerDown)
+    document.addEventListener('keydown', dismissOnKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', dismissOnPointerDown)
+      document.removeEventListener('keydown', dismissOnKeyDown)
+    }
+  }, [contextMenu])
+
+  function dismissContextMenu(): void {
+    setContextMenu(null)
+    contextMenuTriggerRef.current?.focus()
+  }
+
+  function openContextMenu(
+    target: SessionActionTarget,
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ): void {
+    event.preventDefault()
+    contextMenuTriggerRef.current = event.currentTarget
+    setContextMenu({ target, x: event.clientX, y: event.clientY })
+  }
+
+  function openContextMenuFromKeyboard(
+    target: SessionActionTarget,
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+  ): void {
+    if (event.key !== 'ContextMenu' && !(event.key === 'F10' && event.shiftKey)) return
+    event.preventDefault()
+    contextMenuTriggerRef.current = event.currentTarget
+    const rect = event.currentTarget.getBoundingClientRect()
+    setContextMenu({ target, x: rect.left, y: rect.bottom })
+  }
+
+  function startRename(): void {
+    if (!contextMenu) return
+    const { target } = contextMenu
+    dismissContextMenu()
+    setRenameTarget(target)
+  }
+
+  function dismissRename(): void {
+    setRenameTarget(null)
+    contextMenuTriggerRef.current?.focus()
+  }
+
+  async function closeTarget(): Promise<void> {
+    const sessionId = contextMenu?.target.sessionId
+    dismissContextMenu()
+    if (!sessionId) return
+    try {
+      await onCloseSession(sessionId)
+    } catch (cause) {
+      onError(cause)
+    }
+  }
 
   function startResize(event: ReactPointerEvent<HTMLDivElement>): void {
     const handle = event.currentTarget
@@ -203,6 +308,12 @@ export function WorkspaceSidebar({
           const sessionLabel = openingSessionPath === recentSession.sessionPath
             ? 'Opening…'
             : recentSession.name
+          const actionTarget: SessionActionTarget = {
+            cwd: recentSession.cwd,
+            name: recentSession.name,
+            sessionId: activeSession?.id,
+            sessionPath: recentSession.sessionPath,
+          }
           return (
             <Tooltip
               key={recentSession.sessionPath}
@@ -214,7 +325,10 @@ export function WorkspaceSidebar({
                 className={`session-item${activeSession?.id === selectedId ? ' selected' : ''}${
                   indicator ? ` ${indicator}` : ''
                 }`}
+                aria-haspopup='menu'
                 disabled={openingSessionPath === recentSession.sessionPath}
+                onContextMenu={(event) => openContextMenu(actionTarget, event)}
+                onKeyDown={(event) => openContextMenuFromKeyboard(actionTarget, event)}
                 onClick={() => {
                   if (activeSession) {
                     onSelectSession(activeSession.id)
@@ -254,11 +368,20 @@ export function WorkspaceSidebar({
                 compactingSessionIds,
                 completedSessionIds,
               )
+              const actionTarget: SessionActionTarget = {
+                cwd: session.cwd,
+                name: session.name,
+                sessionId: session.id,
+                sessionPath: session.sessionPath,
+              }
               return (
                 <Tooltip key={session.id} label={`${session.name}\n${session.cwd}`}>
                   <button
+                    aria-haspopup='menu'
                     aria-label={`${session.name} in workspace ${session.cwd}`}
                     className={`session-item${indicator ? ` ${indicator}` : ''}`}
+                    onContextMenu={(event) => openContextMenu(actionTarget, event)}
+                    onKeyDown={(event) => openContextMenuFromKeyboard(actionTarget, event)}
                     onClick={() => onSelectOtherWorkspaceSession(session)}
                     type='button'
                   >
@@ -273,6 +396,37 @@ export function WorkspaceSidebar({
             })}
           </nav>
         </section>
+      )}
+      {contextMenu && (
+        <div
+          aria-label='Session actions'
+          className='session-context-menu'
+          ref={contextMenuRef}
+          role='menu'
+          style={{ left: contextMenuPosition.left, top: contextMenuPosition.top }}
+        >
+          <button autoFocus onClick={startRename} role='menuitem' type='button'>
+            Renommer…
+          </button>
+          {contextMenu.target.sessionId && (
+            <button
+              className='danger'
+              onClick={() => void closeTarget()}
+              role='menuitem'
+              type='button'
+            >
+              Fermer la session
+            </button>
+          )}
+        </div>
+      )}
+      {renameTarget && (
+        <SessionRenameDialog
+          initialName={renameTarget.name}
+          key={renameTarget.sessionPath ?? renameTarget.sessionId ?? renameTarget.name}
+          onClose={dismissRename}
+          onConfirm={(name) => onRenameSession(renameTarget, name)}
+        />
       )}
     </aside>
   )

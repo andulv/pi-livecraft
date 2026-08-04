@@ -1,9 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { listDirectories, listRecentSessions, listSessions, sendPiCommand } from '../../api.ts'
+import {
+  closeSession as requestCloseSession,
+  listDirectories,
+  listRecentSessions,
+  listSessions,
+  renameSession as renameStoredSession,
+  sendPiCommand,
+} from '../../api.ts'
 import type { JsonObject, RecentSession, SessionSummary } from '../../../shared/types.ts'
 import { promptSessionTitle } from '../composer/prompt-title.ts'
 import { recentWorkspaces } from './recent-workspaces.ts'
-import { pickSessionOnOpen, sidebarSessions } from './sidebar-sessions.ts'
+import {
+  nextActiveSessionId,
+  pickSessionOnOpen,
+  sidebarSessions,
+  type SessionActionTarget,
+} from './sidebar-sessions.ts'
 
 interface WorkspaceSessionsOptions {
   onDraftMessage: (sessionId: string, message: string) => void
@@ -46,6 +58,7 @@ export function useWorkspaceSessions(
   const [selectedId, setSelectedId] = useState('')
   const [creatingSession, setCreatingSession] = useState(false)
   const sessionsRef = useRef(sessions)
+  const recentSessionsRef = useRef(recentSessions)
   const sentSessionsRef = useRef(sentSessions)
   const completedSessionIdsRef = useRef(completedSessionIds)
   const selectedIdRef = useRef(selectedId)
@@ -53,6 +66,7 @@ export function useWorkspaceSessions(
   const refreshVersionRef = useRef(0)
   const autoSelectOnRefreshRef = useRef(true)
   sessionsRef.current = sessions
+  recentSessionsRef.current = recentSessions
   sentSessionsRef.current = sentSessions
   completedSessionIdsRef.current = completedSessionIds
   selectedIdRef.current = selectedId
@@ -265,6 +279,40 @@ export function useWorkspaceSessions(
     )
   }, [])
 
+  /** Renames an active session through Pi, or a history-only session through a disposable RPC. */
+  const renameManagedSession = useCallback(
+    async (target: SessionActionTarget, name: string): Promise<void> => {
+      const normalized = name.trim()
+      if (!normalized) throw new Error('Session name is required')
+      if (target.sessionId) {
+        await sendPiCommand(target.sessionId, { type: 'set_session_name', name: normalized })
+        renameSession(target.sessionId, normalized)
+      } else if (target.sessionPath) {
+        await renameStoredSession(target.cwd, target.sessionPath, normalized)
+      } else {
+        throw new Error('Session path is unavailable')
+      }
+      await refreshSessions()
+    },
+    [refreshSessions, renameSession],
+  )
+
+  /** Stops a managed process, keeps its persisted history, and selects a nearby active session. */
+  const closeManagedSession = useCallback(async (sessionId: string): Promise<void> => {
+    const nextId = selectedIdRef.current === sessionId
+      ? nextActiveSessionId(
+        sessionId,
+        sessionsRef.current,
+        recentSessionsRef.current,
+        workspacePath,
+        sentSessionsRef.current,
+      )
+      : null
+    await requestCloseSession(sessionId)
+    if (selectedIdRef.current === sessionId) setSelectedId(nextId ?? '')
+    await refreshSessions()
+  }, [refreshSessions, workspacePath])
+
   /** Adds or replaces a pending UI request for a session. */
   const addPendingRequest = useCallback((sessionId: string, request: JsonObject): void => {
     setSessions((current) =>
@@ -313,6 +361,7 @@ export function useWorkspaceSessions(
 
   return {
     addPendingRequest,
+    closeManagedSession,
     completedSessionIds,
     creatingSession,
     directoryPickerOpen,
@@ -323,6 +372,7 @@ export function useWorkspaceSessions(
     recentWorkspacePaths,
     refreshSessions,
     removePendingRequest,
+    renameManagedSession,
     renameSession,
     selectCreatedSession,
     selectedId,

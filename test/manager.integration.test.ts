@@ -339,6 +339,69 @@ test('completes a manual compact without timeout', { timeout: 10_000 }, async ()
   }
 })
 
+test('closes a Pi session without deleting its manager summary', { timeout: 10_000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
+  const port = 45_000 + (process.pid % 10_000)
+  await writeFakePi(directory)
+  const manager = spawn(process.execPath, ['server/manager.ts'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      PATH: `${fakePiBin(directory)}${delimiter}${process.env.PATH}`,
+      PI_LIVECRAFT_MANAGER_PORT: String(port),
+    },
+    stdio: 'ignore',
+  })
+  const client = await connectManager(port)
+  try {
+    const opened = await client.request('open', {
+      cwd: process.cwd(),
+      name: 'Closable',
+      sessionPath: join(directory, 'closable.jsonl'),
+    })
+    const exited = client.waitForEvent(
+      (event) => event.event === 'session_exited' && event.sessionId === sessionId(opened),
+    )
+    const closed = await client.request('close', { sessionId: sessionId(opened) })
+    assert.equal(closed.ok, true)
+    await exited
+    assert.equal(sessionStatus(await client.request('list', {}), sessionId(opened)), 'exited')
+  } finally {
+    client.close()
+    await stopProcess(manager)
+    await rm(directory, { force: true, recursive: true })
+  }
+})
+
+test('renames a persisted session through Pi RPC', { timeout: 10_000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
+  const port = 45_000 + (process.pid % 10_000)
+  await writeFakePi(directory)
+  const manager = spawn(process.execPath, ['server/manager.ts'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      PATH: `${fakePiBin(directory)}${delimiter}${process.env.PATH}`,
+      PI_LIVECRAFT_MANAGER_PORT: String(port),
+    },
+    stdio: 'ignore',
+  })
+  const client = await connectManager(port)
+  try {
+    const renamed = await client.request('rename', {
+      cwd: process.cwd(),
+      name: 'Renamed session',
+      sessionPath: join(directory, 'archived.jsonl'),
+    })
+    assert.equal(renamed.ok, true)
+    assert.deepEqual(renamed.data, { name: 'Renamed session' })
+  } finally {
+    client.close()
+    await stopProcess(manager)
+    await rm(directory, { force: true, recursive: true })
+  }
+})
+
 test('restarts an exited Pi session when reopening it', { timeout: 10_000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
   const port = 45_000 + (process.pid % 10_000)
@@ -516,6 +579,11 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
     sessionPath = command.sessionPath
     streaming = false
     console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: { cancelled: false } }))
+    return
+  }
+  if (!isolated && command.type === 'set_session_name') {
+    if (command.name !== 'Renamed session') throw new Error('Unexpected session name')
+    console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: {} }))
     return
   }
   if (!isolated && command.type === 'hold_test') {
