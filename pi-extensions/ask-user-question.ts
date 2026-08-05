@@ -14,6 +14,11 @@ import {
 } from '../shared/ask-user-question.ts'
 const rpcTitle = 'Pi Livecraft questionnaire'
 export default function registerAskUserQuestion(pi: ExtensionAPI): void {
+  // Register after extension loading so a same-named auto-discovered tool does not trigger Pi's fatal load diagnostic.
+  pi.on('session_start', () => registerAskUserQuestionTool(pi))
+}
+
+function registerAskUserQuestionTool(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'ask_user_question',
     label: 'Ask User Question',
