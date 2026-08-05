@@ -10,10 +10,13 @@ interface PendingRequest {
   timeout: NodeJS.Timeout
 }
 
+const connectionGracePeriodMs = 1_000
+
 export class ManagerClient extends EventEmitter {
   readonly #host: string
   readonly #port: number
   readonly #pending = new Map<string, PendingRequest>()
+  readonly #connectionWaiters = new Set<() => void>()
   #socket: Socket | null = null
   #reconnectTimer: NodeJS.Timeout | null = null
   connected = false
@@ -28,10 +31,11 @@ export class ManagerClient extends EventEmitter {
     this.#connect()
   }
 
-  /** Sends a request to the connected manager and associates its response with a timeout. */
-  request(request: Omit<ManagerRequest, 'id'>, timeoutMs = 35_000): Promise<unknown> {
+  /** Waits briefly for the normal startup/reconnect race before reporting manager unavailability. */
+  async request(request: Omit<ManagerRequest, 'id'>, timeoutMs = 35_000): Promise<unknown> {
+    if (!this.#socket?.writable || !this.connected) await this.#waitForConnection()
     if (!this.#socket?.writable || !this.connected)
-      return Promise.reject(new Error('Pi manager is unavailable'))
+      throw new Error('Pi manager is unavailable')
     const id = randomUUID()
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -53,6 +57,7 @@ export class ManagerClient extends EventEmitter {
     socket.setNoDelay(true)
     socket.on('connect', () => {
       this.connected = true
+      this.#resolveConnectionWaiters()
       this.emit('connected')
     })
     socket.on('data', (chunk) => {
@@ -79,6 +84,27 @@ export class ManagerClient extends EventEmitter {
       this.#reconnectTimer = null
       this.#connect()
     }, 500)
+  }
+
+  /** Resolves when a connection arrives, or after the grace period expires. */
+  #waitForConnection(): Promise<void> {
+    if (this.#socket?.writable && this.connected) return Promise.resolve()
+    return new Promise((resolve) => {
+      const waiter = () => {
+        clearTimeout(timeout)
+        this.#connectionWaiters.delete(waiter)
+        resolve()
+      }
+      const timeout = setTimeout(() => {
+        this.#connectionWaiters.delete(waiter)
+        resolve()
+      }, connectionGracePeriodMs)
+      this.#connectionWaiters.add(waiter)
+    })
+  }
+
+  #resolveConnectionWaiters(): void {
+    for (const waiter of this.#connectionWaiters) waiter()
   }
 
   /** Dispatches events and resolves requests from their RPC identifier. */
