@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { JsonLineDecoder, encodeJsonLine } from './jsonl.ts'
+import { JsonLineDecoder, MAX_SESSION_RECORD_SIZE, encodeJsonLine } from './jsonl.ts'
 import { resolvePiLauncher } from './pi-launcher.ts'
 import type { JsonObject } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
@@ -87,7 +87,10 @@ export class PiProcess extends EventEmitter {
     })
     activeChildren.add(this.child)
 
-    const decoder = new JsonLineDecoder((value) => this.#receive(value))
+    const decoder = new JsonLineDecoder(
+      (value) => this.#receive(value),
+      MAX_SESSION_RECORD_SIZE,
+    )
     this.child.stdout.on('data', (chunk: Buffer) => {
       try {
         decoder.push(chunk)

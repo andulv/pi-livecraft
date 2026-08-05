@@ -103,6 +103,8 @@ const conversationViewDetails = {
 type ConversationView = keyof typeof conversationViewDetails
 
 const gitRefreshDelayMs = 250
+const managerUnavailableMessage = 'Pi manager is unavailable'
+const managerUnavailableToastDelayMs = 1_000
 
 function nextConversationView(current: ConversationView): ConversationView {
   if (current === 'simple') return 'semi-detailed'
@@ -212,6 +214,7 @@ function App() {
   quotasRef.current = quotas
 
   const dismissingRef = useRef(new Set<string>())
+  const pendingManagerUnavailableToastsRef = useRef(new Map<string, number>())
 
   // Notifications
   /** Marks a toast as dismissing, then removes it after the exit animation. */
@@ -230,11 +233,32 @@ function App() {
   const showToast = useCallback(
     (kind: Toast['kind'], message: string, sessionId: string | null = selectedIdRef.current) => {
       const toast = { id: crypto.randomUUID(), kind, message, sessionId }
-      setToasts((current) => [...current, toast])
-      if (kind !== 'error') window.setTimeout(() => startDismissal(toast.id), 3000)
+      const publish = () => {
+        pendingManagerUnavailableToastsRef.current.delete(toast.id)
+        setToasts((current) => [...current, toast])
+        if (kind !== 'error') window.setTimeout(() => startDismissal(toast.id), 3000)
+      }
+      if (kind === 'error' && message === managerUnavailableMessage) {
+        const timer = window.setTimeout(publish, managerUnavailableToastDelayMs)
+        pendingManagerUnavailableToastsRef.current.set(toast.id, timer)
+        return
+      }
+      publish()
     },
     [startDismissal],
   )
+  const clearManagerUnavailableToasts = useCallback(() => {
+    for (const timer of pendingManagerUnavailableToastsRef.current.values()) {
+      window.clearTimeout(timer)
+    }
+    pendingManagerUnavailableToastsRef.current.clear()
+    setToasts((current) => current.filter((toast) => toast.message !== managerUnavailableMessage))
+  }, [])
+  useEffect(() => () => {
+    for (const timer of pendingManagerUnavailableToastsRef.current.values()) {
+      window.clearTimeout(timer)
+    }
+  }, [])
 
   /** Removes a toast after explicit dismissal or automatic timeout. */
   const dismissToast = useCallback((id: string) => startDismissal(id), [startDismissal])
@@ -644,6 +668,7 @@ function App() {
         managerEvent.event === 'manager_connected' || managerEvent.event === 'manager_disconnected'
       ) {
         setPiConnection(managerEvent.event === 'manager_connected' ? 'connected' : 'disconnected')
+        if (managerEvent.event === 'manager_connected') clearManagerUnavailableToasts()
         clearActivity()
       }
       if (managerEvent.event === 'manager_status' && isManagerRuntimeStatus(managerEvent.data))
@@ -663,7 +688,14 @@ function App() {
       setPiConnection('connecting')
       clearActivity()
       showToast('error', 'Connection to backend lost; retrying.')
-    }), [clearActivity, handleManagerPiEvent, refreshSessions, resetEventSequence, showToast])
+    }), [
+    clearActivity,
+    clearManagerUnavailableToasts,
+    handleManagerPiEvent,
+    refreshSessions,
+    resetEventSequence,
+    showToast,
+  ])
 
   // Selected session and loading state
   const selectedSession = sessions.find((session) => session.id === selectedId)

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import { connect, type Socket } from 'node:net'
-import { JsonLineDecoder, encodeJsonLine } from './jsonl.ts'
+import { JsonLineDecoder, MAX_SESSION_RECORD_SIZE, encodeJsonLine } from './jsonl.ts'
 import type { ManagerMessage, ManagerRequest } from '../shared/types.ts'
 
 interface PendingRequest {
@@ -52,7 +52,10 @@ export class ManagerClient extends EventEmitter {
     if (this.#socket) return
     const socket = connect({ host: this.#host, port: this.#port })
     this.#socket = socket
-    const decoder = new JsonLineDecoder((value) => this.#receive(value))
+    const decoder = new JsonLineDecoder(
+      (value) => this.#receive(value),
+      MAX_SESSION_RECORD_SIZE,
+    )
 
     socket.setNoDelay(true)
     socket.on('connect', () => {
