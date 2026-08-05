@@ -100,5 +100,5 @@ The Pi RPC integration test requires a configured `pi` command. Its `/agent` cov
 ## Finish cleanly
 
 - Stage only your files or hunks with `git add -- <targets>`; never use a blind global add or include another contributor's work.
-- Commit after relevant validation passes, using a real Gitmoji and a concise imperative French subject without a conventional prefix. Never push implicitly.
+- Commit after relevant validation passes, using a real Gitmoji and a concise imperative English subject without a conventional prefix. Never push implicitly.
 - Report the result, essential files, checks actually run, and commit identifier. Mention a risk or follow-up only when real.
