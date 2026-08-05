@@ -1,4 +1,5 @@
-import { readdir, readFile, realpath, stat } from 'node:fs/promises'
+import { open, readdir, readFile, realpath, stat } from 'node:fs/promises'
+import type { FileHandle } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { isAbsolute, join, relative, sep } from 'node:path'
 import type { RecentSession } from '../shared/types.ts'
@@ -26,6 +27,9 @@ interface PiSessionHeader {
 
 const MAX_SESSIONS = 30
 const CANDIDATE_BUFFER = 100
+const HEAD_CHUNK_BYTES = 64 * 1024
+const TAIL_CHUNK_BYTES = 64 * 1024
+const TAIL_SCAN_BUDGET = 2 * 1024 * 1024
 
 /** Reads only the metadata required to resume a Pi session. */
 export async function listRecentPiSessions(
@@ -94,7 +98,7 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
   }
   let lines: string[]
   try {
-    lines = (await readFile(path, 'utf8')).split('\n')
+    lines = await readSessionLines(canonicalPath)
   } catch {
     return null
   }
@@ -139,6 +143,41 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
     sessionPath: canonicalPath,
     updatedAt: lastMessageAt ?? (Number.isNaN(createdAt) ? updatedAt : createdAt),
   }
+}
+
+/** Reads only the head and the newest entries of a session file instead of its full history:
+ *  the header, name, and first prompt live near the start, and the newest activity at the end.
+ *  Gigabytes of middle history never need to be parsed to render the recent-session list.
+ *  A single entry may itself be huge (tool outputs), so the end is scanned backward in chunks
+ *  until a complete JSON line is found rather than assuming a fixed tail fits. */
+async function readSessionLines(path: string): Promise<string[]> {
+  const size = (await stat(path)).size
+  if (size <= HEAD_CHUNK_BYTES + TAIL_CHUNK_BYTES) return (await readFile(path, 'utf8')).split('\n')
+  let handle: FileHandle | undefined
+  try {
+    handle = await open(path, 'r')
+    const head = Buffer.alloc(HEAD_CHUNK_BYTES)
+    const { bytesRead: headBytes } = await handle.read(head, 0, HEAD_CHUNK_BYTES, 0)
+    let tail = ''
+    let position = size
+    let scanned = 0
+    while (position > HEAD_CHUNK_BYTES && scanned < TAIL_SCAN_BUDGET && !hasParseableLine(tail)) {
+      const chunkSize = Math.min(TAIL_CHUNK_BYTES, position - HEAD_CHUNK_BYTES)
+      position -= chunkSize
+      const chunk = Buffer.alloc(chunkSize)
+      const { bytesRead } = await handle.read(chunk, 0, chunkSize, position)
+      tail = chunk.subarray(0, bytesRead).toString('utf8') + tail
+      scanned += chunkSize
+    }
+    return (head.subarray(0, headBytes).toString('utf8') + tail).split('\n')
+  } finally {
+    await handle?.close().catch(() => undefined)
+  }
+}
+
+/** True when the accumulated text contains at least one complete JSON line. */
+function hasParseableLine(text: string): boolean {
+  return text.split('\n').some((line) => parseLine(line) !== null)
 }
 
 function parseHeader(line: string | undefined): PiSessionHeader | null {

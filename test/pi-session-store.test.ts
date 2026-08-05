@@ -118,6 +118,49 @@ test('uses the first non-command user prompt and hides sessions without messages
   assert.equal(recent[0].name, 'One two three four five six seven eight…')
 })
 
+test('reads the newest entry of a large session file even when it exceeds one tail chunk', async () => {
+  const { directory, workspace } = await fixture()
+  // Middle history large enough that the head+tail path is taken and real bytes are skipped.
+  const padding = JSON.stringify({
+    type: 'message',
+    timestamp: '2026-07-19T10:00:00.000Z',
+    message: { role: 'assistant', content: 'x'.repeat(150 * 1024) },
+  })
+  // The final record is larger than one 64 KiB tail chunk: the backward scan must keep going
+  // past the first chunk to capture its start, otherwise the newest entry would be dropped.
+  const finalEntry = JSON.stringify({
+    type: 'message',
+    timestamp: '2026-07-19T11:00:00.000Z',
+    message: { role: 'user', content: 'y'.repeat(70 * 1024) },
+  })
+  await writeFile(
+    join(directory, 'big.jsonl'),
+    [
+      JSON.stringify({
+        type: 'session',
+        version: 3,
+        id: 'big',
+        timestamp: '2026-07-19T09:00:00.000Z',
+        cwd: workspace,
+      }),
+      JSON.stringify({ type: 'session_info', name: 'Big session' }),
+      JSON.stringify({
+        type: 'message',
+        timestamp: '2026-07-19T09:00:00.000Z',
+        message: { role: 'user', content: 'first prompt' },
+      }),
+      padding,
+      finalEntry,
+    ]
+      .join('\n') + '\n',
+  )
+  const recent = await listRecentPiSessions(workspace, directory)
+  assert.equal(recent.length, 1)
+  assert.equal(recent[0].name, 'Big session')
+  // updatedAt reflects the final entry's timestamp; if it were ignored, this would fall back to 09:00.
+  assert.equal(recent[0].updatedAt, Date.parse('2026-07-19T11:00:00.000Z'))
+})
+
 async function writeSession(
   path: string,
   cwd: string,
