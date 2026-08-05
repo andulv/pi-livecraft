@@ -104,6 +104,13 @@ export const ToolCallCard = memo(function ToolCallCard({
   const outputLength = output.length
   const displayedOutput = output || 'No output.'
   const presentation = toolCallPresentation({ id, name, args }, repositoryRoot)
+  const commandText = presentation.headerDetail?.text
+  const bashCommandMatch = name === 'bash' ? commandText?.match(/^\s*(\S+)/) : undefined
+  const bashCommandName = bashCommandMatch?.[1]
+  const headingName = bashCommandName ?? (name || 'Tool')
+  const displayedCommand = bashCommandMatch && commandText
+    ? commandText.slice(bashCommandMatch[0].length).trimStart()
+    : commandText
   const tooltip = formatToolCallTooltip(
     presentation.headerDetail?.title ?? input,
     inputLength,
@@ -181,15 +188,13 @@ export const ToolCallCard = memo(function ToolCallCard({
           type='button'
         >
           <span aria-hidden='true'>⌘</span>
-          {(name !== 'bash' || !presentation.headerDetail) && (
-            <span>
-              <strong aria-label={tooltip}>{name || 'Tool'}</strong>
-            </span>
-          )}
-          {presentation.headerDetail && (
+          <span>
+            <strong aria-label={tooltip}>{headingName}</strong>
+          </span>
+          {presentation.headerDetail && displayedCommand && (
             <span className='tool-call-command'>
               <code aria-label={`Full command: ${presentation.headerDetail.title}`}>
-                {presentation.headerDetail.text}
+                {displayedCommand}
               </code>
             </span>
           )}

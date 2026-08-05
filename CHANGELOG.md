@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Display Bash executable names like other tools, without repeating the `bash` prefix.
 - Open long conversations much faster: Pi processes are reused instead of restarted; the first three sessions in each workspace keep their own process, and only a process idle for more than three minutes is reassigned afterward. Bursts can temporarily create additional processes.
 - Browse conversations faster with cached Markdown rendering and lighter previews.
 - Find recent work faster: sessions are sorted by latest activity, with active and ended states clearly distinguished in the sidebar.
