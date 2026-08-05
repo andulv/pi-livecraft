@@ -61,12 +61,12 @@ export function SessionRenameDialog(
     event.preventDefault()
     const normalized = name.trim()
     if (!normalized) {
-      setError('Le nom de la session est requis.')
+      setError('A session name is required.')
       inputRef.current?.focus()
       return
     }
     if (normalized.length > 120) {
-      setError('Le nom ne peut pas dépasser 120 caractères.')
+      setError('The name cannot exceed 120 characters.')
       inputRef.current?.focus()
       return
     }
@@ -76,7 +76,7 @@ export function SessionRenameDialog(
       await onConfirm(normalized)
       onClose()
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible de renommer la session.')
+      setError(cause instanceof Error ? cause.message : 'Unable to rename the session.')
     } finally {
       setSaving(false)
     }
@@ -100,10 +100,10 @@ export function SessionRenameDialog(
         ref={dialogRef}
         role='dialog'
       >
-        <h2 id='session-rename-title'>Renommer la session</h2>
-        <p>Choisissez un nom facile à retrouver dans votre historique.</p>
+        <h2 id='session-rename-title'>Rename session</h2>
+        <p>Choose a name that is easy to find in your history.</p>
         <label className='session-rename-label' htmlFor='session-rename-input'>
-          Nom de la session
+          Session name
         </label>
         <input
           aria-invalid={Boolean(error)}
@@ -124,10 +124,10 @@ export function SessionRenameDialog(
         )}
         <div className='modal-actions'>
           <button disabled={saving} onClick={onClose} type='button'>
-            Annuler
+            Cancel
           </button>
           <button className='primary' disabled={saving} type='submit'>
-            {saving ? 'Renommage…' : 'Renommer'}
+            {saving ? 'Renaming…' : 'Rename'}
           </button>
         </div>
       </form>

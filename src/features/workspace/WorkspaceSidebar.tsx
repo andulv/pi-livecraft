@@ -411,7 +411,7 @@ export function WorkspaceSidebar({
           style={{ left: contextMenuPosition.left, top: contextMenuPosition.top }}
         >
           <button autoFocus onClick={startRename} role='menuitem' type='button'>
-            Renommer…
+            Rename…
           </button>
           {contextMenu.target.sessionId && (
             <button
@@ -420,7 +420,7 @@ export function WorkspaceSidebar({
               role='menuitem'
               type='button'
             >
-              Fermer la session
+              Close session
             </button>
           )}
         </div>
