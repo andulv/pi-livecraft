@@ -211,7 +211,7 @@ async function createSession(request: ManagerRequest): Promise<SessionSummary> {
   const summary: SessionSummary = {
     id: randomUUID(),
     cwd,
-    name: 'Nouvelle session',
+    name: 'New session',
     status: 'starting',
     pendingUi: [],
   }
@@ -561,7 +561,7 @@ function handlePiEvent(session: ManagedSession, event: JsonObject): void {
   if (event.type === 'session_info_changed') {
     session.summary.name = typeof event.name === 'string' && event.name.trim()
       ? event.name.trim()
-      : 'Nouvelle session'
+      : 'New session'
   }
   if (event.type === 'agent_start') markSessionRunning(session)
   if (event.type === 'agent_settled') markSessionIdle(session, true)

@@ -129,7 +129,7 @@ export function useWorkspaceSessions(
         const previousName = sessionsRef.current.find((current) => current.id === session.id)?.name
         return recentName
           ? { ...session, name: recentName }
-          : previousName && previousName !== 'Nouvelle session'
+          : previousName && previousName !== 'New session'
           ? { ...session, name: previousName }
           : session
       })

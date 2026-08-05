@@ -758,7 +758,7 @@ function App() {
       try {
         await sendPiCommand(selectedId, command)
         const sentSession = sessions.find((session) => session.id === selectedId)
-        const shouldNameSession = !isCommand && sentSession?.name === 'Nouvelle session'
+        const shouldNameSession = !isCommand && sentSession?.name === 'New session'
           && !snapshot
             .messages
             .some((entry) => entry.role === 'user')
