@@ -18,6 +18,20 @@ test('parses a valid manager event', () => {
     data: { type: 'agent_start' },
     sequence: 3,
   })
+  assert.deepEqual(
+    parseManagerEvent(JSON.stringify({
+      kind: 'event',
+      event: 'session_reassigned',
+      sessionId: 'session-1',
+      data: { newSessionId: 'session-2' },
+    })),
+    {
+      kind: 'event',
+      event: 'session_reassigned',
+      sessionId: 'session-1',
+      data: { newSessionId: 'session-2' },
+    },
+  )
 })
 
 test('rejects malformed or unknown manager events', () => {

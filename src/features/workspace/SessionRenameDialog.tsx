@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react'
 
 interface SessionRenameDialogProps {
   initialName: string
@@ -13,22 +19,43 @@ export function SessionRenameDialog(
   const [name, setName] = useState(initialName)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const dialogRef = useRef<HTMLFormElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
+    previousFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
     inputRef.current?.focus()
     inputRef.current?.select()
+    return () => previousFocusRef.current?.focus()
   }, [])
 
-  useEffect(() => {
-    const handleKeyDown = (event: globalThis.KeyboardEvent): void => {
-      if (event.key !== 'Escape' || saving) return
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLFormElement>): void {
+    if (event.key === 'Escape') {
       event.preventDefault()
-      onClose()
+      event.stopPropagation()
+      if (!saving) onClose()
+      return
     }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose, saving])
+    if (event.key !== 'Tab') return
+
+    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), '
+        + 'textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
+    )
+    if (!focusable?.length) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
@@ -67,8 +94,10 @@ export function SessionRenameDialog(
         aria-labelledby='session-rename-title'
         aria-modal='true'
         className='modal session-rename-modal'
+        onKeyDown={handleKeyDown}
         onMouseDown={(event) => event.stopPropagation()}
         onSubmit={(event) => void submit(event)}
+        ref={dialogRef}
         role='dialog'
       >
         <h2 id='session-rename-title'>Renommer la session</h2>

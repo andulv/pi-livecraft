@@ -650,7 +650,7 @@ function App() {
         setManagerRuntimeStatus(managerEvent.data)
       if (
         managerEvent.event === 'manager_connected' || managerEvent.event === 'session_created'
-        || managerEvent.event === 'session_exited'
+        || managerEvent.event === 'session_exited' || managerEvent.event === 'session_reassigned'
       ) void refreshSessions()
       if (managerEvent.event === 'pi' && isObject(managerEvent.data))
         handleManagerPiEvent(
@@ -976,7 +976,9 @@ function App() {
       if (!command) return
       if (
         event.key === 'Escape' && (commandPaletteOpen || settingsOpen || dialog || document
-          .querySelector('.composer-select-content,[data-radix-select-content],.slash-commands'))
+          .querySelector(
+            '[aria-modal="true"],.composer-select-content,[data-radix-select-content],.slash-commands',
+          ))
       ) return
       event.preventDefault()
       executeCommand(command)

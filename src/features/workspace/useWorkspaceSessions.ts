@@ -142,7 +142,7 @@ export function useWorkspaceSessions(
           ),
         )
         const recentKeys = new Set(nextRecentSessions.map((session) => session.sessionPath))
-        const next = new Set(
+        const next = keepRecentCompletedSessionIds(
           [...current].filter((key) => sessionKeys.has(key) || recentKeys.has(key)),
         )
         return next.size === current.size ? current : next
@@ -350,7 +350,12 @@ export function useWorkspaceSessions(
     if (sessionId === selectedIdRef.current) return
     const sessionKey = sessionsRef.current.find((session) => session.id === sessionId)?.sessionPath
       ?? sessionId
-    setCompletedSessionIds((current) => new Set(current).add(sessionKey))
+    setCompletedSessionIds((current) => {
+      const next = new Set(current)
+      next.delete(sessionKey)
+      next.add(sessionKey)
+      return keepRecentCompletedSessionIds(next)
+    })
   }, [])
 
   const selectCreatedSession = useCallback((sessionId: string): void => {
@@ -409,7 +414,7 @@ function readCompletedSessionIds(): ReadonlySet<string> {
     const parsed: unknown = JSON.parse(stored)
     if (!Array.isArray(parsed)) return new Set()
     const ids = parsed.filter((id): id is string => typeof id === 'string' && id.length > 0)
-    return new Set(ids.slice(0, MAX_COMPLETED_SESSIONS))
+    return keepRecentCompletedSessionIds(ids)
   } catch {
     return new Set()
   }
@@ -421,9 +426,13 @@ function writeCompletedSessionIds(ids: ReadonlySet<string>): void {
     if (ids.size === 0) sessionStorage.removeItem(COMPLETED_SESSIONS_KEY)
     else sessionStorage.setItem(
         COMPLETED_SESSIONS_KEY,
-        JSON.stringify([...ids].slice(0, MAX_COMPLETED_SESSIONS)),
+        JSON.stringify([...keepRecentCompletedSessionIds(ids)]),
       )
   } catch {
     // sessionStorage may be unavailable
   }
+}
+
+function keepRecentCompletedSessionIds(ids: Iterable<string>): ReadonlySet<string> {
+  return new Set([...ids].slice(-MAX_COMPLETED_SESSIONS))
 }

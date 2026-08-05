@@ -20,6 +20,7 @@ import { isObject } from '../shared/is-object.ts'
 const managerEventNames: readonly ManagerEvent['event'][] = [
   'session_created',
   'session_exited',
+  'session_reassigned',
   'manager_connected',
   'manager_disconnected',
   'manager_status',

@@ -28,9 +28,10 @@ import type {
 const host = '127.0.0.1'
 const port = readPort('PI_LIVECRAFT_MANAGER_PORT', 43_120)
 const minimumOpenSessionsPerWorkspace = 3
-const idleReuseAfterMs = 3 * 60_000
+const idleReuseAfterMs = readDuration('PI_LIVECRAFT_IDLE_REUSE_AFTER_MS', 3 * 60_000)
 const clients = new Set<Socket>()
 const sessions = new Map<string, ManagedSession>()
+const openingSessions = new Map<string, Promise<SessionSummary>>()
 const restartExitCode = readRestartExitCode()
 const supervised = process.env.PI_LIVECRAFT_MANAGER_SUPERVISED === '1'
   && restartExitCode !== undefined
@@ -50,6 +51,7 @@ interface ManagedSession {
   pendingUi: Map<string, JsonObject>
   inFlightRequests: number
   switching: boolean
+  bufferedEvents: JsonObject[]
   idleSince: number | undefined
 }
 
@@ -220,33 +222,49 @@ async function createSession(request: ManagerRequest): Promise<SessionSummary> {
 }
 
 async function openSession(request: ManagerRequest): Promise<SessionSummary> {
-  if (
-    typeof request.cwd !== 'string' || typeof request.name !== 'string'
-    || typeof request.sessionPath !== 'string'
-  ) {
+  const cwd = request.cwd
+  const name = request.name
+  const sessionPath = request.sessionPath
+  if (typeof cwd !== 'string' || typeof name !== 'string' || typeof sessionPath !== 'string') {
     throw new Error('Session cwd, name and path are required')
   }
-  const existing = [...sessions.values()].find(({ summary }) =>
-    summary.sessionPath === request.sessionPath
-  )
-  if (existing && existing.summary.status !== 'exited' && !existing.switching)
+
+  const opening = openingSessions.get(sessionPath)
+  if (opening) {
+    const summary = await opening
+    return { ...summary, pendingUi: [] }
+  }
+
+  const existing = [...sessions.values()].find(({ summary }) => summary.sessionPath === sessionPath)
+  if (existing?.switching) throw new Error('Pi session is switching')
+  if (existing && existing.summary.status !== 'exited')
     return {
       ...existing.summary,
       pendingUi: [...existing.pendingUi.values()],
     }
   if (existing?.summary.status === 'exited') sessions.delete(existing.summary.id)
 
-  const summary: SessionSummary = {
-    id: randomUUID(),
-    cwd: request.cwd,
-    name: request.name,
-    sessionPath: request.sessionPath,
-    status: 'starting',
-    pendingUi: [],
+  const operation = (async (): Promise<SessionSummary> => {
+    const summary: SessionSummary = {
+      id: randomUUID(),
+      cwd,
+      name,
+      sessionPath,
+      status: 'starting',
+      pendingUi: [],
+    }
+    await startSession(summary)
+    broadcast({ kind: 'event', event: 'session_created', sessionId: summary.id, data: summary })
+    return summary
+  })()
+  openingSessions.set(sessionPath, operation)
+  try {
+    const summary = await operation
+    return { ...summary, pendingUi: [] }
+  } finally {
+    if (openingSessions.get(sessionPath) === operation)
+      openingSessions.delete(sessionPath)
   }
-  await startSession(summary)
-  broadcast({ kind: 'event', event: 'session_created', sessionId: summary.id, data: summary })
-  return { ...summary, pendingUi: [] }
 }
 
 /** Stops a managed Pi process while leaving its persisted session available for reopening. */
@@ -315,11 +333,12 @@ async function startSession(summary: SessionSummary): Promise<void> {
     pendingUi: new Map(),
     inFlightRequests: 0,
     switching: false,
+    bufferedEvents: [],
     idleSince: undefined,
   }
 
   sessions.set(summary.id, session)
-  pi.on('event', (event: JsonObject) => handlePiEvent(session.summary.id, session, event))
+  pi.on('event', (event: JsonObject) => handlePiEvent(session, event))
   pi.on('exit', (detail: unknown) => {
     if (session.summary.status === 'exited') return
     session.summary.status = 'exited'
@@ -347,14 +366,20 @@ async function startSession(summary: SessionSummary): Promise<void> {
 
 /** Reassigns one idle Pi process without exposing the target session before the switch completes. */
 async function reuseSession(session: ManagedSession, summary: SessionSummary): Promise<boolean> {
+  const previousSessionId = session.summary.id
   session.switching = true
+  session.bufferedEvents = []
   try {
     const running = piHasActiveWork(
       await requestPi(session, { type: 'get_state' }, 5_000),
     )
     if (running) markSessionRunning(session)
     else markSessionIdle(session)
-    if (running || session.pendingUi.size > 0) return false
+    if (running || session.pendingUi.size > 0) {
+      session.switching = false
+      flushBufferedEvents(session)
+      return false
+    }
 
     const response = await requestPi(
       session,
@@ -362,8 +387,19 @@ async function reuseSession(session: ManagedSession, summary: SessionSummary): P
         ? { type: 'switch_session', sessionPath: summary.sessionPath }
         : { type: 'new_session' },
     )
-    if (isObject(response.data) && response.data.cancelled === true) return false
-    if (session.pendingUi.size > 0) throw new Error('Pi left blocking UI pending after switching')
+    if (isObject(response.data) && response.data.cancelled === true) {
+      session.switching = false
+      flushBufferedEvents(session)
+      return false
+    }
+    if (
+      session.pendingUi.size > 0
+      || session.bufferedEvents.some((event) =>
+        event.type === 'extension_ui_request'
+        && isBlockingUiRequest(event)
+        && typeof event.id === 'string'
+      )
+    ) throw new Error('Pi left blocking UI pending after switching')
 
     const state = await requestPi(session, { type: 'get_state' })
     const sessionPath = isObject(state.data) && typeof state.data.sessionFile === 'string'
@@ -371,18 +407,34 @@ async function reuseSession(session: ManagedSession, summary: SessionSummary): P
       : undefined
     if (sessionPath) summary.sessionPath = sessionPath
 
-    sessions.delete(session.summary.id)
+    sessions.delete(previousSessionId)
     session.summary = summary
     session.pendingUi.clear()
     markSessionIdle(session, true)
     sessions.set(summary.id, session)
+    session.switching = false
+    broadcast({
+      kind: 'event',
+      event: 'session_reassigned',
+      sessionId: previousSessionId,
+      data: { newSessionId: summary.id },
+    })
+    flushBufferedEvents(session)
     return true
   } catch {
+    session.switching = false
+    flushBufferedEvents(session)
     await session.pi.terminate()
     return false
   } finally {
     session.switching = false
   }
+}
+
+function flushBufferedEvents(session: ManagedSession): void {
+  const bufferedEvents = session.bufferedEvents
+  session.bufferedEvents = []
+  for (const event of bufferedEvents) handlePiEvent(session, event)
 }
 
 async function requestPi(
@@ -501,7 +553,11 @@ async function sendCommand(request: ManagerRequest): Promise<JsonObject> {
   }
 }
 
-function handlePiEvent(sessionId: string, session: ManagedSession, event: JsonObject): void {
+function handlePiEvent(session: ManagedSession, event: JsonObject): void {
+  if (session.switching) {
+    session.bufferedEvents.push(event)
+    return
+  }
   if (event.type === 'session_info_changed') {
     session.summary.name = typeof event.name === 'string' && event.name.trim()
       ? event.name.trim()
@@ -522,7 +578,7 @@ function handlePiEvent(sessionId: string, session: ManagedSession, event: JsonOb
   ) {
     session.pendingUi.set(event.id, event)
   }
-  broadcast({ kind: 'event', event: 'pi', sessionId, data: event })
+  broadcast({ kind: 'event', event: 'pi', sessionId: session.summary.id, data: event })
 }
 
 function activeAgentFromStatus(statusText: unknown): string | undefined {
@@ -576,4 +632,14 @@ function readRestartExitCode(): number | undefined {
   if (rawValue === undefined) return undefined
   const value = Number(rawValue)
   return Number.isInteger(value) && value > 0 && value <= 255 ? value : undefined
+}
+
+/** Reads a non-negative duration, with an explicit default for normal runtime use. */
+function readDuration(name: string, fallback: number): number {
+  const rawValue = process.env[name]
+  if (rawValue === undefined) return fallback
+  const value = Number(rawValue)
+  if (!Number.isFinite(value) || value < 0)
+    throw new Error(`${name} must be a non-negative number`)
+  return value
 }

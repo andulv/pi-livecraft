@@ -216,6 +216,46 @@ test(
   },
 )
 
+test('deduplicates concurrent opens for one session path', { timeout: 10_000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
+  const port = 45_000 + (process.pid % 10_000)
+  await writeFakePi(directory)
+  const manager = spawn(process.execPath, ['server/manager.ts'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      PATH: `${fakePiBin(directory)}${delimiter}${process.env.PATH}`,
+      PI_LIVECRAFT_MANAGER_PORT: String(port),
+    },
+    stdio: 'ignore',
+  })
+  const client = await connectManager(port)
+  try {
+    const sessionPath = join(directory, 'concurrent.jsonl')
+    const [first, second] = await Promise.all([
+      client.request('open', { cwd: process.cwd(), name: 'First', sessionPath }),
+      client.request('open', { cwd: process.cwd(), name: 'Second', sessionPath }),
+    ])
+    const firstId = sessionId(first)
+    assert.equal(second.ok, true)
+    assert.equal(sessionId(second), firstId)
+    const sessions = await client.request('list', {})
+    assert.equal(
+      Array.isArray(sessions.data)
+        ? sessions
+          .data
+          .filter((session) => isObject(session) && session.sessionPath === sessionPath)
+          .length
+        : 0,
+      1,
+    )
+  } finally {
+    client.close()
+    await stopProcess(manager)
+    await rm(directory, { force: true, recursive: true })
+  }
+})
+
 test(
   'keeps three Pi processes and does not reuse a recently idle one',
   { timeout: 10_000 },
@@ -311,6 +351,82 @@ test(
       assert.notEqual(fifthPid, secondPid)
       assert.notEqual(fifthPid, thirdPid)
       assert.notEqual(fifthPid, fourthPid)
+    } finally {
+      client.close()
+      await stopProcess(manager)
+      await rm(directory, { force: true, recursive: true })
+    }
+  },
+)
+
+test(
+  'reuses a long-idle Pi process and routes switch events to its new session',
+  { timeout: 10_000 },
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
+    const port = 45_000 + (process.pid % 10_000)
+    await writeFakePi(directory, false, true)
+    const manager = spawn(process.execPath, ['server/manager.ts'], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        PATH: `${fakePiBin(directory)}${delimiter}${process.env.PATH}`,
+        PI_LIVECRAFT_MANAGER_PORT: String(port),
+        PI_LIVECRAFT_IDLE_REUSE_AFTER_MS: '0',
+      },
+      stdio: 'ignore',
+    })
+    const client = await connectManager(port)
+    try {
+      const first = await client.request('open', {
+        cwd: process.cwd(),
+        name: 'First',
+        sessionPath: join(directory, 'first.jsonl'),
+      })
+      const firstId = sessionId(first)
+      const firstPid = processId(
+        await client.request('command', {
+          sessionId: firstId,
+          command: { type: 'process_id_test' },
+        }),
+      )
+      await client.request('create', { cwd: process.cwd() })
+      await client.request('create', { cwd: process.cwd() })
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
+      const reassignedEvent = client.waitForEvent(
+        (event) => event.event === 'session_reassigned' && event.sessionId === firstId,
+      )
+      const switchEvent = client.waitForEvent(
+        (event) =>
+          event.event === 'pi'
+          && isObject(event.data)
+          && event.data.type === 'extension_ui_request'
+          && event.data.message === 'Switched',
+      )
+      const fourth = await client.request('open', {
+        cwd: process.cwd(),
+        name: 'Fourth',
+        sessionPath: join(directory, 'fourth.jsonl'),
+      })
+      const fourthId = sessionId(fourth)
+      const fourthPid = processId(
+        await client.request('command', {
+          sessionId: fourthId,
+          command: { type: 'process_id_test' },
+        }),
+      )
+      const reassigned = await reassignedEvent
+      const switched = await switchEvent
+
+      assert.equal(fourthPid, firstPid)
+      assert.equal(
+        isObject(reassigned.data) && reassigned.data.newSessionId === fourthId,
+        true,
+      )
+      assert.equal(switched.sessionId, fourthId)
+      assert.equal(sessionStatus(await client.request('list', {}), firstId), undefined)
+      assert.equal(sessionStatus(await client.request('list', {}), fourthId), 'idle')
     } finally {
       client.close()
       await stopProcess(manager)
@@ -530,7 +646,11 @@ test('improves a prompt with a direction preset', { timeout: 10_000 }, async () 
   }
 })
 
-async function writeFakePi(directory: string, emitStartupEvent = false): Promise<void> {
+async function writeFakePi(
+  directory: string,
+  emitStartupEvent = false,
+  emitSwitchEvent = false,
+): Promise<void> {
   const source = `#!/usr/bin/env node
 import readline from 'node:readline'
 const isolated = process.argv.includes('--no-session')
@@ -575,6 +695,7 @@ if (isolated) {
   }
 }
 const emitStartupEvent = ${emitStartupEvent}
+const emitSwitchEvent = ${emitSwitchEvent}
 let streaming = false
 readline.createInterface({ input: process.stdin }).on('line', (line) => {
   const command = JSON.parse(line)
@@ -593,6 +714,9 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   if (!isolated && command.type === 'switch_session') {
     sessionPath = command.sessionPath
     streaming = false
+    if (emitSwitchEvent) {
+      console.log(JSON.stringify({ type: 'extension_ui_request', method: 'notify', message: 'Switched' }))
+    }
     console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: { cancelled: false } }))
     return
   }

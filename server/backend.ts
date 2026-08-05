@@ -55,7 +55,8 @@ const managerRuntime = new ManagerRuntimeMonitor(manager, (status) => {
 
 manager.on('event', (event: ManagerEvent) => {
   quotas.receiveManagerEvent(event)
-  if (event.event === 'session_exited') liveSessionEvents.delete(event.sessionId)
+  if (event.event === 'session_exited' || event.event === 'session_reassigned')
+    liveSessionEvents.delete(event.sessionId)
   if (event.event === 'pi' && isObject(event.data)) {
     const sequence = ++piEventSequence
     const live = liveSessionEvents.get(event.sessionId) ?? new LiveSessionEvents()
