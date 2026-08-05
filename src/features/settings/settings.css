@@ -275,13 +275,25 @@
 .theme-select-content {
   z-index: 20;
   min-width: var(--radix-select-trigger-width);
-  max-height: min(260px, var(--radix-select-content-available-height));
+  /* !important: Radix pose un max-height: 100% en style inline sur le contenu
+     popper, qui écraserait sinon la limite et laisserait la liste déborder. */
+  max-height: min(260px, var(--radix-select-content-available-height))
+    !important;
   overflow-y: auto;
   border: 1px solid var(--line-strong);
   border-radius: 10px;
   background: var(--surface);
   box-shadow: var(--shadow-soft);
   animation: select-in 160ms ease-out;
+}
+/* Le vrai conteneur de scroll est le viewport Radix, qui masque sa scrollbar
+   par défaut ; on la réaffiche (sélecteur plus spécifique que le style
+   injecté par Radix). */
+.theme-select-content [data-radix-select-viewport] {
+  scrollbar-width: thin;
+}
+.theme-select-content [data-radix-select-viewport]::-webkit-scrollbar {
+  display: block;
 }
 .theme-select-item {
   display: flex;
