@@ -1,7 +1,9 @@
 import {
   memo,
+  useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ClipboardEvent as ReactClipboardEvent,
@@ -30,6 +32,13 @@ import { PromptSelect } from './selects/PromptSelect.tsx'
 import { ThinkingSelect } from './selects/ThinkingSelect.tsx'
 import { ComposerSelect } from './selects/ComposerSelect.tsx'
 import { ComposerStatusBar } from './status-bar/ComposerStatusBar.tsx'
+
+/** Static options for the Improve-prompt dropdown; hoisted to a module constant so the select never re-renders for it. */
+const improveOptions = [
+  { label: 'Clarify', value: 'clarify' },
+  { label: 'Ideate', value: 'ideate' },
+  { label: 'Precise', value: 'precise' },
+]
 
 /** Provides user input and session commands while reflecting the current Pi state. */
 export const Composer = memo(function Composer({
@@ -123,6 +132,7 @@ export const Composer = memo(function Composer({
   const agentTriggerRef = useRef<HTMLButtonElement>(null)
   const modelTriggerRef = useRef<HTMLButtonElement>(null)
   const thinkingTriggerRef = useRef<HTMLButtonElement>(null)
+  const draftPersistTimerRef = useRef<number>(0)
   const [slashOpen, setSlashOpen] = useState(false)
   const [slashFilter, setSlashFilter] = useState('')
   const [slashIndex, setSlashIndex] = useState(-1)
@@ -139,14 +149,36 @@ export const Composer = memo(function Composer({
   const thinking = typeof snapshot.state?.thinkingLevel === 'string'
     ? snapshot.state.thinkingLevel
     : 'off'
+  // Keep a ref to the latest draft so stable callbacks can read it without re-creating on every keystroke.
+  const messageRef = useRef(message)
+  messageRef.current = message
   /** Snapshot commands augmented with the local compact command when Pi doesn't expose it. */
   const allCommands = ensureCompactCommand(commands)
   const commandPending = isCommandDraft(message, allCommands)
-  const promptTemplates = [...savedPrompts, ...snapshot.promptTemplates].filter((
-    prompt,
-    index,
-    all,
-  ) => all.findIndex((candidate) => candidate.name === prompt.name) === index)
+  const promptTemplates = useMemo(() =>
+    [...savedPrompts, ...snapshot.promptTemplates].filter((
+      prompt,
+      index,
+      all,
+    ) => all.findIndex((candidate) => candidate.name === prompt.name) === index), [
+    savedPrompts,
+    snapshot.promptTemplates,
+  ])
+
+  // Stable open-change handlers so memoized selects never re-render on a keystroke.
+  const handleAgentOpenChange = useCallback(
+    (open: boolean) => setOpenSelect(open ? 'agent' : null),
+    [],
+  )
+  const handleModelOpenChange = useCallback(
+    (open: boolean) => setOpenSelect(open ? 'model' : null),
+    [],
+  )
+  const handleThinkingOpenChange = useCallback(
+    (open: boolean) => setOpenSelect(open ? 'thinking' : null),
+    [],
+  )
+  const handlePromptOpenChange = useCallback(() => setOpenSelect(null), [])
 
   useEffect(() => {
     if (submitRequest > 0) formRef.current?.requestSubmit()
@@ -192,6 +224,27 @@ export const Composer = memo(function Composer({
     }
   }, [])
 
+  /** Persists the draft to storage, tolerating unavailable storage (private browsing). */
+  const persistDraft = useCallback((text: string): void => {
+    try {
+      if (text) window.localStorage.setItem(draftStorageKey, text)
+      else window.localStorage.removeItem(draftStorageKey)
+    } catch {
+      // Storage can be unavailable in private browsing; the in-memory draft still works.
+    }
+  }, [draftStorageKey])
+
+  // Flush the pending draft on unmount so switching sessions within the debounce window cannot drop the write.
+  // During a prompt preview messageRef holds the preview text; prefer the saved original so the preview is never persisted.
+  useEffect(() => {
+    return () => {
+      if (draftPersistTimerRef.current) {
+        window.clearTimeout(draftPersistTimerRef.current)
+        persistDraft(promptPreviewOriginal.current ?? messageRef.current)
+      }
+    }
+  }, [persistDraft])
+
   /** Available commands filtered by the text after the slash. */
   const filteredCommands = allCommands.filter((command) =>
     slashOpen && String(command.name).toLowerCase().includes(slashFilter.toLowerCase())
@@ -217,51 +270,53 @@ export const Composer = memo(function Composer({
     return () => document.removeEventListener('pointerdown', handlePointerDown)
   }, [slashOpen])
 
+  /** Updates the visible draft immediately and persists it on a debounce so typing never blocks on storage I/O. */
+  const setDraftMessage = useCallback((nextMessage: string): void => {
+    setMessage(nextMessage)
+    messageRef.current = nextMessage
+    window.clearTimeout(draftPersistTimerRef.current)
+    draftPersistTimerRef.current = window.setTimeout(() => {
+      persistDraft(nextMessage)
+      draftPersistTimerRef.current = 0
+    }, 400)
+  }, [persistDraft])
+
   /** Inserts the selected slash command into the textarea and closes the popover. */
-  function selectSlashCommand(name: string): void {
+  const selectSlashCommand = useCallback((name: string): void => {
     setDraftMessage(`/${name} `)
     setSlashOpen(false)
     setSlashIndex(-1)
-  }
-
-  /** Updates the visible draft and persists it so a page reload cannot discard typed text. */
-  function setDraftMessage(nextMessage: string): void {
-    setMessage(nextMessage)
-    try {
-      if (nextMessage) window.localStorage.setItem(draftStorageKey, nextMessage)
-      else window.localStorage.removeItem(draftStorageKey)
-    } catch {
-      // Storage can be unavailable in private browsing; the in-memory draft still works.
-    }
-  }
+  }, [setDraftMessage])
 
   /** Shows a template without persisting it, retaining the existing draft until a selection is made. */
-  function previewPrompt(prompt: PromptTemplate): void {
-    if (promptPreviewOriginal.current === undefined) promptPreviewOriginal.current = message
+  const previewPrompt = useCallback((prompt: PromptTemplate): void => {
+    if (promptPreviewOriginal.current === undefined)
+      promptPreviewOriginal.current = messageRef.current
     setPreviewingPrompt(true)
     setMessage(prompt.content)
-  }
+  }, [])
 
   /** Restores the draft when a prompt menu preview ends without an explicit selection. */
-  function endPromptPreview(): void {
+  const endPromptPreview = useCallback((): void => {
     if (promptPreviewOriginal.current === undefined) return
     setMessage(promptPreviewOriginal.current)
+    messageRef.current = promptPreviewOriginal.current
     promptPreviewOriginal.current = undefined
     setPreviewingPrompt(false)
-  }
+  }, [])
 
   /** Replaces and persists the draft after a prompt template has been explicitly selected. */
-  function selectPrompt(prompt: PromptTemplate): void {
+  const selectPrompt = useCallback((prompt: PromptTemplate): void => {
     promptPreviewOriginal.current = undefined
     setPreviewingPrompt(false)
     setDraftMessage(prompt.content)
     textareaRef.current?.focus()
-  }
+  }, [setDraftMessage])
 
   /** Opens a blank naming dialog for the selected Pi prompt scope. */
-  function openPromptSaveDialog(scope: 'global' | 'project'): void {
-    setPromptSave({ content: message, name: '', scope })
-  }
+  const openPromptSaveDialog = useCallback((scope: 'global' | 'project'): void => {
+    setPromptSave({ content: messageRef.current, name: '', scope })
+  }, [])
 
   /** Persists the named template while keeping the dialog open when the backend rejects it. */
   async function savePrompt(): Promise<void> {
@@ -317,8 +372,8 @@ export const Composer = memo(function Composer({
   }
 
   /** Produces an isolated rewrite while preserving the source text for an explicit comparison. */
-  async function improveDraft(direction?: string): Promise<void> {
-    const original = message.trim()
+  const improveDraft = useCallback(async (direction?: string): Promise<void> => {
+    const original = messageRef.current.trim()
     if (!original || improving) return
     setImproving(true)
     setSuggestion(undefined)
@@ -331,7 +386,13 @@ export const Composer = memo(function Composer({
       setImproving(false)
       setImprovePreset('')
     }
-  }
+  }, [improving, onImprovePrompt, onError])
+
+  /** Triggers an isolated rewrite when the user picks an Improve preset. */
+  const handleImproveValueChange = useCallback((value: string) => {
+    setImprovePreset(value)
+    void improveDraft(value)
+  }, [improveDraft])
 
   /** Prepares pasted images locally to bound the HTTP body and context sent to the model. */
   async function handlePaste(event: ReactClipboardEvent<HTMLTextAreaElement>): Promise<void> {
@@ -541,7 +602,7 @@ export const Composer = memo(function Composer({
                 onAgentChange={onAgentChange}
                 onRequestOptions={onRequestAgentOptions}
                 open={openSelect === 'agent'}
-                onOpenChange={(open) => setOpenSelect(open ? 'agent' : null)}
+                onOpenChange={handleAgentOpenChange}
                 triggerRef={agentTriggerRef}
               />
             )}
@@ -551,7 +612,7 @@ export const Composer = memo(function Composer({
               onCommand={onCommand}
               onError={onError}
               open={openSelect === 'model'}
-              onOpenChange={(open) => setOpenSelect(open ? 'model' : null)}
+              onOpenChange={handleModelOpenChange}
               triggerRef={modelTriggerRef}
             />
             <ThinkingSelect
@@ -559,13 +620,13 @@ export const Composer = memo(function Composer({
               onCommand={onCommand}
               onError={onError}
               open={openSelect === 'thinking'}
-              onOpenChange={(open) => setOpenSelect(open ? 'thinking' : null)}
+              onOpenChange={handleThinkingOpenChange}
               triggerRef={thinkingTriggerRef}
             />
             <Tooltip label='Insert a configured prompt'>
               <PromptSelect
                 canSave={Boolean(message.trim()) && !previewingPrompt}
-                onOpenChange={() => setOpenSelect(null)}
+                onOpenChange={handlePromptOpenChange}
                 onPreview={previewPrompt}
                 onPreviewEnd={endPromptPreview}
                 onSave={openPromptSaveDialog}
@@ -579,15 +640,8 @@ export const Composer = memo(function Composer({
               <ComposerSelect
                 ariaLabel='Improve prompt'
                 disabled={improving || submitting || !message.trim()}
-                onValueChange={(value) => {
-                  setImprovePreset(value)
-                  void improveDraft(value)
-                }}
-                options={[
-                  { label: 'Clarify', value: 'clarify' },
-                  { label: 'Ideate', value: 'ideate' },
-                  { label: 'Precise', value: 'precise' },
-                ]}
+                onValueChange={handleImproveValueChange}
+                options={improveOptions}
                 loading={improving}
                 placeholder='Improve'
                 tone='improve'

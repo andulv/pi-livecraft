@@ -1,8 +1,9 @@
+import { memo } from 'react'
 import type { PromptTemplate } from '../../../../shared/types.ts'
 import { ComposerSelect } from './ComposerSelect.tsx'
 
 /** Lets users preview and insert prompt templates Pi discovered for the active session. */
-export function PromptSelect(
+export const PromptSelect = memo(function PromptSelect(
   {
     prompts,
     canSave,
@@ -71,4 +72,4 @@ export function PromptSelect(
       value=''
     />
   )
-}
+})

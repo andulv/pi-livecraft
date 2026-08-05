@@ -1,9 +1,9 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useEffect, useRef, memo, type RefObject } from 'react'
 import { ComposerSelect } from './ComposerSelect.tsx'
 import { capitalizeLabel } from '../composer-utils.ts'
 
 /** Dropdown for choosing an agent from the list Pi exposes, with loading and busy states. */
-export function AgentSelect(
+export const AgentSelect = memo(function AgentSelect(
   {
     agentOptions,
     selectedAgent,
@@ -64,4 +64,4 @@ export function AgentSelect(
       value={selectedAgent}
     />
   )
-}
+})

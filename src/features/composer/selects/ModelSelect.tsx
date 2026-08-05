@@ -1,9 +1,9 @@
-import type { RefObject } from 'react'
+import { memo, type RefObject } from 'react'
 import type { JsonObject } from '../../../../shared/types.ts'
 import { ComposerSelect } from './ComposerSelect.tsx'
 
 /** Selects the active LLM model from Pi's available models, issuing a set_model command on change. */
-export function ModelSelect(
+export const ModelSelect = memo(function ModelSelect(
   { models, currentModel, onCommand, onError, open, onOpenChange, triggerRef }: {
     models: JsonObject[]
     currentModel: string
@@ -39,4 +39,4 @@ export function ModelSelect(
       value={currentModel}
     />
   )
-}
+})
