@@ -16,8 +16,8 @@ src/api.ts  →  HTTP POST /api/sessions/:id/commands
            pi --mode rpc       (JSON Lines over stdin/stdout)
 ```
 
-No command whitelist, no filter. The backend only checks that the body has a
-`type` field that is a non-empty string. Everything else is forwarded as-is.
+No command whitelist or semantic filter is applied. The backend only checks that the body has a
+`type` string of at most 100 characters. Everything else is forwarded as-is to the manager and Pi.
 
 ## Two ways to reach Pi
 

@@ -22,7 +22,7 @@ export function MyWidget({ workspacePath }: { workspacePath: string }) {
 ```
 
 **Constraints:**
-- The component is shown or hidden via the rail but never unmounted
+- The active panel is rendered conditionally from the rail; switching widgets can unmount it. Keep state that must survive switching in `App.tsx`, `localStorage`, or backend persistence.
 - Persistence uses `localStorage` (`pi-livecraft.` prefix) on the frontend, or a
   `server/features/<widget>/` module on the backend
 - CSS classes live in `src/features/<widget>/<widget>.css`
@@ -82,11 +82,13 @@ export async function getMyWidgetData(cwd: string): Promise<MyDataType> {
 
 ```ts
 // server/backend.ts
-if (url.pathname === '/api/my-widget' && request.method === 'GET') {
-  const cwd = decodeURIComponent(params.get('cwd') ?? '')
-  if (!cwd) { response.writeHead(400); response.end('Missing cwd'); return }
+if (method === 'GET' && url.pathname === '/api/my-widget') {
+  const rawCwd = url.searchParams.get('cwd')
+  if (!rawCwd) throw new HttpError(400, 'Working directory is required')
+  const cwd = await resolveWorkingDirectory(rawCwd)
   const data = await getMyWidgetData(cwd)
-  respondJson(response, 200, data)
+  sendJson(response, 200, data)
+  return
 }
 ```
 

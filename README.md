@@ -94,7 +94,7 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173) and you should see Livecraft
 
 - **Live conversations:** responses, activity, tool execution, usage, costs, errors, updates, notifications... I mean, everything Pi sends, Livecraft sees
 
-- **Enhanced tool call rendering:** allow for complex (or simpler) tool call rendering. As an example, HTML, SVG, and Markdown will render directly, with the source still available and colorized with just a click
+- **Enhanced tool call rendering:** allow for complex (or simpler) tool call rendering. As an example, HTML, SVG, Markdown, and CSV will render directly, with the source still available and colorized with just a click
 
 - **Contextual chat message actions:** build buttons on any tool call or session message. One example is the embedded copy input/output action available on all messages and tool call results
 
@@ -112,7 +112,7 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173) and you should see Livecraft
 
 ### Shape the workbench
 
-- **Editable color themes:** start from Light or Dark, or build from either one. An agent can do it, but save your tokens and edit the theme manually. Choose a base theme, then an accent and a secondary color; everything will be derived from them. You now have your theme
+- **Editable color themes:** start from Light or Dark, or build from either one. An agent can do it, but save your tokens and edit the theme manually. Choose a theme, then edit its 8 source colors; everything else will be derived from them. You now have your theme
 
 - **Command palette and editable shortcuts:** commands share one registry. Sidebar widgets get their commands automatically. Use `Alt+K` to show the command palette
 

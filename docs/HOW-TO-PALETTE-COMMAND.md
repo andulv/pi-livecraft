@@ -27,13 +27,14 @@ with no further registration.
 ```ts
 export const defaultShortcuts: Partial<Record<CommandId, string>> = {
   // … existing …
-  'my-command': 'mod+shift+m',
+  'my-command': 'alt+shift+m',
 }
 ```
 
-Modifiers use `mod` (Cmd on macOS, Ctrl otherwise), `alt`, `shift`. Normalization is
-handled by `shortcutFromEvent`. Palette commands without a default shortcut remain
-assignable from Settings.
+Modifiers use the exact names `ctrl`, `meta`, `alt`, and `shift`. Normalization is handled by
+`shortcutFromEvent`, which preserves the modifier pressed by the user. Do not use `mod` in new
+values; it is retained only for migrating legacy shortcuts stored in `localStorage`. Palette
+commands without a default shortcut remain assignable from Settings.
 
 ## 3. Implement execution
 

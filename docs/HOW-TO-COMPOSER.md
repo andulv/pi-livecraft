@@ -17,6 +17,7 @@ composer/
 │   ├── ComposerSelect.tsx    # Generic Radix Select wrapper + icon
 │   ├── AgentSelect.tsx       # Agent picker (props → RPC)
 │   ├── ModelSelect.tsx       # Model picker (snapshot → RPC)
+│   ├── PromptSelect.tsx      # Prompt template preview, insertion, and saving
 │   ├── ThinkingSelect.tsx    # Thinking level picker (snapshot → RPC)
 │   └── BehaviorSelect.tsx    # Steer / Follow-up (running only)
 └── status-bar/
@@ -47,6 +48,8 @@ App.tsx  ──props──→  Composer.tsx  ──onSend / onCommand / onAbort�
 | `onCommand(command)` | Send any RPC command (`set_model`, `set_thinking_level`, …) |
 | `onSend(message, images, behavior)` | Send a prompt with optional images |
 | `onAbort()` | Stop generation |
+| `onImprovePrompt(prompt, direction)` | Rewrite the draft through an isolated prompt |
+| `onSavePrompt(scope, name, content)` | Persist a prompt template globally or for the project |
 | `onError(cause)` | Report an error to the notification stack |
 
 If the composer needs data or a callback that isn't already a prop, add it to the
@@ -141,10 +144,12 @@ export function MySelect({ value, onChange }: {
 | Prop | Notes |
 |---|---|
 | `ariaLabel` | Required for accessibility |
-| `options` | `{ label: string, value: string }[]` |
+| `options` | `{ label, value, description?, kind? }[]` (`kind: 'action'` marks an action option) |
 | `value` | Currently selected value (controlled) |
 | `onValueChange` | Called with the new value |
-| `tone` | `'agent'`, `'model'`, `'thinking'`, `'behavior'`, or `'command'` — sets the icon and color |
+| `onOptionPointerMove` / `onOptionsPointerLeave` | (optional) Preview option content while browsing |
+| `loading` | (optional) Shows a spinner in the trigger |
+| `tone` | `'agent'`, `'model'`, `'thinking'`, `'behavior'`, `'command'`, `'prompt'`, or `'improve'` — sets the icon and color |
 | `disabled` | (optional) Greys out the select |
 | `open` / `onOpenChange` | (optional) For external open control (palette-triggered selects) |
 | `triggerRef` | (optional) For focusing the trigger from outside |
