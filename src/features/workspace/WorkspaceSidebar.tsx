@@ -317,6 +317,7 @@ export function WorkspaceSidebar({
           return (
             <Tooltip
               key={recentSession.sessionPath}
+              hint='Right-click to rename or close the session'
               label={`${recentSession.name}\n${
                 new Date(recentSession.updatedAt).toLocaleString('en-US')
               }`}
@@ -375,7 +376,11 @@ export function WorkspaceSidebar({
                 sessionPath: session.sessionPath,
               }
               return (
-                <Tooltip key={session.id} label={`${session.name}\n${session.cwd}`}>
+                <Tooltip
+                  hint='Right-click to rename or close the session'
+                  key={session.id}
+                  label={`${session.name}\n${session.cwd}`}
+                >
                   <button
                     aria-haspopup='menu'
                     aria-label={`${session.name} in workspace ${session.cwd}`}

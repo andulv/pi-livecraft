@@ -6,7 +6,15 @@ const SHOW_DELAY_MS = 600
 const HIDE_TRANSITION_MS = 150
 
 /** Renders a tooltip in the document layer so parent containers cannot clip it. Delays appearance to avoid flicker during quick pointer movement and fades in/out with a CSS transition. */
-export function Tooltip({ children, label }: { children: ReactNode; label: string }) {
+export function Tooltip({
+  children,
+  label,
+  hint,
+}: {
+  children: ReactNode
+  label: string
+  hint?: string
+}) {
   const [mounted, setMounted] = useState(false)
   const [entered, setEntered] = useState(false)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
@@ -141,7 +149,8 @@ export function Tooltip({ children, label }: { children: ReactNode; label: strin
               visibility: position ? 'visible' : 'hidden',
             }}
           >
-            {label}
+            <span className='tooltip-label'>{label}</span>
+            {hint && <span className='tooltip-hint'>{hint}</span>}
           </div>,
           document.body,
         )}
