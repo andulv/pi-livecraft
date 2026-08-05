@@ -181,9 +181,11 @@ export const ToolCallCard = memo(function ToolCallCard({
           type='button'
         >
           <span aria-hidden='true'>⌘</span>
-          <span>
-            <strong aria-label={tooltip}>{name || 'Tool'}</strong>
-          </span>
+          {(name !== 'bash' || !presentation.headerDetail) && (
+            <span>
+              <strong aria-label={tooltip}>{name || 'Tool'}</strong>
+            </span>
+          )}
           {presentation.headerDetail && (
             <span className='tool-call-command'>
               <code aria-label={`Full command: ${presentation.headerDetail.title}`}>
