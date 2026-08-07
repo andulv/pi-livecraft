@@ -4,8 +4,8 @@ import { Tooltip } from '../../components/Tooltip.tsx'
 interface CopyButtonProps {
   direction?: 'input' | 'output'
   label: string
-  onError: (cause: unknown) => void
-  value: string
+  onError?: (cause: unknown) => void
+  value: string | (() => string)
 }
 
 /** Copies a conversation value and reports a short success state through its tooltip. */
@@ -23,10 +23,11 @@ export function CopyButton({ direction, label, onError, value }: CopyButtonProps
   async function copyValue(): Promise<void> {
     setBusy(true)
     try {
-      await navigator.clipboard.writeText(value)
+      const text = typeof value === 'function' ? value() : value
+      await navigator.clipboard.writeText(text)
       setCopied(true)
     } catch (cause) {
-      onError(cause)
+      onError?.(cause)
     } finally {
       setBusy(false)
     }

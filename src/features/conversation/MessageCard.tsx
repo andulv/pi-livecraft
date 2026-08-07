@@ -39,7 +39,7 @@ const DefaultMessageCard = memo(
           </div>
         )}
         <div className='content'>
-          {renderContent(message.content ?? message.output, message.role)}
+          {renderContent(message.content ?? message.output, message.role, onError)}
         </div>
         {role === 'user' && time && (
           <time
@@ -108,8 +108,13 @@ function visibleText(content: unknown): string {
 }
 
 /** Renders message content in protocol order, including visible thinking. */
-function renderContent(content: unknown, role: unknown): ReactNode {
-  if (typeof content === 'string') return <Markdown>{content}</Markdown>
+function renderContent(
+  content: unknown,
+  role: unknown,
+  onError?: (cause: unknown) => void,
+): ReactNode {
+  if (typeof content === 'string')
+    return <Markdown copyablePre={role === 'assistant'} onError={onError}>{content}</Markdown>
   if (!Array.isArray(content)) return null
   return (
     <>
@@ -126,12 +131,24 @@ function renderContent(content: unknown, role: unknown): ReactNode {
         if (!isObject(part)) return null
         if (part.type === 'thinking' && typeof part.thinking === 'string' && part.thinking.trim())
           return (
-            <ReasoningBlock key={`reasoning-${contentIndex}`}>
+            <ReasoningBlock
+              copyablePre={role === 'assistant'}
+              key={`reasoning-${contentIndex}`}
+              onError={onError}
+            >
               {reasoningTextForDisplay(role, part.thinking)}
             </ReasoningBlock>
           )
         if (part.type === 'text' && typeof part.text === 'string')
-          return <Markdown key={`text-${contentIndex}`}>{part.text}</Markdown>
+          return (
+            <Markdown
+              copyablePre={role === 'assistant'}
+              key={`text-${contentIndex}`}
+              onError={onError}
+            >
+              {part.text}
+            </Markdown>
+          )
         return null
       })}
     </>
@@ -139,10 +156,17 @@ function renderContent(content: unknown, role: unknown): ReactNode {
 }
 
 /** Presents thinking directly in the thread with a subtle hierarchy. */
-function ReasoningBlock({ children, live = false }: { children: string; live?: boolean }) {
+function ReasoningBlock(
+  { children, copyablePre, live = false, onError }: {
+    children: string
+    copyablePre: boolean
+    live?: boolean
+    onError?: (cause: unknown) => void
+  },
+) {
   return (
     <div className={`reasoning${live ? ' conversation-entry' : ''}`}>
-      <Markdown>{children}</Markdown>
+      <Markdown copyablePre={copyablePre} onError={onError}>{children}</Markdown>
     </div>
   )
 }
