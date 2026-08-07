@@ -42,7 +42,7 @@ Action components are implementations, not the extension contract. `CopyButton.t
 
 - Text messages expose one copy action when `visibleText()` returns content.
 - Tool calls always expose their serialized input (`↘`) and expose raw output (`↗`) once a result exists, including error results.
-- Successful `read`, `write`, and `edit` calls expose an action that opens their file with its default application from the session working directory.
+- Successful `read`, `write`, and `edit` calls expose an action that resolves relative paths from the session working directory and opens the resulting file, including absolute targets outside it.
 - Pending calls have no output or file action. Directional markers distinguish copy actions without visible button text.
 
 Follow the [conversation action guide](/docs/HOW-TO-CONVERSATION-ACTION.md) to add another action. Keep actions icon-only, keyboard-accessible, colocated with their owning content, and explicit in the relevant renderer. Do not introduce a registry unless actions need genuinely dynamic selection.

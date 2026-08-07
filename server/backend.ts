@@ -229,7 +229,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       throw new HttpError(400, 'File path is required')
     try {
       const cwd = await resolveWorkingDirectory(body.cwd)
-      await openPath(await resolveWorkspaceFilePath(cwd, body.path))
+      await openPath(await resolveWorkspaceFilePath(cwd, body.path, true))
       sendJson(response, 200, {})
     } catch (error) {
       if (error instanceof WorkspaceFileError) throw new HttpError(error.status, error.message)

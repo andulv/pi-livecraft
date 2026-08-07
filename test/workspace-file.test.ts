@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { realpath } from 'node:fs/promises'
 import { relative } from 'node:path'
 import test from 'node:test'
 import {
@@ -18,4 +19,21 @@ test('reads a text file from the workspace and rejects its root', async () => {
     assert.equal((error as WorkspaceFileError).status, 403)
     return true
   })
+})
+
+test('allows opening an absolute file outside the workspace without widening reads', async () => {
+  const workspacePath = await realpath('src')
+  const externalPath = await realpath('package.json')
+  assert.equal(
+    await resolveWorkspaceFilePath(workspacePath, externalPath, true),
+    externalPath,
+  )
+  await assert.rejects(
+    resolveWorkspaceFilePath(workspacePath, externalPath),
+    (error: unknown) => {
+      assert.equal(error instanceof WorkspaceFileError, true)
+      assert.equal((error as WorkspaceFileError).status, 403)
+      return true
+    },
+  )
 })
