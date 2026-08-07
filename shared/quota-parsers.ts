@@ -1,4 +1,4 @@
-import type { CopilotQuotaWindow, OpenAiQuotaWindow } from './types.ts'
+import type { CopilotQuotaWindow, GlmQuotaWindow, OpenAiQuotaWindow } from './types.ts'
 import { isObject } from './is-object.ts'
 
 /** Extracts rate-limit windows from OpenAI's opaque quota response. */
@@ -65,6 +65,76 @@ export function parseCopilotUsage(value: unknown): CopilotQuotaWindow[] {
       ? [{ name, used: Math.max(0, limit - left), limit, ...(resetsAt ? { resetsAt } : {}) }]
       : []
   })
+}
+
+/** Extracts Coding Plan quota windows from Z.AI's `usage/quota/limit` response. */
+export function parseGlmUsage(value: unknown): GlmQuotaWindow[] {
+  const limits = extractGlmLimits(object(value))
+  if (!Array.isArray(limits) || limits.length === 0) return []
+  const windows: GlmQuotaWindow[] = []
+
+  const session = findGlmLimit(limits, 'TOKENS_LIMIT', 3)
+  const sessionPercent = numberField(session, 'percentage')
+  if (session && sessionPercent !== undefined) {
+    const resetsAt = dateValue(object(session)?.nextResetTime)
+    windows.push({
+      kind: 'session',
+      usedPercent: sessionPercent,
+      ...(resetsAt ? { resetsAt } : {}),
+    })
+  }
+
+  const weekly = findGlmLimit(limits, 'TOKENS_LIMIT', 6)
+  const weeklyPercent = numberField(weekly, 'percentage')
+  if (weekly && weeklyPercent !== undefined) {
+    const resetsAt = dateValue(object(weekly)?.nextResetTime)
+    windows.push({ kind: 'weekly', usedPercent: weeklyPercent, ...(resetsAt ? { resetsAt } : {}) })
+  }
+
+  const searches = findGlmLimit(limits, 'TIME_LIMIT')
+  const used = numberField(searches, 'currentValue')
+  const limit = numberField(searches, 'usage')
+  if (searches && used !== undefined && limit !== undefined && limit > 0) {
+    // Monthly web-search windows omit a reset time when the limit rolls over at UTC month start.
+    const resetsAt = dateValue(object(searches)?.nextResetTime) ?? nextUtcFirstOfMonthMs()
+    windows.push({ kind: 'web-searches', used, limit, ...(resetsAt ? { resetsAt } : {}) })
+  }
+
+  return windows
+}
+
+/** Accepts both `{ data: { limits: [] } }` and a top-level `limits`/array shape. */
+function extractGlmLimits(root: Record<string, unknown> | undefined): unknown {
+  const container = root?.data ?? root
+  if (Array.isArray(container)) return container
+  return object(container)?.limits
+}
+
+/**
+ * Matches a limit by `type || name`, then by `unit` when supplied. The first matching entry
+ * whose `unit` is undefined is the fallback, mirroring Z.AI's Coding Plan limit layout where
+ * the session (unit 3) and weekly (unit 6) windows share the `TOKENS_LIMIT` type.
+ */
+function findGlmLimit(
+  limits: unknown[],
+  type: string,
+  unit?: number,
+): Record<string, unknown> | undefined {
+  let fallback: Record<string, unknown> | undefined
+  for (const entry of limits) {
+    const item = object(entry)
+    if (!item) continue
+    if (item.type === type || item.name === type) {
+      if (unit === undefined) return item
+      if (item.unit === unit) return item
+      if (fallback === undefined && item.unit === undefined) fallback = item
+    }
+  }
+  return fallback
+}
+
+function nextUtcFirstOfMonthMs(now: Date = new Date()): number {
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
 }
 
 function percentUsedFromRemaining(value: Record<string, unknown>): number | undefined {

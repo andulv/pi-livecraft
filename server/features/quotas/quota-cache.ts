@@ -1,6 +1,7 @@
 import { isObject } from '../../../shared/is-object.ts'
 import type {
   CopilotQuotaWindow,
+  GlmQuotaWindow,
   JsonObject,
   OpenAiQuotaWindow,
   QuotaProviderReport,
@@ -15,12 +16,14 @@ const emptyProvider = <T>(): QuotaProviderSnapshot<T> => ({ data: [], stale: fal
 export class QuotaCache {
   #openai = emptyProvider<OpenAiQuotaWindow>()
   #copilot = emptyProvider<CopilotQuotaWindow>()
+  #glm = emptyProvider<GlmQuotaWindow>()
   #refreshing = false
 
   snapshot(sessionRequired: boolean): QuotaSnapshot {
     return {
       openai: this.#openai,
       copilot: this.#copilot,
+      glm: this.#glm,
       refreshing: this.#refreshing,
       sessionRequired,
     }
@@ -48,6 +51,7 @@ export class QuotaCache {
     if (!report) return false
     this.#openai = mergeProvider(this.#openai, report.openai, report.refreshedAt)
     this.#copilot = mergeProvider(this.#copilot, report.copilot, report.refreshedAt)
+    if (report.glm) this.#glm = mergeProvider(this.#glm, report.glm, report.refreshedAt)
     this.#refreshing = false
     return true
   }
@@ -71,12 +75,14 @@ function parseQuotaReport(value: unknown): QuotaReport | undefined {
   const openai = parseProvider(report.openai, parseOpenAiWindow)
   const copilot = parseProvider(report.copilot, parseCopilotWindow)
   if (!openai || !copilot) return undefined
+  const glm = parseProvider(report.glm, parseGlmWindow)
   return {
     protocol: 'pi-livecraft.quotas',
     version: 1,
     refreshedAt: report.refreshedAt,
     openai,
     copilot,
+    ...(glm ? { glm } : {}),
   }
 }
 
@@ -119,6 +125,32 @@ function parseCopilotWindow(value: unknown): CopilotQuotaWindow | undefined {
     name: window.name.slice(0, 80),
     used: Math.max(0, window.used),
     limit: window.limit,
+    ...(resetsAt ? { resetsAt } : {}),
+  }
+}
+
+function parseGlmWindow(value: unknown): GlmQuotaWindow | undefined {
+  const window = object(value)
+  if (!window || typeof window.kind !== 'string') return undefined
+  if (window.kind !== 'session' && window.kind !== 'weekly' && window.kind !== 'web-searches') {
+    return undefined
+  }
+  const resetsAt = finiteNumber(window.resetsAt) ? window.resetsAt : undefined
+  if (window.kind === 'web-searches') {
+    if (!finiteNumber(window.used) || !finiteNumber(window.limit) || window.limit <= 0) {
+      return undefined
+    }
+    return {
+      kind: 'web-searches',
+      used: Math.max(0, window.used),
+      limit: window.limit,
+      ...(resetsAt ? { resetsAt } : {}),
+    }
+  }
+  if (!finiteNumber(window.usedPercent)) return undefined
+  return {
+    kind: window.kind,
+    usedPercent: Math.min(100, Math.max(0, window.usedPercent)),
     ...(resetsAt ? { resetsAt } : {}),
   }
 }

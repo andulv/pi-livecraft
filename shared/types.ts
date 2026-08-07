@@ -217,6 +217,18 @@ export interface CopilotQuotaWindow {
   resetsAt?: number
 }
 
+/**
+ * One Coding Plan quota window from Z.AI (GLM). Session and weekly are percentage-used;
+ * web-searches is a used/limit count. Absent fields are omitted, never zero-filled.
+ */
+export interface GlmQuotaWindow {
+  kind: 'session' | 'weekly' | 'web-searches'
+  usedPercent?: number
+  used?: number
+  limit?: number
+  resetsAt?: number
+}
+
 export interface QuotaProviderSnapshot<T> {
   data: T[]
   updatedAt?: number
@@ -227,6 +239,7 @@ export interface QuotaProviderSnapshot<T> {
 export interface QuotaSnapshot {
   openai: QuotaProviderSnapshot<OpenAiQuotaWindow>
   copilot: QuotaProviderSnapshot<CopilotQuotaWindow>
+  glm: QuotaProviderSnapshot<GlmQuotaWindow>
   refreshing: boolean
   sessionRequired: boolean
 }
@@ -241,4 +254,7 @@ export interface QuotaReport {
   refreshedAt: number
   openai: QuotaProviderReport<OpenAiQuotaWindow>
   copilot: QuotaProviderReport<CopilotQuotaWindow>
+  // Optional so reports from Pi sessions running an older extension (without GLM)
+  // still validate instead of dropping the OpenAI/Copilot readings.
+  glm?: QuotaProviderReport<GlmQuotaWindow>
 }

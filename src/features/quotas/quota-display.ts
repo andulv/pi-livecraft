@@ -1,6 +1,6 @@
 import type { QuotaSnapshot } from '../../../shared/types.ts'
 
-export type QuotaProvider = 'openai' | 'copilot'
+export type QuotaProvider = 'openai' | 'copilot' | 'glm'
 
 export interface RailQuota {
   label: string
@@ -11,6 +11,7 @@ export interface RailQuota {
 export function quotaProviderForModel(provider: unknown): QuotaProvider | undefined {
   if (provider === 'openai-codex') return 'openai'
   if (provider === 'github-copilot') return 'copilot'
+  if (provider === 'zai') return 'glm'
   return undefined
 }
 
@@ -26,6 +27,17 @@ export function railQuota(
       label: `OpenAI Codex quota: ${formatPercent(window.remainingPercent)} remaining`,
       stale: quotas.openai.stale,
       value: `${Math.round(window.remainingPercent)}%`,
+    }
+  }
+
+  if (provider === 'glm') {
+    const window = quotas.glm.data.find(({ kind }) => kind === 'session') ?? quotas.glm.data[0]
+    if (!window || window.usedPercent === undefined) return undefined
+    const remainingPercent = 100 - window.usedPercent
+    return {
+      label: `GLM (Z.AI) quota: ${formatPercent(remainingPercent)} remaining`,
+      stale: quotas.glm.stale,
+      value: `${Math.round(Math.max(0, Math.min(100, remainingPercent)))}%`,
     }
   }
 

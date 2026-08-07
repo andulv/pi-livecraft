@@ -7,7 +7,11 @@ export function QuotaWidget(
   { quotas, onRefresh }: { quotas: QuotaSnapshot | null; onRefresh: () => Promise<void> },
 ) {
   const [refreshing, setRefreshing] = useState(false)
-  const updatedAt = Math.max(quotas?.openai.updatedAt ?? 0, quotas?.copilot.updatedAt ?? 0)
+  const updatedAt = Math.max(
+    quotas?.openai.updatedAt ?? 0,
+    quotas?.copilot.updatedAt ?? 0,
+    quotas?.glm.updatedAt ?? 0,
+  )
 
   /** Keeps the button disabled until the manual refresh completes, whether success or error. */
   async function refresh(): Promise<void> {
@@ -74,6 +78,38 @@ export function QuotaWidget(
                 </div>
               ))}
             </ProviderSection>
+            <ProviderSection name='GLM (Z.AI)' provider={quotas.glm}>
+              {quotas.glm.data.map((window) => {
+                const isPercent = window.kind === 'session' || window.kind === 'weekly'
+                return (
+                  <div className='quota-row' key={window.kind}>
+                    <div className='quota-row-copy'>
+                      <strong>{glmLabel(window.kind)}</strong>
+                      <b>
+                        {isPercent
+                          ? `${formatPercent(window.usedPercent ?? 0)} used`
+                          : `${formatNumber(window.used ?? 0)} / ${
+                            formatNumber(window.limit ?? 0)
+                          }`}
+                      </b>
+                    </div>
+                    <QuotaBar
+                      label={isPercent
+                        ? `${formatPercent(window.usedPercent ?? 0)} used`
+                        : `${formatNumber(window.used ?? 0)} used of ${
+                          formatNumber(window.limit ?? 0)
+                        }`}
+                      value={isPercent
+                        ? window.usedPercent ?? 0
+                        : window.limit
+                        ? (window.used ?? 0) / window.limit * 100
+                        : 0}
+                    />
+                    {window.resetsAt && <small>Reset {formatReset(window.resetsAt)}</small>}
+                  </div>
+                )
+              })}
+            </ProviderSection>
           </>
         )}
       </div>
@@ -101,6 +137,13 @@ function ProviderSection(
       {provider.error && <p className='quota-error' role='status'>{provider.error}</p>}
     </section>
   )
+}
+
+function glmLabel(kind: string): string {
+  if (kind === 'session') return 'Session (5-hour)'
+  if (kind === 'weekly') return 'Weekly (7-day)'
+  if (kind === 'web-searches') return 'Web searches (monthly)'
+  return kind
 }
 
 function QuotaBar({ label, value }: { label: string; value: number }) {

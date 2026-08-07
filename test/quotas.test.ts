@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { parseCopilotUsage, parseOpenAiUsage } from '../shared/quota-parsers.ts'
+import { parseCopilotUsage, parseGlmUsage, parseOpenAiUsage } from '../shared/quota-parsers.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import { QuotaCache } from '../server/features/quotas/quota-cache.ts'
 import { quotaProviderForModel, railQuota } from '../src/features/quotas/quota-display.ts'
@@ -46,6 +46,32 @@ test('keeps only finite monthly Copilot quotas', () => {
   )
 })
 
+test('extracts GLM Coding Plan session, weekly, and web-search windows', () => {
+  assert.deepEqual(
+    parseGlmUsage({
+      code: 200,
+      data: {
+        limits: [
+          { type: 'TOKENS_LIMIT', unit: 3, percentage: 42, nextResetTime: '2030-01-01T00:00:00Z' },
+          { type: 'TOKENS_LIMIT', unit: 6, percentage: 17.5, nextResetTime: 1_900_000_000_000 },
+          {
+            type: 'TIME_LIMIT',
+            currentValue: 12,
+            usage: 50,
+            nextResetTime: '2030-02-01T00:00:00Z',
+          },
+          { type: 'OTHER', unit: 9, percentage: 99 },
+        ],
+      },
+    }),
+    [
+      { kind: 'session', usedPercent: 42, resetsAt: Date.parse('2030-01-01T00:00:00Z') },
+      { kind: 'weekly', usedPercent: 17.5, resetsAt: 1_900_000_000_000 },
+      { kind: 'web-searches', used: 12, limit: 50, resetsAt: Date.parse('2030-02-01T00:00:00Z') },
+    ],
+  )
+})
+
 test('throttles automatic quota refreshes for 30 seconds but never manual ones', () => {
   assert.equal(quotaRefreshAllowed(10_000, true, 39_999), false)
   assert.equal(quotaRefreshAllowed(10_000, true, 40_000), true)
@@ -62,12 +88,14 @@ test('shows the primary quota for the provider selected by the model', () => {
       stale: false,
     },
     copilot: { data: [{ name: 'Premium interactions', used: 75, limit: 300 }], stale: true },
+    glm: { data: [], stale: false },
     refreshing: false,
     sessionRequired: false,
   }
 
   assert.equal(quotaProviderForModel('openai-codex'), 'openai')
   assert.equal(quotaProviderForModel('github-copilot'), 'copilot')
+  assert.equal(quotaProviderForModel('zai'), 'glm')
   assert.equal(quotaProviderForModel('anthropic'), undefined)
   const formattedPercent = new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 })
   assert.deepEqual(railQuota(quotas, 'openai'), {
@@ -105,6 +133,47 @@ test('retains a stale provider snapshot when its next refresh fails', () => {
     stale: true,
     error: 'OpenAI indisponible',
   })
+})
+
+test('parses the GLM quota report alongside OpenAI and Copilot', () => {
+  const cache = new QuotaCache()
+  cache.receiveManagerEvent(statusEvent({
+    protocol: 'pi-livecraft.quotas',
+    version: 1,
+    refreshedAt: 300,
+    openai: { ok: true, data: [] },
+    copilot: { ok: true, data: [] },
+    glm: {
+      ok: true,
+      data: [
+        { kind: 'session', usedPercent: 30, resetsAt: 1_800_000_000_000 },
+        { kind: 'web-searches', used: 5, limit: 50 },
+      ],
+    },
+  }))
+
+  assert.deepEqual(cache.snapshot(false).glm, {
+    data: [
+      { kind: 'session', usedPercent: 30, resetsAt: 1_800_000_000_000 },
+      { kind: 'web-searches', used: 5, limit: 50 },
+    ],
+    updatedAt: 300,
+    stale: false,
+  })
+})
+
+test('keeps OpenAI and Copilot readings when a report omits the GLM section', () => {
+  const cache = new QuotaCache()
+  cache.receiveManagerEvent(statusEvent({
+    protocol: 'pi-livecraft.quotas',
+    version: 1,
+    refreshedAt: 100,
+    openai: { ok: true, data: [{ period: '5h', remainingPercent: 80 }] },
+    copilot: { ok: true, data: [] },
+  }))
+
+  assert.deepEqual(cache.snapshot(false).glm, { data: [], stale: false })
+  assert.equal(cache.snapshot(false).openai.data[0].remainingPercent, 80)
 })
 
 function statusEvent(report: unknown): unknown {

@@ -1,9 +1,10 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 import { isObject } from '../shared/is-object.ts'
-import { parseCopilotUsage, parseOpenAiUsage } from '../shared/quota-parsers.ts'
+import { parseCopilotUsage, parseGlmUsage, parseOpenAiUsage } from '../shared/quota-parsers.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type {
   CopilotQuotaWindow,
+  GlmQuotaWindow,
   OpenAiQuotaWindow,
   QuotaProviderReport,
   QuotaReport,
@@ -46,13 +47,18 @@ export default function registerQuotas(pi: ExtensionAPI): void {
 }
 
 async function publishQuotaReport(ctx: ExtensionContext): Promise<QuotaReport> {
-  const [openai, copilot] = await Promise.all([fetchOpenAiQuotas(ctx), fetchCopilotQuotas(ctx)])
+  const [openai, copilot, glm] = await Promise.all([
+    fetchOpenAiQuotas(ctx),
+    fetchCopilotQuotas(ctx),
+    fetchGlmQuotas(ctx),
+  ])
   const report: QuotaReport = {
     protocol: 'pi-livecraft.quotas',
     version: 1,
     refreshedAt: Date.now(),
     openai,
     copilot,
+    glm,
   }
   ctx.ui.setStatus(statusKey, JSON.stringify(report))
   return report
@@ -101,6 +107,31 @@ async function fetchCopilotQuotas(
     return { ok: true, data: parseCopilotUsage(data) }
   } catch (error) {
     return failure(fetchError(error, 'Unable to fetch Copilot quotas.'))
+  }
+}
+
+/**
+ * Resolves the Z.AI (GLM) provider auth, derives the usage host and Authorization scheme from
+ * its base URL, then calls the Coding Plan `usage/quota/limit` endpoint. The China
+ * (open.bigmodel.cn) station authenticates with the raw key; z.ai uses `Bearer {key}`.
+ */
+async function fetchGlmQuotas(
+  ctx: ExtensionContext,
+): Promise<QuotaProviderReport<GlmQuotaWindow>> {
+  try {
+    const auth = await ctx.modelRegistry.getProviderAuth('zai')
+    const apiKey = auth?.auth.apiKey
+    const baseUrl = auth?.auth.baseUrl
+    if (!apiKey || !baseUrl) return failure('Z.AI (GLM) connection is unavailable in Pi.')
+    const origin = new URL(baseUrl).origin
+    const authorization = origin.includes('bigmodel.cn') ? apiKey : `Bearer ${apiKey}`
+    const data = await fetchJson(`${origin}/api/monitor/usage/quota/limit`, {
+      Authorization: authorization,
+      Accept: 'application/json',
+    })
+    return { ok: true, data: parseGlmUsage(data) }
+  } catch (error) {
+    return failure(fetchError(error, 'Unable to fetch GLM quotas.'))
   }
 }
 
