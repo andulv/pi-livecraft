@@ -43,6 +43,9 @@
   color: var(--accent);
   font-size: 14px;
 }
+.tool-call-heading strong {
+  color: var(--accent);
+}
 .tool-call-command {
   min-width: 0;
   color: inherit;
