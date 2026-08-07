@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSnapshot } from '../../api.ts'
+import {
+  assistantMessageAfterEvent,
+  assistantMessageInEvent,
+} from '../../../shared/assistant-message-stream.ts'
 import { isObject } from '../../../shared/is-object.ts'
 import type { JsonObject, SessionSnapshot } from '../../../shared/types.ts'
 import { activityForPiEvent, type Activity } from './activity.ts'
@@ -255,10 +259,20 @@ export function useConversationRuntime(
         }
       }
       if (event.type === 'message_update' && isObject(event.assistantMessageEvent)) {
-        const message = assistantMessageInEvent(event)
+        const live = (pendingLiveMessagesRef.current ?? liveMessagesRef.current)[
+          liveMessageIndexRef.current
+        ]
+        const message = assistantMessageAfterEvent(live?.message ?? null, event)
         if (message) queueLiveMessage(message)
         if (event.assistantMessageEvent.type === 'error')
           setToolExecutions(interruptToolCallGeneration)
+      }
+      if (event.type === 'message_end') {
+        const live = (pendingLiveMessagesRef.current ?? liveMessagesRef.current)[
+          liveMessageIndexRef.current
+        ]
+        const message = assistantMessageAfterEvent(live?.message ?? null, event)
+        if (message) queueLiveMessage(message)
       }
       const settledRequestDuration = event
               .type === 'agent_settled' && requestStartedAtRef.current !== undefined
@@ -361,10 +375,4 @@ function lastUserTimestamp(messages: JsonObject[]): number | undefined {
     if (message?.role === 'user' && typeof message.timestamp === 'number') return message.timestamp
   }
   return undefined
-}
-
-/** Reads the complete assistant message carried by a public Pi stream event. */
-function assistantMessageInEvent(event: JsonObject): JsonObject | null {
-  const message = event.message
-  return isObject(message) && message.role === 'assistant' ? message : null
 }

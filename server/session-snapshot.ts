@@ -1,3 +1,7 @@
+import {
+  assistantMessageAfterEvent,
+  assistantMessageInEvent,
+} from '../shared/assistant-message-stream.ts'
 import type { JsonObject } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 
@@ -9,28 +13,42 @@ export interface SequencedPiEvent {
 /** Keeps only the current turn events needed to rebuild transient conversation state. */
 export class LiveSessionEvents {
   readonly #events = new Map<string, SequencedPiEvent>()
+  #assistantMessage: JsonObject | null = null
 
   receive(data: JsonObject, sequence: number): void {
     const type = data.type
     if (type === 'agent_settled') {
       this.#events.clear()
+      this.#assistantMessage = null
       return
     }
     if (type === 'agent_start') this.#events.set('agent', { data, sequence })
     if (type === 'message_start') {
       this.#deletePrefix('message:')
+      this.#assistantMessage = assistantMessageInEvent(data)
       this.#events.set('message:start', { data, sequence })
     }
     if (type === 'message_update') {
-      this.#events.set('message:update', { data, sequence })
+      const message = assistantMessageAfterEvent(this.#assistantMessage, data)
+      if (message) this.#assistantMessage = message
+      // RPC deltas omit cumulative messages; retain one assembled message for snapshot replay.
+      const storedData = message ? { ...data, message } : data
+      this.#events.set('message:update', { data: storedData, sequence })
       const update = isObject(data.assistantMessageEvent) ? data.assistantMessageEvent : undefined
       if (
         (update?.type === 'toolcall_start' || update?.type === 'toolcall_delta' || update
               ?.type === 'toolcall_end')
         && Number.isSafeInteger(update.contentIndex)
-      ) this.#events.set(`message:tool:${String(update.contentIndex)}`, { data, sequence })
+      )
+        this.#events.set(`message:tool:${String(update.contentIndex)}`, {
+          data: storedData,
+          sequence,
+        })
     }
-    if (type === 'message_end') this.#deletePrefix('message:')
+    if (type === 'message_end') {
+      this.#deletePrefix('message:')
+      this.#assistantMessage = null
+    }
     if (
       (type === 'tool_execution_start' || type === 'tool_execution_update')
       && typeof data.toolCallId === 'string'

@@ -49,6 +49,28 @@ test('retains only the events needed to restore active thinking and tools', () =
   assert.deepEqual(live.snapshot(), [])
 })
 
+test('stores an assembled assistant message for delta-only replay', () => {
+  const live = new LiveSessionEvents()
+  live.receive({ type: 'message_start', message: { role: 'assistant', content: [] } }, 1)
+  live.receive({
+    type: 'message_update',
+    assistantMessageEvent: { type: 'text_start', contentIndex: 0 },
+  }, 2)
+  live.receive({
+    type: 'message_update',
+    assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'Hello ' },
+  }, 3)
+  live.receive({
+    type: 'message_update',
+    assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'world' },
+  }, 4)
+
+  assert.deepEqual(live.snapshot().at(-1)?.data.message, {
+    role: 'assistant',
+    content: [{ type: 'text', text: 'Hello world' }],
+  })
+})
+
 test('keeps the active conversation before and after compaction', () => {
   const messages = activeSessionMessages([
     {
