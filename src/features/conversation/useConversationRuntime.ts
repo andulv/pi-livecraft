@@ -338,6 +338,7 @@ export function useConversationRuntime(
     addOptimisticUserMessage,
     addPendingSteering,
     clearActivity,
+    flushLiveUpdates,
     handlePiEvent,
     liveMessages,
     observedRequestDurations,

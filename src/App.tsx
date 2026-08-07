@@ -359,6 +359,7 @@ function App() {
     addOptimisticUserMessage,
     addPendingSteering,
     clearActivity,
+    flushLiveUpdates,
     handlePiEvent,
     liveMessages,
     observedRequestDurations,
@@ -611,6 +612,8 @@ function App() {
       if (
         event.type === 'extension_ui_request' && isBlockingDialog(event) && !isAgentSelector(event)
       ) {
+        // Commit batched assistant deltas before a blocking dialog covers the conversation.
+        if (sessionId === selectedIdRef.current) flushLiveUpdates()
         if (typeof event.id === 'string') addPendingRequest(sessionId, event)
         if (sessionId === selectedIdRef.current) clearActivity()
       }
@@ -650,6 +653,7 @@ function App() {
     [
       addPendingRequest,
       clearActivity,
+      flushLiveUpdates,
       handlePiEvent,
       markSessionCompleted,
       refreshSessionQuotas,
