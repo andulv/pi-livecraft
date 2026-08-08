@@ -11,6 +11,7 @@ import {
   discardFileChanges,
   getGitFileDiff,
   getGitSnapshot,
+  isLinkedWorktree,
   mergeNumstats,
   parseGitStatus,
   parseGitWorktrees,
@@ -286,5 +287,35 @@ test('rejects push without ahead commits', async () => {
     await assert.rejects(pushCommits(directory), /no commits to push/)
   } finally {
     await rm(directory, { force: true, recursive: true })
+  }
+})
+
+test('isLinkedWorktree compares the git dir against the shared common dir', () => {
+  assert.equal(isLinkedWorktree('/repo/.git', '/repo/.git', '/repo'), false)
+  assert.equal(isLinkedWorktree('/repo/.git', '.git', '/repo'), false)
+  assert.equal(isLinkedWorktree('/repo/.git/worktrees/wt', '/repo/.git', '/repo/wt'), true)
+})
+
+test('flags a linked worktree but not the main checkout', async () => {
+  const main = await mkdtemp(join(tmpdir(), 'pi-livecraft-main-'))
+  const worktree = await mkdtemp(join(tmpdir(), 'pi-livecraft-wt-'))
+  try {
+    await execFile('git', ['init', '--quiet'], { cwd: main })
+    await writeFile(join(main, 'file.ts'), 'content\n')
+    await execFile('git', ['add', 'file.ts'], { cwd: main })
+    await execFile('git', ['commit', '--quiet', '-m', 'Initial'], { cwd: main })
+    await execFile('git', ['branch', 'wt'], { cwd: main })
+    await execFile('git', ['worktree', 'add', '--quiet', worktree, 'wt'], { cwd: main })
+
+    const mainSnapshot = await getGitSnapshot(main)
+    assert.equal(mainSnapshot.repository, true)
+    assert.equal(mainSnapshot.worktree, false)
+
+    const worktreeSnapshot = await getGitSnapshot(worktree)
+    assert.equal(worktreeSnapshot.repository, true)
+    assert.equal(worktreeSnapshot.worktree, true)
+  } finally {
+    await rm(worktree, { force: true, recursive: true })
+    await rm(main, { force: true, recursive: true })
   }
 })

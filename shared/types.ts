@@ -57,6 +57,8 @@ export interface GitSnapshot {
   repository: boolean
   root: string | null
   branch: string | null
+  /** True when the working directory is a linked worktree, not the repository's main checkout. */
+  worktree: boolean
   files: GitFileChange[]
   ahead: number
   commits: GitCommit[]

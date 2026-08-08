@@ -20,7 +20,15 @@ interface GitCommandResult {
 export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
   const repository = await runGit(cwd, ['rev-parse', '--is-inside-work-tree'], [0, 128])
   if (repository.exitCode !== 0 || repository.stdout.trim() !== 'true')
-    return { repository: false, root: null, branch: null, files: [], ahead: 0, commits: [] }
+    return {
+      repository: false,
+      root: null,
+      branch: null,
+      worktree: false,
+      files: [],
+      ahead: 0,
+      commits: [],
+    }
 
   const [root, status, unstaged, staged, branch, upstream] = await Promise.all([
     runGit(cwd, ['rev-parse', '--show-toplevel']),
@@ -57,10 +65,22 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
 
   const commits = upstream.exitCode === 0 ? await unpushedCommits(cwd) : []
 
+  let worktree = false
+  try {
+    const [gitDir, commonDir] = await Promise.all([
+      runGit(cwd, ['rev-parse', '--absolute-git-dir']),
+      runGit(cwd, ['rev-parse', '--git-common-dir']),
+    ])
+    worktree = isLinkedWorktree(gitDir.stdout, commonDir.stdout, cwd)
+  } catch {
+    // Older Git or an unusual layout — report as the main checkout.
+  }
+
   return {
     repository: true,
     root: root.stdout.trim() || null,
     branch: branch.stdout.trim() || 'HEAD',
+    worktree,
     files: changes.map((change) => {
       const count = counts.get(change.path)
       return { ...change, additions: count?.additions ?? null, deletions: count?.deletions ?? null }
@@ -68,6 +88,15 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
     ahead: commits.length,
     commits,
   }
+}
+
+/** True when the working directory is a linked worktree rather than the repository's main checkout. */
+export function isLinkedWorktree(
+  absoluteGitDir: string,
+  commonDirRaw: string,
+  cwd: string,
+): boolean {
+  return resolve(absoluteGitDir.trim()) !== resolve(cwd, commonDirRaw.trim())
 }
 
 /** Lists the main checkout and linked worktrees belonging to the repository at cwd. */

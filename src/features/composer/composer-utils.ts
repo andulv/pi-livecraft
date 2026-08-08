@@ -1,4 +1,4 @@
-import type { JsonObject } from '../../../shared/types.ts'
+import type { JsonObject, SessionStats } from '../../../shared/types.ts'
 
 /** Makes technical values readable in composer labels without changing RPC values. */
 export function capitalizeLabel(value: string): string {
@@ -9,6 +9,36 @@ export { isObject } from '../../../shared/is-object.ts'
 
 export function formatTokens(value: number): string {
   return value >= 1000 ? `${Math.round(value / 1000)}k` : String(value)
+}
+
+/** Formats session cost and context-window usage for status display. */
+export function formatSessionStats(stats: SessionStats | null): {
+  cost: string
+  contextClass: string
+  contextTokens: string
+  contextPercent: string
+  contextPercentValue: number | null
+} {
+  const contextUsage = stats?.contextUsage
+  const contextPercentValue = typeof contextUsage?.percent === 'number'
+    ? Math.round(contextUsage.percent)
+    : null
+  const contextPercent = contextPercentValue === null ? '—' : `${contextPercentValue}%`
+  const contextTokens = typeof contextUsage?.tokens === 'number'
+      && typeof contextUsage.contextWindow === 'number'
+    ? `${formatTokens(contextUsage.tokens)}/${formatTokens(contextUsage.contextWindow)}`
+    : 'Unavailable'
+  const cost = typeof stats?.cost === 'number' ? `$${stats.cost.toFixed(2)}` : '—'
+  const contextClass = typeof contextUsage?.percent === 'number'
+    ? contextUsage.percent >= 40
+      ? 'context-danger'
+      : contextUsage.percent >= 30
+      ? 'context-warning-strong'
+      : contextUsage.percent >= 20
+      ? 'context-warning'
+      : ''
+    : ''
+  return { cost, contextClass, contextTokens, contextPercent, contextPercentValue }
 }
 
 /** Returns true when the draft starts with a slash command exposed by Pi. */

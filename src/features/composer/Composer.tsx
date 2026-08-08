@@ -19,7 +19,6 @@ import type {
 import { maxComposerImages, prepareComposerImage, type ComposerImage } from './composer-images.ts'
 import {
   ensureCompactCommand,
-  formatTokens,
   isCommandDraft,
   isCompactCommandDraft,
   isObject,
@@ -31,7 +30,6 @@ import { ModelSelect } from './selects/ModelSelect.tsx'
 import { PromptSelect } from './selects/PromptSelect.tsx'
 import { ThinkingSelect } from './selects/ThinkingSelect.tsx'
 import { ComposerSelect } from './selects/ComposerSelect.tsx'
-import { ComposerStatusBar } from './status-bar/ComposerStatusBar.tsx'
 
 /** Static options for the Improve-prompt dropdown; hoisted to a module constant so the select never re-renders for it. */
 const improveOptions = [
@@ -55,7 +53,6 @@ export const Composer = memo(function Composer({
   onCommand,
   commands,
   running,
-  compacting,
   onSend,
   onAbort,
   onImprovePrompt,
@@ -81,7 +78,6 @@ export const Composer = memo(function Composer({
   onCommand: (command: JsonObject) => Promise<JsonObject>
   commands: JsonObject[]
   running: boolean
-  compacting: boolean
   onSend: (
     message: string,
     images: JsonObject[],
@@ -427,27 +423,6 @@ export const Composer = memo(function Composer({
     }
   }
 
-  const stats = snapshot.stats
-  const contextUsage = stats?.contextUsage
-  const contextPercentValue = typeof contextUsage?.percent === 'number'
-    ? Math.round(contextUsage.percent)
-    : null
-  const contextPercent = contextPercentValue === null ? '—' : `${contextPercentValue}%`
-  const contextTokens = typeof contextUsage
-          ?.tokens === 'number' && typeof contextUsage.contextWindow === 'number'
-    ? `${formatTokens(contextUsage.tokens)}/${formatTokens(contextUsage.contextWindow)}`
-    : 'Unavailable'
-  const cost = typeof stats?.cost === 'number' ? `$${stats.cost.toFixed(2)}` : '—'
-  const contextClass = typeof contextUsage?.percent === 'number'
-    ? contextUsage.percent >= 40
-      ? 'context-danger'
-      : contextUsage.percent >= 30
-      ? 'context-warning-strong'
-      : contextUsage.percent >= 20
-      ? 'context-warning'
-      : ''
-    : ''
-
   return (
     <form
       className={`composer${previewingPrompt ? ' previewing-prompt' : ''}`}
@@ -689,16 +664,6 @@ export const Composer = memo(function Composer({
             </Tooltip>
           </div>
         </div>
-        <ComposerStatusBar
-          session={session}
-          running={running}
-          compacting={compacting}
-          cost={cost}
-          contextClass={contextClass}
-          contextTokens={contextTokens}
-          contextPercent={contextPercent}
-          contextPercentValue={contextPercentValue}
-        />
       </div>
       {promptSave && (
         <dialog
