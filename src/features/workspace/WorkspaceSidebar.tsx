@@ -11,7 +11,7 @@ import {
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type { GitProject, RecentSession, SessionSummary } from '../../../shared/types.ts'
 import type { Project } from './projects.ts'
-import { sessionIndicator } from './session-indicator.ts'
+import { aggregateSessionIndicator, sessionIndicator } from './session-indicator.ts'
 import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
 import {
   otherWorkspaceSessions,
@@ -289,6 +289,13 @@ export function WorkspaceSidebar({
         </div>
         {projects.map((project) => {
           const workspaces = projectWorkspaces[project.root]?.workspaces ?? []
+          const projectWorkspacePaths = new Set(workspaces.map(({ path }) => path))
+          const projectIndicator = aggregateSessionIndicator(
+            sessions.filter(({ cwd }) => projectWorkspacePaths.has(cwd)),
+            selectedId,
+            compactingSessionIds,
+            completedSessionIds,
+          )
           return (
             <div className='project-item' key={project.id}>
               <div className='project-title'>
@@ -306,6 +313,7 @@ export function WorkspaceSidebar({
                 >
                   <DisclosureIcon collapsed={collapsedProjects.has(project.root)} />
                   <strong>{project.name}</strong>
+                  {projectIndicator && <SessionStatusIndicator status={projectIndicator} />}
                 </button>
                 <button
                   aria-label={`Remove ${project.name}`}
@@ -317,33 +325,44 @@ export function WorkspaceSidebar({
               </div>
               {!collapsedProjects.has(project.root) && (
                 <div className='project-workspaces'>
-                  {workspaces.map((workspace) => (
-                    <button
-                      aria-current={workspace.path === workspacePath ? 'page' : undefined}
-                      className={`workspace-path${
-                        workspace.path === workspacePath ? ' selected' : ''
-                      }`}
-                      key={workspace.path}
-                      onClick={() =>
-                        onSelectOtherWorkspaceSession({
-                          id: '',
-                          cwd: workspace.path,
-                          name: '',
-                          status: 'idle',
-                          pendingUi: [],
-                        })}
-                      type='button'
-                    >
-                      <WorkspaceIcon />
-                      <div className='workspace-path-copy'>
-                        <span>{workspace.main ? 'Main workspace' : 'Worktree'}</span>
-                        <strong>{workspace.branch ?? workspace.path}</strong>
-                      </div>
-                      {workspace.path === workspacePath && (
-                        <span className='workspace-current'>Current</span>
-                      )}
-                    </button>
-                  ))}
+                  {workspaces.map((workspace) => {
+                    const workspaceIndicator = aggregateSessionIndicator(
+                      sessions.filter(({ cwd }) => cwd === workspace.path),
+                      selectedId,
+                      compactingSessionIds,
+                      completedSessionIds,
+                    )
+                    return (
+                      <button
+                        aria-current={workspace.path === workspacePath ? 'page' : undefined}
+                        className={`workspace-path${
+                          workspace.path === workspacePath ? ' selected' : ''
+                        }`}
+                        key={workspace.path}
+                        onClick={() =>
+                          onSelectOtherWorkspaceSession({
+                            id: '',
+                            cwd: workspace.path,
+                            name: '',
+                            status: 'idle',
+                            pendingUi: [],
+                          })}
+                        type='button'
+                      >
+                        <WorkspaceIcon />
+                        <div className='workspace-path-copy'>
+                          <span>{workspace.main ? 'Main workspace' : 'Worktree'}</span>
+                          <strong>{workspace.branch ?? workspace.path}</strong>
+                        </div>
+                        {workspaceIndicator && (
+                          <SessionStatusIndicator status={workspaceIndicator} />
+                        )}
+                        {workspace.path === workspacePath && (
+                          <span className='workspace-current'>Current</span>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>

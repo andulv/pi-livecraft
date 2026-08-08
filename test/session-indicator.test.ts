@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { SessionSummary } from '../shared/types.ts'
-import { sessionIndicator } from '../src/features/workspace/session-indicator.ts'
+import {
+  aggregateSessionIndicator,
+  sessionIndicator,
+} from '../src/features/workspace/session-indicator.ts'
 
 const session: SessionSummary = {
   id: 'session-1',
@@ -76,6 +79,31 @@ test('survives a page refresh: restored completed ids still show complete for id
   assert.equal(
     sessionIndicator({ ...session, status: 'idle' }, session.id, new Set(), restored),
     'idle',
+  )
+})
+
+test('rolls up the highest-priority indicator for a workspace or project', () => {
+  assert.equal(
+    aggregateSessionIndicator(
+      [{ ...session, status: 'idle' }, { ...session, id: 'working', status: 'running' }],
+      '',
+      new Set(),
+      new Set(),
+    ),
+    'working',
+  )
+  assert.equal(
+    aggregateSessionIndicator(
+      [{ ...session, status: 'running' }, {
+        ...session,
+        id: 'waiting',
+        pendingUi: [{ method: 'confirm' }],
+      }],
+      '',
+      new Set(),
+      new Set(),
+    ),
+    'waiting',
   )
 })
 
