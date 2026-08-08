@@ -63,6 +63,9 @@ export function useWorkspaceSessions(
   )
   const [directoryPickerOpen, setDirectoryPickerOpen] = useState(false)
   const [projects, setProjects] = useState<Project[]>(readProjects)
+  const [projectDiscoveryComplete, setProjectDiscoveryComplete] = useState(() =>
+    projects.length === 0
+  )
   const [projectWorkspaces, setProjectWorkspaces] = useState<Record<string, GitProject>>({})
   const [selectedId, setSelectedId] = useState('')
   const [creatingSession, setCreatingSession] = useState(false)
@@ -90,6 +93,7 @@ export function useWorkspaceSessions(
       )
       .then((entries) => active && setProjectWorkspaces(Object.fromEntries(entries)))
       .catch(onError)
+      .finally(() => active && setProjectDiscoveryComplete(true))
     return () => {
       active = false
     }
@@ -133,13 +137,13 @@ export function useWorkspaceSessions(
     const shouldAutoSelect = autoSelectOnRefreshRef.current
     setIsRefreshingSessions(true)
     try {
+      const discoveredWorkspacePaths = Object.values(projectWorkspaces).flatMap((project) =>
+        project.workspaces.map((workspace) => workspace.path)
+      )
       const workspacePaths = [
-        ...new Set([
-          cwd,
-          ...Object.values(projectWorkspaces).flatMap((project) =>
-            project.workspaces.map((workspace) => workspace.path)
-          ),
-        ]),
+        ...new Set(
+          discoveredWorkspacePaths.length > 0 ? discoveredWorkspacePaths : [cwd],
+        ),
       ]
       const [nextSessions, recentSessionLists] = await Promise.all([
         listSessions(),
@@ -206,7 +210,10 @@ export function useWorkspaceSessions(
     }
   }, [onError, onSessionsRefreshed, projectWorkspaces, workspacePath])
 
-  useEffect(() => void refreshSessions(), [refreshSessions])
+  useEffect(() => {
+    if (!projectDiscoveryComplete) return
+    void refreshSessions()
+  }, [projectDiscoveryComplete, refreshSessions])
 
   /** Selects a workspace, optionally preserving an explicit session over automatic selection. */
   const selectWorkspace = useCallback((path: string, targetSessionId?: string): void => {
