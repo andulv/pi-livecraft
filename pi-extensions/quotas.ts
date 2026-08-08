@@ -116,19 +116,23 @@ async function fetchCopilotQuotas(
 }
 
 /**
- * Reads the Z.AI (GLM) provider key and base URL from the model registry, derives the usage host
- * and Authorization scheme from the base URL, then calls the Coding Plan `usage/quota/limit`
- * endpoint. The base URL is static provider config rather than resolved auth, so it comes from
- * `getProvider` while the key comes from `getApiKeyForProvider`. The China (open.bigmodel.cn)
- * station authenticates with the raw key; z.ai uses `Bearer {key}`.
+ * Reads the Z.AI (GLM) provider key and base URL, derives the usage host and Authorization scheme
+ * from the base URL, then calls the Coding Plan `usage/quota/limit` endpoint. The base URL is
+ * static provider config, so it comes from `getProvider`; the key is resolved via
+ * `getApiKeyForProvider`, falling back to the stored credential when resolved auth is unavailable.
+ * The China (open.bigmodel.cn) station authenticates with the raw key; z.ai uses `Bearer {key}`.
  */
 async function fetchGlmQuotas(
   ctx: ExtensionContext,
 ): Promise<QuotaProviderReport<GlmQuotaWindow>> {
   try {
-    const apiKey = await ctx.modelRegistry.getApiKeyForProvider('zai')
+    let apiKey = await ctx.modelRegistry.getApiKeyForProvider('zai')
+    // env-key providers hold the usable key on the credential itself; read it directly when the
+    // resolved auth is unavailable so a transient registry gap does not blank the reading.
+    if (!apiKey) apiKey = stringField(await readCredential(ctx, 'zai'), 'key')
     const baseUrl = ctx.modelRegistry.getProvider('zai')?.baseUrl
-    if (!apiKey || !baseUrl) return failure('Z.AI (GLM) connection is unavailable in Pi.')
+    if (!apiKey) return failure('Z.AI (GLM) API key is unavailable in Pi.')
+    if (!baseUrl) return failure('Z.AI (GLM) endpoint is unavailable in Pi.')
     const origin = new URL(baseUrl).origin
     const authorization = origin.includes('bigmodel.cn') ? apiKey : `Bearer ${apiKey}`
     const data = await fetchJson(`${origin}/api/monitor/usage/quota/limit`, {
