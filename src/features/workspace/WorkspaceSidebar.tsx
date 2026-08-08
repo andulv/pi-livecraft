@@ -43,7 +43,6 @@ interface WorkspaceSidebarProps {
   projectWorkspaces: Record<string, GitProject>
   onChooseWorkspace: () => void
   onRemoveProject: (root: string) => void
-  onCloseSession: (sessionId: string) => Promise<void>
   onCreate: () => Promise<void>
   onOpenSession: (session: RecentSession) => Promise<void>
   onSelectOtherWorkspaceSession: (session: SessionSummary) => void
@@ -71,7 +70,6 @@ export function WorkspaceSidebar({
   projectWorkspaces,
   onChooseWorkspace,
   onRemoveProject,
-  onCloseSession,
   onCreate,
   onOpenSession,
   onSelectOtherWorkspaceSession,
@@ -174,17 +172,6 @@ export function WorkspaceSidebar({
     setContextMenu({ target, x: event.clientX, y: event.clientY })
   }
 
-  function openContextMenuFromKeyboard(
-    target: SessionActionTarget,
-    event: ReactKeyboardEvent<HTMLButtonElement>,
-  ): void {
-    if (event.key !== 'ContextMenu' && !(event.key === 'F10' && event.shiftKey)) return
-    event.preventDefault()
-    contextMenuTriggerRef.current = event.currentTarget
-    const rect = event.currentTarget.getBoundingClientRect()
-    setContextMenu({ target, x: rect.left, y: rect.bottom })
-  }
-
   function startRename(): void {
     if (!contextMenu) return
     const { target } = contextMenu
@@ -195,17 +182,6 @@ export function WorkspaceSidebar({
   function dismissRename(): void {
     setRenameTarget(null)
     contextMenuTriggerRef.current?.focus()
-  }
-
-  async function closeTarget(): Promise<void> {
-    const sessionId = contextMenu?.target.sessionId
-    dismissContextMenu()
-    if (!sessionId) return
-    try {
-      await onCloseSession(sessionId)
-    } catch (cause) {
-      onError(cause)
-    }
   }
 
   function startResize(event: ReactPointerEvent<HTMLDivElement>): void {
@@ -426,40 +402,38 @@ export function WorkspaceSidebar({
             sessionPath: recentSession.sessionPath,
           }
           return (
-            <Tooltip
-              key={recentSession.sessionPath}
-              hint='Right-click to rename or close the session'
-              label={`${recentSession.name}\n${
-                new Date(recentSession.updatedAt).toLocaleString('en-US')
-              }`}
-            >
-              <button
-                className={`session-item${activeSession?.id === selectedId ? ' selected' : ''}${
-                  indicator ? ` ${indicator}` : ''
+            <div className='session-row' key={recentSession.sessionPath}>
+              <Tooltip
+                label={`${recentSession.name}\n${
+                  new Date(recentSession.updatedAt).toLocaleString('en-US')
                 }`}
-                aria-haspopup='menu'
-                disabled={openingSessionPath === recentSession.sessionPath}
-                onContextMenu={(event) => openContextMenu(actionTarget, event)}
-                onKeyDown={(event) => openContextMenuFromKeyboard(actionTarget, event)}
-                onClick={() => {
-                  if (activeSession) {
-                    onSelectSession(activeSession.id)
-                    return
-                  }
-                  setOpeningSessionPath(recentSession.sessionPath)
-                  void onOpenSession(recentSession).catch(onError).finally(() =>
-                    setOpeningSessionPath('')
-                  )
-                }}
-                ref={activeSession?.id === selectedId ? selectedSessionRef : undefined}
-                type='button'
               >
-                {indicator && <SessionStatusIndicator status={indicator} />}
-                <span>
-                  <strong>{sessionLabel}</strong>
-                </span>
-              </button>
-            </Tooltip>
+                <button
+                  className={`session-item${activeSession?.id === selectedId ? ' selected' : ''}${
+                    indicator ? ` ${indicator}` : ''
+                  }`}
+                  disabled={openingSessionPath === recentSession.sessionPath}
+                  onClick={() => {
+                    if (activeSession) {
+                      onSelectSession(activeSession.id)
+                      return
+                    }
+                    setOpeningSessionPath(recentSession.sessionPath)
+                    void onOpenSession(recentSession).catch(onError).finally(() =>
+                      setOpeningSessionPath('')
+                    )
+                  }}
+                  ref={activeSession?.id === selectedId ? selectedSessionRef : undefined}
+                  type='button'
+                >
+                  {indicator && <SessionStatusIndicator status={indicator} />}
+                  <span>
+                    <strong>{sessionLabel}</strong>
+                  </span>
+                </button>
+              </Tooltip>
+              <SessionActions target={actionTarget} onOpen={openContextMenu} />
+            </div>
           )
         })}
         {visibleSessions.length === 0 && !isRefreshing && (
@@ -498,27 +472,23 @@ export function WorkspaceSidebar({
                   sessionPath: session.sessionPath,
                 }
                 return (
-                  <Tooltip
-                    hint='Right-click to rename or close the session'
-                    key={session.id}
-                    label={`${session.name}\n${session.cwd}`}
-                  >
-                    <button
-                      aria-haspopup='menu'
-                      aria-label={`${session.name} in workspace ${session.cwd}`}
-                      className={`session-item${indicator ? ` ${indicator}` : ''}`}
-                      onContextMenu={(event) => openContextMenu(actionTarget, event)}
-                      onKeyDown={(event) => openContextMenuFromKeyboard(actionTarget, event)}
-                      onClick={() => onSelectOtherWorkspaceSession(session)}
-                      type='button'
-                    >
-                      {indicator && <SessionStatusIndicator status={indicator} />}
-                      <span>
-                        <strong>{session.name}</strong>
-                        <small>{session.cwd}</small>
-                      </span>
-                    </button>
-                  </Tooltip>
+                  <div className='session-row' key={session.id}>
+                    <Tooltip label={`${session.name}\n${session.cwd}`}>
+                      <button
+                        aria-label={`${session.name} in workspace ${session.cwd}`}
+                        className={`session-item${indicator ? ` ${indicator}` : ''}`}
+                        onClick={() => onSelectOtherWorkspaceSession(session)}
+                        type='button'
+                      >
+                        {indicator && <SessionStatusIndicator status={indicator} />}
+                        <span>
+                          <strong>{session.name}</strong>
+                          <small>{session.cwd}</small>
+                        </span>
+                      </button>
+                    </Tooltip>
+                    <SessionActions target={actionTarget} onOpen={openContextMenu} />
+                  </div>
                 )
               })}
             </nav>
@@ -536,16 +506,6 @@ export function WorkspaceSidebar({
           <button autoFocus onClick={startRename} role='menuitem' type='button'>
             Rename…
           </button>
-          {contextMenu.target.sessionId && (
-            <button
-              className='danger'
-              onClick={() => void closeTarget()}
-              role='menuitem'
-              type='button'
-            >
-              Close session
-            </button>
-          )}
         </div>
       )}
       {renameTarget && (
@@ -557,6 +517,29 @@ export function WorkspaceSidebar({
         />
       )}
     </aside>
+  )
+}
+
+/** Opens the extensible action menu without competing with the session selection target. */
+function SessionActions({
+  target,
+  onOpen,
+}: {
+  target: SessionActionTarget
+  onOpen: (target: SessionActionTarget, event: ReactMouseEvent<HTMLButtonElement>) => void
+}) {
+  return (
+    <Tooltip label='Session actions'>
+      <button
+        aria-haspopup='menu'
+        aria-label={`Session actions for ${target.name}`}
+        className='session-actions'
+        onClick={(event) => onOpen(target, event)}
+        type='button'
+      >
+        …
+      </button>
+    </Tooltip>
   )
 }
 

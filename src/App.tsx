@@ -314,7 +314,6 @@ function App() {
   const {
     addPendingRequest,
     addProject,
-    closeManagedSession,
     completedSessionIds,
     creatingSession,
     directoryPickerOpen,
@@ -1109,7 +1108,6 @@ function App() {
         projectWorkspaces={projectWorkspaces}
         onChooseWorkspace={() => setDirectoryPickerOpen(true)}
         onRemoveProject={removeProject}
-        onCloseSession={closeManagedSession}
         onCreate={async () => {
           await startAndSelectSession(() => createSession(workspacePath))
         }}
