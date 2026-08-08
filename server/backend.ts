@@ -11,6 +11,7 @@ import {
   discardChanges,
   discardFileChanges,
   getGitFileDiff,
+  getGitProject,
   getGitSnapshot,
   pushCommits,
   resetGitCommit,
@@ -187,6 +188,14 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   if (method === 'GET' && url.pathname === '/api/git') {
     const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
     sendJson(response, 200, await getGitSnapshot(cwd))
+    return
+  }
+
+  if (method === 'GET' && url.pathname === '/api/git/project') {
+    const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
+    const project = await getGitProject(cwd)
+    if (!project) throw new HttpError(400, 'Choose a directory inside a Git repository.')
+    sendJson(response, 200, project)
     return
   }
 

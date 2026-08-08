@@ -1,6 +1,7 @@
 import type {
   DirectoryListing,
   GitFileDiff,
+  GitProject,
   GitPushResult,
   GitResetResult,
   GitRevertResult,
@@ -88,6 +89,11 @@ export async function openExplorer(cwd: string): Promise<void> {
 
 export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
   return request<GitSnapshot>(`/api/git?cwd=${encodeURIComponent(cwd)}`)
+}
+
+/** Resolves a Git repository to its main checkout and every linked worktree. */
+export async function getGitProject(cwd: string): Promise<GitProject> {
+  return request<GitProject>(`/api/git/project?cwd=${encodeURIComponent(cwd)}`)
 }
 
 export async function getGitFileDiff(

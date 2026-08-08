@@ -1,8 +1,10 @@
 import { spawn } from 'node:child_process'
+import { resolve } from 'node:path'
 import type {
   GitCommit,
   GitFileChange,
   GitFileDiff,
+  GitProject,
   GitResetResult,
   GitRevertResult,
   GitSnapshot,
@@ -66,6 +68,41 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
     ahead: commits.length,
     commits,
   }
+}
+
+/** Lists the main checkout and linked worktrees belonging to the repository at cwd. */
+export async function getGitProject(cwd: string): Promise<GitProject | null> {
+  const repository = await runGit(cwd, ['rev-parse', '--is-inside-work-tree'], [0, 128])
+  if (repository.exitCode !== 0 || repository.stdout.trim() !== 'true') return null
+
+  const root = await runGit(cwd, ['rev-parse', '--show-toplevel'])
+  const listing = await runGit(cwd, ['worktree', 'list', '--porcelain'])
+  return {
+    root: root.stdout.trim(),
+    workspaces: parseGitWorktrees(listing.stdout, root.stdout.trim()),
+  }
+}
+
+/** Parses Git's stable worktree porcelain output without depending on display formatting. */
+export function parseGitWorktrees(output: string, mainPath: string): GitProject['workspaces'] {
+  const workspaces: GitProject['workspaces'] = []
+  for (const block of output.trim().split('\n\n')) {
+    const fields = new Map(
+      block.split('\n').flatMap((line) => {
+        const separator = line.indexOf(' ')
+        return separator > 0 ? [[line.slice(0, separator), line.slice(separator + 1)]] : []
+      }),
+    )
+    const path = fields.get('worktree')
+    if (!path) continue
+    const branch = fields.get('branch')
+    workspaces.push({
+      path,
+      branch: branch?.startsWith('refs/heads/') ? branch.slice('refs/heads/'.length) : null,
+      main: resolve(path) === resolve(mainPath),
+    })
+  }
+  return workspaces
 }
 
 /** Returns the unified diff for a modified or added file in the tree or an unpushed commit. */

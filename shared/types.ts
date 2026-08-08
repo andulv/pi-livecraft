@@ -29,6 +29,17 @@ export interface DirectoryListing {
   directories: DirectoryEntry[]
 }
 
+export interface GitWorkspace {
+  path: string
+  branch: string | null
+  main: boolean
+}
+
+export interface GitProject {
+  root: string
+  workspaces: GitWorkspace[]
+}
+
 export interface GitFileChange {
   path: string
   status: 'added' | 'deleted' | 'modified' | 'renamed'

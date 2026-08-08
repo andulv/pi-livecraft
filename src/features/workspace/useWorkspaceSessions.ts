@@ -1,15 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   closeSession as requestCloseSession,
+  getGitProject,
   listDirectories,
   listRecentSessions,
   listSessions,
   renameSession as renameStoredSession,
   sendPiCommand,
 } from '../../api.ts'
-import type { JsonObject, RecentSession, SessionSummary } from '../../../shared/types.ts'
+import type {
+  GitProject,
+  JsonObject,
+  RecentSession,
+  SessionSummary,
+} from '../../../shared/types.ts'
 import { promptSessionTitle } from '../composer/prompt-title.ts'
 import { recentWorkspaces } from './recent-workspaces.ts'
+import { projectFromGit, readProjects, writeProjects, type Project } from './projects.ts'
 import {
   nextActiveSessionId,
   pickSessionOnOpen,
@@ -55,6 +62,8 @@ export function useWorkspaceSessions(
     )
   )
   const [directoryPickerOpen, setDirectoryPickerOpen] = useState(false)
+  const [projects, setProjects] = useState<Project[]>(readProjects)
+  const [projectWorkspaces, setProjectWorkspaces] = useState<Record<string, GitProject>>({})
   const [selectedId, setSelectedId] = useState('')
   const [creatingSession, setCreatingSession] = useState(false)
   const sessionsRef = useRef(sessions)
@@ -70,6 +79,21 @@ export function useWorkspaceSessions(
   sentSessionsRef.current = sentSessions
   completedSessionIdsRef.current = completedSessionIds
   selectedIdRef.current = selectedId
+
+  useEffect(() => writeProjects(projects), [projects])
+
+  useEffect(() => {
+    let active = true
+    void Promise
+      .all(
+        projects.map(async (project) => [project.root, await getGitProject(project.root)] as const),
+      )
+      .then((entries) => active && setProjectWorkspaces(Object.fromEntries(entries)))
+      .catch(onError)
+    return () => {
+      active = false
+    }
+  }, [onError, projects])
 
   useEffect(() => {
     if (window.localStorage.getItem('pi-livecraft.workspace-path') !== null) return
@@ -189,6 +213,23 @@ export function useWorkspaceSessions(
     autoSelectOnRefreshRef.current = targetSessionId === undefined
     void refreshSessions(path)
   }, [onWorkspaceSelected, recentWorkspacePaths, refreshSessions])
+
+  /** Adds a Git repository and selects its main workspace. */
+  const addProject = useCallback((project: GitProject): void => {
+    const nextProject = projectFromGit(project)
+    setProjects((current) => [nextProject, ...current.filter(({ root }) => root !== project.root)])
+    setProjectWorkspaces((current) => ({ ...current, [project.root]: project }))
+    selectWorkspace(project.workspaces.find(({ main }) => main)?.path ?? project.root)
+  }, [selectWorkspace])
+
+  /** Removes the project from the sidebar without touching its repository or Pi histories. */
+  const removeProject = useCallback((root: string): void => {
+    setProjects((current) => current.filter((project) => project.root !== root))
+    setProjectWorkspaces((current) => {
+      const { [root]: _removed, ...rest } = current
+      return rest
+    })
+  }, [])
 
   /** Stores the optimistic title shared by first prompts in new and existing sessions. */
   const nameSessionFromFirstPrompt = useCallback(
@@ -366,6 +407,7 @@ export function useWorkspaceSessions(
 
   return {
     addPendingRequest,
+    addProject,
     closeManagedSession,
     completedSessionIds,
     creatingSession,
@@ -373,10 +415,13 @@ export function useWorkspaceSessions(
     isRefreshingSessions,
     markSessionCompleted,
     nameSessionFromFirstPrompt,
+    projectWorkspaces,
+    projects,
     recentSessions,
     recentWorkspacePaths,
     refreshSessions,
     removePendingRequest,
+    removeProject,
     renameManagedSession,
     renameSession,
     selectCreatedSession,

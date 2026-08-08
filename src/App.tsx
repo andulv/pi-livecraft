@@ -29,6 +29,7 @@ import type {
   SessionSummary,
 } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
+import { ChatTopBar } from './features/composer/status-bar/ChatTopBar.tsx'
 import { Composer } from './features/composer/Composer.tsx'
 import { ToastStack, type Toast } from './features/notifications/ToastStack.tsx'
 import { sessionActivity, type PiConnection } from './features/conversation/activity.ts'
@@ -49,7 +50,7 @@ import {
 } from './features/right-sidebar/right-sidebar.ts'
 import { RightSidebar } from './features/right-sidebar/RightSidebar.tsx'
 import { quotaProviderForModel } from './features/quotas/quota-display.ts'
-import { DirectoryPicker } from './features/workspace/DirectoryPicker.tsx'
+import { ProjectPicker } from './features/workspace/ProjectPicker.tsx'
 import { sidebarSessions } from './features/workspace/sidebar-sessions.ts'
 import { useWorkspaceSessions } from './features/workspace/useWorkspaceSessions.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
@@ -312,6 +313,7 @@ function App() {
   )
   const {
     addPendingRequest,
+    addProject,
     closeManagedSession,
     completedSessionIds,
     creatingSession,
@@ -319,10 +321,13 @@ function App() {
     isRefreshingSessions,
     markSessionCompleted,
     nameSessionFromFirstPrompt,
+    projectWorkspaces,
+    projects,
     recentSessions,
     recentWorkspacePaths,
     refreshSessions,
     removePendingRequest,
+    removeProject,
     renameManagedSession,
     renameSession,
     selectCreatedSession,
@@ -1100,7 +1105,10 @@ function App() {
         selectedId={selectedId}
         width={workspaceSidebarWidth}
         workspacePath={workspacePath}
+        projects={projects}
+        projectWorkspaces={projectWorkspaces}
         onChooseWorkspace={() => setDirectoryPickerOpen(true)}
+        onRemoveProject={removeProject}
         onCloseSession={closeManagedSession}
         onCreate={async () => {
           await startAndSelectSession(() => createSession(workspacePath))
@@ -1129,6 +1137,15 @@ function App() {
         {selectedSession
           ? (
             <>
+              <ChatTopBar
+                git={gitSnapshot?.repository
+                  ? { branch: gitSnapshot.branch ?? 'HEAD', worktree: gitSnapshot.worktree }
+                  : null}
+                running={selectedSession.status === 'running'}
+                session={selectedSession}
+                stats={snapshot.stats}
+                compacting={displayedActivity?.kind === 'compacting'}
+              />
               {(snapshotSessionId === selectedSession.id || loadingPhase === 'exiting') && (
                 <>
                   <Conversation
@@ -1231,7 +1248,6 @@ function App() {
                       showAgentSelector={snapshotSessionId !== selectedSession.id
                         || snapshot.commands.some((command) => command.name === 'agent')}
                       running={selectedSession.status === 'running'}
-                      compacting={displayedActivity?.kind === 'compacting'}
                       onSend={handleComposerSend}
                       onAbort={handleComposerAbort}
                       onImprovePrompt={handlePromptImprovement}
@@ -1340,12 +1356,10 @@ function App() {
       />
 
       {directoryPickerOpen && (
-        <DirectoryPicker
-          initialPath={workspacePath}
-          recentPaths={recentWorkspacePaths}
+        <ProjectPicker
           onClose={() => setDirectoryPickerOpen(false)}
           onError={(cause) => showToast('error', messageOf(cause))}
-          onSelect={selectWorkspace}
+          onSelect={addProject}
         />
       )}
       {questionnaire && !questionnaireInComposer && (

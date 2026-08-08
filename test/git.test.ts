@@ -13,6 +13,7 @@ import {
   getGitSnapshot,
   mergeNumstats,
   parseGitStatus,
+  parseGitWorktrees,
   pushCommits,
   resetGitCommit,
   revertGitCommit,
@@ -31,6 +32,19 @@ test('parses Git status and combines staged and unstaged line counts', () => {
 
   assert.deepEqual(counts.get('src/App.tsx'), { additions: 5, deletions: 1 })
   assert.deepEqual(counts.get('new-file.ts'), { additions: 4, deletions: 0 })
+})
+
+test('parses the main checkout and linked worktrees from Git porcelain', () => {
+  assert.deepEqual(
+    parseGitWorktrees(
+      'worktree /repo\nHEAD abc\nbranch refs/heads/main\n\nworktree /repo-feature\nHEAD def\nbranch refs/heads/feature\n',
+      '/repo',
+    ),
+    [
+      { path: '/repo', branch: 'main', main: true },
+      { path: '/repo-feature', branch: 'feature', main: false },
+    ],
+  )
 })
 
 test('uses the destination path for renamed numstat records and preserves binary counts', () => {

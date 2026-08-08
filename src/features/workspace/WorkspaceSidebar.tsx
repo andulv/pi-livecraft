@@ -9,7 +9,8 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import type { RecentSession, SessionSummary } from '../../../shared/types.ts'
+import type { GitProject, RecentSession, SessionSummary } from '../../../shared/types.ts'
+import type { Project } from './projects.ts'
 import { sessionIndicator } from './session-indicator.ts'
 import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
 import {
@@ -37,7 +38,10 @@ interface WorkspaceSidebarProps {
   selectedId: string
   width: number
   workspacePath: string
+  projects: Project[]
+  projectWorkspaces: Record<string, GitProject>
   onChooseWorkspace: () => void
+  onRemoveProject: (root: string) => void
   onCloseSession: (sessionId: string) => Promise<void>
   onCreate: () => Promise<void>
   onOpenSession: (session: RecentSession) => Promise<void>
@@ -62,7 +66,10 @@ export function WorkspaceSidebar({
   selectedId,
   width,
   workspacePath,
+  projects,
+  projectWorkspaces,
   onChooseWorkspace,
+  onRemoveProject,
   onCloseSession,
   onCreate,
   onOpenSession,
@@ -273,22 +280,63 @@ export function WorkspaceSidebar({
           </button>
         </Tooltip>
       </div>
-      <div className='workspace-group'>
-        <Tooltip label={workspacePath}>
-          <button
-            aria-label={`Choose workspace: ${workspacePath}`}
-            className='workspace-path'
-            onClick={onChooseWorkspace}
-            type='button'
-          >
-            <WorkspaceIcon />
-            <div className='workspace-path-copy'>
-              <span>Current directory</span>
-              <strong>{workspacePath}</strong>
+      <section className='project-list' aria-label='Projects'>
+        <div className='sidebar-section-heading'>
+          <span>Projects</span>
+          <button onClick={onChooseWorkspace} type='button'>＋ Add</button>
+        </div>
+        {projects.map((project) => {
+          const workspaces = projectWorkspaces[project.root]?.workspaces ?? []
+          return (
+            <div className='project-item' key={project.id}>
+              <div className='project-title'>
+                <strong>{project.name}</strong>
+                <button
+                  aria-label={`Remove ${project.name}`}
+                  onClick={() => onRemoveProject(project.root)}
+                  type='button'
+                >
+                  ×
+                </button>
+              </div>
+              <div className='project-workspaces'>
+                {workspaces.map((workspace) => (
+                  <button
+                    aria-current={workspace.path === workspacePath ? 'page' : undefined}
+                    className={`workspace-path${
+                      workspace.path === workspacePath ? ' selected' : ''
+                    }`}
+                    key={workspace.path}
+                    onClick={() =>
+                      onSelectOtherWorkspaceSession({
+                        id: '',
+                        cwd: workspace.path,
+                        name: '',
+                        status: 'idle',
+                        pendingUi: [],
+                      })}
+                    type='button'
+                  >
+                    <WorkspaceIcon />
+                    <div className='workspace-path-copy'>
+                      <span>{workspace.main ? 'Main workspace' : 'Worktree'}</span>
+                      <strong>{workspace.branch ?? workspace.path}</strong>
+                    </div>
+                    {workspace.path === workspacePath && (
+                      <span className='workspace-current'>Current</span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
-            <ChevronIcon />
-          </button>
-        </Tooltip>
+          )
+        })}
+        {projects.length === 0 && (
+          <p className='empty-sidebar'>Add a local Git repository to begin.</p>
+        )}
+      </section>
+      <div className='sidebar-section-heading sessions-heading'>
+        <span>Sessions</span>
       </div>
       <NewSessionButton onCreate={onCreate} onError={onError} />
       <nav className='session-list' aria-label='Recent Pi sessions'>
@@ -499,24 +547,6 @@ function WorkspaceIcon() {
       width='16'
     >
       <path d='M3.5 6.5A1.5 1.5 0 0 1 5 5h4l2 2h8A1.5 1.5 0 0 1 20.5 8.5v9A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5v-11Z' />
-    </svg>
-  )
-}
-
-function ChevronIcon() {
-  return (
-    <svg
-      aria-hidden='true'
-      fill='none'
-      height='14'
-      stroke='currentColor'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      strokeWidth='1.75'
-      viewBox='0 0 24 24'
-      width='14'
-    >
-      <path d='m9 6 6 6-6 6' />
     </svg>
   )
 }
