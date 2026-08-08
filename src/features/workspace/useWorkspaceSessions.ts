@@ -143,7 +143,9 @@ export function useWorkspaceSessions(
       ]
       const [nextSessions, recentSessionLists] = await Promise.all([
         listSessions(),
-        Promise.all(workspacePaths.map((path) => listRecentSessions(path))),
+        Promise.all(
+          workspacePaths.map((path) => listRecentSessions(path).catch(() => [])),
+        ),
       ])
       const nextRecentSessions = recentSessionLists.flat()
       if (version !== refreshVersionRef.current) return
@@ -222,6 +224,15 @@ export function useWorkspaceSessions(
     autoSelectOnRefreshRef.current = targetSessionId === undefined
     void refreshSessions(path)
   }, [onWorkspaceSelected, recentWorkspacePaths, refreshSessions])
+
+  // A removed worktree can remain in localStorage after Git prunes it; fall back to a live one.
+  useEffect(() => {
+    const availableWorkspaces = Object.values(projectWorkspaces).flatMap((project) =>
+      project.workspaces.map((workspace) => workspace.path)
+    )
+    if (availableWorkspaces.length > 0 && !availableWorkspaces.includes(workspacePath))
+      selectWorkspace(availableWorkspaces[0])
+  }, [projectWorkspaces, selectWorkspace, workspacePath])
 
   /** Adds a Git repository and selects its main workspace. */
   const addProject = useCallback((project: GitProject): void => {
