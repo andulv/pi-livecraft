@@ -5,6 +5,7 @@ import {
   otherWorkspaceSessions,
   pickSessionOnOpen,
   sidebarSessions,
+  workspaceActivity,
 } from '../src/features/workspace/sidebar-sessions.ts'
 
 const persisted: RecentSession = {
@@ -42,6 +43,16 @@ test('uses persisted order once the sent session is returned', () => {
   ])
 })
 
+test('reports latest workspace activity from persisted and optimistic sessions', () => {
+  assert.equal(
+    workspaceActivity('/workspace', [{ ...persisted, updatedAt: 100 }], [
+      { ...persisted, id: 'pending', sessionPath: '/sessions/pending.jsonl', updatedAt: 200 },
+    ]),
+    200,
+  )
+  assert.equal(workspaceActivity('/other', [persisted]), 0)
+})
+
 test('orders sessions by their latest activity', () => {
   const older = { ...persisted, updatedAt: 100 }
   const newer = {
@@ -65,7 +76,7 @@ const remoteSession: SessionSummary = {
   pendingUi: [],
 }
 
-test('shows active and unviewed completed sessions from other workspaces, active first', () => {
+test('shows attention-worthy sessions from other workspaces by latest activity', () => {
   const completed = {
     ...remoteSession,
     id: 'completed',
@@ -85,6 +96,22 @@ test('shows active and unviewed completed sessions from other workspaces, active
       '/workspace',
       new Set(),
       new Set(['/sessions/completed.jsonl']),
+      [
+        {
+          ...persisted,
+          id: 'completed',
+          cwd: '/remote',
+          sessionPath: '/sessions/completed.jsonl',
+          updatedAt: 100,
+        },
+        {
+          ...persisted,
+          id: 'starting',
+          cwd: '/remote',
+          sessionPath: '/sessions/starting.jsonl',
+          updatedAt: 200,
+        },
+      ],
     ),
     [starting, completed],
   )

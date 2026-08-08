@@ -8,6 +8,17 @@ export interface SessionActionTarget {
   sessionPath?: string
 }
 
+/** Returns the newest known activity across persisted and optimistic sessions in a workspace. */
+export function workspaceActivity(
+  workspacePath: string,
+  recentSessions: readonly RecentSession[],
+  sentSessions: readonly RecentSession[] = [],
+): number {
+  return [...recentSessions, ...sentSessions]
+    .filter(({ cwd }) => cwd === workspacePath)
+    .reduce((latest, { updatedAt }) => Math.max(latest, updatedAt), 0)
+}
+
 /** Adds pending sessions and orders the visible list by latest activity. */
 export function sidebarSessions(
   recentSessions: RecentSession[],
@@ -46,12 +57,13 @@ export function nextActiveSessionId(
     : activeIds[0] ?? null
 }
 
-/** Lists attention-worthy sessions outside the current workspace, with active work first. */
+/** Lists attention-worthy sessions outside the current workspace by latest known activity. */
 export function otherWorkspaceSessions(
   sessions: SessionSummary[],
   workspacePath: string,
   compactingSessionIds: ReadonlySet<string>,
   completedSessionIds: ReadonlySet<string>,
+  recentSessions: readonly RecentSession[] = [],
 ): SessionSummary[] {
   const relevant = sessions.filter((session) =>
     session.cwd !== workspacePath
@@ -59,14 +71,13 @@ export function otherWorkspaceSessions(
     && sessionIndicator(session, '', compactingSessionIds, completedSessionIds) !== null
     && sessionIndicator(session, '', compactingSessionIds, completedSessionIds) !== 'idle'
   )
-  return [
-    ...relevant.filter((session) =>
-      sessionIndicator(session, '', compactingSessionIds, completedSessionIds) !== 'complete'
-    ),
-    ...relevant.filter((session) =>
-      sessionIndicator(session, '', compactingSessionIds, completedSessionIds) === 'complete'
-    ),
-  ]
+  const activityBySessionPath = new Map(
+    recentSessions.map(({ sessionPath, updatedAt }) => [sessionPath, updatedAt]),
+  )
+  return relevant.sort((left, right) =>
+    (activityBySessionPath.get(right.sessionPath ?? '') ?? 0)
+    - (activityBySessionPath.get(left.sessionPath ?? '') ?? 0)
+  )
 }
 
 /**

@@ -16,6 +16,7 @@ import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
 import {
   otherWorkspaceSessions,
   sidebarSessions,
+  workspaceActivity,
   type SessionActionTarget,
 } from './sidebar-sessions.ts'
 import { SessionRenameDialog } from './SessionRenameDialog.tsx'
@@ -96,8 +97,28 @@ export function WorkspaceSidebar({
   )
   const otherSessions = useMemo(
     () =>
-      otherWorkspaceSessions(sessions, workspacePath, compactingSessionIds, completedSessionIds),
-    [compactingSessionIds, completedSessionIds, sessions, workspacePath],
+      otherWorkspaceSessions(
+        sessions,
+        workspacePath,
+        compactingSessionIds,
+        completedSessionIds,
+        recentSessions,
+      ),
+    [compactingSessionIds, completedSessionIds, recentSessions, sessions, workspacePath],
+  )
+  const orderedProjects = useMemo(
+    () =>
+      [...projects].sort((left, right) => {
+        const latestActivity = (root: string): number =>
+          Math.max(
+            0,
+            ...(projectWorkspaces[root]?.workspaces ?? []).map(({ path }) =>
+              workspaceActivity(path, recentSessions, sentSessions)
+            ),
+          )
+        return latestActivity(right.root) - latestActivity(left.root)
+      }),
+    [projectWorkspaces, projects, recentSessions, sentSessions],
   )
 
   useEffect(() => {
@@ -287,7 +308,7 @@ export function WorkspaceSidebar({
           <span>Projects</span>
           <button onClick={onChooseWorkspace} type='button'>＋ Add</button>
         </div>
-        {projects.map((project) => {
+        {orderedProjects.map((project) => {
           const workspaces = projectWorkspaces[project.root]?.workspaces ?? []
           const projectWorkspacePaths = new Set(workspaces.map(({ path }) => path))
           const projectIndicator = aggregateSessionIndicator(
@@ -325,44 +346,49 @@ export function WorkspaceSidebar({
               </div>
               {!collapsedProjects.has(project.root) && (
                 <div className='project-workspaces'>
-                  {workspaces.map((workspace) => {
-                    const workspaceIndicator = aggregateSessionIndicator(
-                      sessions.filter(({ cwd }) => cwd === workspace.path),
-                      selectedId,
-                      compactingSessionIds,
-                      completedSessionIds,
+                  {[...workspaces]
+                    .sort((left, right) =>
+                      workspaceActivity(right.path, recentSessions, sentSessions)
+                      - workspaceActivity(left.path, recentSessions, sentSessions)
                     )
-                    return (
-                      <button
-                        aria-current={workspace.path === workspacePath ? 'page' : undefined}
-                        className={`workspace-path${
-                          workspace.path === workspacePath ? ' selected' : ''
-                        }`}
-                        key={workspace.path}
-                        onClick={() =>
-                          onSelectOtherWorkspaceSession({
-                            id: '',
-                            cwd: workspace.path,
-                            name: '',
-                            status: 'idle',
-                            pendingUi: [],
-                          })}
-                        type='button'
-                      >
-                        <WorkspaceIcon />
-                        <div className='workspace-path-copy'>
-                          <span>{workspace.main ? 'Main workspace' : 'Worktree'}</span>
-                          <strong>{workspace.branch ?? workspace.path}</strong>
-                        </div>
-                        {workspaceIndicator && (
-                          <SessionStatusIndicator status={workspaceIndicator} />
-                        )}
-                        {workspace.path === workspacePath && (
-                          <span className='workspace-current'>Current</span>
-                        )}
-                      </button>
-                    )
-                  })}
+                    .map((workspace) => {
+                      const workspaceIndicator = aggregateSessionIndicator(
+                        sessions.filter(({ cwd }) => cwd === workspace.path),
+                        selectedId,
+                        compactingSessionIds,
+                        completedSessionIds,
+                      )
+                      return (
+                        <button
+                          aria-current={workspace.path === workspacePath ? 'page' : undefined}
+                          className={`workspace-path${
+                            workspace.path === workspacePath ? ' selected' : ''
+                          }`}
+                          key={workspace.path}
+                          onClick={() =>
+                            onSelectOtherWorkspaceSession({
+                              id: '',
+                              cwd: workspace.path,
+                              name: '',
+                              status: 'idle',
+                              pendingUi: [],
+                            })}
+                          type='button'
+                        >
+                          <WorkspaceIcon />
+                          <div className='workspace-path-copy'>
+                            <span>{workspace.main ? 'Main workspace' : 'Worktree'}</span>
+                            <strong>{workspace.branch ?? workspace.path}</strong>
+                          </div>
+                          {workspaceIndicator && (
+                            <SessionStatusIndicator status={workspaceIndicator} />
+                          )}
+                          {workspace.path === workspacePath && (
+                            <span className='workspace-current'>Current</span>
+                          )}
+                        </button>
+                      )
+                    })}
                 </div>
               )}
             </div>

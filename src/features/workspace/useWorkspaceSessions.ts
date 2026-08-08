@@ -133,10 +133,19 @@ export function useWorkspaceSessions(
     const shouldAutoSelect = autoSelectOnRefreshRef.current
     setIsRefreshingSessions(true)
     try {
-      const [nextSessions, nextRecentSessions] = await Promise.all([
+      const workspacePaths = [
+        ...new Set([
+          cwd,
+          ...Object.values(projectWorkspaces).flatMap((project) =>
+            project.workspaces.map((workspace) => workspace.path)
+          ),
+        ]),
+      ]
+      const [nextSessions, recentSessionLists] = await Promise.all([
         listSessions(),
-        listRecentSessions(cwd),
+        Promise.all(workspacePaths.map((path) => listRecentSessions(path))),
       ])
+      const nextRecentSessions = recentSessionLists.flat()
       if (version !== refreshVersionRef.current) return
       const autoSelectId = shouldAutoSelect
         ? pickSessionOnOpen(
@@ -193,7 +202,7 @@ export function useWorkspaceSessions(
     } finally {
       if (version === refreshVersionRef.current) setIsRefreshingSessions(false)
     }
-  }, [onError, onSessionsRefreshed, workspacePath])
+  }, [onError, onSessionsRefreshed, projectWorkspaces, workspacePath])
 
   useEffect(() => void refreshSessions(), [refreshSessions])
 
