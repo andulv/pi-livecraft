@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { parseCopilotUsage, parseGlmUsage, parseOpenAiUsage } from '../shared/quota-parsers.ts'
+import {
+  glmBusinessError,
+  parseCopilotUsage,
+  parseGlmUsage,
+  parseOpenAiUsage,
+} from '../shared/quota-parsers.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import { QuotaCache } from '../server/features/quotas/quota-cache.ts'
 import { quotaProviderForModel, railQuota } from '../src/features/quotas/quota-display.ts'
@@ -69,6 +74,23 @@ test('extracts GLM Coding Plan session, weekly, and web-search windows', () => {
       { kind: 'weekly', usedPercent: 17.5, resetsAt: 1_900_000_000_000 },
       { kind: 'web-searches', used: 12, limit: 50, resetsAt: Date.parse('2030-02-01T00:00:00Z') },
     ],
+  )
+})
+
+test('glmBusinessError surfaces business failures and accepts success envelopes', () => {
+  assert.equal(glmBusinessError({ code: 200, data: { limits: [] } }), undefined)
+  assert.equal(glmBusinessError({ code: '200', data: {} }), undefined)
+  assert.equal(
+    glmBusinessError({ code: 401, msg: 'invalid api key' }),
+    'Z.AI rejected the quota request: invalid api key.',
+  )
+  assert.equal(
+    glmBusinessError({ success: false, message: 'no coding plan' }),
+    'Z.AI rejected the quota request: no coding plan.',
+  )
+  assert.equal(
+    glmBusinessError({ code: '1300', error: 'rate limited' }),
+    'Z.AI rejected the quota request: rate limited.',
   )
 })
 

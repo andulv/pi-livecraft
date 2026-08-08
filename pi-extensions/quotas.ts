@@ -1,6 +1,11 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 import { isObject } from '../shared/is-object.ts'
-import { parseCopilotUsage, parseGlmUsage, parseOpenAiUsage } from '../shared/quota-parsers.ts'
+import {
+  glmBusinessError,
+  parseCopilotUsage,
+  parseGlmUsage,
+  parseOpenAiUsage,
+} from '../shared/quota-parsers.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type {
   CopilotQuotaWindow,
@@ -130,6 +135,8 @@ async function fetchGlmQuotas(
       Authorization: authorization,
       Accept: 'application/json',
     })
+    const businessError = glmBusinessError(data)
+    if (businessError) return failure(businessError)
     return { ok: true, data: parseGlmUsage(data) }
   } catch (error) {
     return failure(fetchError(error, 'Unable to fetch GLM quotas.'))

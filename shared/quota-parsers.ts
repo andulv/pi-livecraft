@@ -137,6 +137,36 @@ function nextUtcFirstOfMonthMs(now: Date = new Date()): number {
   return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
 }
 
+/**
+ * Returns a message when Z.AI's response envelope reports a business failure (HTTP 200 with an
+ * error code/success:false/error), otherwise undefined. Z.AI signals auth, rate-limit, and
+ * permission failures this way rather than via the HTTP status, so they must be surfaced
+ * explicitly instead of degrading to empty data.
+ */
+export function glmBusinessError(value: unknown): string | undefined {
+  const root = object(value)
+  if (!root) return undefined
+  const code = root.code
+  const failedByCode = code !== undefined && String(code) !== '200'
+  const failedBySuccess = root.success === false
+  const failedByError = root.error !== undefined && root.error !== null
+  if (!failedByCode && !failedBySuccess && !failedByError) return undefined
+  const detail = glmBusinessMessage(root) ?? (failedByCode ? `code ${code}` : undefined)
+  return `Z.AI rejected the quota request${detail ? `: ${detail}` : ''}.`
+}
+
+function glmBusinessMessage(root: Record<string, unknown>): string | undefined {
+  const raw = readString(object(root.error)?.message)
+    ?? readString(root.msg)
+    ?? readString(root.message)
+    ?? (typeof root.error === 'string' && root.error ? root.error : undefined)
+  return raw ? raw.slice(0, 180) : undefined
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
 function percentUsedFromRemaining(value: Record<string, unknown>): number | undefined {
   const remaining = numberField(value, 'percent_left') ?? numberField(value, 'remaining_percent')
   return remaining === undefined ? undefined : 100 - remaining
