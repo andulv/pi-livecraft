@@ -70,6 +70,15 @@ npm install
 npm run dev # this allows hot reloading
 ```
 
+To launch Livecraft from any directory, link this checkout once in each shell environment you use:
+
+```bash
+npm link
+pi-livecraft
+```
+
+WSL/Linux and native Windows have separate global npm paths: run `npm link` from a checkout visible to each environment. The command always runs this repository's `npm run dev`.
+
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173) and you should see Livecraft.
 
 ## What is already in the box

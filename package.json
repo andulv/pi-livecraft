@@ -2,6 +2,9 @@
   "name": "pi-livecraft",
   "private": true,
   "version": "1.2.0",
+  "bin": {
+    "pi-livecraft": "./bin/pi-livecraft.mjs"
+  },
   "engines": {
     "node": ">=24"
   },
