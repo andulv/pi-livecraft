@@ -248,6 +248,31 @@
 .project-title {
   padding: 0 5px;
 }
+.project-toggle {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 4px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+.project-toggle svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+.project-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.project-toggle:hover:not(:disabled) strong {
+  color: var(--accent-hover);
+}
+.project-toggle:active:not(:disabled) {
+  transform: scale(0.97);
+}
 .project-title strong {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -503,20 +528,16 @@
 
 .other-workspace-sessions {
   display: flex;
+  order: 1;
   flex: 0 1 auto;
   flex-direction: column;
   gap: 4px;
-  min-height: 0;
+  min-width: 0;
   max-height: 35%;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
+  padding: 2px 0 8px;
 }
-.other-workspace-sessions h2 {
-  margin: 0 8px;
-  color: var(--muted);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.sessions-heading, .new-session, .session-list {
+  order: 2;
 }
 .other-session-list {
   display: flex;

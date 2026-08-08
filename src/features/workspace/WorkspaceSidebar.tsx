@@ -85,6 +85,8 @@ export function WorkspaceSidebar({
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [contextMenuPosition, setContextMenuPosition] = useState({ left: 0, top: 0 })
   const [renameTarget, setRenameTarget] = useState<SessionActionTarget | null>(null)
+  const [collapsedProjects, setCollapsedProjects] = useState<ReadonlySet<string>>(new Set())
+  const [otherWorkspacesExpanded, setOtherWorkspacesExpanded] = useState(true)
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
   const contextMenuTriggerRef = useRef<HTMLButtonElement>(null)
@@ -290,7 +292,21 @@ export function WorkspaceSidebar({
           return (
             <div className='project-item' key={project.id}>
               <div className='project-title'>
-                <strong>{project.name}</strong>
+                <button
+                  aria-expanded={!collapsedProjects.has(project.root)}
+                  className='project-toggle'
+                  onClick={() =>
+                    setCollapsedProjects((current) => {
+                      const next = new Set(current)
+                      if (next.has(project.root)) next.delete(project.root)
+                      else next.add(project.root)
+                      return next
+                    })}
+                  type='button'
+                >
+                  <DisclosureIcon collapsed={collapsedProjects.has(project.root)} />
+                  <strong>{project.name}</strong>
+                </button>
                 <button
                   aria-label={`Remove ${project.name}`}
                   onClick={() => onRemoveProject(project.root)}
@@ -299,35 +315,37 @@ export function WorkspaceSidebar({
                   ×
                 </button>
               </div>
-              <div className='project-workspaces'>
-                {workspaces.map((workspace) => (
-                  <button
-                    aria-current={workspace.path === workspacePath ? 'page' : undefined}
-                    className={`workspace-path${
-                      workspace.path === workspacePath ? ' selected' : ''
-                    }`}
-                    key={workspace.path}
-                    onClick={() =>
-                      onSelectOtherWorkspaceSession({
-                        id: '',
-                        cwd: workspace.path,
-                        name: '',
-                        status: 'idle',
-                        pendingUi: [],
-                      })}
-                    type='button'
-                  >
-                    <WorkspaceIcon />
-                    <div className='workspace-path-copy'>
-                      <span>{workspace.main ? 'Main workspace' : 'Worktree'}</span>
-                      <strong>{workspace.branch ?? workspace.path}</strong>
-                    </div>
-                    {workspace.path === workspacePath && (
-                      <span className='workspace-current'>Current</span>
-                    )}
-                  </button>
-                ))}
-              </div>
+              {!collapsedProjects.has(project.root) && (
+                <div className='project-workspaces'>
+                  {workspaces.map((workspace) => (
+                    <button
+                      aria-current={workspace.path === workspacePath ? 'page' : undefined}
+                      className={`workspace-path${
+                        workspace.path === workspacePath ? ' selected' : ''
+                      }`}
+                      key={workspace.path}
+                      onClick={() =>
+                        onSelectOtherWorkspaceSession({
+                          id: '',
+                          cwd: workspace.path,
+                          name: '',
+                          status: 'idle',
+                          pendingUi: [],
+                        })}
+                      type='button'
+                    >
+                      <WorkspaceIcon />
+                      <div className='workspace-path-copy'>
+                        <span>{workspace.main ? 'Main workspace' : 'Worktree'}</span>
+                        <strong>{workspace.branch ?? workspace.path}</strong>
+                      </div>
+                      {workspace.path === workspacePath && (
+                        <span className='workspace-current'>Current</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )
         })}
@@ -405,49 +423,61 @@ export function WorkspaceSidebar({
       </nav>
       {otherSessions.length > 0 && (
         <section className='other-workspace-sessions'>
-          <h2>Other workspaces</h2>
-          <nav
-            aria-label='Active and completed sessions in other workspaces'
-            className='other-session-list'
-          >
-            {otherSessions.map((session) => {
-              const indicator = sessionIndicator(
-                session,
-                selectedId,
-                compactingSessionIds,
-                completedSessionIds,
-              )
-              const actionTarget: SessionActionTarget = {
-                cwd: session.cwd,
-                name: session.name,
-                sessionId: session.id,
-                sessionPath: session.sessionPath,
-              }
-              return (
-                <Tooltip
-                  hint='Right-click to rename or close the session'
-                  key={session.id}
-                  label={`${session.name}\n${session.cwd}`}
-                >
-                  <button
-                    aria-haspopup='menu'
-                    aria-label={`${session.name} in workspace ${session.cwd}`}
-                    className={`session-item${indicator ? ` ${indicator}` : ''}`}
-                    onContextMenu={(event) => openContextMenu(actionTarget, event)}
-                    onKeyDown={(event) => openContextMenuFromKeyboard(actionTarget, event)}
-                    onClick={() => onSelectOtherWorkspaceSession(session)}
-                    type='button'
+          <div className='project-title'>
+            <button
+              aria-expanded={otherWorkspacesExpanded}
+              className='project-toggle'
+              onClick={() => setOtherWorkspacesExpanded((current) => !current)}
+              type='button'
+            >
+              <DisclosureIcon collapsed={!otherWorkspacesExpanded} />
+              <strong>Other workspaces</strong>
+            </button>
+          </div>
+          {otherWorkspacesExpanded && (
+            <nav
+              aria-label='Active and completed sessions in other workspaces'
+              className='other-session-list'
+            >
+              {otherSessions.map((session) => {
+                const indicator = sessionIndicator(
+                  session,
+                  selectedId,
+                  compactingSessionIds,
+                  completedSessionIds,
+                )
+                const actionTarget: SessionActionTarget = {
+                  cwd: session.cwd,
+                  name: session.name,
+                  sessionId: session.id,
+                  sessionPath: session.sessionPath,
+                }
+                return (
+                  <Tooltip
+                    hint='Right-click to rename or close the session'
+                    key={session.id}
+                    label={`${session.name}\n${session.cwd}`}
                   >
-                    {indicator && <SessionStatusIndicator status={indicator} />}
-                    <span>
-                      <strong>{session.name}</strong>
-                      <small>{session.cwd}</small>
-                    </span>
-                  </button>
-                </Tooltip>
-              )
-            })}
-          </nav>
+                    <button
+                      aria-haspopup='menu'
+                      aria-label={`${session.name} in workspace ${session.cwd}`}
+                      className={`session-item${indicator ? ` ${indicator}` : ''}`}
+                      onContextMenu={(event) => openContextMenu(actionTarget, event)}
+                      onKeyDown={(event) => openContextMenuFromKeyboard(actionTarget, event)}
+                      onClick={() => onSelectOtherWorkspaceSession(session)}
+                      type='button'
+                    >
+                      {indicator && <SessionStatusIndicator status={indicator} />}
+                      <span>
+                        <strong>{session.name}</strong>
+                        <small>{session.cwd}</small>
+                      </span>
+                    </button>
+                  </Tooltip>
+                )
+              })}
+            </nav>
+          )}
         </section>
       )}
       {contextMenu && (
@@ -529,6 +559,24 @@ function SidebarToggleIcon({ collapsed }: { collapsed: boolean }) {
     >
       <path d='M3 3v18' />
       <path d={collapsed ? 'm9 6 6 6-6 6' : 'm15 6-6 6 6 6'} />
+    </svg>
+  )
+}
+
+function DisclosureIcon({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg
+      aria-hidden='true'
+      fill='none'
+      height='14'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='1.75'
+      viewBox='0 0 24 24'
+      width='14'
+    >
+      <path d={collapsed ? 'm9 6 6 6-6 6' : 'm6 9 6 6 6-6'} />
     </svg>
   )
 }
