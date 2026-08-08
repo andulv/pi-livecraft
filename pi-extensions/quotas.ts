@@ -111,17 +111,18 @@ async function fetchCopilotQuotas(
 }
 
 /**
- * Resolves the Z.AI (GLM) provider auth, derives the usage host and Authorization scheme from
- * its base URL, then calls the Coding Plan `usage/quota/limit` endpoint. The China
- * (open.bigmodel.cn) station authenticates with the raw key; z.ai uses `Bearer {key}`.
+ * Reads the Z.AI (GLM) provider key and base URL from the model registry, derives the usage host
+ * and Authorization scheme from the base URL, then calls the Coding Plan `usage/quota/limit`
+ * endpoint. The base URL is static provider config rather than resolved auth, so it comes from
+ * `getProvider` while the key comes from `getApiKeyForProvider`. The China (open.bigmodel.cn)
+ * station authenticates with the raw key; z.ai uses `Bearer {key}`.
  */
 async function fetchGlmQuotas(
   ctx: ExtensionContext,
 ): Promise<QuotaProviderReport<GlmQuotaWindow>> {
   try {
-    const auth = await ctx.modelRegistry.getProviderAuth('zai')
-    const apiKey = auth?.auth.apiKey
-    const baseUrl = auth?.auth.baseUrl
+    const apiKey = await ctx.modelRegistry.getApiKeyForProvider('zai')
+    const baseUrl = ctx.modelRegistry.getProvider('zai')?.baseUrl
     if (!apiKey || !baseUrl) return failure('Z.AI (GLM) connection is unavailable in Pi.')
     const origin = new URL(baseUrl).origin
     const authorization = origin.includes('bigmodel.cn') ? apiKey : `Bearer ${apiKey}`
