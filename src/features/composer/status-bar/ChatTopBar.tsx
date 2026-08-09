@@ -28,7 +28,7 @@ export const ChatTopBar = memo(function ChatTopBar(
     <div className='chat-topbar' aria-label='Workspace and session status'>
       <div className='chat-topbar-context'>
         <ContextItem label='Project' value={projectName} />
-        <ContextItem label='Workspace' value={workspaceName} />
+        <ContextItem detail={session.cwd} label='Workspace' value={workspaceName} />
         {git && <GitContext git={git} />}
       </div>
       <div className='chat-topbar-session'>
@@ -38,18 +38,21 @@ export const ChatTopBar = memo(function ChatTopBar(
               <span aria-hidden='true' className='composer-compacting-spinner' /> Compacting…
             </div>
           )
-          : <SessionInfo name={session.name} cwd={session.cwd} active={running} />}
+          : <SessionInfo name={session.name} active={running} />}
         <SessionStatsBar {...formattedStats} />
       </div>
     </div>
   )
 })
 
-function ContextItem({ label, value }: { label: string; value: string }) {
+function ContextItem(
+  { detail, label, value }: { detail?: string; label: string; value: string },
+) {
   return (
-    <div className='chat-topbar-context-item'>
+    <div className={`chat-topbar-context-item${detail ? ' workspace' : ''}`}>
       <b>{label}</b>
-      <span title={value}>{value}</span>
+      <span className='chat-topbar-context-value' title={value}>{value}</span>
+      {detail && <span className='chat-topbar-context-detail' title={detail}>{detail}</span>}
     </div>
   )
 }

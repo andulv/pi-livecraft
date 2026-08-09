@@ -319,20 +319,37 @@
   padding-left: 12px;
   border-left: 1px solid var(--line);
 }
-.chat-topbar-context-item b {
+.chat-topbar-context-item.workspace {
+  flex: 1;
+  max-width: none;
+}
+.chat-topbar-context-item b, .composer-session > b {
   flex: 0 0 auto;
   color: var(--subtle);
   font: 650 9px ui-sans-serif, system-ui, sans-serif;
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }
-.chat-topbar-context-item span, .chat-topbar-branch {
+.chat-topbar-context-value, .chat-topbar-branch {
   min-width: 0;
   overflow: hidden;
   color: var(--ink);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.chat-topbar-context-detail {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-topbar-context-detail::before {
+  content: "·";
+  margin-right: 5px;
+  color: var(--subtle);
 }
 .chat-topbar-git {
   display: inline-flex;
@@ -397,11 +414,6 @@
   font-family: ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
   font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.composer-session > span:last-child {
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1071,7 +1083,7 @@
 }
 
 @container (max-width: 760px) {
-  .chat-topbar-session .composer-session > span:last-child,
+  .chat-topbar-session .composer-context-tokens,
   .chat-topbar-session .composer-stats progress {
     display: none;
   }
@@ -1094,12 +1106,10 @@
   .chat-topbar-branch {
     max-width: 120px;
   }
-  .chat-topbar-session .composer-session > span:last-child {
-    display: none;
-  }
 }
 @media (max-width: 480px) {
   .chat-topbar-context-item b,
+  .composer-session > b,
   .chat-topbar-worktree,
   .chat-topbar-changed-label {
     display: none;

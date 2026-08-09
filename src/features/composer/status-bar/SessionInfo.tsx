@@ -1,20 +1,15 @@
-import { Tooltip } from '../../../components/Tooltip.tsx'
-
-/** Renders the session name and working directory, with a dot when Pi is active. */
-export function SessionInfo({ name, cwd, active }: {
+/** Renders the labelled session name with a dot when Pi is active. */
+export function SessionInfo({ name, active }: {
   name: string
-  cwd: string
   active: boolean
 }) {
   return (
     <div className='composer-session'>
+      <b>Session</b>
       {active && (
         <span aria-label='Pi is active' className='session-status-indicator working' role='img' />
       )}
-      <strong>{name}</strong>
-      <Tooltip label={cwd}>
-        <span>{cwd}</span>
-      </Tooltip>
+      <strong title={name}>{name}</strong>
     </div>
   )
 }
