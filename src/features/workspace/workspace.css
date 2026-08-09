@@ -248,6 +248,13 @@
 .project-title {
   padding: 0 5px;
 }
+.project-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 5px;
+}
 .project-toggle {
   display: inline-flex;
   align-items: center;
@@ -273,7 +280,8 @@
 .project-toggle:active:not(:disabled) {
   transform: scale(0.97);
 }
-.project-title strong {
+.project-title strong,
+.project-heading strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -282,7 +290,6 @@
 .project-workspaces {
   display: grid;
   gap: 3px;
-  padding-left: 7px;
 }
 .project-workspaces .workspace-path {
   min-height: 36px;
