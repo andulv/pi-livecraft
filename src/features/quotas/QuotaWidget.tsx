@@ -53,17 +53,17 @@ export function QuotaWidget(
             <ProviderSection name='OpenAI Codex' provider={quotas.openai}>
               {quotas.openai.data.map((window) => {
                 const periodProgress = quotaPeriodProgress(window.period, window.resetsAt, now)
+                const usedPercent = 100 - window.remainingPercent
                 return (
                   <div className='quota-row' key={window.period}>
                     <div className='quota-row-copy'>
                       <strong>{window.period === '5h' ? '5-hour window' : '7-day window'}</strong>
-                      <b>{formatPercent(window.remainingPercent)} remaining</b>
+                      <b>{formatPercent(usedPercent)} used</b>
                     </div>
                     <div className='quota-bars'>
                       <QuotaBar
-                        caption='Remaining'
-                        label={`${formatPercent(window.remainingPercent)} remaining`}
-                        value={window.remainingPercent}
+                        label={`${formatPercent(usedPercent)} used`}
+                        value={usedPercent}
                       />
                       {periodProgress !== undefined && (
                         <QuotaBar
