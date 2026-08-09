@@ -287,7 +287,7 @@ async function closeSession(request: ManagerRequest): Promise<{ closed: true }> 
   return { closed: true }
 }
 
-/** Renames a persisted session through a disposable public Pi RPC process. */
+/** Renames through Pi's native RPC, reusing the managed process when the session is live. */
 async function renameSession(request: ManagerRequest): Promise<{ name: string }> {
   if (
     typeof request.cwd !== 'string' || typeof request.name !== 'string'
@@ -299,9 +299,18 @@ async function renameSession(request: ManagerRequest): Promise<{ name: string }>
   const cwd = await realpath(request.cwd)
   if (!(await stat(cwd)).isDirectory()) throw new Error('Session cwd must be a directory')
 
+  const managed = [...sessions.values()].find((session) =>
+    session.summary.sessionPath === request.sessionPath && session.summary.status !== 'exited'
+  )
+  if (managed) {
+    if (managed.switching) throw new Error('Pi session is switching')
+    await requestPi(managed, { type: 'set_session_name', name })
+    managed.summary.name = name
+    return { name }
+  }
+
   const pi = new PiProcess(cwd, randomUUID(), request.sessionPath)
   try {
-    await pi.request({ type: 'get_state' })
     await pi.request({ type: 'set_session_name', name })
     return { name }
   } finally {

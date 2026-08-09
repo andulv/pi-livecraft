@@ -154,7 +154,7 @@ export function useWorkspaceSessions(
       const [listedSessions, recentSessionLists] = await Promise.all([
         listSessions(),
         Promise.all(
-          workspacePaths.map((path) => listRecentSessions(path).catch(() => [])),
+          workspacePaths.map((path) => listRecentSessions(path)),
         ),
       ])
       const nextRecentSessions = recentSessionLists.flat()
@@ -475,10 +475,9 @@ export function useWorkspaceSessions(
       if (!normalized) throw new Error('Session name is required')
       if (!target.sessionPath) throw new Error('Session path is unavailable')
       await renameStoredSession(target.cwd, target.sessionPath, normalized)
-      if (target.sessionId) renameSession(target.sessionId, normalized)
       await refreshSessions()
     },
-    [refreshSessions, renameSession],
+    [refreshSessions],
   )
 
   /** Stops a managed process, keeps its persisted history, and selects a nearby active session. */

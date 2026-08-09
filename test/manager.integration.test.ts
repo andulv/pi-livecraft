@@ -533,6 +533,48 @@ test('renames a persisted session through Pi RPC', { timeout: 10_000 }, async ()
   }
 })
 
+test('renames a live session through its managed Pi process', { timeout: 10_000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
+  const port = 45_000 + (process.pid % 10_000)
+  await writeFakePi(directory)
+  const manager = spawn(process.execPath, ['server/manager.ts'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      PATH: `${fakePiBin(directory)}${delimiter}${process.env.PATH}`,
+      PI_LIVECRAFT_MANAGER_PORT: String(port),
+    },
+    stdio: 'ignore',
+  })
+  const client = await connectManager(port)
+  try {
+    const opened = await client.request('open', {
+      cwd: process.cwd(),
+      name: 'Original session',
+      sessionPath: join(directory, 'live.jsonl'),
+    })
+    const id = sessionId(opened)
+    const renamedEvent = client.waitForEvent(
+      (event) =>
+        event.event === 'pi' && event.sessionId === id
+        && isObject(event.data) && event.data.type === 'session_info_changed'
+        && event.data.name === 'Renamed session',
+    )
+    const renamed = await client.request('rename', {
+      cwd: process.cwd(),
+      name: 'Renamed session',
+      sessionPath: join(directory, 'live.jsonl'),
+    })
+    assert.equal(renamed.ok, true)
+    await renamedEvent
+    assert.equal(sessionName(await client.request('list', {}), id), 'Renamed session')
+  } finally {
+    client.close()
+    await stopProcess(manager)
+    await rm(directory, { force: true, recursive: true })
+  }
+})
+
 test('restarts an exited Pi session when reopening it', { timeout: 10_000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
   const port = 45_000 + (process.pid % 10_000)
@@ -722,6 +764,7 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   }
   if (!isolated && command.type === 'set_session_name') {
     if (command.name !== 'Renamed session') throw new Error('Unexpected session name')
+    console.log(JSON.stringify({ type: 'session_info_changed', name: command.name }))
     console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: {} }))
     return
   }
@@ -913,6 +956,12 @@ function sessionStatus(response: ManagerResponse, id: string): unknown {
   if (!Array.isArray(response.data)) throw new Error('Invalid sessions response')
   const session = response.data.find((value) => isObject(value) && value.id === id)
   return isObject(session) ? session.status : undefined
+}
+
+function sessionName(response: ManagerResponse, id: string): unknown {
+  if (!Array.isArray(response.data)) throw new Error('Invalid sessions response')
+  const session = response.data.find((value) => isObject(value) && value.id === id)
+  return isObject(session) ? session.name : undefined
 }
 
 function processId(response: ManagerResponse): number {
