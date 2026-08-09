@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   closeSession as requestCloseSession,
   getGitProject,
-  listDirectories,
   listRecentSessions,
   listSessions,
   renameSession as renameStoredSession,
@@ -16,7 +15,7 @@ import type {
 } from '../../../shared/types.ts'
 import { promptSessionTitle } from '../composer/prompt-title.ts'
 import { recentWorkspaces } from './recent-workspaces.ts'
-import { projectFromGit, readProjects, writeProjects, type Project } from './projects.ts'
+import type { Project } from './projects.ts'
 import {
   nextActiveSessionId,
   pickSessionOnOpen,
@@ -25,6 +24,7 @@ import {
 } from './sidebar-sessions.ts'
 
 interface WorkspaceSessionsOptions {
+  project: Project
   onDraftMessage: (sessionId: string, message: string) => void
   onError: (cause: unknown) => void
   onInitialMessageSent: () => void
@@ -42,8 +42,14 @@ const MAX_COMPLETED_SESSIONS = 30
 
 /** Owns workspace selection, session lists, persistence, and session creation. */
 export function useWorkspaceSessions(
-  { onDraftMessage, onError, onInitialMessageSent, onSessionsRefreshed, onWorkspaceSelected }:
-    WorkspaceSessionsOptions,
+  {
+    project,
+    onDraftMessage,
+    onError,
+    onInitialMessageSent,
+    onSessionsRefreshed,
+    onWorkspaceSelected,
+  }: WorkspaceSessionsOptions,
 ) {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
@@ -52,20 +58,18 @@ export function useWorkspaceSessions(
     readCompletedSessionIds,
   )
   const [isRefreshingSessions, setIsRefreshingSessions] = useState(true)
+  const workspacePathKey = `pi-livecraft.project-workspace.${project.id}`
+  const recentWorkspacePathsKey = `pi-livecraft.project-recent-workspaces.${project.id}`
   const [workspacePath, setWorkspacePath] = useState(() =>
-    window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.'
+    window.localStorage.getItem(workspacePathKey) ?? project.root
   )
   const [recentWorkspacePaths, setRecentWorkspacePaths] = useState(() =>
     recentWorkspaces(
-      window.localStorage.getItem('pi-livecraft.workspace-path') ?? '.',
-      readRecentWorkspaces(),
+      window.localStorage.getItem(workspacePathKey) ?? project.root,
+      readRecentWorkspaces(recentWorkspacePathsKey),
     )
   )
-  const [directoryPickerOpen, setDirectoryPickerOpen] = useState(false)
-  const [projects, setProjects] = useState<Project[]>(readProjects)
-  const [projectDiscoveryComplete, setProjectDiscoveryComplete] = useState(() =>
-    projects.length === 0
-  )
+  const [projectDiscoveryComplete, setProjectDiscoveryComplete] = useState(false)
   const [projectWorkspaces, setProjectWorkspaces] = useState<Record<string, GitProject>>({})
   const [selectedId, setSelectedId] = useState('')
   const [creatingSession, setCreatingSession] = useState(false)
@@ -83,36 +87,19 @@ export function useWorkspaceSessions(
   completedSessionIdsRef.current = completedSessionIds
   selectedIdRef.current = selectedId
 
-  useEffect(() => writeProjects(projects), [projects])
-
   useEffect(() => {
     let active = true
-    void Promise
-      .all(
-        projects.map(async (project) => [project.root, await getGitProject(project.root)] as const),
-      )
-      .then((entries) => active && setProjectWorkspaces(Object.fromEntries(entries)))
+    setProjectDiscoveryComplete(false)
+    void getGitProject(project.root)
+      .then((details) => {
+        if (active) setProjectWorkspaces({ [project.root]: details })
+      })
       .catch(onError)
       .finally(() => active && setProjectDiscoveryComplete(true))
     return () => {
       active = false
     }
-  }, [onError, projects])
-
-  useEffect(() => {
-    if (window.localStorage.getItem('pi-livecraft.workspace-path') !== null) return
-    let active = true
-    void listDirectories('.')
-      .then(({ path }) => {
-        if (!active || window.localStorage.getItem('pi-livecraft.workspace-path') !== null) return
-        setWorkspacePath(path)
-        setRecentWorkspacePaths(recentWorkspaces(path, readRecentWorkspaces()))
-      })
-      .catch(() => undefined)
-    return () => {
-      active = false
-    }
-  }, [])
+  }, [onError, project.root])
 
   useEffect(() => {
     if (selectedId) window.localStorage.setItem('pi-livecraft.selected-session', selectedId)
@@ -217,20 +204,25 @@ export function useWorkspaceSessions(
 
   /** Selects a workspace, optionally preserving an explicit session over automatic selection. */
   const selectWorkspace = useCallback((path: string, targetSessionId?: string): void => {
-    window.localStorage.setItem('pi-livecraft.workspace-path', path)
+    window.localStorage.setItem(workspacePathKey, path)
     const nextRecentWorkspacePaths = recentWorkspaces(path, recentWorkspacePaths)
     window.localStorage.setItem(
-      'pi-livecraft.recent-workspace-paths',
+      recentWorkspacePathsKey,
       JSON.stringify(nextRecentWorkspacePaths),
     )
     setRecentWorkspacePaths(nextRecentWorkspacePaths)
     onWorkspaceSelected()
     setWorkspacePath(path)
     setSelectedId(targetSessionId ?? '')
-    setDirectoryPickerOpen(false)
     autoSelectOnRefreshRef.current = targetSessionId === undefined
     void refreshSessions(path)
-  }, [onWorkspaceSelected, recentWorkspacePaths, refreshSessions])
+  }, [
+    onWorkspaceSelected,
+    recentWorkspacePaths,
+    recentWorkspacePathsKey,
+    refreshSessions,
+    workspacePathKey,
+  ])
 
   // A removed worktree can remain in localStorage after Git prunes it; fall back to a live one.
   useEffect(() => {
@@ -240,23 +232,6 @@ export function useWorkspaceSessions(
     if (availableWorkspaces.length > 0 && !availableWorkspaces.includes(workspacePath))
       selectWorkspace(availableWorkspaces[0])
   }, [projectWorkspaces, selectWorkspace, workspacePath])
-
-  /** Adds a Git repository and selects its main workspace. */
-  const addProject = useCallback((project: GitProject): void => {
-    const nextProject = projectFromGit(project)
-    setProjects((current) => [nextProject, ...current.filter(({ root }) => root !== project.root)])
-    setProjectWorkspaces((current) => ({ ...current, [project.root]: project }))
-    selectWorkspace(project.workspaces.find(({ main }) => main)?.path ?? project.root)
-  }, [selectWorkspace])
-
-  /** Removes the project from the sidebar without touching its repository or Pi histories. */
-  const removeProject = useCallback((root: string): void => {
-    setProjects((current) => current.filter((project) => project.root !== root))
-    setProjectWorkspaces((current) => {
-      const { [root]: _removed, ...rest } = current
-      return rest
-    })
-  }, [])
 
   /** Stores the optimistic title shared by first prompts in new and existing sessions. */
   const nameSessionFromFirstPrompt = useCallback(
@@ -429,28 +404,23 @@ export function useWorkspaceSessions(
 
   return {
     addPendingRequest,
-    addProject,
     closeManagedSession,
     completedSessionIds,
     creatingSession,
-    directoryPickerOpen,
     isRefreshingSessions,
     markSessionCompleted,
     nameSessionFromFirstPrompt,
     projectWorkspaces,
-    projects,
     recentSessions,
     recentWorkspacePaths,
     refreshSessions,
     removePendingRequest,
-    removeProject,
     renameManagedSession,
     renameSession,
     selectCreatedSession,
     selectedId,
     sentSessions,
     sessions,
-    setDirectoryPickerOpen,
     setSelectedId,
     selectWorkspace,
     startAndSelectSession,
@@ -460,10 +430,10 @@ export function useWorkspaceSessions(
 }
 
 /** Reads the persisted list of recent workspace paths from localStorage. */
-function readRecentWorkspaces(): string[] {
+function readRecentWorkspaces(storageKey: string): string[] {
   try {
     const value: unknown = JSON.parse(
-      window.localStorage.getItem('pi-livecraft.recent-workspace-paths') ?? '[]',
+      window.localStorage.getItem(storageKey) ?? '[]',
     )
     return Array.isArray(value)
       ? value.filter((path): path is string => typeof path === 'string')

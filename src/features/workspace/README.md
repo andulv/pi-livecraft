@@ -1,7 +1,9 @@
 # Workspace and sessions
 
-`useWorkspaceSessions` owns project/workspace selection and the session lists shown by the application. It coordinates initial selection, refreshes, creation, reopening, renaming and closing, optimistic naming, pending UI requests, and local persistence of projects and completed sessions. A project is a local Git repository; its main checkout and linked worktrees are the selectable workspaces.
+`useProjects` owns the browser-local project registry and repository discovery. `ProjectHome` renders that registry at `/`; selecting a card writes the stable project ID to `?project=...`. `App.tsx` owns this small URL boundary so reload, duplicate-tab, back, and forward navigation preserve the selected project without introducing a frontend router.
 
-Keep session-list reconciliation and workspace/session persistence in this controller. `App.tsx` supplies cross-feature callbacks, such as clearing feature state when the workspace changes or preparing an initial composer draft; it should not duplicate the controller's state.
+`useWorkspaceSessions` owns workspace selection and session lists for exactly one selected project. It coordinates refreshes, creation, reopening, renaming and closing, optimistic naming, pending UI requests, and per-project workspace persistence. The project repository's main checkout and linked worktrees are the only selectable workspaces in that view.
 
-Repository browsing and Git validation remain in `ProjectPicker`. Workspace paths accept both `~/...` and Windows `~\...`; completion preserves the separator style the user typed. Project persistence lives in `projects.ts`; pure session-list rules live in `sidebar-sessions.ts`.
+Keep session-list reconciliation in this controller. `App.tsx` supplies cross-feature callbacks, such as clearing feature state when the workspace changes or preparing an initial composer draft; it should not duplicate the controller's state.
+
+Repository browsing and Git validation remain in `ProjectPicker`. Workspace paths accept both `~/...` and Windows `~\...`; completion preserves the separator style the user typed. Project identity, colour, and migration rules live in `projects.ts`; pure session-list rules live in `sidebar-sessions.ts`.

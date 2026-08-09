@@ -39,10 +39,9 @@ interface WorkspaceSidebarProps {
   selectedId: string
   width: number
   workspacePath: string
-  projects: Project[]
-  projectWorkspaces: Record<string, GitProject>
-  onChooseWorkspace: () => void
-  onRemoveProject: (root: string) => void
+  project: Project
+  projectDetails?: GitProject
+  onOpenHome: () => void
   onCreate: () => Promise<void>
   onOpenSession: (session: RecentSession) => Promise<void>
   onSelectOtherWorkspaceSession: (session: SessionSummary) => void
@@ -66,10 +65,9 @@ export function WorkspaceSidebar({
   selectedId,
   width,
   workspacePath,
-  projects,
-  projectWorkspaces,
-  onChooseWorkspace,
-  onRemoveProject,
+  project,
+  projectDetails,
+  onOpenHome,
   onCreate,
   onOpenSession,
   onSelectOtherWorkspaceSession,
@@ -93,30 +91,29 @@ export function WorkspaceSidebar({
     () => sidebarSessions(recentSessions, workspacePath, sentSessions),
     [recentSessions, sentSessions, workspacePath],
   )
-  const otherSessions = useMemo(
-    () =>
-      otherWorkspaceSessions(
-        sessions,
-        workspacePath,
-        compactingSessionIds,
-        completedSessionIds,
-        recentSessions,
-      ),
-    [compactingSessionIds, completedSessionIds, recentSessions, sessions, workspacePath],
-  )
-  const orderedProjects = useMemo(
-    () =>
-      [...projects].sort((left, right) => {
-        const latestActivity = (root: string): number =>
-          Math.max(
-            0,
-            ...(projectWorkspaces[root]?.workspaces ?? []).map(({ path }) =>
-              workspaceActivity(path, recentSessions, sentSessions)
-            ),
-          )
-        return latestActivity(right.root) - latestActivity(left.root)
-      }),
-    [projectWorkspaces, projects, recentSessions, sentSessions],
+  const workspaces = useMemo(() => projectDetails?.workspaces ?? [], [projectDetails])
+  const otherSessions = useMemo(() => {
+    const projectWorkspacePaths = new Set(workspaces.map(({ path }) => path))
+    return otherWorkspaceSessions(
+      sessions.filter(({ cwd }) => projectWorkspacePaths.has(cwd)),
+      workspacePath,
+      compactingSessionIds,
+      completedSessionIds,
+      recentSessions,
+    )
+  }, [
+    compactingSessionIds,
+    completedSessionIds,
+    recentSessions,
+    sessions,
+    workspacePath,
+    workspaces,
+  ])
+  const projectIndicator = aggregateSessionIndicator(
+    sessions.filter(({ cwd }) => workspaces.some(({ path }) => path === cwd)),
+    selectedId,
+    compactingSessionIds,
+    completedSessionIds,
   )
 
   useEffect(() => {
@@ -279,100 +276,77 @@ export function WorkspaceSidebar({
           </button>
         </Tooltip>
       </div>
-      <section className='project-list' aria-label='Projects'>
+      <section className='project-list' aria-label={`${project.name} workspaces`}>
         <div className='sidebar-section-heading'>
-          <span>Projects</span>
-          <button onClick={onChooseWorkspace} type='button'>＋ Add</button>
+          <button className='project-home-link' onClick={onOpenHome} type='button'>
+            ← Projects
+          </button>
         </div>
-        {orderedProjects.map((project) => {
-          const workspaces = projectWorkspaces[project.root]?.workspaces ?? []
-          const projectWorkspacePaths = new Set(workspaces.map(({ path }) => path))
-          const projectIndicator = aggregateSessionIndicator(
-            sessions.filter(({ cwd }) => projectWorkspacePaths.has(cwd)),
-            selectedId,
-            compactingSessionIds,
-            completedSessionIds,
-          )
-          return (
-            <div className='project-item' key={project.id}>
-              <div className='project-title'>
-                <button
-                  aria-expanded={!collapsedProjects.has(project.root)}
-                  className='project-toggle'
-                  onClick={() =>
-                    setCollapsedProjects((current) => {
-                      const next = new Set(current)
-                      if (next.has(project.root)) next.delete(project.root)
-                      else next.add(project.root)
-                      return next
-                    })}
-                  type='button'
-                >
-                  <DisclosureIcon collapsed={collapsedProjects.has(project.root)} />
-                  <strong>{project.name}</strong>
-                  {projectIndicator && <SessionStatusIndicator status={projectIndicator} />}
-                </button>
-                <button
-                  aria-label={`Remove ${project.name}`}
-                  onClick={() => onRemoveProject(project.root)}
-                  type='button'
-                >
-                  ×
-                </button>
-              </div>
-              {!collapsedProjects.has(project.root) && (
-                <div className='project-workspaces'>
-                  {[...workspaces]
-                    .sort((left, right) =>
-                      workspaceActivity(right.path, recentSessions, sentSessions)
-                      - workspaceActivity(left.path, recentSessions, sentSessions)
-                    )
-                    .map((workspace) => {
-                      const workspaceIndicator = aggregateSessionIndicator(
-                        sessions.filter(({ cwd }) => cwd === workspace.path),
-                        selectedId,
-                        compactingSessionIds,
-                        completedSessionIds,
-                      )
-                      return (
-                        <button
-                          aria-current={workspace.path === workspacePath ? 'page' : undefined}
-                          className={`workspace-path${
-                            workspace.path === workspacePath ? ' selected' : ''
-                          }`}
-                          key={workspace.path}
-                          onClick={() =>
-                            onSelectOtherWorkspaceSession({
-                              id: '',
-                              cwd: workspace.path,
-                              name: '',
-                              status: 'idle',
-                              pendingUi: [],
-                            })}
-                          type='button'
-                        >
-                          <WorkspaceIcon />
-                          <div className='workspace-path-copy'>
-                            <span>{workspace.main ? 'Main workspace' : 'Worktree'}</span>
-                            <strong>{workspace.branch ?? workspace.path}</strong>
-                          </div>
-                          {workspaceIndicator && (
-                            <SessionStatusIndicator status={workspaceIndicator} />
-                          )}
-                          {workspace.path === workspacePath && (
-                            <span className='workspace-current'>Current</span>
-                          )}
-                        </button>
-                      )
-                    })}
-                </div>
-              )}
+        <div className='project-item'>
+          <div className='project-title'>
+            <button
+              aria-expanded={!collapsedProjects.has(project.root)}
+              className='project-toggle'
+              onClick={() =>
+                setCollapsedProjects((current) => {
+                  const next = new Set(current)
+                  if (next.has(project.root)) next.delete(project.root)
+                  else next.add(project.root)
+                  return next
+                })}
+              type='button'
+            >
+              <DisclosureIcon collapsed={collapsedProjects.has(project.root)} />
+              <strong>{project.name}</strong>
+              {projectIndicator && <SessionStatusIndicator status={projectIndicator} />}
+            </button>
+          </div>
+          {!collapsedProjects.has(project.root) && (
+            <div className='project-workspaces'>
+              {[...workspaces]
+                .sort((left, right) =>
+                  workspaceActivity(right.path, recentSessions, sentSessions)
+                  - workspaceActivity(left.path, recentSessions, sentSessions)
+                )
+                .map((workspace) => {
+                  const workspaceIndicator = aggregateSessionIndicator(
+                    sessions.filter(({ cwd }) => cwd === workspace.path),
+                    selectedId,
+                    compactingSessionIds,
+                    completedSessionIds,
+                  )
+                  return (
+                    <button
+                      aria-current={workspace.path === workspacePath ? 'page' : undefined}
+                      className={`workspace-path${
+                        workspace.path === workspacePath ? ' selected' : ''
+                      }`}
+                      key={workspace.path}
+                      onClick={() =>
+                        onSelectOtherWorkspaceSession({
+                          id: '',
+                          cwd: workspace.path,
+                          name: '',
+                          status: 'idle',
+                          pendingUi: [],
+                        })}
+                      type='button'
+                    >
+                      <WorkspaceIcon />
+                      <div className='workspace-path-copy'>
+                        <span>{workspace.main ? 'Main workspace' : 'Worktree'}</span>
+                        <strong>{workspace.branch ?? workspace.path}</strong>
+                      </div>
+                      {workspaceIndicator && <SessionStatusIndicator status={workspaceIndicator} />}
+                      {workspace.path === workspacePath && (
+                        <span className='workspace-current'>Current</span>
+                      )}
+                    </button>
+                  )
+                })}
             </div>
-          )
-        })}
-        {projects.length === 0 && (
-          <p className='empty-sidebar'>Add a local Git repository to begin.</p>
-        )}
+          )}
+        </div>
       </section>
       <div className='sidebar-section-heading sessions-heading'>
         <span>Sessions</span>

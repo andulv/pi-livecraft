@@ -50,7 +50,9 @@ import {
 } from './features/right-sidebar/right-sidebar.ts'
 import { RightSidebar } from './features/right-sidebar/RightSidebar.tsx'
 import { quotaProviderForModel } from './features/quotas/quota-display.ts'
-import { ProjectPicker } from './features/workspace/ProjectPicker.tsx'
+import { ProjectHome } from './features/workspace/ProjectHome.tsx'
+import type { Project } from './features/workspace/projects.ts'
+import { useProjects } from './features/workspace/useProjects.ts'
 import { sidebarSessions } from './features/workspace/sidebar-sessions.ts'
 import { useWorkspaceSessions } from './features/workspace/useWorkspaceSessions.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
@@ -112,8 +114,76 @@ function nextConversationView(current: ConversationView): ConversationView {
   if (current === 'semi-detailed') return 'detailed'
   return 'simple'
 }
-/** Orchestrates workspace state, Pi events, and UI panels. */
+/** Routes between the project registry and one URL-addressable Livecraft project. */
 function App() {
+  const [projectId, setProjectId] = useState(projectIdFromLocation)
+  const {
+    addProject,
+    isDiscovering,
+    projectActivity,
+    projectDetails,
+    projects,
+    refreshProjects,
+    removeProject,
+    unavailableProjectIds,
+  } = useProjects()
+  const project = projects.find((candidate) => candidate.id === projectId)
+
+  useEffect(() => {
+    const onPopState = (): void => setProjectId(projectIdFromLocation())
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  useEffect(() => {
+    void refreshProjects()
+  }, [projectId, refreshProjects])
+
+  useEffect(() => {
+    const unavailable = project && unavailableProjectIds.has(project.id)
+    if (!projectId || isDiscovering || (project && !unavailable)) return
+    const url = new URL(window.location.href)
+    url.searchParams.delete('project')
+    window.history.replaceState({}, '', url)
+    setProjectId(null)
+  }, [isDiscovering, project, projectId, unavailableProjectIds])
+
+  const navigate = useCallback((nextProject: Project | null): void => {
+    const url = new URL(window.location.href)
+    if (nextProject) url.searchParams.set('project', nextProject.id)
+    else url.searchParams.delete('project')
+    window.history.pushState({}, '', url)
+    setProjectId(nextProject?.id ?? null)
+  }, [])
+
+  if (!project || isDiscovering || unavailableProjectIds.has(project.id)) {
+    return (
+      <ProjectHome
+        activity={projectActivity}
+        details={projectDetails}
+        isDiscovering={isDiscovering}
+        projects={projects}
+        unavailableProjectIds={unavailableProjectIds}
+        onAdd={addProject}
+        onOpen={(selected) => navigate(selected)}
+        onRemove={removeProject}
+      />
+    )
+  }
+
+  return (
+    <LivecraftProjectApp
+      key={project.id}
+      project={project}
+      onOpenHome={() => navigate(null)}
+    />
+  )
+}
+
+/** Orchestrates workspace state, Pi events, and UI panels for one selected project. */
+function LivecraftProjectApp(
+  { project, onOpenHome }: { project: Project; onOpenHome: () => void },
+) {
   // Workspace and sessions
   const [compactingSessionIds, setCompactingSessionIds] = useState<ReadonlySet<string>>(new Set())
 
@@ -313,33 +383,29 @@ function App() {
   )
   const {
     addPendingRequest,
-    addProject,
     completedSessionIds,
     creatingSession,
-    directoryPickerOpen,
     isRefreshingSessions,
     markSessionCompleted,
     nameSessionFromFirstPrompt,
     projectWorkspaces,
-    projects,
     recentSessions,
     recentWorkspacePaths,
     refreshSessions,
     removePendingRequest,
-    removeProject,
     renameManagedSession,
     renameSession,
     selectCreatedSession,
     selectedId,
     sentSessions,
     sessions,
-    setDirectoryPickerOpen,
     setSelectedId,
     selectWorkspace,
     startAndSelectSession: startWorkspaceSession,
     updateSession,
     workspacePath,
   } = useWorkspaceSessions({
+    project,
     onDraftMessage: handleSessionDraft,
     onError: handleWorkspaceError,
     onInitialMessageSent: handleInitialMessageSent,
@@ -909,7 +975,7 @@ function App() {
       return
     }
     if (id === 'open-directory-picker') {
-      setDirectoryPickerOpen(true)
+      onOpenHome()
       return
     }
     if (id === 'workspace-previous' && recentWorkspacePaths.length > 1) {
@@ -948,7 +1014,7 @@ function App() {
     selectedId,
     sentSessions,
     analysisAvailable,
-    setDirectoryPickerOpen,
+    onOpenHome,
     setSelectedId,
     showToast,
     snapshot.messages,
@@ -1085,10 +1151,11 @@ function App() {
 
   return (
     <div
-      className={`app-shell ${workspaceSidebarCollapsed ? 'workspace-sidebar-collapsed ' : ''}${
-        rightPanelVisible ? 'right-sidebar-visible' : 'right-sidebar-collapsed'
-      }`}
+      className={`app-shell project-themed ${
+        workspaceSidebarCollapsed ? 'workspace-sidebar-collapsed ' : ''
+      }${rightPanelVisible ? 'right-sidebar-visible' : 'right-sidebar-collapsed'}`}
       style={{
+        '--project-color': project.color,
         '--right-sidebar-width': `${rightSidebarWidth}px`,
         '--workspace-sidebar-width': `${workspaceSidebarWidth}px`,
       } as CSSProperties}
@@ -1104,10 +1171,9 @@ function App() {
         selectedId={selectedId}
         width={workspaceSidebarWidth}
         workspacePath={workspacePath}
-        projects={projects}
-        projectWorkspaces={projectWorkspaces}
-        onChooseWorkspace={() => setDirectoryPickerOpen(true)}
-        onRemoveProject={removeProject}
+        project={project}
+        projectDetails={projectWorkspaces[project.root]}
+        onOpenHome={onOpenHome}
         onCreate={async () => {
           await startAndSelectSession(() => createSession(workspacePath))
         }}
@@ -1353,13 +1419,6 @@ function App() {
           })}
       />
 
-      {directoryPickerOpen && (
-        <ProjectPicker
-          onClose={() => setDirectoryPickerOpen(false)}
-          onError={(cause) => showToast('error', messageOf(cause))}
-          onSelect={addProject}
-        />
-      )}
       {questionnaire && !questionnaireInComposer && (
         <AskUserQuestionDialog
           canMinimize={false}
@@ -1467,6 +1526,10 @@ function isManagerRuntimeStatus(value: unknown): value is ManagerRuntimeStatus {
 
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
+}
+
+function projectIdFromLocation(): string | null {
+  return new URL(window.location.href).searchParams.get('project')
 }
 
 export default App
