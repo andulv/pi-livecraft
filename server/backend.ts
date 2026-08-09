@@ -274,13 +274,14 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
     if (
       typeof body.projectName !== 'string' || typeof body.workspaceName !== 'string'
-      || typeof body.color !== 'string'
+      || typeof body.color !== 'string' || typeof body.isMainWorktree !== 'boolean'
     ) throw new HttpError(400, 'VS Code workspace identity is required')
     try {
       await openVSCodeApplication(await resolveWorkingDirectory(body.cwd), {
         projectName: body.projectName,
         workspaceName: body.workspaceName,
         color: body.color,
+        isMainWorktree: body.isMainWorktree,
       })
       sendJson(response, 200, { ok: true })
     } catch (error) {

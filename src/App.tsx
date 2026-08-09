@@ -824,6 +824,7 @@ function LivecraftProjectApp(
     ? 'Main'
     : workspacePath.split(/[\\/]/).filter(Boolean).at(-1) ?? workspacePath
   const vscodeWorkspaceName = currentProjectWorkspace?.branch ?? workspaceName
+  const isMainWorktree = currentProjectWorkspace?.main === true || workspacePath === project.root
   const vscodeColor = worktreeColor(project.root, workspacePath, project.color)
   const pendingSession = useMemo<SessionSummary>(() => ({
     id: `pending:${workspacePath}`,
@@ -1018,9 +1019,16 @@ function LivecraftProjectApp(
       return
     }
     if (id === 'open-vscode') {
-      void openVSCode(workspacePath, project.name, vscodeWorkspaceName, vscodeColor).catch((
-        cause,
-      ) => showToast('error', messageOf(cause)))
+      void openVSCode(
+        workspacePath,
+        project.name,
+        vscodeWorkspaceName,
+        vscodeColor,
+        isMainWorktree,
+      )
+        .catch((
+          cause,
+        ) => showToast('error', messageOf(cause)))
       return
     }
     if (id === 'new-session') {
@@ -1100,6 +1108,7 @@ function LivecraftProjectApp(
     snapshot.messages,
     startNewSession,
     terminalCommand,
+    isMainWorktree,
     vscodeWorkspaceName,
     workspacePath,
     project.name,
@@ -1230,12 +1239,20 @@ function LivecraftProjectApp(
       icon: <VSCodeIcon />,
       label: `Open ${vscodeWorkspaceName} in VS Code`,
       onClick: () => {
-        void openVSCode(workspacePath, project.name, vscodeWorkspaceName, vscodeColor).catch((
-          cause,
-        ) => showToast('error', messageOf(cause)))
+        void openVSCode(
+          workspacePath,
+          project.name,
+          vscodeWorkspaceName,
+          vscodeColor,
+          isMainWorktree,
+        )
+          .catch((
+            cause,
+          ) => showToast('error', messageOf(cause)))
       },
     },
   ], [
+    isMainWorktree,
     project.name,
     showToast,
     vscodeColor,

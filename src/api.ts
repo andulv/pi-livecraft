@@ -145,10 +145,11 @@ export async function openVSCode(
   projectName: string,
   workspaceName: string,
   color: string,
+  isMainWorktree: boolean,
 ): Promise<void> {
   await request<void>('/api/vscode', {
     method: 'POST',
-    body: JSON.stringify({ cwd, projectName, workspaceName, color }),
+    body: JSON.stringify({ cwd, projectName, workspaceName, color, isMainWorktree }),
   })
 }
 

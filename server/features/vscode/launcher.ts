@@ -14,6 +14,7 @@ type SpawnProcess = (
 
 export interface VSCodeWorkspaceBranding {
   color: string
+  isMainWorktree: boolean
   projectName: string
   workspaceName: string
 }
@@ -26,7 +27,7 @@ export async function openVSCodeApplication(
   branding: VSCodeWorkspaceBranding,
   spawnProcess: SpawnProcess = spawn,
 ): Promise<void> {
-  await configureVSCodeWorkspace(workspacePath, branding)
+  if (!branding.isMainWorktree) await configureVSCodeWorkspace(workspacePath, branding)
   await launchVSCode(workspacePath, spawnProcess)
 }
 

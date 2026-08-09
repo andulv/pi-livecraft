@@ -13,6 +13,7 @@ import {
 
 const branding = {
   color: '#3c6fa8',
+  isMainWorktree: false,
   projectName: 'Livecraft',
   workspaceName: 'feature/vscode-launcher',
 }
@@ -60,6 +61,27 @@ test('rejects invalid JSONC without overwriting workspace settings', async () =>
     VSCodeSettingsError,
   )
   assert.equal(await readFile(settingsPath, 'utf8'), '{ invalid }')
+})
+
+test('leaves the main worktree settings untouched', async () => {
+  const workspace = await mkdtemp(join(tmpdir(), 'livecraft-vscode-'))
+  const settingsPath = join(workspace, '.vscode', 'settings.json')
+  await mkdir(join(workspace, '.vscode'))
+  await writeFile(settingsPath, '{ "editor.tabSize": 2 }\n')
+
+  await openVSCodeApplication(
+    workspace,
+    { ...branding, isMainWorktree: true },
+    ((_command: string, _args: string[], _options: Parameters<typeof spawn>[2]) => {
+      const child = new EventEmitter() as EventEmitter & { unref: () => void }
+      child.unref = () => undefined
+      queueMicrotask(() => child.emit('spawn'))
+      return child as never
+    }) as never,
+  )
+
+  assert.equal(await readFile(settingsPath, 'utf8'), '{ "editor.tabSize": 2 }\n')
+  await assert.rejects(() => readFile(join(workspace, '.gitignore'), 'utf8'))
 })
 
 test('launches a new VS Code window after configuring the worktree', async () => {
