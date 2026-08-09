@@ -296,6 +296,25 @@
   white-space: nowrap;
   font-size: 13px;
 }
+.pinned-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.pinned-session-row .session-item {
+  min-height: 36px;
+}
+.pinned-session-icon {
+  box-sizing: content-box;
+  flex: 0 0 auto;
+  padding: 2px;
+  border-radius: 5px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
 .project-workspaces {
   display: grid;
   gap: 3px;

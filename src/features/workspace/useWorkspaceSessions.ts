@@ -15,6 +15,7 @@ import type {
   SessionSummary,
 } from '../../../shared/types.ts'
 import { promptSessionTitle } from '../composer/prompt-title.ts'
+import { readPinnedSessions, togglePinnedSession, writePinnedSessions } from './pinned-sessions.ts'
 import { recentWorkspaces } from './recent-workspaces.ts'
 import type { Project } from './projects.ts'
 import {
@@ -36,6 +37,7 @@ interface WorkspaceSessionsOptions {
 
 interface StartSessionOptions {
   draftMessage?: string
+  refreshCwd?: string
   initialImages?: JsonObject[]
   initialMessage?: string
   nameFromInitialMessage?: boolean
@@ -58,6 +60,9 @@ export function useWorkspaceSessions(
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
   const [sentSessions, setSentSessions] = useState<RecentSession[]>([])
+  const [pinnedSessions, setPinnedSessions] = useState<RecentSession[]>(() =>
+    readPinnedSessions(window.localStorage, project.id)
+  )
   const [completedSessionIds, setCompletedSessionIds] = useState<ReadonlySet<string>>(
     readCompletedSessionIds,
   )
@@ -127,6 +132,10 @@ export function useWorkspaceSessions(
   }, [selectedId])
 
   useEffect(() => writeCompletedSessionIds(completedSessionIds), [completedSessionIds])
+
+  useEffect(() => {
+    writePinnedSessions(window.localStorage, project.id, pinnedSessions)
+  }, [pinnedSessions, project.id])
 
   /** Reloads sessions while discarding responses superseded by a newer workspace refresh. */
   const refreshSessions = useCallback(async (cwd = workspacePath) => {
@@ -330,7 +339,7 @@ export function useWorkspaceSessions(
       try {
         const session = await start()
         rememberStartedSession(session)
-        await refreshSessions()
+        await refreshSessions(options.refreshCwd)
         setSelectedId(session.id)
         if (options.draftMessage) onDraftMessage(session.id, options.draftMessage)
         if (options.initialMessage) {
@@ -341,7 +350,7 @@ export function useWorkspaceSessions(
           })
           if (options.nameFromInitialMessage !== false)
             nameSessionFromFirstPrompt(session, options.initialMessage)
-          await refreshSessions()
+          await refreshSessions(options.refreshCwd)
           onInitialMessageSent()
         }
         return session
@@ -396,6 +405,35 @@ export function useWorkspaceSessions(
       transientNewSessionIdRef.current = null
   }, [])
 
+  const toggleProjectPin = useCallback((target: SessionActionTarget): void => {
+    const sessionPath = target.sessionPath
+    if (!sessionPath) return
+    setPinnedSessions((current) => {
+      const existing = current.find((session) => session.sessionPath === sessionPath)
+      if (existing) return togglePinnedSession(current, existing)
+      const session = [...sentSessionsRef.current, ...recentSessionsRef.current]
+        .find((candidate) => candidate.sessionPath === sessionPath)
+      return session ? togglePinnedSession(current, session) : current
+    })
+  }, [])
+
+  /** Opens a pin from any workspace while preserving the explicit target over auto-selection. */
+  const openPinnedSession = useCallback(async (recent: RecentSession): Promise<void> => {
+    const active = sessionsRef.current.find((session) =>
+      session.sessionPath === recent.sessionPath && session.status !== 'exited'
+    )
+    if (active) {
+      if (active.cwd === workspacePath) selectSession(active.id)
+      else selectWorkspace(active.cwd, active.id)
+      return
+    }
+    if (recent.cwd !== workspacePath) selectWorkspace(recent.cwd, '')
+    await startAndSelectSession(
+      () => requestOpenSession(recent.cwd, recent.sessionPath),
+      { refreshCwd: recent.cwd },
+    )
+  }, [selectSession, selectWorkspace, startAndSelectSession, workspacePath])
+
   const updateSession = useCallback(
     (
       sessionId: string,
@@ -424,6 +462,9 @@ export function useWorkspaceSessions(
           ? { ...session, name }
           : session
       )
+    )
+    setPinnedSessions((current) =>
+      current.map((session) => session.sessionPath === sessionPath ? { ...session, name } : session)
     )
   }, [])
 
@@ -515,6 +556,8 @@ export function useWorkspaceSessions(
     isRefreshingSessions,
     markSessionCompleted,
     nameSessionFromFirstPrompt,
+    openPinnedSession,
+    pinnedSessions,
     projectWorkspaces,
     recentSessions,
     recentWorkspacePaths,
@@ -531,6 +574,7 @@ export function useWorkspaceSessions(
     selectWorkspace,
     startAndSelectSession,
     startNewSession,
+    toggleProjectPin,
     updateSession,
     workspacePath,
   }

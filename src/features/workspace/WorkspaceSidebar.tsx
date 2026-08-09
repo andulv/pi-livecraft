@@ -10,6 +10,8 @@ import {
 } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type { GitProject, RecentSession, SessionSummary } from '../../../shared/types.ts'
+import { resolvePinnedSessions } from './pinned-sessions.ts'
+import { PinnedSessionList } from './PinnedSessionList.tsx'
 import type { Project } from './projects.ts'
 import { aggregateSessionIndicator, sessionIndicator } from './session-indicator.ts'
 import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
@@ -33,6 +35,7 @@ interface WorkspaceSidebarProps {
   compactingSessionIds: ReadonlySet<string>
   completedSessionIds: ReadonlySet<string>
   isRefreshing: boolean
+  pinnedSessions: RecentSession[]
   recentSessions: RecentSession[]
   sentSessions: RecentSession[]
   sessions: SessionSummary[]
@@ -42,6 +45,7 @@ interface WorkspaceSidebarProps {
   project: Project
   projectDetails?: GitProject
   onOpenHome: () => void
+  onOpenPinnedSession: (session: RecentSession) => Promise<void>
   onNewSession: () => Promise<void>
   onOpenSession: (session: RecentSession) => Promise<void>
   onSelectWorkspace: (path: string) => void
@@ -51,6 +55,7 @@ interface WorkspaceSidebarProps {
   onRenameSession: (target: SessionActionTarget, name: string) => Promise<void>
   onResize: (width: number) => void
   onToggleCollapsed: () => void
+  onToggleProjectPin: (target: SessionActionTarget) => void
   onError: (cause: unknown) => void
 }
 
@@ -60,6 +65,7 @@ export function WorkspaceSidebar({
   compactingSessionIds,
   completedSessionIds,
   isRefreshing,
+  pinnedSessions,
   recentSessions,
   sentSessions,
   sessions,
@@ -69,6 +75,7 @@ export function WorkspaceSidebar({
   project,
   projectDetails,
   onOpenHome,
+  onOpenPinnedSession,
   onNewSession,
   onOpenSession,
   onSelectWorkspace,
@@ -78,6 +85,7 @@ export function WorkspaceSidebar({
   onRenameSession,
   onResize,
   onToggleCollapsed,
+  onToggleProjectPin,
   onError,
 }: WorkspaceSidebarProps) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
@@ -89,15 +97,27 @@ export function WorkspaceSidebar({
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
   const contextMenuTriggerRef = useRef<HTMLButtonElement>(null)
+  const resolvedPinnedSessions = useMemo(
+    () => resolvePinnedSessions(pinnedSessions, recentSessions, sentSessions),
+    [pinnedSessions, recentSessions, sentSessions],
+  )
+  const pinnedSessionPaths = useMemo(
+    () => new Set(resolvedPinnedSessions.map(({ sessionPath }) => sessionPath)),
+    [resolvedPinnedSessions],
+  )
   const visibleSessions = useMemo(
-    () => sidebarSessions(recentSessions, workspacePath, sentSessions),
-    [recentSessions, sentSessions, workspacePath],
+    () =>
+      sidebarSessions(recentSessions, workspacePath, sentSessions)
+        .filter(({ sessionPath }) => !pinnedSessionPaths.has(sessionPath)),
+    [pinnedSessionPaths, recentSessions, sentSessions, workspacePath],
   )
   const workspaces = useMemo(() => projectDetails?.workspaces ?? [], [projectDetails])
   const otherSessions = useMemo(() => {
     const projectWorkspacePaths = new Set(workspaces.map(({ path }) => path))
     return otherWorkspaceSessions(
-      sessions.filter(({ cwd }) => projectWorkspacePaths.has(cwd)),
+      sessions.filter(({ cwd, sessionPath }) =>
+        projectWorkspacePaths.has(cwd) && (!sessionPath || !pinnedSessionPaths.has(sessionPath))
+      ),
       workspacePath,
       compactingSessionIds,
       completedSessionIds,
@@ -106,6 +126,7 @@ export function WorkspaceSidebar({
   }, [
     compactingSessionIds,
     completedSessionIds,
+    pinnedSessionPaths,
     recentSessions,
     sessions,
     workspacePath,
@@ -118,6 +139,14 @@ export function WorkspaceSidebar({
     selectedId,
     compactingSessionIds,
     completedSessionIds,
+  )
+  const contextSessionPath = contextMenu?.target.sessionPath
+  const contextSessionPinned = Boolean(
+    contextSessionPath && pinnedSessionPaths.has(contextSessionPath),
+  )
+  const contextSessionCanPin = contextSessionPinned || Boolean(
+    contextSessionPath
+      && recentSessions.some(({ sessionPath }) => sessionPath === contextSessionPath),
   )
 
   useEffect(() => {
@@ -178,6 +207,13 @@ export function WorkspaceSidebar({
     const { target } = contextMenu
     dismissContextMenu()
     setRenameTarget(target)
+  }
+
+  function toggleContextPin(): void {
+    if (!contextMenu || !contextSessionCanPin) return
+    const { target } = contextMenu
+    dismissContextMenu()
+    onToggleProjectPin(target)
   }
 
   function dismissRename(): void {
@@ -303,6 +339,19 @@ export function WorkspaceSidebar({
             <strong>{project.name}</strong>
             {projectIndicator && <SessionStatusIndicator status={projectIndicator} />}
           </div>
+          {resolvedPinnedSessions.length > 0 && (
+            <PinnedSessionList
+              compactingSessionIds={compactingSessionIds}
+              completedSessionIds={completedSessionIds}
+              onError={onError}
+              onOpenActions={openContextMenu}
+              onOpenSession={onOpenPinnedSession}
+              pinnedSessions={resolvedPinnedSessions}
+              selectedId={selectedId}
+              sessions={sessions}
+              workspaces={workspaces}
+            />
+          )}
           <div className='project-workspaces'>
             {[...workspaces]
               .sort((left, right) =>
@@ -478,7 +527,16 @@ export function WorkspaceSidebar({
           role='menu'
           style={{ left: contextMenuPosition.left, top: contextMenuPosition.top }}
         >
-          <button autoFocus onClick={startRename} role='menuitem' type='button'>
+          <button
+            autoFocus
+            disabled={!contextSessionCanPin}
+            onClick={toggleContextPin}
+            role='menuitem'
+            type='button'
+          >
+            {contextSessionPinned ? 'Unpin from project' : 'Pin to project'}
+          </button>
+          <button onClick={startRename} role='menuitem' type='button'>
             Rename…
           </button>
         </div>

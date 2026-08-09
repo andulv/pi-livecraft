@@ -398,6 +398,8 @@ function LivecraftProjectApp(
     isRefreshingSessions,
     markSessionCompleted,
     nameSessionFromFirstPrompt,
+    openPinnedSession,
+    pinnedSessions,
     projectWorkspaces,
     recentSessions,
     recentWorkspacePaths,
@@ -414,6 +416,7 @@ function LivecraftProjectApp(
     selectWorkspace,
     startAndSelectSession: startWorkspaceSession,
     startNewSession,
+    toggleProjectPin,
     updateSession,
     workspacePath,
   } = useWorkspaceSessions({
@@ -1205,6 +1208,7 @@ function LivecraftProjectApp(
         compactingSessionIds={compactingSessionIds}
         completedSessionIds={completedSessionIds}
         isRefreshing={isRefreshingSessions}
+        pinnedSessions={pinnedSessions}
         recentSessions={recentSessions}
         sentSessions={sentSessions}
         sessions={sessions}
@@ -1214,6 +1218,7 @@ function LivecraftProjectApp(
         project={project}
         projectDetails={projectWorkspaces[project.root]}
         onOpenHome={onOpenHome}
+        onOpenPinnedSession={openPinnedSession}
         onNewSession={async () => {
           await startNewSession(() => createSession(workspacePath))
         }}
@@ -1228,6 +1233,7 @@ function LivecraftProjectApp(
         onRenameSession={renameManagedSession}
         onResize={updateWorkspaceSidebarWidth}
         onToggleCollapsed={toggleWorkspaceSidebar}
+        onToggleProjectPin={toggleProjectPin}
       />
 
       <main className='workspace'>
