@@ -347,19 +347,14 @@ export function useWorkspaceSessions(
     )
   }, [])
 
-  /** Renames an active session through Pi, or a history-only session through a disposable RPC. */
+  /** Renames through the persisted-session RPC so the name survives new browser tabs. */
   const renameManagedSession = useCallback(
     async (target: SessionActionTarget, name: string): Promise<void> => {
       const normalized = name.trim()
       if (!normalized) throw new Error('Session name is required')
-      if (target.sessionId) {
-        await sendPiCommand(target.sessionId, { type: 'set_session_name', name: normalized })
-        renameSession(target.sessionId, normalized)
-      } else if (target.sessionPath) {
-        await renameStoredSession(target.cwd, target.sessionPath, normalized)
-      } else {
-        throw new Error('Session path is unavailable')
-      }
+      if (!target.sessionPath) throw new Error('Session path is unavailable')
+      await renameStoredSession(target.cwd, target.sessionPath, normalized)
+      if (target.sessionId) renameSession(target.sessionId, normalized)
       await refreshSessions()
     },
     [refreshSessions, renameSession],
