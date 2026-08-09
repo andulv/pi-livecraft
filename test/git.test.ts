@@ -275,18 +275,27 @@ test('rejects commit without changes or message', async () => {
   }
 })
 
-test('rejects push without ahead commits', async () => {
+test('rejects push when no commits are ahead of the upstream', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-livecraft-git-'))
+  const remote = await mkdtemp(join(tmpdir(), 'pi-livecraft-git-remote-'))
   try {
+    await execFile('git', ['init', '--bare', '--quiet'], { cwd: remote })
     await execFile('git', ['init', '--quiet'], { cwd: directory })
     await execFile('git', ['config', 'user.email', 'test@example.com'], { cwd: directory })
     await execFile('git', ['config', 'user.name', 'Test User'], { cwd: directory })
     await writeFile(join(directory, 'file.ts'), 'content\n')
     await execFile('git', ['add', 'file.ts'], { cwd: directory })
     await execFile('git', ['commit', '--quiet', '-m', 'Initial'], { cwd: directory })
+    await execFile('git', ['branch', '-M', 'main'], { cwd: directory })
+    await execFile('git', ['remote', 'add', 'origin', remote], { cwd: directory })
+    await execFile('git', ['push', '--quiet', '--set-upstream', 'origin', 'main'], {
+      cwd: directory,
+    })
+
     await assert.rejects(pushCommits(directory), /no commits to push/)
   } finally {
     await rm(directory, { force: true, recursive: true })
+    await rm(remote, { force: true, recursive: true })
   }
 })
 
@@ -317,5 +326,25 @@ test('flags a linked worktree but not the main checkout', async () => {
   } finally {
     await rm(worktree, { force: true, recursive: true })
     await rm(main, { force: true, recursive: true })
+  }
+})
+
+test('lists local commits when there is no upstream or remote', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-livecraft-noremote-'))
+  try {
+    await execFile('git', ['init', '--quiet'], { cwd: directory })
+    await writeFile(join(directory, 'a.ts'), 'a\n')
+    await execFile('git', ['add', 'a.ts'], { cwd: directory })
+    await execFile('git', ['commit', '--quiet', '-m', 'First'], { cwd: directory })
+    await writeFile(join(directory, 'b.ts'), 'b\n')
+    await execFile('git', ['add', 'b.ts'], { cwd: directory })
+    await execFile('git', ['commit', '--quiet', '-m', 'Second'], { cwd: directory })
+
+    const snapshot = await getGitSnapshot(directory)
+    assert.equal(snapshot.repository, true)
+    assert.equal(snapshot.ahead, 2)
+    assert.deepEqual(snapshot.commits.map((commit) => commit.subject), ['Second', 'First'])
+  } finally {
+    await rm(directory, { force: true, recursive: true })
   }
 })

@@ -63,7 +63,16 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
     ),
   )
 
-  const commits = upstream.exitCode === 0 ? await unpushedCommits(cwd) : []
+  // With an upstream, list commits ahead of it. Without one (a worktree or branch with no
+  // remote tracking), fall back to commits on HEAD that are not on any remote, so local work in a
+  // remote-less checkout is still listed instead of appearing empty.
+  const head = await runGit(cwd, ['rev-parse', '--verify', '--quiet', 'HEAD'], [0, 1])
+  const commits = head.exitCode === 0
+    ? await unpushedCommits(
+      cwd,
+      upstream.exitCode === 0 ? ['@{upstream}..HEAD'] : ['HEAD', '--not', '--remotes'],
+    )
+    : []
 
   let worktree = false
   try {
@@ -171,9 +180,9 @@ export async function getGitFileDiff(
   return { path, diff: untrackedDiff.stdout }
 }
 
-/** Lists commits after the tracked branch and each commit's files. */
-async function unpushedCommits(cwd: string): Promise<GitCommit[]> {
-  const result = await runGit(cwd, ['log', '--format=%H%x00%s%x00', '@{upstream}..HEAD'])
+/** Lists the commits in `revisions` (e.g. `@{upstream}..HEAD`) and each commit's files. */
+async function unpushedCommits(cwd: string, revisions: string[]): Promise<GitCommit[]> {
+  const result = await runGit(cwd, ['log', '--format=%H%x00%s%x00', ...revisions])
   const fields = result.stdout.split('\0')
   const commits: GitCommit[] = []
 
