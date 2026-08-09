@@ -1,6 +1,6 @@
 # Provider quotas widget
 
-The quotas widget gives a quick answer to a practical question: how much of the current provider allowance is left? The rail shows a compact percentage for the provider used by the selected model, while the panel keeps both supported providers available for comparison.
+The quotas widget gives a quick answer to a practical question: how much of the current provider allowance is used? The rail shows the selected model provider's primary usage percentage, while the panel keeps both supported providers available for comparison.
 
 ## What it shows
 
@@ -16,7 +16,7 @@ The widget never invents a missing limit or treats absent data as zero. An open 
 
 The refresh button asks Pi for a new provider report and remains disabled while that request is running. The backend deduplicates concurrent refreshes and restores cached readings after its own restart.
 
-For the rail summary, Codex prefers its five-hour window. Copilot uses the first quota category returned by its provider report. A stale rail value carries an additional warning marker.
+For the rail summary, Codex prefers its five-hour window. Copilot uses the first quota category returned by its provider report. The percentage is expressed as used quota. A stale rail value carries an additional warning marker.
 
 ## Ownership and data flow
 

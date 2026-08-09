@@ -126,7 +126,7 @@ test('shows the primary quota for the provider selected by the model', () => {
       stale: false,
     },
     copilot: { data: [{ name: 'Premium interactions', used: 75, limit: 300 }], stale: true },
-    glm: { data: [], stale: false },
+    glm: { data: [{ kind: 'session' as const, usedPercent: 30 }], stale: false },
     refreshing: false,
     sessionRequired: false,
   }
@@ -137,14 +137,19 @@ test('shows the primary quota for the provider selected by the model', () => {
   assert.equal(quotaProviderForModel('anthropic'), undefined)
   const formattedPercent = new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 })
   assert.deepEqual(railQuota(quotas, 'openai'), {
-    label: `OpenAI Codex quota: ${formattedPercent.format(74.6)} % remaining`,
+    label: `OpenAI Codex quota: ${formattedPercent.format(25.4)} % used`,
     stale: false,
-    value: '75%',
+    value: '25%',
   })
   assert.deepEqual(railQuota(quotas, 'copilot'), {
-    label: `GitHub Copilot quota: ${formattedPercent.format(75)} % remaining`,
+    label: `GitHub Copilot quota: ${formattedPercent.format(25)} % used`,
     stale: true,
-    value: '75%',
+    value: '25%',
+  })
+  assert.deepEqual(railQuota(quotas, 'glm'), {
+    label: `GLM (Z.AI) quota: ${formattedPercent.format(30)} % used`,
+    stale: false,
+    value: '30%',
   })
 })
 

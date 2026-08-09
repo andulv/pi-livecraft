@@ -41,31 +41,32 @@ export function railQuota(
   if (!quotas || !provider) return undefined
   if (provider === 'openai') {
     const window = quotas.openai.data.find(({ period }) => period === '5h') ?? quotas.openai.data[0]
-    return window && {
-      label: `OpenAI Codex quota: ${formatPercent(window.remainingPercent)} remaining`,
+    if (!window) return undefined
+    const usedPercent = 100 - window.remainingPercent
+    return {
+      label: `OpenAI Codex quota: ${formatPercent(usedPercent)} used`,
       stale: quotas.openai.stale,
-      value: `${Math.round(window.remainingPercent)}%`,
+      value: `${Math.round(Math.max(0, Math.min(100, usedPercent)))}%`,
     }
   }
 
   if (provider === 'glm') {
     const window = quotas.glm.data.find(({ kind }) => kind === 'session') ?? quotas.glm.data[0]
     if (!window || window.usedPercent === undefined) return undefined
-    const remainingPercent = 100 - window.usedPercent
     return {
-      label: `GLM (Z.AI) quota: ${formatPercent(remainingPercent)} remaining`,
+      label: `GLM (Z.AI) quota: ${formatPercent(window.usedPercent)} used`,
       stale: quotas.glm.stale,
-      value: `${Math.round(Math.max(0, Math.min(100, remainingPercent)))}%`,
+      value: `${Math.round(Math.max(0, Math.min(100, window.usedPercent)))}%`,
     }
   }
 
   const window = quotas.copilot.data[0]
   if (!window) return undefined
-  const remainingPercent = (window.limit - window.used) / window.limit * 100
+  const usedPercent = window.used / window.limit * 100
   return {
-    label: `GitHub Copilot quota: ${formatPercent(remainingPercent)} remaining`,
+    label: `GitHub Copilot quota: ${formatPercent(usedPercent)} used`,
     stale: quotas.copilot.stale,
-    value: `${Math.round(Math.max(0, Math.min(100, remainingPercent)))}%`,
+    value: `${Math.round(Math.max(0, Math.min(100, usedPercent)))}%`,
   }
 }
 
