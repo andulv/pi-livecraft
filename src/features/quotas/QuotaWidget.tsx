@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import { glmPeriodProgress } from './quota-display.ts'
+import { quotaPeriodProgress } from './quota-display.ts'
 import type { QuotaProviderSnapshot, QuotaSnapshot } from '../../../shared/types.ts'
 
 /** Displays normalized quota readings without deducing absent quota from provider responses. */
@@ -51,19 +51,34 @@ export function QuotaWidget(
               <p className='quota-empty'>Open a Pi session to read quotas.</p>
             )}
             <ProviderSection name='OpenAI Codex' provider={quotas.openai}>
-              {quotas.openai.data.map((window) => (
-                <div className='quota-row' key={window.period}>
-                  <div className='quota-row-copy'>
-                    <strong>{window.period === '5h' ? '5-hour window' : '7-day window'}</strong>
-                    <b>{formatPercent(window.remainingPercent)} remaining</b>
+              {quotas.openai.data.map((window) => {
+                const periodProgress = quotaPeriodProgress(window.period, window.resetsAt, now)
+                return (
+                  <div className='quota-row' key={window.period}>
+                    <div className='quota-row-copy'>
+                      <strong>{window.period === '5h' ? '5-hour window' : '7-day window'}</strong>
+                      <b>{formatPercent(window.remainingPercent)} remaining</b>
+                    </div>
+                    <div className='quota-bars'>
+                      <QuotaBar
+                        caption='Remaining'
+                        label={`${formatPercent(window.remainingPercent)} remaining`}
+                        value={window.remainingPercent}
+                      />
+                      {periodProgress !== undefined && (
+                        <QuotaBar
+                          label={`${formatPercent(periodProgress)} of the ${
+                            window.period === '5h' ? '5-hour' : '7-day'
+                          } period elapsed`}
+                          period
+                          value={periodProgress}
+                        />
+                      )}
+                    </div>
+                    {window.resetsAt && <small>Reset {formatReset(window.resetsAt)}</small>}
                   </div>
-                  <QuotaBar
-                    label={`${formatPercent(window.remainingPercent)} remaining`}
-                    value={window.remainingPercent}
-                  />
-                  {window.resetsAt && <small>Reset {formatReset(window.resetsAt)}</small>}
-                </div>
-              ))}
+                )
+              })}
             </ProviderSection>
             <ProviderSection name='GitHub Copilot' provider={quotas.copilot}>
               {quotas.copilot.data.map((window) => (
@@ -83,7 +98,7 @@ export function QuotaWidget(
             <ProviderSection name='GLM (Z.AI)' provider={quotas.glm}>
               {quotas.glm.data.map((window) => {
                 const isPercent = window.kind === 'session' || window.kind === 'weekly'
-                const periodProgress = glmPeriodProgress(window.kind, window.resetsAt, now)
+                const periodProgress = quotaPeriodProgress(window.kind, window.resetsAt, now)
                 return (
                   <div className='quota-row' key={window.kind}>
                     <div className='quota-row-copy'>
@@ -161,12 +176,17 @@ function glmLabel(kind: string): string {
 }
 
 function QuotaBar(
-  { label, period = false, value }: { label: string; period?: boolean; value: number },
+  {
+    caption,
+    label,
+    period = false,
+    value,
+  }: { caption?: string; label: string; period?: boolean; value: number },
 ) {
   const bounded = Math.min(100, Math.max(0, value))
   return (
     <div className='quota-bar-row'>
-      <span className='quota-bar-label'>{period ? 'Period' : 'Usage'}</span>
+      <span className='quota-bar-label'>{caption ?? (period ? 'Period' : 'Usage')}</span>
       <div
         aria-label={label}
         aria-valuemax={100}

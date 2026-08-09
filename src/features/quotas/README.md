@@ -4,7 +4,7 @@ The quotas widget gives a quick answer to a practical question: how much of the 
 
 ## What it shows
 
-- OpenAI Codex five-hour and seven-day windows, with the remaining percentage and reset time;
+- OpenAI Codex five-hour and seven-day windows, with remaining percentage, elapsed-period progress, and reset time;
 - GitHub Copilot usage categories, with used and total values plus reset times when available;
 - when the reading was last updated;
 - a stale marker when the latest refresh failed but an older valid reading is still available;

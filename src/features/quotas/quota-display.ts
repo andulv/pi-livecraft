@@ -8,19 +8,21 @@ export interface RailQuota {
   value: string
 }
 
-const glmWindowDuration: Record<'session' | 'weekly', number> = {
+const periodDuration: Record<'5h' | '7d' | 'session' | 'weekly', number> = {
+  '5h': 5 * 60 * 60 * 1000,
+  '7d': 7 * 24 * 60 * 60 * 1000,
   session: 5 * 60 * 60 * 1000,
   weekly: 7 * 24 * 60 * 60 * 1000,
 }
 
-/** Returns how much of a GLM reset window has elapsed, when its reset is known. */
-export function glmPeriodProgress(
-  kind: 'session' | 'weekly' | 'web-searches',
+/** Returns how much of a known reset window has elapsed, when its reset is known. */
+export function quotaPeriodProgress(
+  kind: '5h' | '7d' | 'session' | 'weekly' | 'web-searches',
   resetsAt: number | undefined,
   now: number,
 ): number | undefined {
   if (kind === 'web-searches' || !resetsAt) return undefined
-  const duration = glmWindowDuration[kind]
+  const duration = periodDuration[kind]
   return Math.max(0, Math.min(100, (1 - (resetsAt - now) / duration) * 100))
 }
 
