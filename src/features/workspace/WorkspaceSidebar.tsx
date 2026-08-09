@@ -42,7 +42,7 @@ interface WorkspaceSidebarProps {
   project: Project
   projectDetails?: GitProject
   onOpenHome: () => void
-  onNewSession: () => void
+  onNewSession: () => Promise<void>
   onOpenSession: (session: RecentSession) => Promise<void>
   onSelectWorkspace: (path: string) => void
   onSelectOtherWorkspaceSession: (session: SessionSummary) => void
@@ -85,6 +85,7 @@ export function WorkspaceSidebar({
   const [contextMenuPosition, setContextMenuPosition] = useState({ left: 0, top: 0 })
   const [renameTarget, setRenameTarget] = useState<SessionActionTarget | null>(null)
   const [otherWorkspacesExpanded, setOtherWorkspacesExpanded] = useState(true)
+  const [startingNewSession, setStartingNewSession] = useState(false)
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
   const contextMenuTriggerRef = useRef<HTMLButtonElement>(null)
@@ -182,6 +183,18 @@ export function WorkspaceSidebar({
   function dismissRename(): void {
     setRenameTarget(null)
     contextMenuTriggerRef.current?.focus()
+  }
+
+  async function startNewSession(): Promise<void> {
+    if (startingNewSession) return
+    setStartingNewSession(true)
+    try {
+      await onNewSession()
+    } catch (cause) {
+      onError(cause)
+    } finally {
+      setStartingNewSession(false)
+    }
   }
 
   function startResize(event: ReactPointerEvent<HTMLDivElement>): void {
@@ -336,7 +349,8 @@ export function WorkspaceSidebar({
           <button
             aria-label={`New session in ${selectedWorkspaceLabel}`}
             className='new-session'
-            onClick={onNewSession}
+            disabled={startingNewSession}
+            onClick={() => void startNewSession()}
             type='button'
           >
             ＋

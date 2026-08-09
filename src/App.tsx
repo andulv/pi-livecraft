@@ -980,7 +980,7 @@ function LivecraftProjectApp(
       return
     }
     if (id === 'new-session') {
-      setSelectedId('')
+      void startAndSelectSession(() => createSession(workspacePath))
       return
     }
     if (id === 'send') {
@@ -1054,6 +1054,7 @@ function LivecraftProjectApp(
     setSelectedId,
     showToast,
     snapshot.messages,
+    startAndSelectSession,
     terminalCommand,
     workspacePath,
   ])
@@ -1209,7 +1210,9 @@ function LivecraftProjectApp(
         project={project}
         projectDetails={projectWorkspaces[project.root]}
         onOpenHome={onOpenHome}
-        onNewSession={() => setSelectedId('')}
+        onNewSession={async () => {
+          await startAndSelectSession(() => createSession(workspacePath))
+        }}
         onOpenSession={async (recentSession) => {
           await startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))
         }}

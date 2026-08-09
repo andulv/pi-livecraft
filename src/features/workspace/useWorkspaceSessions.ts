@@ -286,6 +286,21 @@ export function useWorkspaceSessions(
       setSelectedId('')
       try {
         const session = await start()
+        const sessionPath = session.sessionPath
+        if (sessionPath) {
+          setSentSessions((current) => [
+            {
+              id: session.id,
+              cwd: session.cwd,
+              name: session.name || 'New session',
+              sessionPath,
+              updatedAt: Date.now(),
+            },
+            ...current.filter((recent) =>
+              recent.id !== session.id && recent.sessionPath !== sessionPath
+            ),
+          ])
+        }
         await refreshSessions()
         setSelectedId(session.id)
         if (options.draftMessage) onDraftMessage(session.id, options.draftMessage)
