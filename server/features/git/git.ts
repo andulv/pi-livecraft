@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type {
   GitCommit,
@@ -8,6 +9,7 @@ import type {
   GitResetResult,
   GitRevertResult,
   GitSnapshot,
+  GitWorkspace,
 } from '../../../shared/types.ts'
 
 interface GitCommandResult {
@@ -158,9 +160,21 @@ export async function getGitProject(cwd: string): Promise<GitProject | null> {
 
   const root = await runGit(cwd, ['rev-parse', '--show-toplevel'])
   const listing = await runGit(cwd, ['worktree', 'list', '--porcelain'])
+  const parsed = parseGitWorktrees(listing.stdout, root.stdout.trim())
+  // `git worktree list` includes prunable worktrees whose directory is already gone; drop them so
+  // callers never receive a workspace path that cannot be opened.
+  const checked = await Promise.all(
+    parsed.map(async (workspace) => {
+      try {
+        return (await stat(workspace.path)).isDirectory() ? workspace : null
+      } catch {
+        return null
+      }
+    }),
+  )
   return {
     root: root.stdout.trim(),
-    workspaces: parseGitWorktrees(listing.stdout, root.stdout.trim()),
+    workspaces: checked.filter((workspace): workspace is GitWorkspace => workspace !== null),
   }
 }
 

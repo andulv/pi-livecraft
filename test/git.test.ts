@@ -10,6 +10,7 @@ import {
   discardChanges,
   discardFileChanges,
   getGitFileDiff,
+  getGitProject,
   getGitSnapshot,
   isLinkedWorktree,
   mainWorktreeBranch,
@@ -372,5 +373,27 @@ test('lists local commits when there is no upstream or remote', async () => {
     assert.deepEqual(snapshot.commits.map((commit) => commit.subject), ['Second', 'First'])
   } finally {
     await rm(directory, { force: true, recursive: true })
+  }
+})
+
+test('getGitProject omits worktrees whose directory has been removed', async () => {
+  const main = await mkdtemp(join(tmpdir(), 'pi-livecraft-main-'))
+  const worktree = await mkdtemp(join(tmpdir(), 'pi-livecraft-wt-'))
+  try {
+    await execFile('git', ['init', '--quiet'], { cwd: main })
+    await writeFile(join(main, 'f.txt'), 'x\n')
+    await execFile('git', ['add', 'f.txt'], { cwd: main })
+    await execFile('git', ['commit', '--quiet', '-m', 'Initial'], { cwd: main })
+    await execFile('git', ['branch', 'wt'], { cwd: main })
+    await execFile('git', ['worktree', 'add', '--quiet', worktree, 'wt'], { cwd: main })
+    // Remove the linked worktree's directory, leaving git's metadata prunable.
+    await rm(worktree, { force: true, recursive: true })
+
+    const project = await getGitProject(main)
+    assert.equal(project?.workspaces.length, 1)
+    assert.equal(project?.workspaces[0]?.path, main)
+    assert.equal(project?.workspaces[0]?.main, true)
+  } finally {
+    await rm(main, { force: true, recursive: true })
   }
 })
