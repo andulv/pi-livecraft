@@ -47,3 +47,13 @@ export function projectColor(root: string, usedColors: readonly string[] = []): 
   )
   return ordered.find((color) => !usedColors.includes(color)) ?? projectColors[0]
 }
+
+/** Gives linked worktrees a stable color distinct from their project's main checkout. */
+export function worktreeColor(
+  projectRoot: string,
+  workspacePath: string,
+  mainColor: string,
+): string {
+  if (workspacePath === projectRoot) return mainColor
+  return projectColor(workspacePath, [mainColor])
+}

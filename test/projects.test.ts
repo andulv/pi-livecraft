@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { projectFromGit, projectId } from '../src/features/workspace/project-definition.ts'
+import {
+  projectFromGit,
+  projectId,
+  worktreeColor,
+} from '../src/features/workspace/project-definition.ts'
 
 test('creates stable URL-safe project identities and colors', () => {
   const root = '/home/user/source/example'
@@ -22,6 +26,16 @@ test('creates stable URL-safe project identities and colors', () => {
 
 test('uses the repository root rather than its display name as identity', () => {
   assert.notEqual(projectId('/source/one/example'), projectId('/source/two/example'))
+})
+
+test('uses a stable distinct color for a linked worktree', () => {
+  const projectRoot = '/source/example'
+  const mainColor = '#3c6fa8'
+  const linked = worktreeColor(projectRoot, '/source/example-feature', mainColor)
+
+  assert.equal(worktreeColor(projectRoot, projectRoot, mainColor), mainColor)
+  assert.notEqual(linked, mainColor)
+  assert.equal(worktreeColor(projectRoot, '/source/example-feature', mainColor), linked)
 })
 
 test('allocates a different palette color to registered projects', () => {

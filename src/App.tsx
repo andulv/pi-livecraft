@@ -11,6 +11,7 @@ import {
   openExplorer,
   openSession,
   openTerminal,
+  openVSCode,
   pushCommits,
   refreshQuotas,
   resetGitCommit,
@@ -53,6 +54,7 @@ import { RightSidebar } from './features/right-sidebar/RightSidebar.tsx'
 import { quotaProviderForModel } from './features/quotas/quota-display.ts'
 import { ProjectHome } from './features/workspace/ProjectHome.tsx'
 import { projectFaviconHref, projectPageTitle } from './features/workspace/project-tab.ts'
+import { worktreeColor } from './features/workspace/project-definition.ts'
 import type { Project } from './features/workspace/projects.ts'
 import { useProjects } from './features/workspace/useProjects.ts'
 import { sidebarSessions } from './features/workspace/sidebar-sessions.ts'
@@ -124,6 +126,26 @@ function nextConversationView(current: ConversationView): ConversationView {
   if (current === 'simple') return 'semi-detailed'
   if (current === 'semi-detailed') return 'detailed'
   return 'simple'
+}
+
+/** Compact VS Code mark for the workspace launcher in the tool rail. */
+function VSCodeIcon() {
+  return (
+    <svg
+      aria-hidden='true'
+      fill='none'
+      height='18'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='1.8'
+      viewBox='0 0 24 24'
+      width='18'
+    >
+      <path d='m17.1 2.8-7.3 7-4.5-3.4-2.4 1.3v8.6l2.4 1.3 4.5-3.4 7.3 7 4-1.8V4.6l-4-1.8Z' />
+      <path d='m15.7 7.7-4.1 4.3 4.1 4.3' />
+    </svg>
+  )
 }
 /** Routes between the project registry and one URL-addressable Livecraft project. */
 function App() {
@@ -801,6 +823,8 @@ function LivecraftProjectApp(
   const workspaceName = currentProjectWorkspace?.main
     ? 'Main'
     : workspacePath.split(/[\\/]/).filter(Boolean).at(-1) ?? workspacePath
+  const vscodeWorkspaceName = currentProjectWorkspace?.branch ?? workspaceName
+  const vscodeColor = worktreeColor(project.root, workspacePath, project.color)
   const pendingSession = useMemo<SessionSummary>(() => ({
     id: `pending:${workspacePath}`,
     cwd: workspacePath,
@@ -993,6 +1017,12 @@ function LivecraftProjectApp(
       )
       return
     }
+    if (id === 'open-vscode') {
+      void openVSCode(workspacePath, project.name, vscodeWorkspaceName, vscodeColor).catch((
+        cause,
+      ) => showToast('error', messageOf(cause)))
+      return
+    }
     if (id === 'new-session') {
       void startNewSession(() => createSession(workspacePath))
       return
@@ -1070,7 +1100,10 @@ function LivecraftProjectApp(
     snapshot.messages,
     startNewSession,
     terminalCommand,
+    vscodeWorkspaceName,
     workspacePath,
+    project.name,
+    vscodeColor,
   ])
 
   const paletteCommands: PaletteCommand[] = useMemo(() => {
@@ -1192,7 +1225,24 @@ function LivecraftProjectApp(
         )
       },
     },
-  ], [showToast, terminalCommand, workspacePath])
+    {
+      key: 'vscode',
+      icon: <VSCodeIcon />,
+      label: `Open ${vscodeWorkspaceName} in VS Code`,
+      onClick: () => {
+        void openVSCode(workspacePath, project.name, vscodeWorkspaceName, vscodeColor).catch((
+          cause,
+        ) => showToast('error', messageOf(cause)))
+      },
+    },
+  ], [
+    project.name,
+    showToast,
+    vscodeColor,
+    terminalCommand,
+    vscodeWorkspaceName,
+    workspacePath,
+  ])
 
   // Application layout
   const rightPanelVisible = activeRightWidget === 'todo' || activeRightWidget === 'quotas'

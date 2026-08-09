@@ -140,6 +140,18 @@ export async function updateTodos(cwd: string, todos: TodoItem[]): Promise<TodoI
   })
 }
 
+export async function openVSCode(
+  cwd: string,
+  projectName: string,
+  workspaceName: string,
+  color: string,
+): Promise<void> {
+  await request<void>('/api/vscode', {
+    method: 'POST',
+    body: JSON.stringify({ cwd, projectName, workspaceName, color }),
+  })
+}
+
 export async function openTerminal(cwd: string, template: string): Promise<void> {
   await request<void>('/api/terminal', {
     method: 'POST',

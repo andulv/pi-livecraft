@@ -19,6 +19,7 @@ import {
 } from './features/git/git.ts'
 import { QuotaService } from './features/quotas/quota-service.ts'
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
+import { openVSCodeApplication, VSCodeSettingsError } from './features/vscode/launcher.ts'
 import {
   loadWorkspaceTodos,
   parseTodoItems,
@@ -265,6 +266,27 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     }
     await saveWorkspaceTodos(cwd, todos)
     sendJson(response, 200, todos)
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/vscode') {
+    const body = await readJsonBody(request)
+    if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
+    if (
+      typeof body.projectName !== 'string' || typeof body.workspaceName !== 'string'
+      || typeof body.color !== 'string'
+    ) throw new HttpError(400, 'VS Code workspace identity is required')
+    try {
+      await openVSCodeApplication(await resolveWorkingDirectory(body.cwd), {
+        projectName: body.projectName,
+        workspaceName: body.workspaceName,
+        color: body.color,
+      })
+      sendJson(response, 200, { ok: true })
+    } catch (error) {
+      if (error instanceof VSCodeSettingsError) throw new HttpError(400, error.message)
+      throw error
+    }
     return
   }
 
