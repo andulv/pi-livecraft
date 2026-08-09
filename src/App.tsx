@@ -52,6 +52,7 @@ import {
 import { RightSidebar } from './features/right-sidebar/RightSidebar.tsx'
 import { quotaProviderForModel } from './features/quotas/quota-display.ts'
 import { ProjectHome } from './features/workspace/ProjectHome.tsx'
+import { projectFaviconHref, projectPageTitle } from './features/workspace/project-tab.ts'
 import type { Project } from './features/workspace/projects.ts'
 import { useProjects } from './features/workspace/useProjects.ts'
 import { sidebarSessions } from './features/workspace/sidebar-sessions.ts'
@@ -138,6 +139,12 @@ function App() {
     unavailableProjectIds,
   } = useProjects()
   const project = projects.find((candidate) => candidate.id === projectId)
+
+  useEffect(() => {
+    document.title = projectPageTitle(project?.name)
+    const favicon = document.querySelector<HTMLLinkElement>('#app-favicon')
+    if (favicon) favicon.href = projectFaviconHref(project?.color)
+  }, [project?.color, project?.name])
 
   useEffect(() => {
     const onPopState = (): void => setProjectId(projectIdFromLocation())
