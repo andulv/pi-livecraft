@@ -4,6 +4,7 @@ import {
   getGitProject,
   listRecentSessions,
   listSessions,
+  openSession as requestOpenSession,
   renameSession as renameStoredSession,
   sendPiCommand,
 } from '../../api.ts'
@@ -17,8 +18,8 @@ import { promptSessionTitle } from '../composer/prompt-title.ts'
 import { recentWorkspaces } from './recent-workspaces.ts'
 import type { Project } from './projects.ts'
 import {
+  newestWorkspaceSession,
   nextActiveSessionId,
-  pickSessionOnOpen,
   sidebarSessions,
   type SessionActionTarget,
 } from './sidebar-sessions.ts'
@@ -34,7 +35,9 @@ interface WorkspaceSessionsOptions {
 
 interface StartSessionOptions {
   draftMessage?: string
+  initialImages?: JsonObject[]
   initialMessage?: string
+  nameFromInitialMessage?: boolean
 }
 
 const COMPLETED_SESSIONS_KEY = 'pi-livecraft.completed-sessions'
@@ -132,7 +135,7 @@ export function useWorkspaceSessions(
           discoveredWorkspacePaths.length > 0 ? discoveredWorkspacePaths : [cwd],
         ),
       ]
-      const [nextSessions, recentSessionLists] = await Promise.all([
+      const [listedSessions, recentSessionLists] = await Promise.all([
         listSessions(),
         Promise.all(
           workspacePaths.map((path) => listRecentSessions(path).catch(() => [])),
@@ -140,13 +143,26 @@ export function useWorkspaceSessions(
       ])
       const nextRecentSessions = recentSessionLists.flat()
       if (version !== refreshVersionRef.current) return
-      const autoSelectId = shouldAutoSelect
-        ? pickSessionOnOpen(
+      let nextSessions = listedSessions
+      let autoSelectId: string | undefined
+      if (shouldAutoSelect) {
+        const target = newestWorkspaceSession(
           sidebarSessions(nextRecentSessions, cwd, sentSessionsRef.current),
           nextSessions,
-          completedSessionIdsRef.current,
         )
-        : undefined
+        if (target?.activeSessionId) autoSelectId = target.activeSessionId
+        else if (target) {
+          const opened = await requestOpenSession(cwd, target.sessionPath)
+          if (version !== refreshVersionRef.current) return
+          nextSessions = [
+            ...nextSessions.filter((session) =>
+              session.id !== opened.id && session.sessionPath !== opened.sessionPath
+            ),
+            opened,
+          ]
+          autoSelectId = opened.id
+        }
+      }
       const recentNames = new Map(
         nextRecentSessions.map((session) => [session.sessionPath, session.name]),
       )
@@ -274,8 +290,13 @@ export function useWorkspaceSessions(
         setSelectedId(session.id)
         if (options.draftMessage) onDraftMessage(session.id, options.draftMessage)
         if (options.initialMessage) {
-          await sendPiCommand(session.id, { type: 'prompt', message: options.initialMessage })
-          nameSessionFromFirstPrompt(session, options.initialMessage)
+          await sendPiCommand(session.id, {
+            type: 'prompt',
+            message: options.initialMessage,
+            images: options.initialImages ?? [],
+          })
+          if (options.nameFromInitialMessage !== false)
+            nameSessionFromFirstPrompt(session, options.initialMessage)
           await refreshSessions()
           onInitialMessageSent()
         }

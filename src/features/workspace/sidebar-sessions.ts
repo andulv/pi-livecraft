@@ -80,30 +80,20 @@ export function otherWorkspaceSessions(
   )
 }
 
-/**
- * Picks the session to auto-select when opening a workspace.
- * Priority: most recent completed unviewed session → most recent active session → none.
- */
-export function pickSessionOnOpen(
+export interface WorkspaceSessionTarget {
+  sessionPath: string
+  activeSessionId?: string
+}
+
+/** Picks the newest visible session, reopening it when no live process owns it. */
+export function newestWorkspaceSession(
   visibleSessions: RecentSession[],
   activeSessions: SessionSummary[],
-  completedSessionIds: ReadonlySet<string>,
-): string | null {
-  for (const visible of visibleSessions) {
-    const active = activeSessions.find(
-      (s) => s.sessionPath === visible.sessionPath && s.status !== 'exited',
-    )
-    if (active && active.status === 'idle' && completedSessionIds.has(visible.sessionPath)) {
-      return active.id
-    }
-  }
-  for (const visible of visibleSessions) {
-    const active = activeSessions.find(
-      (s) => s.sessionPath === visible.sessionPath && s.status !== 'exited',
-    )
-    if (active && (active.status === 'starting' || active.status === 'running')) {
-      return active.id
-    }
-  }
-  return null
+): WorkspaceSessionTarget | null {
+  const newest = visibleSessions[0]
+  if (!newest) return null
+  const active = activeSessions.find(
+    (session) => session.sessionPath === newest.sessionPath && session.status !== 'exited',
+  )
+  return { sessionPath: newest.sessionPath, activeSessionId: active?.id }
 }

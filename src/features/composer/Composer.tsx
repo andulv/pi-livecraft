@@ -64,6 +64,7 @@ export const Composer = memo(function Composer({
   focusRequest,
   draftRequest,
   onDraftApplied,
+  persistDrafts = true,
 }: {
   session: SessionSummary
   snapshot: SessionSnapshot
@@ -101,9 +102,12 @@ export const Composer = memo(function Composer({
   focusRequest?: number
   draftRequest?: { id: string; message: string }
   onDraftApplied?: (id: string) => void
+  persistDrafts?: boolean
 }) {
   const draftStorageKey = `pi-livecraft.composer-draft.${session.id}`
-  const [message, setMessage] = useState(() => readComposerDraft(draftStorageKey))
+  const [message, setMessage] = useState(() =>
+    persistDrafts ? readComposerDraft(draftStorageKey) : ''
+  )
   const [images, setImages] = useState<ComposerImage[]>([])
   const [preparingImages, setPreparingImages] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -222,13 +226,14 @@ export const Composer = memo(function Composer({
 
   /** Persists the draft to storage, tolerating unavailable storage (private browsing). */
   const persistDraft = useCallback((text: string): void => {
+    if (!persistDrafts) return
     try {
       if (text) window.localStorage.setItem(draftStorageKey, text)
       else window.localStorage.removeItem(draftStorageKey)
     } catch {
       // Storage can be unavailable in private browsing; the in-memory draft still works.
     }
-  }, [draftStorageKey])
+  }, [draftStorageKey, persistDrafts])
 
   // Flush the pending draft on unmount so switching sessions within the debounce window cannot drop the write.
   // During a prompt preview messageRef holds the preview text; prefer the saved original so the preview is never persisted.

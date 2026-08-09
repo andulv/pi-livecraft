@@ -26,6 +26,7 @@ import type {
   JsonObject,
   ManagerRuntimeStatus,
   QuotaSnapshot,
+  SessionSnapshot,
   SessionSummary,
 } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
@@ -108,6 +109,15 @@ type ConversationView = keyof typeof conversationViewDetails
 const gitRefreshDelayMs = 250
 const managerUnavailableMessage = 'Pi manager is unavailable'
 const managerUnavailableToastDelayMs = 1_000
+const blankSessionSnapshot: SessionSnapshot = {
+  state: null,
+  messages: [],
+  models: [],
+  commands: [],
+  promptTemplates: [],
+  stats: null,
+  liveEvents: [],
+}
 
 function nextConversationView(current: ConversationView): ConversationView {
   if (current === 'simple') return 'semi-detailed'
@@ -773,6 +783,13 @@ function LivecraftProjectApp(
 
   // Selected session and loading state
   const selectedSession = sessions.find((session) => session.id === selectedId)
+  const pendingSession = useMemo<SessionSummary>(() => ({
+    id: `pending:${workspacePath}`,
+    cwd: workspacePath,
+    name: 'New session',
+    status: 'idle',
+    pendingUi: [],
+  }), [workspacePath])
   const selectedSessionId = selectedSession?.id
   const selectedSessionStatus = selectedSession?.status
   const sessionIsLoading = Boolean(selectedSessionId && snapshotSessionId !== selectedSessionId)
@@ -824,6 +841,15 @@ function LivecraftProjectApp(
       behavior: 'steer' | 'followUp',
       isCommand: boolean,
     ) => {
+      if (!selectedId) {
+        const created = await startWorkspaceSession(() => createSession(workspacePath), {
+          initialImages: images,
+          initialMessage: message,
+          nameFromInitialMessage: !isCommand,
+        })
+        if (!created) throw new Error('Could not start the session')
+        return
+      }
       const command: JsonObject = { type: 'prompt', message, images }
       const isSteering = !isCommand && selectedSessionStatus === 'running' && behavior === 'steer'
       if (selectedSessionStatus === 'running') command.streamingBehavior = behavior
@@ -856,13 +882,19 @@ function LivecraftProjectApp(
       selectedSessionStatus,
       sessions,
       snapshot.messages,
+      startWorkspaceSession,
+      workspacePath,
     ],
   )
   const handleComposerAbort = useCallback(() => sendPiCommand(selectedId, { type: 'abort' }), [
     selectedId,
   ])
   const handlePromptImprovement = useCallback(
-    (prompt: string, direction?: string) => improvePrompt(selectedId, prompt, direction),
+    (prompt: string, direction?: string) => {
+      if (!selectedId)
+        return Promise.reject(new Error('Start the session before improving prompts'))
+      return improvePrompt(selectedId, prompt, direction)
+    },
     [selectedId],
   )
   /** Persists the draft through Pi's prompt directories and confirms its scope to the user. */
@@ -942,9 +974,7 @@ function LivecraftProjectApp(
       return
     }
     if (id === 'new-session') {
-      void startAndSelectSession(() => createSession(workspacePath)).catch((cause) =>
-        showToast('error', messageOf(cause))
-      )
+      setSelectedId('')
       return
     }
     if (id === 'send') {
@@ -1018,7 +1048,6 @@ function LivecraftProjectApp(
     setSelectedId,
     showToast,
     snapshot.messages,
-    startAndSelectSession,
     terminalCommand,
     workspacePath,
   ])
@@ -1174,12 +1203,11 @@ function LivecraftProjectApp(
         project={project}
         projectDetails={projectWorkspaces[project.root]}
         onOpenHome={onOpenHome}
-        onCreate={async () => {
-          await startAndSelectSession(() => createSession(workspacePath))
-        }}
+        onNewSession={() => setSelectedId('')}
         onOpenSession={async (recentSession) => {
           await startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))
         }}
+        onSelectWorkspace={selectWorkspace}
         onSelectOtherWorkspaceSession={(session) => selectWorkspace(session.cwd, session.id)}
         onSelectSession={setSelectedId}
         onError={(cause) => showToast('error', messageOf(cause))}
@@ -1357,12 +1385,49 @@ function LivecraftProjectApp(
           )
           : (
             <>
-              <section className='welcome'>
+              <ChatTopBar
+                git={gitSnapshot?.repository
+                  ? { branch: gitSnapshot.branch ?? 'HEAD', worktree: gitSnapshot.worktree }
+                  : null}
+                running={false}
+                session={pendingSession}
+                stats={null}
+                compacting={false}
+              />
+              <section className='welcome pending-session-welcome'>
                 <span className='brand-mark large'>π</span>
-                <h1>Control Pi from your browser</h1>
-                <p>Create a local session to access your models, agents, tools, and commands.</p>
+                <h1>New session</h1>
+                <p>Send a message to start this session.</p>
               </section>
-              <ToastStack onDismiss={dismissToast} standalone toasts={visibleToasts} />
+              <div className='composer-area'>
+                <ToastStack onDismiss={dismissToast} toasts={visibleToasts} />
+                <Composer
+                  key={pendingSession.id}
+                  session={pendingSession}
+                  snapshot={blankSessionSnapshot}
+                  agentBusy={false}
+                  agentOptions={emptyAgentOptions}
+                  agentOptionsLoading={false}
+                  selectedAgent=''
+                  onAgentChange={() => undefined}
+                  onRequestAgentOptions={() => undefined}
+                  onCommand={() => Promise.reject(new Error('Send a message to start the session'))}
+                  commands={[]}
+                  agentLoading={false}
+                  focusRequest={focusComposerRequest}
+                  showAgentSelector={false}
+                  running={false}
+                  onSend={handleComposerSend}
+                  onAbort={() => Promise.resolve({})}
+                  onImprovePrompt={handlePromptImprovement}
+                  onSavePrompt={handleSavePrompt}
+                  onError={handleConversationError}
+                  requestedSelect={null}
+                  onSelectOpened={handleComposerSelectOpened}
+                  submitRequest={submitRequest}
+                  persistDrafts={false}
+                />
+              </div>
             </>
           )}
       </main>

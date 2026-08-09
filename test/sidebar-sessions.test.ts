@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { RecentSession, SessionSummary } from '../shared/types.ts'
 import {
+  newestWorkspaceSession,
   otherWorkspaceSessions,
-  pickSessionOnOpen,
   sidebarSessions,
   workspaceActivity,
 } from '../src/features/workspace/sidebar-sessions.ts'
@@ -128,111 +128,46 @@ test('hides current, idle viewed, and exited sessions from other workspaces', ()
   )
 })
 
-// -- pickSessionOnOpen ------------------------------------------------------
+// -- newestWorkspaceSession ------------------------------------------------
 
-const runningSession: SessionSummary = {
-  id: 'active-1',
+const newestVisible: RecentSession = {
+  id: 'newest',
   cwd: '/workspace',
-  name: 'Running session',
-  sessionPath: '/sessions/active.jsonl',
-  status: 'running',
-  pendingUi: [],
-}
-
-const idleCompletedSession: SessionSummary = {
-  id: 'idle-1',
-  cwd: '/workspace',
-  name: 'Idle completed',
-  sessionPath: '/sessions/idle.jsonl',
-  status: 'idle',
-  pendingUi: [],
-}
-
-const startingSession: SessionSummary = {
-  id: 'starting-1',
-  cwd: '/workspace',
-  name: 'Starting session',
-  sessionPath: '/sessions/starting.jsonl',
-  status: 'starting',
-  pendingUi: [],
-}
-
-const exitedSession: SessionSummary = {
-  id: 'exited-1',
-  cwd: '/workspace',
-  name: 'Exited session',
-  sessionPath: '/sessions/exited.jsonl',
-  status: 'exited',
-  pendingUi: [],
-}
-
-const visibleCompleted: RecentSession = {
-  id: 'idle-1',
-  cwd: '/workspace',
-  name: 'Idle completed',
-  sessionPath: '/sessions/idle.jsonl',
-  updatedAt: 200,
-}
-
-const visibleRunning: RecentSession = {
-  id: 'active-1',
-  cwd: '/workspace',
-  name: 'Running session',
-  sessionPath: '/sessions/active.jsonl',
+  name: 'Newest',
+  sessionPath: '/sessions/newest.jsonl',
   updatedAt: 300,
 }
 
-const visibleStarting: RecentSession = {
-  id: 'starting-1',
-  cwd: '/workspace',
-  name: 'Starting session',
-  sessionPath: '/sessions/starting.jsonl',
-  updatedAt: 100,
+const olderVisible: RecentSession = {
+  ...newestVisible,
+  id: 'older',
+  name: 'Older',
+  sessionPath: '/sessions/older.jsonl',
+  updatedAt: 200,
 }
 
-test('pickSessionOnOpen returns the most recent completed unviewed session first', () => {
-  const visible = [visibleRunning, visibleCompleted]
-  const active = [runningSession, idleCompletedSession]
-  const completed = new Set(['/sessions/idle.jsonl'])
-
-  assert.equal(pickSessionOnOpen(visible, active, completed), 'idle-1')
+test('selects the session at the top of the workspace list', () => {
+  assert.deepEqual(newestWorkspaceSession([newestVisible, olderVisible], []), {
+    sessionPath: newestVisible.sessionPath,
+    activeSessionId: undefined,
+  })
 })
 
-test('pickSessionOnOpen falls back to the most recent active session when no completed unviewed', () => {
-  const visible = [visibleStarting, visibleRunning]
-  const active = [startingSession, runningSession]
-  const completed = new Set<string>()
-
-  assert.equal(pickSessionOnOpen(visible, active, completed), 'starting-1')
-})
-
-test('pickSessionOnOpen skips idle sessions not flagged as completed', () => {
-  const visible = [visibleCompleted]
-  const active = [idleCompletedSession]
-  const completed = new Set<string>()
-
-  assert.equal(pickSessionOnOpen(visible, active, completed), null)
-})
-
-test('pickSessionOnOpen skips exited sessions', () => {
-  const visibleExited: RecentSession = {
-    ...visibleCompleted,
-    sessionPath: '/sessions/exited.jsonl',
+test('reuses the live process for the newest session', () => {
+  const active: SessionSummary = {
+    id: 'active-newest',
+    cwd: '/workspace',
+    name: 'Newest',
+    sessionPath: newestVisible.sessionPath,
+    status: 'idle',
+    pendingUi: [],
   }
-  const visible = [visibleExited]
-  const active = [exitedSession]
-  const completed = new Set(['/sessions/exited.jsonl'])
-
-  assert.equal(pickSessionOnOpen(visible, active, completed), null)
+  assert.deepEqual(newestWorkspaceSession([newestVisible, olderVisible], [active]), {
+    sessionPath: newestVisible.sessionPath,
+    activeSessionId: active.id,
+  })
 })
 
-test('pickSessionOnOpen returns null when no candidate exists', () => {
-  assert.equal(pickSessionOnOpen([], [], new Set()), null)
-})
-
-test('pickSessionOnOpen picks a starting session as active', () => {
-  const visible = [visibleStarting]
-  const active = [startingSession]
-
-  assert.equal(pickSessionOnOpen(visible, active, new Set()), 'starting-1')
+test('returns no target for an empty workspace', () => {
+  assert.equal(newestWorkspaceSession([], []), null)
 })

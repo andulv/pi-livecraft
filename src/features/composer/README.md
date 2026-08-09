@@ -34,7 +34,7 @@ All data arrives through props. The Composer never calls the backend directly.
 ## Internal state
 
 - `message`, `images` — the draft; persisted to `localStorage` per session
-  (`pi-livecraft.composer-draft.<sessionId>`).
+  (`pi-livecraft.composer-draft.<sessionId>`). Pending sessions pass `persistDrafts={false}` so an abandoned, not-yet-created session leaves no stored draft.
 - `slashOpen`, `slashFilter`, `slashIndex` — slash-command popover.
 - `openSelect` — which dropdown (agent/model/thinking) is open.
 - `behavior` — `steer` vs `followUp`, only visible while Pi is running.

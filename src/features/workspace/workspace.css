@@ -208,11 +208,20 @@
   min-width: 0;
 }
 .sidebar-section-heading > span {
+  min-width: 0;
+  overflow: hidden;
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+.sidebar-section-heading > span b {
+  color: var(--ink);
+  font-weight: 700;
+  text-transform: none;
 }
 .sidebar-section-heading button,
 .project-title button {
@@ -416,30 +425,25 @@
 }
 
 .new-session {
-  width: 100%;
-  height: 44px;
-  margin-bottom: 4px;
-  border: 1px solid var(--accent);
-  border-radius: 9px;
-  padding: 0 12px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 13px;
-  font-weight: 700;
-  box-shadow:
-    0 2px 0 var(--accent-hover),
-    0 5px 10px color-mix(in srgb, var(--accent) 16%, transparent);
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  padding: 0;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 16px;
+  line-height: 1;
   transition:
     background 180ms ease,
-    box-shadow 180ms ease,
+    border-color 180ms ease,
     transform 180ms ease;
 }
 .new-session:hover:not(:disabled) {
-  background: var(--accent-hover);
-  box-shadow:
-    0 1px 0 color-mix(in srgb, var(--accent-hover) 50%, black),
-    0 4px 8px color-mix(in srgb, var(--accent) 18%, transparent);
-  transform: translateY(1px);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
 }
 .new-session:active:not(:disabled) {
   transform: scale(0.97);
@@ -447,7 +451,6 @@
 .new-session:disabled {
   cursor: not-allowed;
   opacity: 0.5;
-  box-shadow: none;
   transform: none;
 }
 
@@ -582,7 +585,7 @@
   max-height: 35%;
   padding: 2px 0 8px;
 }
-.sessions-heading, .new-session, .session-list {
+.sessions-heading, .session-list {
   order: 2;
 }
 .other-session-list {

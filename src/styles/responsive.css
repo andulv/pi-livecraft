@@ -139,14 +139,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .new-session {
-    grid-row: 1;
-    grid-column: 2;
-    align-self: center;
-    width: auto;
-    margin-bottom: 0;
-    padding-inline: 13px;
-  }
   .session-list {
     grid-row: 3;
     grid-column: 1 / -1;

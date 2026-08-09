@@ -42,8 +42,9 @@ interface WorkspaceSidebarProps {
   project: Project
   projectDetails?: GitProject
   onOpenHome: () => void
-  onCreate: () => Promise<void>
+  onNewSession: () => void
   onOpenSession: (session: RecentSession) => Promise<void>
+  onSelectWorkspace: (path: string) => void
   onSelectOtherWorkspaceSession: (session: SessionSummary) => void
   onSelectSession: (sessionId: string) => void
   onOpenSettings: () => void
@@ -68,8 +69,9 @@ export function WorkspaceSidebar({
   project,
   projectDetails,
   onOpenHome,
-  onCreate,
+  onNewSession,
   onOpenSession,
+  onSelectWorkspace,
   onSelectOtherWorkspaceSession,
   onSelectSession,
   onOpenSettings,
@@ -108,6 +110,8 @@ export function WorkspaceSidebar({
     workspacePath,
     workspaces,
   ])
+  const selectedWorkspace = workspaces.find(({ path }) => path === workspacePath)
+  const selectedWorkspaceLabel = selectedWorkspace?.branch ?? workspacePath
   const projectIndicator = aggregateSessionIndicator(
     sessions.filter(({ cwd }) => workspaces.some(({ path }) => path === cwd)),
     selectedId,
@@ -306,14 +310,7 @@ export function WorkspaceSidebar({
                       workspace.path === workspacePath ? ' selected' : ''
                     }`}
                     key={workspace.path}
-                    onClick={() =>
-                      onSelectOtherWorkspaceSession({
-                        id: '',
-                        cwd: workspace.path,
-                        name: '',
-                        status: 'idle',
-                        pendingUi: [],
-                      })}
+                    onClick={() => onSelectWorkspace(workspace.path)}
                     type='button'
                   >
                     <WorkspaceIcon />
@@ -332,9 +329,20 @@ export function WorkspaceSidebar({
         </div>
       </section>
       <div className='sidebar-section-heading sessions-heading'>
-        <span>Sessions</span>
+        <span title={workspacePath}>
+          Sessions – <b>{selectedWorkspaceLabel}</b>
+        </span>
+        <Tooltip label='New session'>
+          <button
+            aria-label={`New session in ${selectedWorkspaceLabel}`}
+            className='new-session'
+            onClick={onNewSession}
+            type='button'
+          >
+            ＋
+          </button>
+        </Tooltip>
       </div>
-      <NewSessionButton onCreate={onCreate} onError={onError} />
       <nav className='session-list' aria-label='Recent Pi sessions'>
         {isRefreshing && visibleSessions.length === 0 && (
           <p className='session-list-loading' role='status'>Loading sessions…</p>
@@ -497,35 +505,6 @@ function SessionActions({
         …
       </button>
     </Tooltip>
-  )
-}
-
-/** Prevents duplicate session creation and reports errors to the container. */
-function NewSessionButton(
-  { onCreate, onError }: { onCreate: () => Promise<void>; onError: (cause: unknown) => void },
-) {
-  const [busy, setBusy] = useState(false)
-
-  async function create(): Promise<void> {
-    setBusy(true)
-    try {
-      await onCreate()
-    } catch (cause) {
-      onError(cause)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <button
-      className='new-session'
-      disabled={busy}
-      onClick={() => void create()}
-      type='button'
-    >
-      {busy ? 'Starting…' : '＋ New session'}
-    </button>
   )
 }
 
