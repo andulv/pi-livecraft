@@ -8,7 +8,11 @@ import {
 } from '../shared/quota-parsers.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import { QuotaCache } from '../server/features/quotas/quota-cache.ts'
-import { quotaProviderForModel, railQuota } from '../src/features/quotas/quota-display.ts'
+import {
+  glmPeriodProgress,
+  quotaProviderForModel,
+  railQuota,
+} from '../src/features/quotas/quota-display.ts'
 
 test('normalizes the Codex five-hour and weekly windows', () => {
   assert.deepEqual(
@@ -98,6 +102,16 @@ test('throttles automatic quota refreshes for 30 seconds but never manual ones',
   assert.equal(quotaRefreshAllowed(10_000, true, 39_999), false)
   assert.equal(quotaRefreshAllowed(10_000, true, 40_000), true)
   assert.equal(quotaRefreshAllowed(39_999, false, 40_000), true)
+})
+
+test('calculates elapsed GLM reset periods from their reset times', () => {
+  const now = Date.UTC(2030, 0, 1, 12)
+  assert.equal(glmPeriodProgress('session', now + 2.5 * 60 * 60 * 1000, now), 50)
+  assert.equal(glmPeriodProgress('weekly', now + 3.5 * 24 * 60 * 60 * 1000, now), 50)
+  assert.equal(glmPeriodProgress('session', now + 6 * 60 * 60 * 1000, now), 0)
+  assert.equal(glmPeriodProgress('weekly', now - 1, now), 100)
+  assert.equal(glmPeriodProgress('web-searches', now, now), undefined)
+  assert.equal(glmPeriodProgress('session', undefined, now), undefined)
 })
 
 test('shows the primary quota for the provider selected by the model', () => {

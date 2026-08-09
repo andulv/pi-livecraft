@@ -8,6 +8,22 @@ export interface RailQuota {
   value: string
 }
 
+const glmWindowDuration: Record<'session' | 'weekly', number> = {
+  session: 5 * 60 * 60 * 1000,
+  weekly: 7 * 24 * 60 * 60 * 1000,
+}
+
+/** Returns how much of a GLM reset window has elapsed, when its reset is known. */
+export function glmPeriodProgress(
+  kind: 'session' | 'weekly' | 'web-searches',
+  resetsAt: number | undefined,
+  now: number,
+): number | undefined {
+  if (kind === 'web-searches' || !resetsAt) return undefined
+  const duration = glmWindowDuration[kind]
+  return Math.max(0, Math.min(100, (1 - (resetsAt - now) / duration) * 100))
+}
+
 export function quotaProviderForModel(provider: unknown): QuotaProvider | undefined {
   if (provider === 'openai-codex') return 'openai'
   if (provider === 'github-copilot') return 'copilot'

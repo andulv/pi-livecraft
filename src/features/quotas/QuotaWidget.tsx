@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
+import { glmPeriodProgress } from './quota-display.ts'
 import type { QuotaProviderSnapshot, QuotaSnapshot } from '../../../shared/types.ts'
 
 /** Displays normalized quota readings without deducing absent quota from provider responses. */
@@ -7,6 +8,7 @@ export function QuotaWidget(
   { quotas, onRefresh }: { quotas: QuotaSnapshot | null; onRefresh: () => Promise<void> },
 ) {
   const [refreshing, setRefreshing] = useState(false)
+  const now = useCurrentTime()
   const updatedAt = Math.max(
     quotas?.openai.updatedAt ?? 0,
     quotas?.copilot.updatedAt ?? 0,
@@ -81,6 +83,7 @@ export function QuotaWidget(
             <ProviderSection name='GLM (Z.AI)' provider={quotas.glm}>
               {quotas.glm.data.map((window) => {
                 const isPercent = window.kind === 'session' || window.kind === 'weekly'
+                const periodProgress = glmPeriodProgress(window.kind, window.resetsAt, now)
                 return (
                   <div className='quota-row' key={window.kind}>
                     <div className='quota-row-copy'>
@@ -93,18 +96,29 @@ export function QuotaWidget(
                           }`}
                       </b>
                     </div>
-                    <QuotaBar
-                      label={isPercent
-                        ? `${formatPercent(window.usedPercent ?? 0)} used`
-                        : `${formatNumber(window.used ?? 0)} used of ${
-                          formatNumber(window.limit ?? 0)
-                        }`}
-                      value={isPercent
-                        ? window.usedPercent ?? 0
-                        : window.limit
-                        ? (window.used ?? 0) / window.limit * 100
-                        : 0}
-                    />
+                    <div className='quota-bars'>
+                      <QuotaBar
+                        label={isPercent
+                          ? `${formatPercent(window.usedPercent ?? 0)} used`
+                          : `${formatNumber(window.used ?? 0)} used of ${
+                            formatNumber(window.limit ?? 0)
+                          }`}
+                        value={isPercent
+                          ? window.usedPercent ?? 0
+                          : window.limit
+                          ? (window.used ?? 0) / window.limit * 100
+                          : 0}
+                      />
+                      {periodProgress !== undefined && (
+                        <QuotaBar
+                          label={`${formatPercent(periodProgress)} of the ${
+                            window.kind === 'session' ? '5-hour' : '7-day'
+                          } period elapsed`}
+                          period
+                          value={periodProgress}
+                        />
+                      )}
+                    </div>
                     {window.resetsAt && <small>Reset {formatReset(window.resetsAt)}</small>}
                   </div>
                 )
@@ -146,20 +160,35 @@ function glmLabel(kind: string): string {
   return kind
 }
 
-function QuotaBar({ label, value }: { label: string; value: number }) {
+function QuotaBar(
+  { label, period = false, value }: { label: string; period?: boolean; value: number },
+) {
   const bounded = Math.min(100, Math.max(0, value))
   return (
-    <div
-      aria-label={label}
-      aria-valuemax={100}
-      aria-valuemin={0}
-      aria-valuenow={Math.round(bounded)}
-      className='quota-bar'
-      role='progressbar'
-    >
-      <span style={{ width: `${bounded}%` }} />
+    <div className='quota-bar-row'>
+      <span className='quota-bar-label'>{period ? 'Period' : 'Usage'}</span>
+      <div
+        aria-label={label}
+        aria-valuemax={100}
+        aria-valuemin={0}
+        aria-valuenow={Math.round(bounded)}
+        className={`quota-bar${period ? ' quota-bar-period' : ''}`}
+        role='progressbar'
+      >
+        <span style={{ width: `${bounded}%` }} />
+      </div>
     </div>
   )
+}
+
+/** Updates elapsed-period bars even when quota data is not refreshed. */
+function useCurrentTime(): number {
+  const [now, setNow] = useState(Date.now)
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(interval)
+  }, [])
+  return now
 }
 
 function QuotaSkeleton() {
