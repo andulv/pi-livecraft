@@ -35,6 +35,21 @@ export function sidebarSessions(
     .sort((left, right) => right.updatedAt - left.updatedAt)
 }
 
+/** Finds a live, message-free session that can satisfy the new-session action. */
+export function reusableNewSession(
+  sessions: SessionSummary[],
+  recentSessions: RecentSession[],
+  workspacePath: string,
+): SessionSummary | null {
+  const persistedPaths = new Set(recentSessions.map(({ sessionPath }) => sessionPath))
+  return sessions.find((session) =>
+    session.cwd === workspacePath
+    && session.name === 'New session'
+    && session.status !== 'exited'
+    && (!session.sessionPath || !persistedPaths.has(session.sessionPath))
+  ) ?? null
+}
+
 /** Picks the next visible active session after closing the selected one. */
 export function nextActiveSessionId(
   closedSessionId: string,

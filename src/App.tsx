@@ -403,6 +403,7 @@ function LivecraftProjectApp(
     recentWorkspacePaths,
     refreshSessions,
     removePendingRequest,
+    retainNewSession,
     renameManagedSession,
     renameSession,
     selectCreatedSession,
@@ -412,6 +413,7 @@ function LivecraftProjectApp(
     setSelectedId,
     selectWorkspace,
     startAndSelectSession: startWorkspaceSession,
+    startNewSession,
     updateSession,
     workspacePath,
   } = useWorkspaceSessions({
@@ -863,6 +865,7 @@ function LivecraftProjectApp(
       const optimisticId = !isSteering && !isCommand ? addOptimisticUserMessage(message) : undefined
       try {
         await sendPiCommand(selectedId, command)
+        if (!isCommand) retainNewSession(selectedId)
         const sentSession = sessions.find((session) => session.id === selectedId)
         const shouldNameSession = !isCommand && sentSession?.name === 'New session'
           && !snapshot
@@ -884,6 +887,7 @@ function LivecraftProjectApp(
       refreshSessions,
       removeLiveMessage,
       removePendingSteering,
+      retainNewSession,
       selectedId,
       selectedSessionStatus,
       sessions,
@@ -980,7 +984,7 @@ function LivecraftProjectApp(
       return
     }
     if (id === 'new-session') {
-      void startAndSelectSession(() => createSession(workspacePath))
+      void startNewSession(() => createSession(workspacePath))
       return
     }
     if (id === 'send') {
@@ -1054,7 +1058,7 @@ function LivecraftProjectApp(
     setSelectedId,
     showToast,
     snapshot.messages,
-    startAndSelectSession,
+    startNewSession,
     terminalCommand,
     workspacePath,
   ])
@@ -1211,7 +1215,7 @@ function LivecraftProjectApp(
         projectDetails={projectWorkspaces[project.root]}
         onOpenHome={onOpenHome}
         onNewSession={async () => {
-          await startAndSelectSession(() => createSession(workspacePath))
+          await startNewSession(() => createSession(workspacePath))
         }}
         onOpenSession={async (recentSession) => {
           await startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))

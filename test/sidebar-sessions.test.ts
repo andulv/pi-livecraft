@@ -4,6 +4,7 @@ import type { RecentSession, SessionSummary } from '../shared/types.ts'
 import {
   newestWorkspaceSession,
   otherWorkspaceSessions,
+  reusableNewSession,
   sidebarSessions,
   workspaceActivity,
 } from '../src/features/workspace/sidebar-sessions.ts'
@@ -63,6 +64,26 @@ test('orders sessions by their latest activity', () => {
   }
 
   assert.deepEqual(sidebarSessions([older, newer], '/workspace'), [newer, older])
+})
+
+test('reuses a live new session only while it has no persisted messages', () => {
+  const empty: SessionSummary = {
+    id: 'empty',
+    cwd: '/workspace',
+    name: 'New session',
+    sessionPath: '/sessions/empty.jsonl',
+    status: 'idle',
+    pendingUi: [],
+  }
+  assert.equal(reusableNewSession([empty], [], '/workspace'), empty)
+  assert.equal(
+    reusableNewSession(
+      [empty],
+      [{ ...persisted, sessionPath: '/sessions/empty.jsonl' }],
+      '/workspace',
+    ),
+    null,
+  )
 })
 
 // -- otherWorkspaceSessions ------------------------------------------------

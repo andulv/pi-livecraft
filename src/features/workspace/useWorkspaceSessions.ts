@@ -20,6 +20,7 @@ import type { Project } from './projects.ts'
 import {
   newestWorkspaceSession,
   nextActiveSessionId,
+  reusableNewSession,
   sidebarSessions,
   type SessionActionTarget,
 } from './sidebar-sessions.ts'
@@ -82,6 +83,7 @@ export function useWorkspaceSessions(
   const completedSessionIdsRef = useRef(completedSessionIds)
   const selectedIdRef = useRef(selectedId)
   const creatingSessionRef = useRef(false)
+  const transientNewSessionIdRef = useRef<string | null>(null)
   const refreshVersionRef = useRef(0)
   const autoSelectOnRefreshRef = useRef(true)
   sessionsRef.current = sessions
@@ -89,6 +91,11 @@ export function useWorkspaceSessions(
   sentSessionsRef.current = sentSessions
   completedSessionIdsRef.current = completedSessionIds
   selectedIdRef.current = selectedId
+
+  useEffect(() => () => {
+    const transientId = transientNewSessionIdRef.current
+    if (transientId) void requestCloseSession(transientId).catch(() => undefined)
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -218,6 +225,24 @@ export function useWorkspaceSessions(
     void refreshSessions()
   }, [projectDiscoveryComplete, refreshSessions])
 
+  /** Stops and removes an unmessaged session when navigation abandons it. */
+  const discardTransientNewSession = useCallback((nextSessionId?: string): void => {
+    const transientId = transientNewSessionIdRef.current
+    if (!transientId || transientId === nextSessionId) return
+    transientNewSessionIdRef.current = null
+    const sessionPath = sessionsRef.current.find(({ id }) => id === transientId)?.sessionPath
+    setSessions((current) => current.filter(({ id }) => id !== transientId))
+    setSentSessions((current) =>
+      current.filter((session) => session.id !== transientId && session.sessionPath !== sessionPath)
+    )
+    void requestCloseSession(transientId).catch(onError)
+  }, [onError])
+
+  const selectSession = useCallback((sessionId: string): void => {
+    discardTransientNewSession(sessionId)
+    setSelectedId(sessionId)
+  }, [discardTransientNewSession])
+
   /** Selects a workspace, optionally preserving an explicit session over automatic selection. */
   const selectWorkspace = useCallback((path: string, targetSessionId?: string): void => {
     window.localStorage.setItem(workspacePathKey, path)
@@ -227,12 +252,14 @@ export function useWorkspaceSessions(
       JSON.stringify(nextRecentWorkspacePaths),
     )
     setRecentWorkspacePaths(nextRecentWorkspacePaths)
+    discardTransientNewSession(targetSessionId)
     onWorkspaceSelected()
     setWorkspacePath(path)
     setSelectedId(targetSessionId ?? '')
     autoSelectOnRefreshRef.current = targetSessionId === undefined
     void refreshSessions(path)
   }, [
+    discardTransientNewSession,
     onWorkspaceSelected,
     recentWorkspacePaths,
     recentWorkspacePathsKey,
@@ -274,6 +301,21 @@ export function useWorkspaceSessions(
     [],
   )
 
+  const rememberStartedSession = useCallback((session: SessionSummary): void => {
+    const sessionPath = session.sessionPath
+    if (!sessionPath) return
+    setSentSessions((current) => [
+      {
+        id: session.id,
+        cwd: session.cwd,
+        name: session.name || 'New session',
+        sessionPath,
+        updatedAt: Date.now(),
+      },
+      ...current.filter((recent) => recent.id !== session.id && recent.sessionPath !== sessionPath),
+    ])
+  }, [])
+
   /** Launches and selects a session, then sends or prepares its optional first prompt.
    *  Returns the created session summary, or null when an error prevented the operation. */
   const startAndSelectSession = useCallback(
@@ -281,26 +323,13 @@ export function useWorkspaceSessions(
       start: () => Promise<SessionSummary>,
       options: StartSessionOptions = {},
     ): Promise<SessionSummary | null> => {
+      discardTransientNewSession()
       creatingSessionRef.current = true
       setCreatingSession(true)
       setSelectedId('')
       try {
         const session = await start()
-        const sessionPath = session.sessionPath
-        if (sessionPath) {
-          setSentSessions((current) => [
-            {
-              id: session.id,
-              cwd: session.cwd,
-              name: session.name || 'New session',
-              sessionPath,
-              updatedAt: Date.now(),
-            },
-            ...current.filter((recent) =>
-              recent.id !== session.id && recent.sessionPath !== sessionPath
-            ),
-          ])
-        }
+        rememberStartedSession(session)
         await refreshSessions()
         setSelectedId(session.id)
         if (options.draftMessage) onDraftMessage(session.id, options.draftMessage)
@@ -324,8 +353,48 @@ export function useWorkspaceSessions(
         setCreatingSession(false)
       }
     },
-    [nameSessionFromFirstPrompt, onDraftMessage, onError, onInitialMessageSent, refreshSessions],
+    [
+      discardTransientNewSession,
+      nameSessionFromFirstPrompt,
+      onDraftMessage,
+      onError,
+      onInitialMessageSent,
+      refreshSessions,
+      rememberStartedSession,
+    ],
   )
+
+  /** Reuses the workspace's empty live session, or starts one when none exists. */
+  const startNewSession = useCallback(
+    async (start: () => Promise<SessionSummary>): Promise<SessionSummary | null> => {
+      const markedId = transientNewSessionIdRef.current
+      const marked = markedId
+        ? sessionsRef.current.find((session) => session.id === markedId)
+        : undefined
+      const existing = marked ?? reusableNewSession(
+        sessionsRef.current,
+        recentSessionsRef.current,
+        workspacePath,
+      )
+      if (existing) {
+        transientNewSessionIdRef.current = existing.id
+        rememberStartedSession(existing)
+        setSelectedId(existing.id)
+        return existing
+      }
+      transientNewSessionIdRef.current = null
+      const created = await startAndSelectSession(start)
+      if (created) transientNewSessionIdRef.current = created.id
+      return created
+    },
+    [rememberStartedSession, startAndSelectSession, workspacePath],
+  )
+
+  /** Keeps a new session once its first user message succeeds. */
+  const retainNewSession = useCallback((sessionId: string): void => {
+    if (transientNewSessionIdRef.current === sessionId)
+      transientNewSessionIdRef.current = null
+  }, [])
 
   const updateSession = useCallback(
     (
@@ -451,15 +520,17 @@ export function useWorkspaceSessions(
     recentWorkspacePaths,
     refreshSessions,
     removePendingRequest,
+    retainNewSession,
     renameManagedSession,
     renameSession,
     selectCreatedSession,
     selectedId,
     sentSessions,
     sessions,
-    setSelectedId,
+    setSelectedId: selectSession,
     selectWorkspace,
     startAndSelectSession,
+    startNewSession,
     updateSession,
     workspacePath,
   }
