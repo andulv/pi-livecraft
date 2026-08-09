@@ -1,4 +1,4 @@
-import type { RecentSession, SessionSummary } from '../../../shared/types.ts'
+import type { GitWorkspace, RecentSession, SessionSummary } from '../../../shared/types.ts'
 import { sessionIndicator } from './session-indicator.ts'
 
 export interface SessionActionTarget {
@@ -17,6 +17,18 @@ export function workspaceActivity(
   return [...recentSessions, ...sentSessions]
     .filter(({ cwd }) => cwd === workspacePath)
     .reduce((latest, { updatedAt }) => Math.max(latest, updatedAt), 0)
+}
+
+/** Keeps the primary checkout first, then orders linked worktrees by latest activity. */
+export function compareWorkspaces(
+  left: GitWorkspace,
+  right: GitWorkspace,
+  recentSessions: readonly RecentSession[],
+  sentSessions: readonly RecentSession[] = [],
+): number {
+  if (left.main !== right.main) return left.main ? -1 : 1
+  return workspaceActivity(right.path, recentSessions, sentSessions)
+    - workspaceActivity(left.path, recentSessions, sentSessions)
 }
 
 /** Adds pending sessions and orders the visible list by latest activity. */

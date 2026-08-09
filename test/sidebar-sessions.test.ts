@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { RecentSession, SessionSummary } from '../shared/types.ts'
 import {
+  compareWorkspaces,
   newestWorkspaceSession,
   otherWorkspaceSessions,
   reusableNewSession,
@@ -52,6 +53,24 @@ test('reports latest workspace activity from persisted and optimistic sessions',
     200,
   )
   assert.equal(workspaceActivity('/other', [persisted]), 0)
+})
+
+test('keeps the main workspace above more recently active linked worktrees', () => {
+  const main = { path: '/workspace', branch: 'main', main: true }
+  const linked = { path: '/workspace-feature', branch: 'feature', main: false }
+  const recent = [{ ...persisted, cwd: linked.path, updatedAt: 200 }]
+
+  assert.equal(compareWorkspaces(main, linked, recent), -1)
+  assert.equal(compareWorkspaces(linked, main, recent), 1)
+})
+
+test('orders linked worktrees by their latest activity', () => {
+  const older = { path: '/workspace-old', branch: 'old', main: false }
+  const newer = { path: '/workspace-new', branch: 'new', main: false }
+  const recent = [{ ...persisted, cwd: newer.path, updatedAt: 200 }]
+
+  assert.equal(compareWorkspaces(newer, older, recent), -200)
+  assert.equal(compareWorkspaces(older, newer, recent), 200)
 })
 
 test('orders sessions by their latest activity', () => {

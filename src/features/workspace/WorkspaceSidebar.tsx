@@ -16,9 +16,9 @@ import type { Project } from './projects.ts'
 import { aggregateSessionIndicator, sessionIndicator } from './session-indicator.ts'
 import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
 import {
+  compareWorkspaces,
   otherWorkspaceSessions,
   sidebarSessions,
-  workspaceActivity,
   type SessionActionTarget,
 } from './sidebar-sessions.ts'
 import { SessionRenameDialog } from './SessionRenameDialog.tsx'
@@ -356,10 +356,7 @@ export function WorkspaceSidebar({
           </div>
           <div className='project-workspaces'>
             {[...workspaces]
-              .sort((left, right) =>
-                workspaceActivity(right.path, recentSessions, sentSessions)
-                - workspaceActivity(left.path, recentSessions, sentSessions)
-              )
+              .sort((left, right) => compareWorkspaces(left, right, recentSessions, sentSessions))
               .map((workspace) => {
                 const workspaceIndicator = aggregateSessionIndicator(
                   sessions.filter(({ cwd }) => cwd === workspace.path),
