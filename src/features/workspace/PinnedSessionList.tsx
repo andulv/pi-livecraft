@@ -36,47 +36,52 @@ export function PinnedSessionList({
   }
 
   return (
-    <nav aria-label='Pinned project sessions' className='pinned-session-list'>
-      {pinnedSessions.map((pinnedSession) => {
-        const activeSession = sessions.find((session) =>
-          session.sessionPath === pinnedSession.sessionPath && session.status !== 'exited'
-        )
-        const indicator = sessionIndicator(
-          activeSession,
-          selectedId,
-          compactingSessionIds,
-          completedSessionIds,
-        )
-        const sessionLabel = openingSessionPath === pinnedSession.sessionPath
-          ? 'Opening…'
-          : pinnedSession.name
-        const actionTarget: SessionActionTarget = {
-          cwd: pinnedSession.cwd,
-          name: pinnedSession.name,
-          sessionId: activeSession?.id,
-          sessionPath: pinnedSession.sessionPath,
-        }
-        return (
-          <div className='session-row pinned-session-row' key={pinnedSession.sessionPath}>
-            <Tooltip label={`${pinnedSession.name}\n${pinnedSession.cwd}`}>
-              <button
-                className={sessionClassName(activeSession, selectedId, indicator)}
-                disabled={openingSessionPath === pinnedSession.sessionPath}
-                onClick={() => openSession(pinnedSession)}
-                type='button'
-              >
-                {indicator && <SessionStatusIndicator status={indicator} />}
-                <span className='session-item-copy'>
-                  <strong>{sessionLabel}</strong>
-                </span>
-                <PinIcon />
-              </button>
-            </Tooltip>
-            <SessionActions target={actionTarget} onOpen={onOpenActions} />
-          </div>
-        )
-      })}
-    </nav>
+    <section className='pinned-sessions'>
+      <div className='sidebar-section-heading session-group-heading'>
+        <span>Pinned sessions</span>
+      </div>
+      <nav aria-label='Pinned project sessions' className='pinned-session-list'>
+        {pinnedSessions.map((pinnedSession) => {
+          const activeSession = sessions.find((session) =>
+            session.sessionPath === pinnedSession.sessionPath && session.status !== 'exited'
+          )
+          const indicator = sessionIndicator(
+            activeSession,
+            selectedId,
+            compactingSessionIds,
+            completedSessionIds,
+          )
+          const sessionLabel = openingSessionPath === pinnedSession.sessionPath
+            ? 'Opening…'
+            : pinnedSession.name
+          const actionTarget: SessionActionTarget = {
+            cwd: pinnedSession.cwd,
+            name: pinnedSession.name,
+            sessionId: activeSession?.id,
+            sessionPath: pinnedSession.sessionPath,
+          }
+          return (
+            <div className='session-row pinned-session-row' key={pinnedSession.sessionPath}>
+              <Tooltip label={`${pinnedSession.name}\n${pinnedSession.cwd}`}>
+                <button
+                  className={sessionClassName(activeSession, selectedId, indicator)}
+                  disabled={openingSessionPath === pinnedSession.sessionPath}
+                  onClick={() => openSession(pinnedSession)}
+                  type='button'
+                >
+                  {indicator && <SessionStatusIndicator status={indicator} />}
+                  <span className='session-item-copy'>
+                    <strong>{sessionLabel}</strong>
+                  </span>
+                  <PinIcon />
+                </button>
+              </Tooltip>
+              <SessionActions target={actionTarget} onOpen={onOpenActions} />
+            </div>
+          )
+        })}
+      </nav>
+    </section>
   )
 }
 

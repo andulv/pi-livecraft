@@ -385,7 +385,7 @@ export function WorkspaceSidebar({
           </div>
         </div>
       </section>
-      <div className='sidebar-section-heading sessions-heading'>
+      <div className='sidebar-section-heading session-group-heading sessions-heading'>
         <span title={workspacePath}>
           Sessions – <b>{selectedWorkspaceLabel}</b>
         </span>

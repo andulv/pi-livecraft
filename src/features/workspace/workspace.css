@@ -296,13 +296,16 @@
   white-space: nowrap;
   font-size: 13px;
 }
+.pinned-sessions {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
 .pinned-session-list {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--line);
 }
 .pinned-session-icon {
   flex: 0 0 auto;
@@ -321,13 +324,16 @@
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   background: var(--accent-soft);
 }
-.sessions-heading {
-  margin-top: 2px;
-  padding-top: 10px;
+.session-group-heading {
+  min-height: 24px;
+  padding-top: 4px;
   border-top: 1px solid var(--line);
 }
-.sessions-heading > span {
+.session-group-heading > span {
   color: color-mix(in srgb, var(--secondary) 72%, var(--muted));
+}
+.sessions-heading {
+  margin-top: -8px;
 }
 .sidebar-actions {
   display: flex;
@@ -465,6 +471,7 @@
   gap: 2px;
   min-height: 0;
   overflow-y: auto;
+  margin-top: -8px;
   margin-right: -10px;
   scrollbar-width: thin;
 }
