@@ -283,6 +283,7 @@
 }
 .chat-topbar {
   min-width: 0;
+  container-type: inline-size;
   border-bottom: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
   background: var(--surface);
   position: sticky;
@@ -421,6 +422,33 @@
 .composer-stats small {
   color: currentColor;
   font: 10px ui-monospace, monospace;
+}
+.composer-cache {
+  gap: 2px !important;
+  color: var(--subtle) !important;
+}
+.composer-cache::before {
+  content: "(";
+}
+.composer-cache::after {
+  content: ")";
+}
+.composer-cache i {
+  color: var(--muted);
+  font-style: normal;
+}
+.composer-message-counts small {
+  gap: 2px !important;
+}
+.composer-message-counts small i {
+  display: inline-grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font: 700 8px ui-sans-serif, system-ui, sans-serif;
 }
 .composer-stats progress {
   width: 48px;
@@ -1042,6 +1070,16 @@
   white-space: nowrap;
 }
 
+@container (max-width: 760px) {
+  .chat-topbar-session .composer-session > span:last-child,
+  .chat-topbar-session .composer-stats progress {
+    display: none;
+  }
+  .chat-topbar-session .composer-stats {
+    gap: 8px;
+  }
+}
+
 @media (max-width: 700px) {
   .chat-topbar-context, .chat-topbar-session {
     gap: 8px;
@@ -1056,6 +1094,9 @@
   .chat-topbar-branch {
     max-width: 120px;
   }
+  .chat-topbar-session .composer-session > span:last-child {
+    display: none;
+  }
 }
 @media (max-width: 480px) {
   .chat-topbar-context-item b,
@@ -1069,11 +1110,26 @@
   .chat-topbar-branch {
     max-width: 86px;
   }
-  .composer-session > span:last-child {
+  .composer-cache-label,
+  .composer-context-tokens,
+  .composer-stats progress {
     display: none;
   }
+  .chat-topbar-session {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .chat-topbar-session .composer-session {
+    width: 100%;
+  }
   .chat-topbar-session .composer-stats {
-    width: auto;
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    gap: 5px 10px;
+  }
+  .chat-topbar-session .composer-stats > span {
+    min-width: 0;
   }
 }

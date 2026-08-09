@@ -23,10 +23,7 @@ export const ChatTopBar = memo(function ChatTopBar(
     workspaceName: string
   },
 ) {
-  const { cost, contextClass, contextTokens, contextPercent, contextPercentValue } =
-    formatSessionStats(
-      stats,
-    )
+  const formattedStats = formatSessionStats(stats)
   return (
     <div className='chat-topbar' aria-label='Workspace and session status'>
       <div className='chat-topbar-context'>
@@ -42,13 +39,7 @@ export const ChatTopBar = memo(function ChatTopBar(
             </div>
           )
           : <SessionInfo name={session.name} cwd={session.cwd} active={running} />}
-        <SessionStatsBar
-          cost={cost}
-          contextClass={contextClass}
-          contextTokens={contextTokens}
-          contextPercent={contextPercent}
-          contextPercentValue={contextPercentValue}
-        />
+        <SessionStatsBar {...formattedStats} />
       </div>
     </div>
   )

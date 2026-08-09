@@ -29,7 +29,7 @@ All data arrives through props. The Composer never calls the backend directly.
 | `selects/BehaviorSelect.tsx` | Steer / Follow-up toggle, only rendered while Pi is running |
 | `status-bar/ChatTopBar.tsx` | Two-line status strip pinned to the top of the chat window: project/workspace/Git context first, then session name, cwd, cost, and context usage |
 | `status-bar/SessionInfo.tsx` | Session name, cwd, active status dot |
-| `status-bar/SessionStats.tsx` | Cost and context usage with progress bar |
+| `status-bar/SessionStats.tsx` | Input/cache/output tokens, message and tool counts, cost, and context usage |
 
 ## Internal state
 
