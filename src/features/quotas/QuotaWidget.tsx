@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import { quotaPeriodProgress } from './quota-display.ts'
+import { copilotPeriodProgress, quotaPeriodProgress } from './quota-display.ts'
 import type { QuotaProviderSnapshot, QuotaSnapshot } from '../../../shared/types.ts'
 
 /** Displays normalized quota readings without deducing absent quota from provider responses. */
@@ -81,19 +81,31 @@ export function QuotaWidget(
               })}
             </ProviderSection>
             <ProviderSection name='GitHub Copilot' provider={quotas.copilot}>
-              {quotas.copilot.data.map((window) => (
-                <div className='quota-row' key={window.name}>
-                  <div className='quota-row-copy'>
-                    <strong>{window.name}</strong>
-                    <b>{formatNumber(window.used)} / {formatNumber(window.limit)}</b>
+              {quotas.copilot.data.map((window) => {
+                const periodProgress = copilotPeriodProgress(window.resetsAt, now)
+                return (
+                  <div className='quota-row' key={window.name}>
+                    <div className='quota-row-copy'>
+                      <strong>{window.name}</strong>
+                      <b>{formatNumber(window.used)} / {formatNumber(window.limit)}</b>
+                    </div>
+                    <div className='quota-bars'>
+                      <QuotaBar
+                        label={`${formatNumber(window.used)} used of ${formatNumber(window.limit)}`}
+                        value={window.used / window.limit * 100}
+                      />
+                      {periodProgress !== undefined && (
+                        <QuotaBar
+                          label={`${formatPercent(periodProgress)} of the monthly period elapsed`}
+                          period
+                          value={periodProgress}
+                        />
+                      )}
+                    </div>
+                    {window.resetsAt && <small>Reset {formatReset(window.resetsAt)}</small>}
                   </div>
-                  <QuotaBar
-                    label={`${formatNumber(window.used)} used of ${formatNumber(window.limit)}`}
-                    value={window.used / window.limit * 100}
-                  />
-                  {window.resetsAt && <small>Reset {formatReset(window.resetsAt)}</small>}
-                </div>
-              ))}
+                )
+              })}
             </ProviderSection>
             <ProviderSection name='GLM (Z.AI)' provider={quotas.glm}>
               {quotas.glm.data.map((window) => {

@@ -9,6 +9,7 @@ import {
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import { QuotaCache } from '../server/features/quotas/quota-cache.ts'
 import {
+  copilotPeriodProgress,
   quotaPeriodProgress,
   quotaProviderForModel,
   railQuota,
@@ -114,6 +115,14 @@ test('calculates elapsed quota periods from their reset times', () => {
   assert.equal(quotaPeriodProgress('weekly', now - 1, now), 100)
   assert.equal(quotaPeriodProgress('web-searches', now, now), undefined)
   assert.equal(quotaPeriodProgress('session', undefined, now), undefined)
+})
+
+test('calculates elapsed Copilot calendar-month periods from reset times', () => {
+  const resetsAt = Date.UTC(2030, 1, 1)
+  assert.equal(copilotPeriodProgress(resetsAt, Date.UTC(2030, 0, 16, 12)), 50)
+  assert.equal(copilotPeriodProgress(resetsAt, Date.UTC(2030, 0, 1)), 0)
+  assert.equal(copilotPeriodProgress(resetsAt, resetsAt), 100)
+  assert.equal(copilotPeriodProgress(undefined, resetsAt), undefined)
 })
 
 test('shows the primary quota for the provider selected by the model', () => {

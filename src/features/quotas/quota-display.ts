@@ -26,6 +26,19 @@ export function quotaPeriodProgress(
   return Math.max(0, Math.min(100, (1 - (resetsAt - now) / duration) * 100))
 }
 
+/** Returns elapsed progress through Copilot's calendar-month quota period. */
+export function copilotPeriodProgress(
+  resetsAt: number | undefined,
+  now: number,
+): number | undefined {
+  if (!resetsAt) return undefined
+  const reset = new Date(resetsAt)
+  const startsAt = Date.UTC(reset.getUTCFullYear(), reset.getUTCMonth() - 1, 1)
+  const duration = resetsAt - startsAt
+  if (!Number.isFinite(duration) || duration <= 0) return undefined
+  return Math.max(0, Math.min(100, (now - startsAt) / duration * 100))
+}
+
 export function quotaProviderForModel(provider: unknown): QuotaProvider | undefined {
   if (provider === 'openai-codex') return 'openai'
   if (provider === 'github-copilot') return 'copilot'
