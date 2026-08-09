@@ -49,35 +49,17 @@ test('marks a live idle session without a completion event as idle', () => {
   )
 })
 
-test('survives a page refresh: restored completed ids still show complete for idle, non-selected sessions', () => {
-  // After a refresh, sessionStorage restores completed ids; the manager reports the session as idle.
-  const restored = new Set([session.id])
+test('uses the stable session path for current-page completion markers', () => {
+  const completed = new Set(['/sessions/session.jsonl'])
+  const withPath = { ...session, sessionPath: '/sessions/session.jsonl' }
 
-  // Still idle, not selected, in restored set → complete indicator survives refresh.
   assert.equal(
-    sessionIndicator({ ...session, status: 'idle' }, '', new Set(), restored),
+    sessionIndicator({ ...withPath, status: 'idle' }, '', new Set(), completed),
     'complete',
   )
-
-  // Persisting the stable session path also survives a manager restart.
-  const restoredPath = new Set(['/sessions/session.jsonl'])
+  assert.equal(sessionIndicator(withPath, '', new Set(), completed), 'working')
   assert.equal(
-    sessionIndicator(
-      { ...session, status: 'idle', sessionPath: '/sessions/session.jsonl' },
-      '',
-      new Set(),
-      restoredPath,
-    ),
-    'complete',
-  )
-  // If the manager reports it as running (still working), 'working' takes priority.
-  assert.equal(
-    sessionIndicator({ ...session, status: 'running' }, '', new Set(), restored),
-    'working',
-  )
-  // Selected sessions keep the linked-process idle marker instead of showing complete.
-  assert.equal(
-    sessionIndicator({ ...session, status: 'idle' }, session.id, new Set(), restored),
+    sessionIndicator({ ...withPath, status: 'idle' }, session.id, new Set(), completed),
     'idle',
   )
 })

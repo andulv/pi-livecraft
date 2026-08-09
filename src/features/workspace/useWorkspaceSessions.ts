@@ -43,7 +43,6 @@ interface StartSessionOptions {
   nameFromInitialMessage?: boolean
 }
 
-const COMPLETED_SESSIONS_KEY = 'pi-livecraft.completed-sessions'
 const MAX_COMPLETED_SESSIONS = 30
 
 /** Owns workspace selection, session lists, persistence, and session creation. */
@@ -64,7 +63,7 @@ export function useWorkspaceSessions(
     readPinnedSessions(window.localStorage, project.id)
   )
   const [completedSessionIds, setCompletedSessionIds] = useState<ReadonlySet<string>>(
-    readCompletedSessionIds,
+    () => new Set(),
   )
   const [isRefreshingSessions, setIsRefreshingSessions] = useState(true)
   const workspacePathKey = `pi-livecraft.project-workspace.${project.id}`
@@ -130,8 +129,6 @@ export function useWorkspaceSessions(
       return next
     })
   }, [selectedId])
-
-  useEffect(() => writeCompletedSessionIds(completedSessionIds), [completedSessionIds])
 
   useEffect(() => {
     writePinnedSessions(window.localStorage, project.id, pinnedSessions)
@@ -590,33 +587,6 @@ function readRecentWorkspaces(storageKey: string): string[] {
       : []
   } catch {
     return []
-  }
-}
-
-/** Restores completed-session identifiers persisted across same-tab refreshes. */
-function readCompletedSessionIds(): ReadonlySet<string> {
-  try {
-    const stored = sessionStorage.getItem(COMPLETED_SESSIONS_KEY)
-    if (!stored) return new Set()
-    const parsed: unknown = JSON.parse(stored)
-    if (!Array.isArray(parsed)) return new Set()
-    const ids = parsed.filter((id): id is string => typeof id === 'string' && id.length > 0)
-    return keepRecentCompletedSessionIds(ids)
-  } catch {
-    return new Set()
-  }
-}
-
-/** Persists completed-session identifiers so they survive a page refresh within the same tab. */
-function writeCompletedSessionIds(ids: ReadonlySet<string>): void {
-  try {
-    if (ids.size === 0) sessionStorage.removeItem(COMPLETED_SESSIONS_KEY)
-    else sessionStorage.setItem(
-        COMPLETED_SESSIONS_KEY,
-        JSON.stringify([...keepRecentCompletedSessionIds(ids)]),
-      )
-  } catch {
-    // sessionStorage may be unavailable
   }
 }
 
