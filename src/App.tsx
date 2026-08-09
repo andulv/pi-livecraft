@@ -783,6 +783,12 @@ function LivecraftProjectApp(
 
   // Selected session and loading state
   const selectedSession = sessions.find((session) => session.id === selectedId)
+  const currentProjectWorkspace = projectWorkspaces[project.root]?.workspaces.find(
+    (workspace) => workspace.path === workspacePath,
+  )
+  const workspaceName = currentProjectWorkspace?.main
+    ? 'Main'
+    : workspacePath.split(/[\\/]/).filter(Boolean).at(-1) ?? workspacePath
   const pendingSession = useMemo<SessionSummary>(() => ({
     id: `pending:${workspacePath}`,
     cwd: workspacePath,
@@ -1230,8 +1236,15 @@ function LivecraftProjectApp(
           ? (
             <>
               <ChatTopBar
+                projectName={project.name}
+                workspaceName={workspaceName}
                 git={gitSnapshot?.repository
-                  ? { branch: gitSnapshot.branch ?? 'HEAD', worktree: gitSnapshot.worktree }
+                  ? {
+                    ahead: gitSnapshot.ahead,
+                    branch: gitSnapshot.branch ?? 'HEAD',
+                    changedFiles: gitSnapshot.files.length,
+                    worktree: gitSnapshot.worktree,
+                  }
                   : null}
                 running={selectedSession.status === 'running'}
                 session={selectedSession}
@@ -1386,8 +1399,15 @@ function LivecraftProjectApp(
           : (
             <>
               <ChatTopBar
+                projectName={project.name}
+                workspaceName={workspaceName}
                 git={gitSnapshot?.repository
-                  ? { branch: gitSnapshot.branch ?? 'HEAD', worktree: gitSnapshot.worktree }
+                  ? {
+                    ahead: gitSnapshot.ahead,
+                    branch: gitSnapshot.branch ?? 'HEAD',
+                    changedFiles: gitSnapshot.files.length,
+                    worktree: gitSnapshot.worktree,
+                  }
                   : null}
                 running={false}
                 session={pendingSession}

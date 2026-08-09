@@ -27,7 +27,7 @@ All data arrives through props. The Composer never calls the backend directly.
 | `selects/ThinkingSelect.tsx` | Thinking level — maps level to `set_thinking_level` RPC |
 | `selects/PromptSelect.tsx` | Prompt templates — previews, inserts, and saves Pi-discovered templates |
 | `selects/BehaviorSelect.tsx` | Steer / Follow-up toggle, only rendered while Pi is running |
-| `status-bar/ChatTopBar.tsx` | Full-width status strip pinned to the top of the chat window: session name, cwd, git branch + worktree flag, cost, and context usage |
+| `status-bar/ChatTopBar.tsx` | Two-line status strip pinned to the top of the chat window: project/workspace/Git context first, then session name, cwd, cost, and context usage |
 | `status-bar/SessionInfo.tsx` | Session name, cwd, active status dot |
 | `status-bar/SessionStats.tsx` | Cost and context usage with progress bar |
 

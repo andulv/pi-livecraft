@@ -282,36 +282,72 @@
   background: var(--surface-raised);
 }
 .chat-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   min-width: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
-  padding: 5px 16px;
   background: var(--surface);
   position: sticky;
   top: 0;
   z-index: 5;
 }
-.chat-topbar-git {
+.chat-topbar-context, .chat-topbar-session {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 5px 16px;
+}
+.chat-topbar-context {
+  min-height: 28px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  font: 10px ui-monospace, monospace;
+}
+.chat-topbar-session {
+  justify-content: space-between;
+  min-height: 30px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
+}
+.chat-topbar-context-item {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   min-width: 0;
-  margin-right: auto;
+  max-width: min(26%, 240px);
+}
+.chat-topbar-context-item + .chat-topbar-context-item {
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+}
+.chat-topbar-context-item b {
+  flex: 0 0 auto;
+  color: var(--subtle);
+  font: 650 9px ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+.chat-topbar-context-item span, .chat-topbar-branch {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-topbar-git {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-left: auto;
   color: var(--muted);
   font: 10px ui-monospace, monospace;
 }
 .chat-topbar-git-icon {
+  flex: 0 0 auto;
   color: var(--subtle);
 }
 .chat-topbar-branch {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
-  color: var(--ink);
+  max-width: 180px;
 }
 .chat-topbar-worktree {
   flex: 0 0 auto;
@@ -323,6 +359,28 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+.chat-topbar-git-status, .chat-topbar-ahead {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.chat-topbar-git-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.chat-topbar-git-status.clean {
+  color: var(--success);
+}
+.chat-topbar-git-status.changed {
+  color: var(--warning-strong);
+}
+.chat-topbar-ahead {
+  color: var(--accent);
 }
 .composer-session, .composer-stats {
   display: flex;
@@ -982,4 +1040,40 @@
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .chat-topbar-context, .chat-topbar-session {
+    gap: 8px;
+    padding-inline: 12px;
+  }
+  .chat-topbar-context-item {
+    max-width: 25%;
+  }
+  .chat-topbar-context-item + .chat-topbar-context-item {
+    padding-left: 8px;
+  }
+  .chat-topbar-branch {
+    max-width: 120px;
+  }
+}
+@media (max-width: 480px) {
+  .chat-topbar-context-item b,
+  .chat-topbar-worktree,
+  .chat-topbar-changed-label {
+    display: none;
+  }
+  .chat-topbar-context-item {
+    max-width: 24%;
+  }
+  .chat-topbar-branch {
+    max-width: 86px;
+  }
+  .composer-session > span:last-child {
+    display: none;
+  }
+  .chat-topbar-session .composer-stats {
+    width: auto;
+    justify-content: flex-start;
+  }
 }
