@@ -37,7 +37,7 @@ export function PinnedSessionList({
 
   return (
     <section className='pinned-sessions'>
-      <div className='sidebar-section-heading session-group-heading'>
+      <div className='sidebar-section-heading sidebar-list-heading'>
         <span>Pinned sessions</span>
       </div>
       <nav aria-label='Pinned project sessions' className='pinned-session-list'>

@@ -351,6 +351,9 @@ export function WorkspaceSidebar({
               sessions={sessions}
             />
           )}
+          <div className='sidebar-section-heading sidebar-list-heading'>
+            <span>Workspaces</span>
+          </div>
           <div className='project-workspaces'>
             {[...workspaces]
               .sort((left, right) =>
@@ -385,7 +388,7 @@ export function WorkspaceSidebar({
           </div>
         </div>
       </section>
-      <div className='sidebar-section-heading session-group-heading sessions-heading'>
+      <div className='sidebar-section-heading sidebar-list-heading sessions-heading'>
         <span title={workspacePath}>
           Sessions – <b>{selectedWorkspaceLabel}</b>
         </span>

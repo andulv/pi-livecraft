@@ -324,12 +324,12 @@
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   background: var(--accent-soft);
 }
-.session-group-heading {
+.sidebar-list-heading {
   min-height: 24px;
   padding-top: 4px;
   border-top: 1px solid var(--line);
 }
-.session-group-heading > span {
+.sidebar-list-heading > span {
   color: color-mix(in srgb, var(--secondary) 72%, var(--muted));
 }
 .sessions-heading {
