@@ -6,6 +6,9 @@ import { SessionStats as SessionStatsBar } from './SessionStats.tsx'
 
 export interface ChatTopBarGit {
   ahead: number
+  baseAhead: number
+  baseBehind: number
+  baseBranch: string | null
   branch: string
   changedFiles: number
   worktree: boolean
@@ -64,6 +67,7 @@ function GitContext({ git }: { git: ChatTopBarGit }) {
       <span aria-hidden='true' className='chat-topbar-git-icon'>⎇</span>
       <span className='chat-topbar-branch' title={git.branch}>{git.branch}</span>
       {git.worktree && <span className='chat-topbar-worktree'>worktree</span>}
+      {git.worktree && git.baseBranch && <WorktreeDivergence git={git} />}
       <span
         aria-label={clean ? 'Working tree clean' : `${git.changedFiles} changed files`}
         className={`chat-topbar-git-status ${clean ? 'clean' : 'changed'}`}
@@ -77,7 +81,27 @@ function GitContext({ git }: { git: ChatTopBarGit }) {
           </>
         )}
       </span>
-      {git.ahead > 0 && <span className='chat-topbar-ahead'>↑{git.ahead}</span>}
+      {git.ahead > 0 && (
+        <span
+          aria-label={`${git.ahead} unpushed commits`}
+          className='chat-topbar-ahead'
+          title={`${git.ahead} unpushed commits`}
+        >
+          <span className='chat-topbar-unpushed-label'>Push</span> ↑{git.ahead}
+        </span>
+      )}
     </div>
+  )
+}
+
+function WorktreeDivergence({ git }: { git: ChatTopBarGit }) {
+  const baseBranch = git.baseBranch ?? ''
+  const description = `${git.baseAhead} commits ahead of ${baseBranch}, ${git.baseBehind} behind`
+  return (
+    <span aria-label={description} className='chat-topbar-divergence' title={description}>
+      <b>vs {baseBranch}</b>
+      <span className='ahead'>+{git.baseAhead}</span>
+      <span className='behind'>−{git.baseBehind}</span>
+    </span>
   )
 }

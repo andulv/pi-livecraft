@@ -12,7 +12,9 @@ import {
   getGitFileDiff,
   getGitSnapshot,
   isLinkedWorktree,
+  mainWorktreeBranch,
   mergeNumstats,
+  parseBranchDivergence,
   parseGitStatus,
   parseGitWorktrees,
   pushCommits,
@@ -46,6 +48,17 @@ test('parses the main checkout and linked worktrees from Git porcelain', () => {
       { path: '/repo-feature', branch: 'feature', main: false },
     ],
   )
+})
+
+test('parses the primary worktree branch and branch divergence counts', () => {
+  assert.equal(
+    mainWorktreeBranch(
+      'worktree /repo\nHEAD abc\nbranch refs/heads/main\n\nworktree /repo-feature\nHEAD def\nbranch refs/heads/feature\n',
+    ),
+    'main',
+  )
+  assert.equal(mainWorktreeBranch('worktree /repo\nHEAD abc\ndetached\n'), null)
+  assert.deepEqual(parseBranchDivergence('2\t3\n'), { ahead: 3, behind: 2 })
 })
 
 test('uses the destination path for renamed numstat records and preserves binary counts', () => {
@@ -313,16 +326,29 @@ test('flags a linked worktree but not the main checkout', async () => {
     await writeFile(join(main, 'file.ts'), 'content\n')
     await execFile('git', ['add', 'file.ts'], { cwd: main })
     await execFile('git', ['commit', '--quiet', '-m', 'Initial'], { cwd: main })
+    const mainBranch = (await execFile('git', ['branch', '--show-current'], { cwd: main }))
+      .stdout
+      .trim()
     await execFile('git', ['branch', 'wt'], { cwd: main })
     await execFile('git', ['worktree', 'add', '--quiet', worktree, 'wt'], { cwd: main })
+    await writeFile(join(worktree, 'worktree.ts'), 'worktree\n')
+    await execFile('git', ['add', 'worktree.ts'], { cwd: worktree })
+    await execFile('git', ['commit', '--quiet', '-m', 'Worktree commit'], { cwd: worktree })
+    await writeFile(join(main, 'main.ts'), 'main\n')
+    await execFile('git', ['add', 'main.ts'], { cwd: main })
+    await execFile('git', ['commit', '--quiet', '-m', 'Main commit'], { cwd: main })
 
     const mainSnapshot = await getGitSnapshot(main)
     assert.equal(mainSnapshot.repository, true)
     assert.equal(mainSnapshot.worktree, false)
+    assert.equal(mainSnapshot.baseBranch, null)
 
     const worktreeSnapshot = await getGitSnapshot(worktree)
     assert.equal(worktreeSnapshot.repository, true)
     assert.equal(worktreeSnapshot.worktree, true)
+    assert.equal(worktreeSnapshot.baseBranch, mainBranch)
+    assert.equal(worktreeSnapshot.baseAhead, 1)
+    assert.equal(worktreeSnapshot.baseBehind, 1)
   } finally {
     await rm(worktree, { force: true, recursive: true })
     await rm(main, { force: true, recursive: true })

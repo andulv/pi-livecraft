@@ -378,12 +378,29 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.chat-topbar-git-status, .chat-topbar-ahead {
+.chat-topbar-git-status, .chat-topbar-ahead, .chat-topbar-divergence {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   flex: 0 0 auto;
   white-space: nowrap;
+}
+.chat-topbar-divergence {
+  padding-left: 6px;
+  border-left: 1px solid var(--line);
+}
+.chat-topbar-divergence b {
+  max-width: 100px;
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+.chat-topbar-divergence .ahead {
+  color: var(--success);
+}
+.chat-topbar-divergence .behind {
+  color: var(--warning-strong);
 }
 .chat-topbar-git-status i {
   width: 6px;
@@ -1111,7 +1128,8 @@
   .chat-topbar-context-item b,
   .composer-session > b,
   .chat-topbar-worktree,
-  .chat-topbar-changed-label {
+  .chat-topbar-changed-label,
+  .chat-topbar-unpushed-label {
     display: none;
   }
   .chat-topbar-context-item {

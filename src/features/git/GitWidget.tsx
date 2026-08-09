@@ -35,6 +35,12 @@ export function GitWidget(
   const [errorTarget, setErrorTarget] = useState<ErrorTarget | null>(null)
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const hasChanges = snapshot.files.length > 0
+  const treeStatus = hasChanges
+    ? `${snapshot.files.length} file${snapshot.files.length > 1 ? 's' : ''} modified`
+    : 'Clean tree'
+  const divergenceStatus = snapshot.worktree && snapshot.baseBranch
+    ? ` · vs ${snapshot.baseBranch} +${snapshot.baseAhead} −${snapshot.baseBehind}`
+    : ''
 
   /** Clears any stuck error highlight after the shake animation ends. */
   useEffect(() => {
@@ -235,10 +241,13 @@ export function GitWidget(
           <>
             <div>
               <strong>{snapshot.branch}</strong>
-              <span>
-                {hasChanges
-                  ? `${snapshot.files.length} file${snapshot.files.length > 1 ? 's' : ''} modified`
-                  : 'Clean tree'}
+              <span
+                title={snapshot.baseBranch
+                  ? `${snapshot.baseAhead} commits ahead of ${snapshot.baseBranch}, ${snapshot.baseBehind} behind`
+                  : treeStatus}
+              >
+                {treeStatus}
+                {divergenceStatus}
               </span>
             </div>
             <Tooltip label='Refresh'>

@@ -27,6 +27,9 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
       worktree: false,
       files: [],
       ahead: 0,
+      baseBranch: null,
+      baseAhead: 0,
+      baseBehind: 0,
       commits: [],
     }
 
@@ -85,17 +88,57 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
     // Older Git or an unusual layout — report as the main checkout.
   }
 
+  const branchName = branch.stdout.trim() || 'HEAD'
+  let baseBranch: string | null = null
+  let baseAhead = 0
+  let baseBehind = 0
+  if (worktree) {
+    const worktreeList = await runGit(cwd, ['worktree', 'list', '--porcelain'])
+    baseBranch = mainWorktreeBranch(worktreeList.stdout)
+    if (baseBranch && baseBranch !== branchName) {
+      const divergence = await runGit(
+        cwd,
+        ['rev-list', '--left-right', '--count', `${baseBranch}...HEAD`],
+        [0, 128],
+      )
+      if (divergence.exitCode === 0) {
+        const counts = parseBranchDivergence(divergence.stdout)
+        baseAhead = counts.ahead
+        baseBehind = counts.behind
+      }
+    }
+  }
+
   return {
     repository: true,
     root: root.stdout.trim() || null,
-    branch: branch.stdout.trim() || 'HEAD',
+    branch: branchName,
     worktree,
     files: changes.map((change) => {
       const count = counts.get(change.path)
       return { ...change, additions: count?.additions ?? null, deletions: count?.deletions ?? null }
     }),
     ahead: commits.length,
+    baseBranch,
+    baseAhead,
+    baseBehind,
     commits,
+  }
+}
+
+/** Returns the branch checked out in Git's primary worktree, which is listed first. */
+export function mainWorktreeBranch(output: string): string | null {
+  const firstWorktree = output.split(/\r?\n\r?\n/, 1)[0] ?? ''
+  const branch = firstWorktree.split(/\r?\n/).find((line) => line.startsWith('branch refs/heads/'))
+  return branch?.slice('branch refs/heads/'.length) || null
+}
+
+/** Parses `<base-only> <head-only>` from `git rev-list --left-right --count`. */
+export function parseBranchDivergence(output: string): { ahead: number; behind: number } {
+  const [behind, ahead] = output.trim().split(/\s+/).map(Number)
+  return {
+    ahead: Number.isFinite(ahead) ? ahead : 0,
+    behind: Number.isFinite(behind) ? behind : 0,
   }
 }
 

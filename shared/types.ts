@@ -60,7 +60,14 @@ export interface GitSnapshot {
   /** True when the working directory is a linked worktree, not the repository's main checkout. */
   worktree: boolean
   files: GitFileChange[]
+  /** Commits not yet pushed to this branch's upstream. */
   ahead: number
+  /** Main-workspace branch used as the comparison base for linked worktrees. */
+  baseBranch: string | null
+  /** Commits on this worktree branch that are not on the base branch. */
+  baseAhead: number
+  /** Commits on the base branch that are not on this worktree branch. */
+  baseBehind: number
   commits: GitCommit[]
 }
 
