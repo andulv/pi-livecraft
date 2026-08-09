@@ -1,6 +1,6 @@
 import { useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import type { GitWorkspace, RecentSession, SessionSummary } from '../../../shared/types.ts'
+import type { RecentSession, SessionSummary } from '../../../shared/types.ts'
 import { sessionIndicator, type SessionIndicator } from './session-indicator.ts'
 import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
 import type { SessionActionTarget } from './sidebar-sessions.ts'
@@ -15,7 +15,6 @@ export function PinnedSessionList({
   pinnedSessions,
   selectedId,
   sessions,
-  workspaces,
 }: {
   compactingSessionIds: ReadonlySet<string>
   completedSessionIds: ReadonlySet<string>
@@ -28,7 +27,6 @@ export function PinnedSessionList({
   pinnedSessions: RecentSession[]
   selectedId: string
   sessions: SessionSummary[]
-  workspaces: GitWorkspace[]
 }) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
 
@@ -49,7 +47,6 @@ export function PinnedSessionList({
           compactingSessionIds,
           completedSessionIds,
         )
-        const workspace = workspaces.find(({ path }) => path === pinnedSession.cwd)
         const sessionLabel = openingSessionPath === pinnedSession.sessionPath
           ? 'Opening…'
           : pinnedSession.name
@@ -68,12 +65,11 @@ export function PinnedSessionList({
                 onClick={() => openSession(pinnedSession)}
                 type='button'
               >
-                <PinIcon />
                 {indicator && <SessionStatusIndicator status={indicator} />}
-                <span>
+                <span className='session-item-copy'>
                   <strong>{sessionLabel}</strong>
-                  <small>{workspace?.branch ?? pinnedSession.cwd}</small>
                 </span>
+                <PinIcon />
               </button>
             </Tooltip>
             <SessionActions target={actionTarget} onOpen={onOpenActions} />

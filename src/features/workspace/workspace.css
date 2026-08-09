@@ -304,16 +304,9 @@
   padding-bottom: 4px;
   border-bottom: 1px solid var(--line);
 }
-.pinned-session-row .session-item {
-  min-height: 36px;
-}
 .pinned-session-icon {
-  box-sizing: content-box;
   flex: 0 0 auto;
-  padding: 2px;
-  border-radius: 5px;
-  background: var(--accent-soft);
-  color: var(--accent-hover);
+  color: var(--secondary);
 }
 .project-workspaces {
   display: grid;
@@ -332,6 +325,9 @@
   margin-top: 2px;
   padding-top: 10px;
   border-top: 1px solid var(--line);
+}
+.sessions-heading > span {
+  color: color-mix(in srgb, var(--secondary) 72%, var(--muted));
 }
 .sidebar-actions {
   display: flex;
@@ -503,9 +499,9 @@
     transform 180ms ease;
 }
 .session-actions:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--line-strong));
-  background: var(--accent-soft);
-  color: var(--accent-hover);
+  border-color: color-mix(in srgb, var(--secondary) 32%, var(--line-strong));
+  background: var(--secondary-soft);
+  color: var(--secondary);
 }
 .session-actions:focus-visible {
   outline: 2px solid var(--accent);
@@ -521,9 +517,10 @@
   width: 100%;
   min-height: 32px;
   border: 1px solid transparent;
+  border-left: 2px solid color-mix(in srgb, var(--secondary) 44%, transparent);
   border-radius: 8px;
-  padding: 1px 8px;
-  background: transparent;
+  padding: 1px 8px 1px 7px;
+  background: color-mix(in srgb, var(--secondary) 6%, transparent);
   color: inherit;
   text-align: left;
   transition:
@@ -533,7 +530,8 @@
     transform 180ms ease;
 }
 .session-item:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-left-color: color-mix(in srgb, var(--secondary) 58%, transparent);
+  background: var(--secondary-soft);
 }
 .session-item:focus-visible {
   outline: 2px solid var(--accent);
@@ -548,14 +546,15 @@
   transform: none;
 }
 .session-item.selected {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--secondary) 55%, transparent);
+  border-left-width: 2px;
+  background: var(--secondary-soft);
 }
 .session-item.selected.compacting {
   border-color: color-mix(in srgb, var(--warning) 40%, transparent);
   background: color-mix(in srgb, var(--warning) 20%, var(--surface));
 }
-.session-item > span:last-child {
+.session-item-copy {
   flex: 1;
   min-width: 0;
 }
@@ -575,7 +574,7 @@
   font-weight: 400;
 }
 .session-item.selected:not(.working):not(.waiting):not(.compacting) strong {
-  color: var(--ink);
+  color: color-mix(in srgb, var(--secondary) 76%, var(--ink));
 }
 .session-item small {
   margin-top: 2px;

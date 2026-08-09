@@ -349,7 +349,6 @@ export function WorkspaceSidebar({
               pinnedSessions={resolvedPinnedSessions}
               selectedId={selectedId}
               sessions={sessions}
-              workspaces={workspaces}
             />
           )}
           <div className='project-workspaces'>
@@ -451,7 +450,7 @@ export function WorkspaceSidebar({
                   type='button'
                 >
                   {indicator && <SessionStatusIndicator status={indicator} />}
-                  <span>
+                  <span className='session-item-copy'>
                     <strong>{sessionLabel}</strong>
                   </span>
                 </button>
@@ -505,7 +504,7 @@ export function WorkspaceSidebar({
                         type='button'
                       >
                         {indicator && <SessionStatusIndicator status={indicator} />}
-                        <span>
+                        <span className='session-item-copy'>
                           <strong>{session.name}</strong>
                           <small>{session.cwd}</small>
                         </span>
