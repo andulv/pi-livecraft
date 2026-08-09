@@ -1300,7 +1300,6 @@ function LivecraftProjectApp(
           await startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))
         }}
         onSelectWorkspace={selectWorkspace}
-        onSelectOtherWorkspaceSession={(session) => selectWorkspace(session.cwd, session.id)}
         onSelectSession={setSelectedId}
         onError={(cause) => showToast('error', messageOf(cause))}
         onOpenSettings={() => setSettingsOpen(true)}

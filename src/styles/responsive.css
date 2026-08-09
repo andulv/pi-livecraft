@@ -146,15 +146,6 @@
     flex-direction: row;
     overflow-x: auto;
   }
-  .other-workspace-sessions {
-    grid-column: 1 / -1;
-    max-height: none;
-  }
-  .other-session-list {
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
   .session-item {
     min-width: 220px;
   }

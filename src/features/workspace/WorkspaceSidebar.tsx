@@ -15,12 +15,7 @@ import { PinnedSessionList } from './PinnedSessionList.tsx'
 import type { Project } from './projects.ts'
 import { aggregateSessionIndicator, sessionIndicator } from './session-indicator.ts'
 import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
-import {
-  compareWorkspaces,
-  otherWorkspaceSessions,
-  sidebarSessions,
-  type SessionActionTarget,
-} from './sidebar-sessions.ts'
+import { compareWorkspaces, sidebarSessions, type SessionActionTarget } from './sidebar-sessions.ts'
 import { SessionRenameDialog } from './SessionRenameDialog.tsx'
 import { maxWorkspaceSidebarWidth, minWorkspaceSidebarWidth } from './workspace-sidebar.ts'
 
@@ -49,7 +44,6 @@ interface WorkspaceSidebarProps {
   onNewSession: () => Promise<void>
   onOpenSession: (session: RecentSession) => Promise<void>
   onSelectWorkspace: (path: string) => void
-  onSelectOtherWorkspaceSession: (session: SessionSummary) => void
   onSelectSession: (sessionId: string) => void
   onOpenSettings: () => void
   onRenameSession: (target: SessionActionTarget, name: string) => Promise<void>
@@ -79,7 +73,6 @@ export function WorkspaceSidebar({
   onNewSession,
   onOpenSession,
   onSelectWorkspace,
-  onSelectOtherWorkspaceSession,
   onSelectSession,
   onOpenSettings,
   onRenameSession,
@@ -92,7 +85,6 @@ export function WorkspaceSidebar({
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [contextMenuPosition, setContextMenuPosition] = useState({ left: 0, top: 0 })
   const [renameTarget, setRenameTarget] = useState<SessionActionTarget | null>(null)
-  const [otherWorkspacesExpanded, setOtherWorkspacesExpanded] = useState(true)
   const [startingNewSession, setStartingNewSession] = useState(false)
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
@@ -112,26 +104,6 @@ export function WorkspaceSidebar({
     [pinnedSessionPaths, recentSessions, sentSessions, workspacePath],
   )
   const workspaces = useMemo(() => projectDetails?.workspaces ?? [], [projectDetails])
-  const otherSessions = useMemo(() => {
-    const projectWorkspacePaths = new Set(workspaces.map(({ path }) => path))
-    return otherWorkspaceSessions(
-      sessions.filter(({ cwd, sessionPath }) =>
-        projectWorkspacePaths.has(cwd) && (!sessionPath || !pinnedSessionPaths.has(sessionPath))
-      ),
-      workspacePath,
-      compactingSessionIds,
-      completedSessionIds,
-      recentSessions,
-    )
-  }, [
-    compactingSessionIds,
-    completedSessionIds,
-    pinnedSessionPaths,
-    recentSessions,
-    sessions,
-    workspacePath,
-    workspaces,
-  ])
   const selectedWorkspace = workspaces.find(({ path }) => path === workspacePath)
   const selectedWorkspaceLabel = selectedWorkspace?.branch ?? workspacePath
   const projectIndicator = aggregateSessionIndicator(
@@ -463,61 +435,6 @@ export function WorkspaceSidebar({
           <p className='empty-sidebar'>No Pi sessions in this directory.</p>
         )}
       </nav>
-      {otherSessions.length > 0 && (
-        <section className='other-workspace-sessions'>
-          <div className='project-title'>
-            <button
-              aria-expanded={otherWorkspacesExpanded}
-              className='project-toggle'
-              onClick={() => setOtherWorkspacesExpanded((current) => !current)}
-              type='button'
-            >
-              <DisclosureIcon collapsed={!otherWorkspacesExpanded} />
-              <strong>Other workspaces</strong>
-            </button>
-          </div>
-          {otherWorkspacesExpanded && (
-            <nav
-              aria-label='Active and completed sessions in other workspaces'
-              className='other-session-list'
-            >
-              {otherSessions.map((session) => {
-                const indicator = sessionIndicator(
-                  session,
-                  selectedId,
-                  compactingSessionIds,
-                  completedSessionIds,
-                )
-                const actionTarget: SessionActionTarget = {
-                  cwd: session.cwd,
-                  name: session.name,
-                  sessionId: session.id,
-                  sessionPath: session.sessionPath,
-                }
-                return (
-                  <div className='session-row' key={session.id}>
-                    <Tooltip label={`${session.name}\n${session.cwd}`}>
-                      <button
-                        aria-label={`${session.name} in workspace ${session.cwd}`}
-                        className={`session-item${indicator ? ` ${indicator}` : ''}`}
-                        onClick={() => onSelectOtherWorkspaceSession(session)}
-                        type='button'
-                      >
-                        {indicator && <SessionStatusIndicator status={indicator} />}
-                        <span className='session-item-copy'>
-                          <strong>{session.name}</strong>
-                          <small>{session.cwd}</small>
-                        </span>
-                      </button>
-                    </Tooltip>
-                    <SessionActions target={actionTarget} onOpen={openContextMenu} />
-                  </div>
-                )
-              })}
-            </nav>
-          )}
-        </section>
-      )}
       {contextMenu && (
         <div
           aria-label='Session actions'
@@ -590,24 +507,6 @@ function SidebarToggleIcon({ collapsed }: { collapsed: boolean }) {
     >
       <path d='M3 3v18' />
       <path d={collapsed ? 'm9 6 6 6-6 6' : 'm15 6-6 6 6 6'} />
-    </svg>
-  )
-}
-
-function DisclosureIcon({ collapsed }: { collapsed: boolean }) {
-  return (
-    <svg
-      aria-hidden='true'
-      fill='none'
-      height='14'
-      stroke='currentColor'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      strokeWidth='1.75'
-      viewBox='0 0 24 24'
-      width='14'
-    >
-      <path d={collapsed ? 'm9 6 6 6-6 6' : 'm6 9 6 6 6-6'} />
     </svg>
   )
 }

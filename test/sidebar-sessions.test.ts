@@ -4,7 +4,6 @@ import type { RecentSession, SessionSummary } from '../shared/types.ts'
 import {
   compareWorkspaces,
   newestWorkspaceSession,
-  otherWorkspaceSessions,
   reusableNewSession,
   sidebarSessions,
   workspaceActivity,
@@ -102,69 +101,6 @@ test('reuses a live new session only while it has no persisted messages', () => 
       '/workspace',
     ),
     null,
-  )
-})
-
-// -- otherWorkspaceSessions ------------------------------------------------
-
-const remoteSession: SessionSummary = {
-  id: 'remote-1',
-  cwd: '/remote',
-  name: 'Remote session',
-  sessionPath: '/sessions/remote.jsonl',
-  status: 'running',
-  pendingUi: [],
-}
-
-test('shows attention-worthy sessions from other workspaces by latest activity', () => {
-  const completed = {
-    ...remoteSession,
-    id: 'completed',
-    sessionPath: '/sessions/completed.jsonl',
-    status: 'idle' as const,
-  }
-  const starting = {
-    ...remoteSession,
-    id: 'starting',
-    sessionPath: '/sessions/starting.jsonl',
-    status: 'starting' as const,
-  }
-
-  assert.deepEqual(
-    otherWorkspaceSessions(
-      [completed, starting],
-      '/workspace',
-      new Set(),
-      new Set(['/sessions/completed.jsonl']),
-      [
-        {
-          ...persisted,
-          id: 'completed',
-          cwd: '/remote',
-          sessionPath: '/sessions/completed.jsonl',
-          updatedAt: 100,
-        },
-        {
-          ...persisted,
-          id: 'starting',
-          cwd: '/remote',
-          sessionPath: '/sessions/starting.jsonl',
-          updatedAt: 200,
-        },
-      ],
-    ),
-    [starting, completed],
-  )
-})
-
-test('hides current, idle viewed, and exited sessions from other workspaces', () => {
-  const current = { ...remoteSession, cwd: '/workspace' }
-  const idle = { ...remoteSession, id: 'idle', status: 'idle' as const }
-  const exited = { ...remoteSession, id: 'exited', status: 'exited' as const }
-
-  assert.deepEqual(
-    otherWorkspaceSessions([current, idle, exited], '/workspace', new Set(), new Set()),
-    [],
   )
 })
 

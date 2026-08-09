@@ -1,5 +1,4 @@
 import type { GitWorkspace, RecentSession, SessionSummary } from '../../../shared/types.ts'
-import { sessionIndicator } from './session-indicator.ts'
 
 export interface SessionActionTarget {
   cwd: string
@@ -82,29 +81,6 @@ export function nextActiveSessionId(
   return closedIndex >= 0
     ? activeIds[closedIndex + 1] ?? activeIds[closedIndex - 1] ?? null
     : activeIds[0] ?? null
-}
-
-/** Lists attention-worthy sessions outside the current workspace by latest known activity. */
-export function otherWorkspaceSessions(
-  sessions: SessionSummary[],
-  workspacePath: string,
-  compactingSessionIds: ReadonlySet<string>,
-  completedSessionIds: ReadonlySet<string>,
-  recentSessions: readonly RecentSession[] = [],
-): SessionSummary[] {
-  const relevant = sessions.filter((session) =>
-    session.cwd !== workspacePath
-    && session.status !== 'exited'
-    && sessionIndicator(session, '', compactingSessionIds, completedSessionIds) !== null
-    && sessionIndicator(session, '', compactingSessionIds, completedSessionIds) !== 'idle'
-  )
-  const activityBySessionPath = new Map(
-    recentSessions.map(({ sessionPath, updatedAt }) => [sessionPath, updatedAt]),
-  )
-  return relevant.sort((left, right) =>
-    (activityBySessionPath.get(right.sessionPath ?? '') ?? 0)
-    - (activityBySessionPath.get(left.sessionPath ?? '') ?? 0)
-  )
 }
 
 export interface WorkspaceSessionTarget {
