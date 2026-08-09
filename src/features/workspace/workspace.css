@@ -281,6 +281,16 @@
   display: grid;
   gap: 3px;
 }
+.workspace-row {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+}
+.workspace-row .workspace-path {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
 .project-workspaces .workspace-path {
   min-height: 36px;
   border-radius: 8px;
@@ -452,7 +462,11 @@
 }
 .session-row .session-item {
   flex: 1;
+  min-width: 0;
   width: auto;
+}
+.workspace-actions {
+  min-height: 36px;
 }
 .session-actions {
   flex: 0 0 auto;

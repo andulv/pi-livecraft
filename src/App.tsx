@@ -1299,6 +1299,16 @@ function LivecraftProjectApp(
         onOpenSession={async (recentSession) => {
           await startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))
         }}
+        onOpenVSCode={(workspace) => {
+          void openVSCode(
+            workspace.path,
+            project.name,
+            workspace.branch ?? workspace.path,
+            worktreeColor(project.root, workspace.path, project.color),
+            workspace.main,
+          )
+            .catch((cause) => showToast('error', messageOf(cause)))
+        }}
         onSelectWorkspace={selectWorkspace}
         onSelectSession={setSelectedId}
         onError={(cause) => showToast('error', messageOf(cause))}

@@ -9,7 +9,12 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import type { GitProject, RecentSession, SessionSummary } from '../../../shared/types.ts'
+import type {
+  GitProject,
+  GitWorkspace,
+  RecentSession,
+  SessionSummary,
+} from '../../../shared/types.ts'
 import { resolvePinnedSessions } from './pinned-sessions.ts'
 import { PinnedSessionList } from './PinnedSessionList.tsx'
 import type { Project } from './projects.ts'
@@ -21,6 +26,12 @@ import { maxWorkspaceSidebarWidth, minWorkspaceSidebarWidth } from './workspace-
 
 interface ContextMenuState {
   target: SessionActionTarget
+  x: number
+  y: number
+}
+
+interface WorkspaceContextMenuState {
+  workspace: GitWorkspace
   x: number
   y: number
 }
@@ -43,6 +54,7 @@ interface WorkspaceSidebarProps {
   onOpenPinnedSession: (session: RecentSession) => Promise<void>
   onNewSession: () => Promise<void>
   onOpenSession: (session: RecentSession) => Promise<void>
+  onOpenVSCode: (workspace: GitWorkspace) => void
   onSelectWorkspace: (path: string) => void
   onSelectSession: (sessionId: string) => void
   onOpenSettings: () => void
@@ -72,6 +84,7 @@ export function WorkspaceSidebar({
   onOpenPinnedSession,
   onNewSession,
   onOpenSession,
+  onOpenVSCode,
   onSelectWorkspace,
   onSelectSession,
   onOpenSettings,
@@ -84,11 +97,15 @@ export function WorkspaceSidebar({
   const [openingSessionPath, setOpeningSessionPath] = useState('')
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [contextMenuPosition, setContextMenuPosition] = useState({ left: 0, top: 0 })
+  const [workspaceMenu, setWorkspaceMenu] = useState<WorkspaceContextMenuState | null>(null)
+  const [workspaceMenuPosition, setWorkspaceMenuPosition] = useState({ left: 0, top: 0 })
   const [renameTarget, setRenameTarget] = useState<SessionActionTarget | null>(null)
   const [startingNewSession, setStartingNewSession] = useState(false)
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
   const contextMenuTriggerRef = useRef<HTMLButtonElement>(null)
+  const workspaceMenuRef = useRef<HTMLDivElement>(null)
+  const workspaceMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const resolvedPinnedSessions = useMemo(
     () => resolvePinnedSessions(pinnedSessions, recentSessions, sentSessions),
     [pinnedSessions, recentSessions, sentSessions],
@@ -160,9 +177,57 @@ export function WorkspaceSidebar({
     }
   }, [contextMenu])
 
+  useLayoutEffect(() => {
+    if (!workspaceMenu || !workspaceMenuRef.current) return
+    const { width: menuWidth, height: menuHeight } = workspaceMenuRef
+      .current
+      .getBoundingClientRect()
+    setWorkspaceMenuPosition({
+      left: Math.min(Math.max(8, workspaceMenu.x), Math.max(8, window.innerWidth - menuWidth - 8)),
+      top: Math.min(Math.max(8, workspaceMenu.y), Math.max(8, window.innerHeight - menuHeight - 8)),
+    })
+  }, [workspaceMenu])
+
+  useEffect(() => {
+    if (!workspaceMenu) return
+    const dismissOnPointerDown = (event: PointerEvent): void => {
+      if (!(event.target instanceof Node) || !workspaceMenuRef.current?.contains(event.target))
+        setWorkspaceMenu(null)
+    }
+    const dismissOnKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setWorkspaceMenu(null)
+      workspaceMenuTriggerRef.current?.focus()
+    }
+    document.addEventListener('pointerdown', dismissOnPointerDown)
+    document.addEventListener('keydown', dismissOnKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', dismissOnPointerDown)
+      document.removeEventListener('keydown', dismissOnKeyDown)
+    }
+  }, [workspaceMenu])
+
   function dismissContextMenu(): void {
     setContextMenu(null)
     contextMenuTriggerRef.current?.focus()
+  }
+
+  function openWorkspaceMenu(
+    workspace: GitWorkspace,
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ): void {
+    event.preventDefault()
+    setContextMenu(null)
+    workspaceMenuTriggerRef.current = event.currentTarget
+    setWorkspaceMenu({ workspace, x: event.clientX, y: event.clientY })
+  }
+
+  function openWorkspaceVSCode(): void {
+    if (!workspaceMenu) return
+    const { workspace } = workspaceMenu
+    setWorkspaceMenu(null)
+    onOpenVSCode(workspace)
   }
 
   function openContextMenu(
@@ -170,6 +235,7 @@ export function WorkspaceSidebar({
     event: ReactMouseEvent<HTMLButtonElement>,
   ): void {
     event.preventDefault()
+    setWorkspaceMenu(null)
     contextMenuTriggerRef.current = event.currentTarget
     setContextMenu({ target, x: event.clientX, y: event.clientY })
   }
@@ -337,21 +403,33 @@ export function WorkspaceSidebar({
                   completedSessionIds,
                 )
                 return (
-                  <button
-                    aria-current={workspace.path === workspacePath ? 'page' : undefined}
-                    className={`workspace-path${
-                      workspace.path === workspacePath ? ' selected' : ''
-                    }`}
-                    key={workspace.path}
-                    onClick={() => onSelectWorkspace(workspace.path)}
-                    type='button'
-                  >
-                    <div className='workspace-path-copy'>
-                      <span>{workspace.main ? 'Main workspace' : 'Worktree'}</span>
-                      <strong>{workspace.branch ?? workspace.path}</strong>
-                    </div>
-                    {workspaceIndicator && <SessionStatusIndicator status={workspaceIndicator} />}
-                  </button>
+                  <div className='workspace-row' key={workspace.path}>
+                    <button
+                      aria-current={workspace.path === workspacePath ? 'page' : undefined}
+                      className={`workspace-path${
+                        workspace.path === workspacePath ? ' selected' : ''
+                      }`}
+                      onClick={() => onSelectWorkspace(workspace.path)}
+                      type='button'
+                    >
+                      <div className='workspace-path-copy'>
+                        <span>{workspace.main ? 'Main workspace' : 'Worktree'}</span>
+                        <strong>{workspace.branch ?? workspace.path}</strong>
+                      </div>
+                      {workspaceIndicator && <SessionStatusIndicator status={workspaceIndicator} />}
+                    </button>
+                    <Tooltip label={`Workspace actions for ${workspace.branch ?? workspace.path}`}>
+                      <button
+                        aria-haspopup='menu'
+                        aria-label={`Workspace actions for ${workspace.branch ?? workspace.path}`}
+                        className='session-actions workspace-actions'
+                        onClick={(event) => openWorkspaceMenu(workspace, event)}
+                        type='button'
+                      >
+                        …
+                      </button>
+                    </Tooltip>
+                  </div>
                 )
               })}
           </div>
@@ -435,6 +513,21 @@ export function WorkspaceSidebar({
           <p className='empty-sidebar'>No Pi sessions in this directory.</p>
         )}
       </nav>
+      {workspaceMenu && (
+        <div
+          aria-label={`Workspace actions for ${
+            workspaceMenu.workspace.branch ?? workspaceMenu.workspace.path
+          }`}
+          className='session-context-menu'
+          ref={workspaceMenuRef}
+          role='menu'
+          style={{ left: workspaceMenuPosition.left, top: workspaceMenuPosition.top }}
+        >
+          <button autoFocus onClick={openWorkspaceVSCode} role='menuitem' type='button'>
+            Open in VS Code
+          </button>
+        </div>
+      )}
       {contextMenu && (
         <div
           aria-label='Session actions'
