@@ -326,15 +326,11 @@ export function WorkspaceSidebar({
                     onClick={() => onSelectWorkspace(workspace.path)}
                     type='button'
                   >
-                    <WorkspaceIcon />
                     <div className='workspace-path-copy'>
                       <span>{workspace.main ? 'Main workspace' : 'Worktree'}</span>
                       <strong>{workspace.branch ?? workspace.path}</strong>
                     </div>
                     {workspaceIndicator && <SessionStatusIndicator status={workspaceIndicator} />}
-                    {workspace.path === workspacePath && (
-                      <span className='workspace-current'>Current</span>
-                    )}
                   </button>
                 )
               })}
@@ -555,24 +551,6 @@ function DisclosureIcon({ collapsed }: { collapsed: boolean }) {
       width='14'
     >
       <path d={collapsed ? 'm9 6 6 6-6 6' : 'm6 9 6 6 6-6'} />
-    </svg>
-  )
-}
-
-function WorkspaceIcon() {
-  return (
-    <svg
-      aria-hidden='true'
-      fill='none'
-      height='16'
-      stroke='currentColor'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      strokeWidth='1.5'
-      viewBox='0 0 24 24'
-      width='16'
-    >
-      <path d='M3.5 6.5A1.5 1.5 0 0 1 5 5h4l2 2h8A1.5 1.5 0 0 1 20.5 8.5v9A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5v-11Z' />
     </svg>
   )
 }

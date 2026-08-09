@@ -309,11 +309,6 @@
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   background: var(--accent-soft);
 }
-.workspace-current {
-  color: var(--accent-hover);
-  font-size: 10px;
-  font-weight: 700;
-}
 .sessions-heading {
   margin-top: 2px;
   padding-top: 10px;
@@ -358,7 +353,7 @@
 
 .workspace-path {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -379,12 +374,6 @@
 .workspace-path:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
-}
-.workspace-path > svg:first-child {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-  color: var(--accent);
 }
 .workspace-path-copy {
   display: grid;
