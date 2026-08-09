@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   closeSession as requestCloseSession,
   getGitProject,
@@ -71,7 +71,7 @@ export function useWorkspaceSessions(
   const [workspacePath, setWorkspacePath] = useState(() =>
     window.localStorage.getItem(workspacePathKey) ?? project.root
   )
-  const [recentWorkspacePaths, setRecentWorkspacePaths] = useState(() =>
+  const [recentWorkspacePathsState, setRecentWorkspacePathsState] = useState(() =>
     recentWorkspaces(
       window.localStorage.getItem(workspacePathKey) ?? project.root,
       readRecentWorkspaces(recentWorkspacePathsKey),
@@ -79,6 +79,19 @@ export function useWorkspaceSessions(
   )
   const [projectDiscoveryComplete, setProjectDiscoveryComplete] = useState(false)
   const [projectWorkspaces, setProjectWorkspaces] = useState<Record<string, GitProject>>({})
+  /** Valid workspace paths from the live `getGitProject` result — the single source of truth. */
+  const workspacePaths = useMemo(
+    () =>
+      Object.values(projectWorkspaces).flatMap((entry) =>
+        entry.workspaces.map((workspace) => workspace.path)
+      ),
+    [projectWorkspaces],
+  )
+  /** Recent workspace paths (for the previous-workspace shortcut), filtered to those still present. */
+  const recentWorkspacePaths = useMemo(() => {
+    const valid = new Set(workspacePaths)
+    return recentWorkspacePathsState.filter((path) => valid.has(path))
+  }, [recentWorkspacePathsState, workspacePaths])
   const [selectedId, setSelectedId] = useState('')
   const [creatingSession, setCreatingSession] = useState(false)
   const sessionsRef = useRef(sessions)
@@ -140,18 +153,11 @@ export function useWorkspaceSessions(
     const shouldAutoSelect = autoSelectOnRefreshRef.current
     setIsRefreshingSessions(true)
     try {
-      const discoveredWorkspacePaths = Object.values(projectWorkspaces).flatMap((project) =>
-        project.workspaces.map((workspace) => workspace.path)
-      )
-      const workspacePaths = [
-        ...new Set(
-          discoveredWorkspacePaths.length > 0 ? discoveredWorkspacePaths : [cwd],
-        ),
-      ]
+      const pathsToScan = workspacePaths.length > 0 ? workspacePaths : [cwd]
       const [listedSessions, recentSessionLists] = await Promise.all([
         listSessions(),
         Promise.all(
-          workspacePaths.map((path) => listRecentSessions(path)),
+          pathsToScan.map((path) => listRecentSessions(path)),
         ),
       ])
       const nextRecentSessions = recentSessionLists.flat()
@@ -224,7 +230,7 @@ export function useWorkspaceSessions(
     } finally {
       if (version === refreshVersionRef.current) setIsRefreshingSessions(false)
     }
-  }, [onError, onSessionsRefreshed, projectWorkspaces, workspacePath])
+  }, [onError, onSessionsRefreshed, workspacePath, workspacePaths])
 
   useEffect(() => {
     if (!projectDiscoveryComplete) return
@@ -252,12 +258,12 @@ export function useWorkspaceSessions(
   /** Selects a workspace, optionally preserving an explicit session over automatic selection. */
   const selectWorkspace = useCallback((path: string, targetSessionId?: string): void => {
     window.localStorage.setItem(workspacePathKey, path)
-    const nextRecentWorkspacePaths = recentWorkspaces(path, recentWorkspacePaths)
+    const nextRecentWorkspacePaths = recentWorkspaces(path, recentWorkspacePathsState)
     window.localStorage.setItem(
       recentWorkspacePathsKey,
       JSON.stringify(nextRecentWorkspacePaths),
     )
-    setRecentWorkspacePaths(nextRecentWorkspacePaths)
+    setRecentWorkspacePathsState(nextRecentWorkspacePaths)
     discardTransientNewSession(targetSessionId)
     onWorkspaceSelected()
     setWorkspacePath(path)
@@ -267,7 +273,7 @@ export function useWorkspaceSessions(
   }, [
     discardTransientNewSession,
     onWorkspaceSelected,
-    recentWorkspacePaths,
+    recentWorkspacePathsState,
     recentWorkspacePathsKey,
     refreshSessions,
     workspacePathKey,
@@ -275,12 +281,9 @@ export function useWorkspaceSessions(
 
   // A removed worktree can remain in localStorage after Git prunes it; fall back to a live one.
   useEffect(() => {
-    const availableWorkspaces = Object.values(projectWorkspaces).flatMap((project) =>
-      project.workspaces.map((workspace) => workspace.path)
-    )
-    if (availableWorkspaces.length > 0 && !availableWorkspaces.includes(workspacePath))
-      selectWorkspace(availableWorkspaces[0])
-  }, [projectWorkspaces, selectWorkspace, workspacePath])
+    if (workspacePaths.length > 0 && !workspacePaths.includes(workspacePath))
+      selectWorkspace(workspacePaths[0])
+  }, [workspacePaths, selectWorkspace, workspacePath])
 
   /** Stores the optimistic title shared by first prompts in new and existing sessions. */
   const nameSessionFromFirstPrompt = useCallback(
