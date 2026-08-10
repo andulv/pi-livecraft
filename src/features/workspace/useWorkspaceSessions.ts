@@ -79,6 +79,8 @@ export function useWorkspaceSessions(
     )
   )
   const [projectDiscoveryComplete, setProjectDiscoveryComplete] = useState(false)
+  const [projectDiscoveryError, setProjectDiscoveryError] = useState<unknown | null>(null)
+  const [discoveryVersion, setDiscoveryVersion] = useState(0)
   const [projectWorkspaces, setProjectWorkspaces] = useState<Record<string, GitProject>>({})
   /** Valid workspace paths from the live `getGitProject` result — the single source of truth. */
   const workspacePaths = useMemo(
@@ -118,16 +120,19 @@ export function useWorkspaceSessions(
   useEffect(() => {
     let active = true
     setProjectDiscoveryComplete(false)
+    setProjectDiscoveryError(null)
     void getGitProject(project.root)
       .then((details) => {
         if (active) setProjectWorkspaces({ [project.root]: details })
       })
-      .catch(onError)
+      .catch((cause) => {
+        if (active) setProjectDiscoveryError(cause)
+      })
       .finally(() => active && setProjectDiscoveryComplete(true))
     return () => {
       active = false
     }
-  }, [onError, project.root])
+  }, [project.root, discoveryVersion])
 
   useEffect(() => {
     if (selectedId) window.localStorage.setItem('pi-livecraft.selected-session', selectedId)
@@ -237,10 +242,15 @@ export function useWorkspaceSessions(
     }
   }, [onError, onSessionsRefreshed, workspacePath, workspacePaths])
 
+  /** Re-runs project discovery after a failed load without leaving the project view. */
+  const retryProjectDiscovery = useCallback((): void => {
+    setDiscoveryVersion((current) => current + 1)
+  }, [])
+
   useEffect(() => {
-    if (!projectDiscoveryComplete) return
+    if (!projectDiscoveryComplete || projectDiscoveryError) return
     void refreshSessions()
-  }, [projectDiscoveryComplete, refreshSessions])
+  }, [projectDiscoveryComplete, projectDiscoveryError, refreshSessions])
 
   /** Stops and removes an unmessaged session when navigation abandons it. */
   const discardTransientNewSession = useCallback((nextSessionId?: string): void => {
@@ -570,6 +580,8 @@ export function useWorkspaceSessions(
     retainNewSession,
     renameManagedSession,
     renameSession,
+    retryProjectDiscovery,
+    projectDiscoveryError,
     selectCreatedSession,
     selectedId,
     sentSessions,

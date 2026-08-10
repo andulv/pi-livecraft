@@ -169,13 +169,12 @@ function App() {
   }, [projectId, refreshProjects])
 
   useEffect(() => {
-    const unavailable = project && unavailableProjectIds.has(project.id)
-    if (!projectId || isDiscovering || (project && !unavailable)) return
+    if (!projectId || project) return
     const url = new URL(window.location.href)
     url.searchParams.delete('project')
     window.history.replaceState({}, '', url)
     setProjectId(null)
-  }, [isDiscovering, project, projectId, unavailableProjectIds])
+  }, [project, projectId])
 
   const navigate = useCallback((nextProject: Project | null): void => {
     const url = new URL(window.location.href)
@@ -185,7 +184,7 @@ function App() {
     setProjectId(nextProject?.id ?? null)
   }, [])
 
-  if (!project || isDiscovering || unavailableProjectIds.has(project.id)) {
+  if (!project) {
     return (
       <ProjectHome
         activity={projectActivity}
@@ -439,6 +438,8 @@ function LivecraftProjectApp(
     toggleProjectPin,
     updateSession,
     workspacePath,
+    retryProjectDiscovery,
+    projectDiscoveryError,
   } = useWorkspaceSessions({
     project,
     onDraftMessage: handleSessionDraft,
@@ -1246,6 +1247,27 @@ function LivecraftProjectApp(
   const rightPanelVisible = activeRightWidget === 'todo' || activeRightWidget === 'quotas'
     || (activeRightWidget === 'analysis' && sessionAnalysis !== null)
     || (activeRightWidget === 'git' && gitSnapshot?.repository === true)
+
+  if (projectDiscoveryError) {
+    return (
+      <main className='project-unavailable'>
+        <section className='welcome'>
+          <span className='brand-mark large'>π</span>
+          <h1>Repository unavailable</h1>
+          <p>
+            {project.name}{' '}
+            can't be opened. It may have been moved, deleted, or is no longer a Git repository.
+          </p>
+          <button className='welcome-action' onClick={retryProjectDiscovery} type='button'>
+            Retry
+          </button>
+          <button className='welcome-action' onClick={onOpenHome} type='button'>
+            Back to projects
+          </button>
+        </section>
+      </main>
+    )
+  }
 
   return (
     <div

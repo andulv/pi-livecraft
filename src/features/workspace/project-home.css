@@ -5,6 +5,14 @@
   background: var(--canvas);
   color: var(--ink);
 }
+.project-unavailable {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--canvas);
+  color: var(--ink);
+}
 .project-home-header {
   display: flex;
   align-items: center;
