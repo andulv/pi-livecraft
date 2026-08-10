@@ -29,6 +29,10 @@ import {
 
 interface WorkspaceSessionsOptions {
   project: Project
+  /** Workspace requested by the URL; preferred over the persisted default. */
+  initialWorkspacePath?: string
+  /** Session path requested by the URL; opened instead of auto-selecting the newest. */
+  initialSessionPath?: string
   onDraftMessage: (sessionId: string, message: string) => void
   onError: (cause: unknown) => void
   onInitialMessageSent: () => void
@@ -50,6 +54,8 @@ const MAX_COMPLETED_SESSIONS = 30
 export function useWorkspaceSessions(
   {
     project,
+    initialWorkspacePath,
+    initialSessionPath,
     onDraftMessage,
     onError,
     onInitialMessageSent,
@@ -71,8 +77,10 @@ export function useWorkspaceSessions(
   const workspacePathKey = `pi-livecraft.project-workspace.${project.id}`
   const recentWorkspacePathsKey = `pi-livecraft.project-recent-workspaces.${project.id}`
   const [workspacePath, setWorkspacePath] = useState(() =>
-    window.localStorage.getItem(workspacePathKey) ?? project.root
+    initialWorkspacePath ?? window.localStorage.getItem(workspacePathKey) ?? project.root
   )
+  /** Consumed once by the first auto-select refresh; restored from the URL on reload. */
+  const initialSessionPathRef = useRef<string | null>(initialSessionPath ?? null)
   const [recentWorkspacePathsState, setRecentWorkspacePathsState] = useState(() =>
     recentWorkspaces(
       window.localStorage.getItem(workspacePathKey) ?? project.root,
@@ -190,21 +198,40 @@ export function useWorkspaceSessions(
       let nextSessions = listedSessions
       let autoSelectId: string | undefined
       if (shouldAutoSelect) {
-        const target = newestWorkspaceSession(
-          sidebarSessions(nextRecentSessions, cwd, sentSessionsRef.current),
-          nextSessions,
-        )
-        if (target?.activeSessionId) autoSelectId = target.activeSessionId
-        else if (target) {
+        const openTarget = async (target: {
+          sessionPath?: string
+          activeSessionId?: string
+        }): Promise<string | undefined> => {
+          if (target.activeSessionId) return target.activeSessionId
+          if (!target.sessionPath) return undefined
           const opened = await requestOpenSession(cwd, target.sessionPath)
-          if (version !== refreshVersionRef.current) return
+          if (version !== refreshVersionRef.current) return undefined
           nextSessions = [
             ...nextSessions.filter((session) =>
               session.id !== opened.id && session.sessionPath !== opened.sessionPath
             ),
             opened,
           ]
-          autoSelectId = opened.id
+          return opened.id
+        }
+        const newestTarget = (): { sessionPath?: string; activeSessionId?: string } | null =>
+          newestWorkspaceSession(
+            sidebarSessions(nextRecentSessions, cwd, sentSessionsRef.current),
+            nextSessions,
+          )
+        const forcedPath = initialSessionPathRef.current
+        if (forcedPath) initialSessionPathRef.current = null
+        if (forcedPath) {
+          try {
+            autoSelectId = await openTarget({ sessionPath: forcedPath })
+          } catch {
+            // A stale workspace/session from the URL; fall back to the newest session.
+            autoSelectId = undefined
+          }
+        }
+        if (autoSelectId === undefined) {
+          const target = newestTarget()
+          if (target) autoSelectId = await openTarget(target)
         }
       }
       const recentNames = new Map(

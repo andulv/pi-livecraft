@@ -52,6 +52,11 @@ import {
 import { RightSidebar } from './features/right-sidebar/RightSidebar.tsx'
 import { quotaProviderForModel } from './features/quotas/quota-display.ts'
 import { ProjectHome } from './features/workspace/ProjectHome.tsx'
+import {
+  projectIdFromLocation,
+  projectPageUrl,
+  projectUrlState,
+} from './features/workspace/project-url.ts'
 import { projectFaviconHref, projectPageTitle } from './features/workspace/project-tab.ts'
 import { worktreeColor } from './features/workspace/project-definition.ts'
 import type { Project } from './features/workspace/projects.ts'
@@ -139,7 +144,9 @@ function VSCodeIcon() {
 }
 /** Routes between the project registry and one URL-addressable Livecraft project. */
 function App() {
-  const [projectId, setProjectId] = useState(projectIdFromLocation)
+  const [projectId, setProjectId] = useState(() =>
+    projectIdFromLocation(window.location.pathname, window.location.search)
+  )
   const {
     addProject,
     isDiscovering,
@@ -159,28 +166,39 @@ function App() {
   }, [project?.color, project?.name])
 
   useEffect(() => {
-    const onPopState = (): void => setProjectId(projectIdFromLocation())
+    const onPopState = (): void =>
+      setProjectId(projectIdFromLocation(window.location.pathname, window.location.search))
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  // Migrate the legacy `?project=` form to the path form on next load.
+  useEffect(() => {
+    if (window.location.pathname !== '/') return
+    const params = new URLSearchParams(window.location.search)
+    const legacy = params.get('project')
+    if (!legacy) return
+    params.delete('project')
+    const query = params.toString()
+    const url = `/project/${encodeURIComponent(legacy)}${query ? `?${query}` : ''}`
+    window.history.replaceState({}, '', url)
+    setProjectId(projectIdFromLocation(window.location.pathname, window.location.search))
   }, [])
 
   useEffect(() => {
     void refreshProjects()
   }, [projectId, refreshProjects])
 
+  // A `/project/<id>` for an unknown id falls back to the frontpage.
   useEffect(() => {
-    if (!projectId || project) return
-    const url = new URL(window.location.href)
-    url.searchParams.delete('project')
-    window.history.replaceState({}, '', url)
-    setProjectId(null)
+    if (projectId && !project) {
+      window.history.replaceState({}, '', '/')
+      setProjectId(null)
+    }
   }, [project, projectId])
 
   const navigate = useCallback((nextProject: Project | null): void => {
-    const url = new URL(window.location.href)
-    if (nextProject) url.searchParams.set('project', nextProject.id)
-    else url.searchParams.delete('project')
-    window.history.pushState({}, '', url)
+    window.history.pushState({}, '', nextProject ? projectPageUrl(nextProject.id) : '/')
     setProjectId(nextProject?.id ?? null)
   }, [])
 
@@ -199,10 +217,13 @@ function App() {
     )
   }
 
+  const urlState = projectUrlState(window.location.pathname, window.location.search)
   return (
     <LivecraftProjectApp
       key={project.id}
       project={project}
+      initialWorkspacePath={urlState.workspacePath}
+      initialSessionPath={urlState.sessionPath}
       onOpenHome={() => navigate(null)}
     />
   )
@@ -210,7 +231,17 @@ function App() {
 
 /** Orchestrates workspace state, Pi events, and UI panels for one selected project. */
 function LivecraftProjectApp(
-  { project, onOpenHome }: { project: Project; onOpenHome: () => void },
+  {
+    project,
+    initialWorkspacePath,
+    initialSessionPath,
+    onOpenHome,
+  }: {
+    project: Project
+    initialWorkspacePath?: string
+    initialSessionPath?: string
+    onOpenHome: () => void
+  },
 ) {
   // Workspace and sessions
   const [compactingSessionIds, setCompactingSessionIds] = useState<ReadonlySet<string>>(new Set())
@@ -443,6 +474,8 @@ function LivecraftProjectApp(
     projectDiscoveryError,
   } = useWorkspaceSessions({
     project,
+    initialWorkspacePath,
+    initialSessionPath,
     onDraftMessage: handleSessionDraft,
     onError: handleWorkspaceError,
     onInitialMessageSent: handleInitialMessageSent,
@@ -450,6 +483,23 @@ function LivecraftProjectApp(
     onWorkspaceSelected: handleWorkspaceSelected,
   })
   selectedIdRef.current = selectedId
+
+  // Keep the project page URL carrying the current workspace and selected session
+  // so reloads and duplicated tabs restore the same view. Never removes the last
+  // session, so the previously opened one survives a refresh.
+  const selectedSessionPath = sessions.find((session) => session.id === selectedId)?.sessionPath
+  useEffect(() => {
+    if (!window.location.pathname.startsWith('/project/')) return
+    const current = projectUrlState(window.location.pathname, window.location.search)
+    const path = projectPageUrl(
+      project.id,
+      workspacePath,
+      selectedSessionPath ?? current.sessionPath,
+    )
+    if (window.location.pathname + window.location.search !== path) {
+      window.history.replaceState({}, '', path)
+    }
+  }, [project.id, selectedSessionPath, workspacePath])
 
   const startAndSelectSession = useCallback(
     (
@@ -1708,10 +1758,6 @@ function isManagerRuntimeStatus(value: unknown): value is ManagerRuntimeStatus {
 
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
-}
-
-function projectIdFromLocation(): string | null {
-  return new URL(window.location.href).searchParams.get('project')
 }
 
 export default App
