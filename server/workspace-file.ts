@@ -13,10 +13,11 @@ export class WorkspaceFileError extends Error {
   }
 }
 
-/** Resolves an existing file without allowing access outside the working directory. */
+/** Resolves an existing file, optionally allowing a tool target outside the working directory. */
 export async function resolveWorkspaceFilePath(
   workspacePath: string,
   requestedPath: string,
+  allowOutsideWorkspace = false,
 ): Promise<string> {
   const root = await realpath(workspacePath)
   let path: string
@@ -25,9 +26,11 @@ export async function resolveWorkspaceFilePath(
   } catch {
     throw new WorkspaceFileError('File does not exist', 404)
   }
-  const pathFromRoot = relative(root, path)
-  if (!pathFromRoot || pathFromRoot.startsWith('..') || isAbsolute(pathFromRoot))
-    throw new WorkspaceFileError('File must be inside the working directory', 403)
+  if (!allowOutsideWorkspace) {
+    const pathFromRoot = relative(root, path)
+    if (!pathFromRoot || pathFromRoot.startsWith('..') || isAbsolute(pathFromRoot))
+      throw new WorkspaceFileError('File must be inside the working directory', 403)
+  }
 
   if (!(await stat(path)).isFile()) throw new WorkspaceFileError('Path must be a file', 400)
   return path
