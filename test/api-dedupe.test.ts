@@ -9,8 +9,7 @@ function withFetch(
 ): Promise<void> {
   const original = globalThis.fetch
   globalThis.fetch =
-    ((input: RequestInfo | URL) =>
-      handler(typeof input === 'string' ? input : input.toString())) as typeof fetch
+    ((input: unknown) => handler(typeof input === 'string' ? input : String(input))) as typeof fetch
   return run().finally(() => {
     globalThis.fetch = original
   })

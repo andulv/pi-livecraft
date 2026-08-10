@@ -421,6 +421,7 @@ function LivecraftProjectApp(
     projectWorkspaces,
     recentSessions,
     recentWorkspacePaths,
+    refreshPinnedSessions,
     refreshSessions,
     removePendingRequest,
     retainNewSession,
@@ -783,9 +784,11 @@ function LivecraftProjectApp(
       }
       if (managerEvent.event === 'manager_status' && isManagerRuntimeStatus(managerEvent.data))
         setManagerRuntimeStatus(managerEvent.data)
-      if (
+      if (managerEvent.event === 'session_exited') {
+        updateSession(managerEvent.sessionId, { status: 'exited' })
+      } else if (
         managerEvent.event === 'manager_connected' || managerEvent.event === 'session_created'
-        || managerEvent.event === 'session_exited' || managerEvent.event === 'session_reassigned'
+        || managerEvent.event === 'session_reassigned'
       ) void refreshSessions()
       if (managerEvent.event === 'pi' && isObject(managerEvent.data))
         handleManagerPiEvent(
@@ -805,6 +808,7 @@ function LivecraftProjectApp(
     refreshSessions,
     resetEventSequence,
     showToast,
+    updateSession,
   ])
 
   // Selected session and loading state
@@ -883,7 +887,6 @@ function LivecraftProjectApp(
             .messages
             .some((entry) => entry.role === 'user')
         if (sentSession && shouldNameSession) nameSessionFromFirstPrompt(sentSession, message)
-        await refreshSessions()
         setScrollToBottomRequest((current) => current + 1)
       } catch (cause) {
         if (optimisticId) removeLiveMessage(optimisticId)
@@ -895,7 +898,6 @@ function LivecraftProjectApp(
       addOptimisticUserMessage,
       addPendingSteering,
       nameSessionFromFirstPrompt,
-      refreshSessions,
       removeLiveMessage,
       removePendingSteering,
       retainNewSession,
@@ -1297,6 +1299,10 @@ function LivecraftProjectApp(
         onOpenHome={onOpenHome}
         onOpenPinnedSession={openPinnedSession}
         onNewSession={handleNewSession}
+        onRefreshSessions={() => {
+          void refreshSessions()
+          void refreshPinnedSessions()
+        }}
         onOpenSession={async (recentSession) => {
           await startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))
         }}

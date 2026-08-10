@@ -76,6 +76,14 @@ export async function listRecentSessions(cwd: string): Promise<RecentSession[]> 
   return request<RecentSession[]>(`/api/sessions/recent?cwd=${encodeURIComponent(cwd)}`)
 }
 
+/** Refreshes known (pinned) sessions by their stored file paths without a directory scan. */
+export async function resolveSessions(paths: readonly string[]): Promise<RecentSession[]> {
+  return request<RecentSession[]>('/api/sessions/resolve', {
+    method: 'POST',
+    body: JSON.stringify({ paths }),
+  })
+}
+
 export async function listDirectories(path: string): Promise<DirectoryListing> {
   return request<DirectoryListing>(`/api/directories?path=${encodeURIComponent(path)}`)
 }

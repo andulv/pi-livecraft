@@ -6,6 +6,7 @@ import {
   listSessions,
   openSession as requestOpenSession,
   renameSession as renameStoredSession,
+  resolveSessions,
   sendPiCommand,
 } from '../../api.ts'
 import type {
@@ -101,6 +102,7 @@ export function useWorkspaceSessions(
   const recentSessionsRef = useRef(recentSessions)
   const sentSessionsRef = useRef(sentSessions)
   const completedSessionIdsRef = useRef(completedSessionIds)
+  const pinnedSessionsRef = useRef(pinnedSessions)
   const selectedIdRef = useRef(selectedId)
   const creatingSessionRef = useRef(false)
   const transientNewSessionIdRef = useRef<string | null>(null)
@@ -110,6 +112,7 @@ export function useWorkspaceSessions(
   recentSessionsRef.current = recentSessions
   sentSessionsRef.current = sentSessions
   completedSessionIdsRef.current = completedSessionIds
+  pinnedSessionsRef.current = pinnedSessions
   selectedIdRef.current = selectedId
 
   useEffect(() => () => {
@@ -153,20 +156,36 @@ export function useWorkspaceSessions(
     writePinnedSessions(window.localStorage, project.id, pinnedSessions)
   }, [pinnedSessions, project.id])
 
+  /** Refreshes pinned-session metadata by path without scanning the whole session store. */
+  const refreshPinnedSessions = useCallback(async (): Promise<void> => {
+    const paths = pinnedSessionsRef.current.map(({ sessionPath }) => sessionPath)
+    if (paths.length === 0) return
+    try {
+      const resolved = await resolveSessions(paths)
+      setPinnedSessions((current) =>
+        current.map((pinned) =>
+          resolved.find(({ sessionPath }) => sessionPath === pinned.sessionPath) ?? pinned
+        )
+      )
+    } catch {
+      // Pins keep their last known metadata until a later refresh succeeds.
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshPinnedSessions()
+  }, [refreshPinnedSessions])
+
   /** Reloads sessions while discarding responses superseded by a newer workspace refresh. */
   const refreshSessions = useCallback(async (cwd = workspacePath) => {
     const version = ++refreshVersionRef.current
     const shouldAutoSelect = autoSelectOnRefreshRef.current
     setIsRefreshingSessions(true)
     try {
-      const pathsToScan = workspacePaths.length > 0 ? workspacePaths : [cwd]
-      const [listedSessions, recentSessionLists] = await Promise.all([
+      const [listedSessions, nextRecentSessions] = await Promise.all([
         listSessions(),
-        Promise.all(
-          pathsToScan.map((path) => listRecentSessions(path)),
-        ),
+        listRecentSessions(cwd),
       ])
-      const nextRecentSessions = recentSessionLists.flat()
       if (version !== refreshVersionRef.current) return
       let nextSessions = listedSessions
       let autoSelectId: string | undefined
@@ -240,7 +259,7 @@ export function useWorkspaceSessions(
     } finally {
       if (version === refreshVersionRef.current) setIsRefreshingSessions(false)
     }
-  }, [onError, onSessionsRefreshed, workspacePath, workspacePaths])
+  }, [onError, onSessionsRefreshed, workspacePath])
 
   /** Re-runs project discovery after a failed load without leaving the project view. */
   const retryProjectDiscovery = useCallback((): void => {
@@ -575,6 +594,7 @@ export function useWorkspaceSessions(
     projectWorkspaces,
     recentSessions,
     recentWorkspacePaths,
+    refreshPinnedSessions,
     refreshSessions,
     removePendingRequest,
     retainNewSession,

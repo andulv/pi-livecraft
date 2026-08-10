@@ -68,6 +68,14 @@ export async function loadPiSession(path: string): Promise<RecentSession> {
   return session
 }
 
+/** Loads known sessions by their file paths, skipping anything no longer on disk. */
+export async function resolvePiSessions(paths: readonly string[]): Promise<RecentSession[]> {
+  const sessions = await Promise.all(
+    paths.map((path) => loadPiSession(path).catch(() => null)),
+  )
+  return sessions.filter((session): session is RecentSession => session !== null)
+}
+
 /** Recursively scans Pi storage while retaining only session JSONL files. */
 async function listSessionFiles(directory: string): Promise<string[]> {
   let entries

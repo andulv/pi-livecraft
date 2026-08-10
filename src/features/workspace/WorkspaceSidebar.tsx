@@ -53,6 +53,7 @@ interface WorkspaceSidebarProps {
   onOpenHome: () => void
   onOpenPinnedSession: (session: RecentSession) => Promise<void>
   onNewSession: () => Promise<void>
+  onRefreshSessions: () => void
   onOpenSession: (session: RecentSession) => Promise<void>
   onOpenVSCode: (workspace: GitWorkspace) => void
   onSelectWorkspace: (path: string) => void
@@ -83,6 +84,7 @@ export function WorkspaceSidebar({
   onOpenHome,
   onOpenPinnedSession,
   onNewSession,
+  onRefreshSessions,
   onOpenSession,
   onOpenVSCode,
   onSelectWorkspace,
@@ -439,6 +441,17 @@ export function WorkspaceSidebar({
         <span title={workspacePath}>
           Sessions – <b>{selectedWorkspaceLabel}</b>
         </span>
+        <Tooltip label='Refresh sessions'>
+          <button
+            aria-label={`Refresh sessions in ${selectedWorkspaceLabel}`}
+            className='new-session refresh-sessions'
+            disabled={isRefreshing}
+            onClick={onRefreshSessions}
+            type='button'
+          >
+            <RefreshIcon />
+          </button>
+        </Tooltip>
         <Tooltip label='New session'>
           <button
             aria-label={`New session in ${selectedWorkspaceLabel}`}
@@ -600,6 +613,25 @@ function SidebarToggleIcon({ collapsed }: { collapsed: boolean }) {
     >
       <path d='M3 3v18' />
       <path d={collapsed ? 'm9 6 6 6-6 6' : 'm15 6-6 6 6 6'} />
+    </svg>
+  )
+}
+
+function RefreshIcon() {
+  return (
+    <svg
+      aria-hidden='true'
+      fill='none'
+      height='15'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='2'
+      viewBox='0 0 24 24'
+      width='15'
+    >
+      <path d='M21 12a9 9 0 1 1-2.6-6.4' />
+      <path d='M21 3v5h-5' />
     </svg>
   )
 }

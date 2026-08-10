@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { ManagerClient } from './manager-client.ts'
 import { ManagerRuntimeMonitor } from './manager-runtime-monitor.ts'
-import { listRecentPiSessions, loadPiSession } from './pi-session-store.ts'
+import { listRecentPiSessions, loadPiSession, resolvePiSessions } from './pi-session-store.ts'
 import {
   commitChanges,
   discardChanges,
@@ -170,6 +170,16 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   if (method === 'GET' && url.pathname === '/api/sessions/recent') {
     const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
     sendJson(response, 200, await listRecentPiSessions(cwd))
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/sessions/resolve') {
+    const body = await readJsonBody(request)
+    if (!Array.isArray(body.paths)) throw new HttpError(400, 'Session paths are required')
+    const paths = body.paths.filter((path: unknown): path is string =>
+      typeof path === 'string' && path.length > 0
+    )
+    sendJson(response, 200, await resolvePiSessions(paths))
     return
   }
 

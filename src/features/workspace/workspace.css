@@ -311,6 +311,19 @@
 .sessions-heading {
   margin-top: -8px;
 }
+.sessions-heading > span {
+  flex: 1;
+  min-width: 0;
+}
+.refresh-sessions svg {
+  animation: none;
+}
+.refresh-sessions:hover:not(:disabled) svg {
+  transition: transform 180ms ease;
+}
+.refresh-sessions:disabled {
+  cursor: progress;
+}
 .sidebar-actions {
   display: flex;
   gap: 4px;
