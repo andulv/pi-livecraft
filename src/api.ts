@@ -301,7 +301,9 @@ export async function sendPiCommand(sessionId: string, command: JsonObject): Pro
   })
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+const inflightGet = new Map<string, Promise<unknown>>()
+
+async function performRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
     headers: typeof init?.body === 'string'
@@ -316,4 +318,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(message)
   }
   return value as T
+}
+
+/** Fetches a resource, sharing concurrent identical GET requests so duplicated
+ *  effect re-runs and overlapping callers issue a single network call. */
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = init?.method?.toUpperCase()
+  if (method && method !== 'GET') return performRequest<T>(path, init)
+  const existing = inflightGet.get(path)
+  if (existing) return existing as Promise<T>
+  const promise = performRequest<T>(path, init).finally(() => inflightGet.delete(path))
+  inflightGet.set(path, promise)
+  return promise
 }
