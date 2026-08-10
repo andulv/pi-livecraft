@@ -27,7 +27,6 @@ import type {
   JsonObject,
   ManagerRuntimeStatus,
   QuotaSnapshot,
-  SessionSnapshot,
   SessionSummary,
 } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
@@ -112,15 +111,6 @@ type ConversationView = keyof typeof conversationViewDetails
 const gitRefreshDelayMs = 250
 const managerUnavailableMessage = 'Pi manager is unavailable'
 const managerUnavailableToastDelayMs = 1_000
-const blankSessionSnapshot: SessionSnapshot = {
-  state: null,
-  messages: [],
-  models: [],
-  commands: [],
-  promptTemplates: [],
-  stats: null,
-  liveEvents: [],
-}
 
 function nextConversationView(current: ConversationView): ConversationView {
   if (current === 'simple') return 'semi-detailed'
@@ -440,6 +430,7 @@ function LivecraftProjectApp(
     selectCreatedSession,
     selectedId,
     sentSessions,
+    sessionLoadError,
     sessions,
     setSelectedId,
     selectWorkspace,
@@ -826,13 +817,6 @@ function LivecraftProjectApp(
   const vscodeWorkspaceName = currentProjectWorkspace?.branch ?? workspaceName
   const isMainWorktree = currentProjectWorkspace?.main === true || workspacePath === project.root
   const vscodeColor = worktreeColor(project.root, workspacePath, project.color)
-  const pendingSession = useMemo<SessionSummary>(() => ({
-    id: `pending:${workspacePath}`,
-    cwd: workspacePath,
-    name: 'New session',
-    status: 'idle',
-    pendingUi: [],
-  }), [workspacePath])
   const selectedSessionId = selectedSession?.id
   const selectedSessionStatus = selectedSession?.status
   const sessionIsLoading = Boolean(selectedSessionId && snapshotSessionId !== selectedSessionId)
@@ -884,15 +868,6 @@ function LivecraftProjectApp(
       behavior: 'steer' | 'followUp',
       isCommand: boolean,
     ) => {
-      if (!selectedId) {
-        const created = await startWorkspaceSession(() => createSession(workspacePath), {
-          initialImages: images,
-          initialMessage: message,
-          nameFromInitialMessage: !isCommand,
-        })
-        if (!created) throw new Error('Could not start the session')
-        return
-      }
       const command: JsonObject = { type: 'prompt', message, images }
       const isSteering = !isCommand && selectedSessionStatus === 'running' && behavior === 'steer'
       if (selectedSessionStatus === 'running') command.streamingBehavior = behavior
@@ -927,13 +902,19 @@ function LivecraftProjectApp(
       selectedSessionStatus,
       sessions,
       snapshot.messages,
-      startWorkspaceSession,
-      workspacePath,
     ],
   )
   const handleComposerAbort = useCallback(() => sendPiCommand(selectedId, { type: 'abort' }), [
     selectedId,
   ])
+  /** Starts a real Pi session in the current workspace (sidebar + / empty-state CTA). */
+  const handleNewSession = useCallback(async (): Promise<void> => {
+    await startNewSession(() => createSession(workspacePath))
+  }, [startNewSession, workspacePath])
+  /** Re-runs the session list refresh after a failed load. */
+  const handleRetrySessions = useCallback((): void => {
+    void refreshSessions()
+  }, [refreshSessions])
   const handlePromptImprovement = useCallback(
     (prompt: string, direction?: string) => {
       if (!selectedId)
@@ -1293,9 +1274,7 @@ function LivecraftProjectApp(
         projectDetails={projectWorkspaces[project.root]}
         onOpenHome={onOpenHome}
         onOpenPinnedSession={openPinnedSession}
-        onNewSession={async () => {
-          await startNewSession(() => createSession(workspacePath))
-        }}
+        onNewSession={handleNewSession}
         onOpenSession={async (recentSession) => {
           await startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))
         }}
@@ -1497,59 +1476,47 @@ function LivecraftProjectApp(
           )
           : (
             <>
-              <ChatTopBar
-                projectName={project.name}
-                workspaceName={workspaceName}
-                git={gitSnapshot?.repository
-                  ? {
-                    ahead: gitSnapshot.ahead,
-                    baseAhead: gitSnapshot.baseAhead,
-                    baseBehind: gitSnapshot.baseBehind,
-                    baseBranch: gitSnapshot.baseBranch,
-                    branch: gitSnapshot.branch ?? 'HEAD',
-                    changedFiles: gitSnapshot.files.length,
-                    worktree: gitSnapshot.worktree,
-                  }
-                  : null}
-                running={false}
-                session={pendingSession}
-                stats={null}
-                compacting={false}
-              />
-              <section className='welcome pending-session-welcome'>
+              <section className='welcome'>
                 <span className='brand-mark large'>π</span>
-                <h1>New session</h1>
-                <p>Send a message to start this session.</p>
+                {sessionLoadError
+                  ? (
+                    <>
+                      <h1>Couldn't load sessions</h1>
+                      <p>{messageOf(sessionLoadError)}</p>
+                      <button
+                        className='welcome-action'
+                        onClick={handleRetrySessions}
+                        type='button'
+                      >
+                        Retry
+                      </button>
+                    </>
+                  )
+                  : isRefreshingSessions && sessions.length === 0
+                  ? (
+                    <>
+                      <h1>Loading sessions…</h1>
+                      <p>Reading this workspace's Pi sessions.</p>
+                    </>
+                  )
+                  : sessions.length === 0
+                  ? (
+                    <>
+                      <h1>No sessions yet</h1>
+                      <p>This workspace has no Pi sessions. Start one to begin.</p>
+                      <button className='welcome-action' onClick={handleNewSession} type='button'>
+                        Start a session
+                      </button>
+                    </>
+                  )
+                  : (
+                    <>
+                      <h1>No session selected</h1>
+                      <p>Choose a session from the sidebar to continue.</p>
+                    </>
+                  )}
               </section>
-              <div className='composer-area'>
-                <ToastStack onDismiss={dismissToast} toasts={visibleToasts} />
-                <Composer
-                  key={pendingSession.id}
-                  session={pendingSession}
-                  snapshot={blankSessionSnapshot}
-                  agentBusy={false}
-                  agentOptions={emptyAgentOptions}
-                  agentOptionsLoading={false}
-                  selectedAgent=''
-                  onAgentChange={() => undefined}
-                  onRequestAgentOptions={() => undefined}
-                  onCommand={() => Promise.reject(new Error('Send a message to start the session'))}
-                  commands={[]}
-                  agentLoading={false}
-                  focusRequest={focusComposerRequest}
-                  showAgentSelector={false}
-                  running={false}
-                  onSend={handleComposerSend}
-                  onAbort={() => Promise.resolve({})}
-                  onImprovePrompt={handlePromptImprovement}
-                  onSavePrompt={handleSavePrompt}
-                  onError={handleConversationError}
-                  requestedSelect={null}
-                  onSelectOpened={handleComposerSelectOpened}
-                  submitRequest={submitRequest}
-                  persistDrafts={false}
-                />
-              </div>
+              <ToastStack onDismiss={dismissToast} toasts={visibleToasts} />
             </>
           )}
       </main>

@@ -66,6 +66,7 @@ export function useWorkspaceSessions(
     () => new Set(),
   )
   const [isRefreshingSessions, setIsRefreshingSessions] = useState(true)
+  const [sessionLoadError, setSessionLoadError] = useState<unknown | null>(null)
   const workspacePathKey = `pi-livecraft.project-workspace.${project.id}`
   const recentWorkspacePathsKey = `pi-livecraft.project-recent-workspaces.${project.id}`
   const [workspacePath, setWorkspacePath] = useState(() =>
@@ -194,6 +195,7 @@ export function useWorkspaceSessions(
           ? { ...session, name: previousName }
           : session
       })
+      setSessionLoadError(null)
       setSessions(namedSessions)
       setCompletedSessionIds((current) => {
         if (current.size === 0) return current
@@ -226,7 +228,10 @@ export function useWorkspaceSessions(
       }
       onSessionsRefreshed(nextSessions)
     } catch (cause) {
-      if (version === refreshVersionRef.current) onError(cause)
+      if (version === refreshVersionRef.current) {
+        setSessionLoadError(cause)
+        onError(cause)
+      }
     } finally {
       if (version === refreshVersionRef.current) setIsRefreshingSessions(false)
     }
@@ -568,6 +573,7 @@ export function useWorkspaceSessions(
     selectCreatedSession,
     selectedId,
     sentSessions,
+    sessionLoadError,
     sessions,
     setSelectedId: selectSession,
     selectWorkspace,

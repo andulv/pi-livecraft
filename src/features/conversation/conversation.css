@@ -340,6 +340,31 @@
   margin: 0;
   line-height: 1.6;
 }
+.welcome-action {
+  margin-top: 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  border-radius: 9px;
+  padding: 8px 16px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font: 600 13px ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+.welcome-action:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+}
+.welcome-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.welcome-action:active {
+  transform: scale(0.97);
+}
 .brand-mark-loading {
   animation: brand-mark-float 2.6s ease-in-out infinite;
 }
