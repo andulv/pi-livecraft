@@ -1,6 +1,4 @@
-import { createReadStream } from 'node:fs'
-import { readdir, realpath, stat } from 'node:fs/promises'
-import { StringDecoder } from 'node:string_decoder'
+import { readdir, open, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { isAbsolute, join, relative, sep } from 'node:path'
 import type { RecentSession } from '../shared/types.ts'
@@ -27,22 +25,35 @@ interface PiSessionHeader {
 }
 
 const MAX_SESSIONS = 30
-const CANDIDATE_BUFFER = 100
 
-/** Reads only the metadata required to resume a Pi session. */
+/** Pi stores sessions in a deterministic subfolder named after the canonical workspace path. */
+function workspaceSessionDir(cwd: string, baseDir: string): string {
+  const encoded = '--' + cwd.replace(/[/\\]/g, '-') + '--'
+  return join(baseDir, encoded)
+}
+
+/** Reads the metadata for the most recent sessions in a single workspace folder. */
 export async function listRecentPiSessions(
   cwd: string,
   directory = sessionDirectory,
 ): Promise<RecentSession[]> {
-  const paths = await listSessionFiles(directory)
+  const sessionDir = workspaceSessionDir(cwd, directory)
+  let entries
+  try {
+    entries = await readdir(sessionDir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+  const paths = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
+    .map((entry) => join(sessionDir, entry.name))
 
-  // Stat is cheap; scan only the most recent candidates.
   const withMtime = await Promise.all(
     paths.map(async (path) => ({ path, mtime: (await stat(path)).mtimeMs })),
   )
   const candidates = withMtime
     .sort((a, b) => b.mtime - a.mtime)
-    .slice(0, CANDIDATE_BUFFER)
+    .slice(0, MAX_SESSIONS * 2)
 
   const sessions = await Promise.all(
     candidates.map(({ path, mtime }) => readPiSession(path, mtime)),
@@ -76,60 +87,86 @@ export async function resolvePiSessions(paths: readonly string[]): Promise<Recen
   return sessions.filter((session): session is RecentSession => session !== null)
 }
 
-/** Recursively scans Pi storage while retaining only session JSONL files. */
-async function listSessionFiles(directory: string): Promise<string[]> {
-  let entries
-  try {
-    entries = await readdir(directory, { withFileTypes: true })
-  } catch (error) {
-    if (isNotFound(error)) return []
-    throw error
-  }
-
-  const paths = await Promise.all(entries.map(async (entry) => {
-    const path = join(directory, entry.name)
-    if (entry.isDirectory()) return listSessionFiles(path)
-    return entry.isFile() && entry.name.endsWith('.jsonl') ? [path] : []
-  }))
-  return paths.flat()
-}
-
-/** Extracts a session's identity, latest explicit name, and activity from Pi's append-only history. */
+/** Reads the first and last ~8 KB of a session file to extract metadata without scanning the middle. */
 async function readPiSession(path: string, updatedAt: number): Promise<RecentSession | null> {
   let canonicalPath: string
   try {
     canonicalPath = await realpath(path)
+  } catch {
+    return null
+  }
+
+  let headContent: string
+  let tailContent: string | undefined
+  try {
+    const { size } = await stat(canonicalPath)
+    if (size <= 16384) {
+      headContent = await readChunk(canonicalPath, 0, size)
+    } else {
+      headContent = await readChunk(canonicalPath, 0, 8192)
+      tailContent = await readChunk(canonicalPath, Math.max(0, size - 8192), 8192)
+    }
   } catch (error) {
     if (isNotFound(error)) return null
     throw error
   }
 
-  let header: PiSessionHeader | undefined
-  let cwd: string | undefined
-  let hasMessage = false
-  let name: string | undefined
-  let prompt: string | undefined
-  let lastMessageAt: number | undefined
-  let isHeader = true
+  // First complete line is the header
+  const firstNewline = headContent.indexOf('\n')
+  const headerLine = firstNewline >= 0
+    ? headContent.slice(0, firstNewline).trim()
+    : headContent.trim()
+  const header = parseHeader(headerLine || undefined)
+  if (!header) return null
+
+  let cwd: string
   try {
-    for await (const line of readSessionLines(canonicalPath)) {
-      if (isHeader) {
-        isHeader = false
-        header = parseHeader(line) ?? undefined
-        if (!header) return null
-        try {
-          cwd = await realpath(header.cwd)
-        } catch (error) {
-          if (isNotFound(error)) return null
-          throw error
-        }
-        continue
-      }
-      const value = parseLine(line)
+    cwd = await realpath(header.cwd)
+  } catch {
+    return null
+  }
+
+  let name: string | undefined
+  let hasMessage = false
+  let lastMessageAt: number | undefined
+  let prompt: string | undefined
+
+  // Scan head lines (after the header) for first user message and session_info
+  if (firstNewline >= 0) {
+    for (const line of headContent.slice(firstNewline + 1).split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      const value = parseLine(trimmed)
       if (!value) continue
       if (value.type === 'session_info' && typeof value.name === 'string' && value.name.trim()) {
         name = value.name.trim()
-        continue
+      }
+      if (value.type !== 'message') continue
+      hasMessage = true
+      if (prompt === undefined && isObject(value.message) && value.message.role === 'user') {
+        const content = textContent(value.message.content)
+        if (content && !content.startsWith('/')) prompt = shortenPrompt(content)
+      }
+      if (typeof value.timestamp === 'string') {
+        const timestamp = Date.parse(value.timestamp)
+        if (!Number.isNaN(timestamp) && (lastMessageAt === undefined || timestamp > lastMessageAt))
+          lastMessageAt = timestamp
+      }
+    }
+  }
+
+  // Scan tail lines for the latest session_info and latest message
+  if (tailContent) {
+    // Drop the first fragment if it's a partial continuation from before the tail chunk
+    const startAtNewline = tailContent[0] !== '\n' && firstNewline < headContent.length - 1
+    const body = startAtNewline ? tailContent.slice(tailContent.indexOf('\n') + 1) : tailContent
+    for (const line of body.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      const value = parseLine(trimmed)
+      if (!value) continue
+      if (value.type === 'session_info' && typeof value.name === 'string' && value.name.trim()) {
+        name = value.name.trim()
       }
       if (value.type !== 'message') continue
       hasMessage = true
@@ -138,16 +175,10 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
         if (!Number.isNaN(timestamp) && (lastMessageAt === undefined || timestamp > lastMessageAt))
           lastMessageAt = timestamp
       }
-      if (prompt === undefined && isObject(value.message) && value.message.role === 'user') {
-        const content = textContent(value.message.content)
-        if (content && !content.startsWith('/')) prompt = shortenPrompt(content)
-      }
     }
-  } catch (error) {
-    if (isNotFound(error)) return null
-    throw error
   }
-  if (!header || !cwd || !hasMessage) return null
+
+  if (!hasMessage) return null
   const createdAt = Date.parse(header.timestamp)
   return {
     id: header.id,
@@ -158,21 +189,16 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
   }
 }
 
-/** Streams every line because Pi appends `session_info` records when a session is renamed. */
-async function* readSessionLines(path: string): AsyncGenerator<string> {
-  const decoder = new StringDecoder('utf8')
-  let remaining = ''
-  for await (const chunk of createReadStream(path)) {
-    remaining += decoder.write(chunk)
-    let newline = remaining.indexOf('\n')
-    while (newline !== -1) {
-      yield remaining.slice(0, newline)
-      remaining = remaining.slice(newline + 1)
-      newline = remaining.indexOf('\n')
-    }
+/** Reads a byte range from a file without streaming the full content. */
+async function readChunk(path: string, start: number, length: number): Promise<string> {
+  const handle = await open(path, 'r')
+  try {
+    const buffer = Buffer.alloc(length)
+    const { bytesRead } = await handle.read(buffer, 0, length, start)
+    return buffer.toString('utf8', 0, bytesRead)
+  } finally {
+    await handle.close()
   }
-  remaining += decoder.end()
-  if (remaining) yield remaining
 }
 
 function parseHeader(line: string | undefined): PiSessionHeader | null {
