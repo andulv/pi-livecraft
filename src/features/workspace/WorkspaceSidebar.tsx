@@ -54,6 +54,7 @@ interface WorkspaceSidebarProps {
   onOpenPinnedSession: (session: RecentSession) => Promise<void>
   onNewSession: () => Promise<void>
   onRefreshSessions: () => void
+  onRefreshWorkspaces: () => void
   onOpenSession: (session: RecentSession) => Promise<void>
   onOpenVSCode: (workspace: GitWorkspace) => void
   onSelectWorkspace: (path: string) => void
@@ -85,6 +86,7 @@ export function WorkspaceSidebar({
   onOpenPinnedSession,
   onNewSession,
   onRefreshSessions,
+  onRefreshWorkspaces,
   onOpenSession,
   onOpenVSCode,
   onSelectWorkspace,
@@ -393,6 +395,16 @@ export function WorkspaceSidebar({
           )}
           <div className='sidebar-section-heading sidebar-list-heading'>
             <span>Workspaces</span>
+            <Tooltip label='Refresh workspaces'>
+              <button
+                aria-label='Refresh workspaces'
+                className='new-session refresh-sessions'
+                onClick={onRefreshWorkspaces}
+                type='button'
+              >
+                <RefreshIcon />
+              </button>
+            </Tooltip>
           </div>
           <div className='project-workspaces'>
             {[...workspaces]

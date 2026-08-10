@@ -1353,6 +1353,7 @@ function LivecraftProjectApp(
           void refreshSessions()
           void refreshPinnedSessions()
         }}
+        onRefreshWorkspaces={retryProjectDiscovery}
         onOpenSession={async (recentSession) => {
           await startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))
         }}
