@@ -108,6 +108,39 @@ test('keeps the active conversation before and after compaction', () => {
   ])
 })
 
+test('marks forkable user messages by entry ID instead of duplicated text', () => {
+  const messages = activeSessionMessages(
+    [
+      {
+        type: 'message',
+        id: 'user-1',
+        parentId: null,
+        message: { role: 'user', content: 'Repeat this' },
+      },
+      {
+        type: 'message',
+        id: 'assistant-1',
+        parentId: 'user-1',
+        message: { role: 'assistant', content: 'Done' },
+      },
+      {
+        type: 'message',
+        id: 'user-2',
+        parentId: 'assistant-1',
+        message: { role: 'user', content: 'Repeat this' },
+      },
+    ],
+    'user-2',
+    new Set(['user-2', 'assistant-1']),
+  )
+
+  assert.deepEqual(messages, [
+    { role: 'user', content: 'Repeat this' },
+    { role: 'assistant', content: 'Done' },
+    { role: 'user', content: 'Repeat this', forkEntryId: 'user-2' },
+  ])
+})
+
 test('filters compaction entries without a string summary', () => {
   const messages = activeSessionMessages([
     { type: 'message', id: 'user-1', parentId: null, message: { role: 'user', content: 'Hello' } },

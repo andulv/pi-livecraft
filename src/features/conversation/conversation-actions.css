@@ -83,6 +83,9 @@ pre.conversation-code-block {
 .message.user:has(> .message-actions) {
   padding-right: 48px;
 }
+.message.user:has(> .message-actions > :nth-child(2)) {
+  padding-right: 80px;
+}
 .tool-call > .conversation-actions {
   top: 5px;
 }
@@ -94,7 +97,8 @@ pre.conversation-code-block {
   padding-right: 112px;
 }
 @media (hover: hover) {
-  .message.user:has(> .message-actions) {
+  .message.user:has(> .message-actions),
+  .message.user:has(> .message-actions > :nth-child(2)) {
     padding-right: 16px;
   }
 }

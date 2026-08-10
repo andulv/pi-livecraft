@@ -2,7 +2,7 @@ import {
   assistantMessageAfterEvent,
   assistantMessageInEvent,
 } from '../shared/assistant-message-stream.ts'
-import type { JsonObject } from '../shared/types.ts'
+import type { ConversationMessage, JsonObject } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 
 export interface SequencedPiEvent {
@@ -75,7 +75,11 @@ export class LiveSessionEvents {
 }
 
 /** Rebuilds the active conversation without dropping messages hidden from Pi by compaction. */
-export function activeSessionMessages(entries: JsonObject[], leafId: unknown): JsonObject[] {
+export function activeSessionMessages(
+  entries: JsonObject[],
+  leafId: unknown,
+  forkEntryIds: ReadonlySet<string> = new Set(),
+): ConversationMessage[] {
   if (typeof leafId !== 'string') return []
   const entriesById = new Map(
     entries.flatMap((entry) => typeof entry.id === 'string' ? [[entry.id, entry] as const] : []),
@@ -90,7 +94,9 @@ export function activeSessionMessages(entries: JsonObject[], leafId: unknown): J
     activeEntries.push(entry)
     id = typeof entry.parentId === 'string' ? entry.parentId : null
   }
-  return visibleSessionMessages(activeEntries.reverse().flatMap(messageFromEntry))
+  return visibleSessionMessages(
+    activeEntries.reverse().flatMap((entry) => messageFromEntry(entry, forkEntryIds)),
+  )
 }
 
 /** Keeps messages useful to the interface without exposing hidden custom messages. */
@@ -104,8 +110,17 @@ export function visibleSessionMessages(messages: JsonObject[]): JsonObject[] {
   )
 }
 
-function messageFromEntry(entry: JsonObject): JsonObject[] {
-  if (entry.type === 'message' && isObject(entry.message)) return [entry.message]
+function messageFromEntry(
+  entry: JsonObject,
+  forkEntryIds: ReadonlySet<string>,
+): ConversationMessage[] {
+  if (entry.type === 'message' && isObject(entry.message)) {
+    const forkEntryId = entry.message.role === 'user' && typeof entry.id === 'string'
+        && forkEntryIds.has(entry.id)
+      ? entry.id
+      : undefined
+    return [forkEntryId ? { ...entry.message, forkEntryId } : entry.message]
+  }
   if (entry.type === 'compaction' && typeof entry.summary === 'string')
     return [{
       role: 'custom',

@@ -2,6 +2,7 @@ import { memo, type ReactNode } from 'react'
 import type { JsonObject } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
 import { CopyButton } from './CopyButton.tsx'
+import { ForkButton } from './ForkButton.tsx'
 import { Markdown } from './Markdown.tsx'
 import { hasVisibleContent, reasoningTextForDisplay } from './message-display.ts'
 import { formatTokens, formatTurnCost, type MessageUsage } from './message-usage.ts'
@@ -9,33 +10,39 @@ import { formatTokens, formatTurnCost, type MessageUsage } from './message-usage
 /** Renders a visible protocol message with the default or custom presentation. */
 export const MessageCard = memo(
   function MessageCard(
-    { message, onError }: {
+    { message, onError, onFork }: {
       message: JsonObject
       onError: (cause: unknown) => void
+      onFork: (entryId: string) => Promise<boolean>
     },
   ) {
     if (message.role === 'custom' && typeof message.customType === 'string')
       return <DefaultCustomMessage message={message} />
-    return <DefaultMessageCard message={message} onError={onError} />
+    return <DefaultMessageCard message={message} onError={onError} onFork={onFork} />
   },
 )
 
 const DefaultMessageCard = memo(
   function DefaultMessageCard(
-    { message, onError }: {
+    { message, onError, onFork }: {
       message: JsonObject
       onError: (cause: unknown) => void
+      onFork: (entryId: string) => Promise<boolean>
     },
   ) {
     const role = String(message.role)
     const timestamp = typeof message.timestamp === 'number' ? new Date(message.timestamp) : null
     const time = timestamp && !Number.isNaN(timestamp.getTime()) ? timestamp : null
     const text = visibleText(message.content ?? message.output)
+    const forkEntryId = role === 'user' && typeof message.forkEntryId === 'string'
+      ? message.forkEntryId
+      : undefined
     return (
       <article className={`message ${role}`}>
-        {text && (
+        {(text || forkEntryId) && (
           <div className='conversation-actions message-actions'>
-            <CopyButton label='Copy message' onError={onError} value={text} />
+            {forkEntryId && <ForkButton entryId={forkEntryId} onError={onError} onFork={onFork} />}
+            {text && <CopyButton label='Copy message' onError={onError} value={text} />}
           </div>
         )}
         <div className='content'>

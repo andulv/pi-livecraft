@@ -45,6 +45,7 @@ export function Conversation(
     toolExecutions,
     workingDirectory,
     onError,
+    onFork,
   }: {
     activity: Activity | null
     agentName?: string
@@ -58,6 +59,7 @@ export function Conversation(
     toolExecutions: ToolExecution[]
     workingDirectory: string
     onError: (cause: unknown) => void
+    onFork: (entryId: string) => Promise<boolean>
   },
 ) {
   const showToolCalls = conversationView !== 'simple'
@@ -351,7 +353,7 @@ export function Conversation(
                 key={entry.key}
               >
                 {isVisibleConversationMessage(message) && (
-                  <MessageCard message={message} onError={onError} />
+                  <MessageCard message={message} onError={onError} onFork={onFork} />
                 )}
                 {calls.map((call) => {
                   const execution = executionsByCallId.get(call.id)
@@ -397,6 +399,7 @@ export function Conversation(
                         key='message'
                         message={part.message}
                         onError={onError}
+                        onFork={onFork}
                       />
                     )
                     : null

@@ -407,17 +407,27 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   const snapshotMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/snapshot$/)
   if (method === 'GET' && snapshotMatch) {
     const sessionId = decodeURIComponent(snapshotMatch[1])
-    const [state, entries, models, commands, stats] = await Promise.all([
+    const [state, entries, models, commands, stats, forkMessages] = await Promise.all([
       piCommand(sessionId, { type: 'get_state' }),
       piCommand(sessionId, { type: 'get_entries' }),
       piCommand(sessionId, { type: 'get_available_models' }),
       piCommand(sessionId, { type: 'get_commands' }),
       piCommand(sessionId, { type: 'get_session_stats' }),
+      piCommand(sessionId, { type: 'get_fork_messages' }),
     ])
     const commandList = arrayData(commands, 'commands')
+    const forkEntryIds = new Set(
+      arrayData(forkMessages, 'messages').flatMap((message) =>
+        typeof message.entryId === 'string' ? [message.entryId] : []
+      ),
+    )
     const snapshot: SessionSnapshot = {
       state: objectData(state),
-      messages: activeSessionMessages(arrayData(entries, 'entries'), objectData(entries)?.leafId),
+      messages: activeSessionMessages(
+        arrayData(entries, 'entries'),
+        objectData(entries)?.leafId,
+        forkEntryIds,
+      ),
       models: arrayData(models, 'models'),
       commands: commandList,
       promptTemplates: await loadPromptTemplates(commandList),

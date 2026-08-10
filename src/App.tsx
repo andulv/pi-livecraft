@@ -373,6 +373,21 @@ function App() {
     snapshotSessionId,
     toolExecutions,
   } = useConversationRuntime(selectedId, handleWorkspaceError, replayPiEvent)
+  const handleForkConversation = useCallback(async (entryId: string): Promise<boolean> => {
+    const response = await sendPiCommand(selectedId, { type: 'fork', entryId })
+    const data = isObject(response.data) ? response.data : undefined
+    if (data?.cancelled === true) return false
+    if (typeof data?.text === 'string') {
+      setComposerDraftRequest({
+        id: crypto.randomUUID(),
+        message: data.text,
+        sessionId: selectedId,
+      })
+    }
+    await Promise.all([refreshSnapshot(selectedId), refreshSessions()])
+    return true
+  }, [refreshSessions, refreshSnapshot, selectedId])
+
   const model = isObject(snapshot.state?.model) ? snapshot.state.model : undefined
   const currentQuotaProvider = quotaProviderForModel(model?.provider)
   const currentQuotaProviderRef = useRef(currentQuotaProvider)
@@ -1140,6 +1155,7 @@ function App() {
                     messages={snapshot.messages}
                     navigationRequest={conversationNavigation}
                     onError={handleConversationError}
+                    onFork={handleForkConversation}
                     pendingSteering={pendingSteering}
                     repositoryRoot={gitSnapshot?.root}
                     scrollToBottomRequest={scrollToBottomRequest}
