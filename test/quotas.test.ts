@@ -13,6 +13,7 @@ import {
   quotaPeriodProgress,
   quotaProviderForModel,
   quotaUsagePace,
+  quotaUsagePaceBands,
   railQuota,
 } from '../src/features/quotas/quota-display.ts'
 
@@ -119,6 +120,7 @@ test('calculates elapsed quota periods from their reset times', () => {
 })
 
 test('rates quota usage against period progress with early-window grace', () => {
+  assert.deepEqual(quotaUsagePaceBands(50), { onTrackLimit: 45, cautionLimit: 60 })
   assert.equal(quotaUsagePace(15, 0), 'on-track')
   assert.equal(quotaUsagePace(16, 0), 'caution')
   assert.equal(quotaUsagePace(41, 0), 'high')

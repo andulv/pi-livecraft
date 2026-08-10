@@ -10,6 +10,12 @@ export interface RailQuota {
 
 export type QuotaUsagePace = 'on-track' | 'caution' | 'high'
 
+/** Cumulative-usage limits that separate the green, yellow, and red bar segments. */
+export interface QuotaUsagePaceBands {
+  cautionLimit: number
+  onTrackLimit: number
+}
+
 const periodDuration: Record<'5h' | '7d' | 'session' | 'weekly', number> = {
   '5h': 5 * 60 * 60 * 1000,
   '7d': 7 * 24 * 60 * 60 * 1000,
@@ -42,14 +48,19 @@ export function copilotPeriodProgress(
 }
 
 /**
- * Rates cumulative usage against elapsed time. The first 10% of a window has wider
+ * Returns pace bands for cumulative usage. The first 10% of a window has wider
  * limits because setup work often causes a short, non-representative usage burst.
  */
+export function quotaUsagePaceBands(periodPercent: number): QuotaUsagePaceBands {
+  const period = Math.max(0, Math.min(100, periodPercent))
+  return period < 10
+    ? { onTrackLimit: 15 - period, cautionLimit: 40 - period * 2 }
+    : { onTrackLimit: period - 5, cautionLimit: period + 10 }
+}
+
 export function quotaUsagePace(usedPercent: number, periodPercent: number): QuotaUsagePace {
   const used = Math.max(0, Math.min(100, usedPercent))
-  const period = Math.max(0, Math.min(100, periodPercent))
-  const onTrackLimit = period < 10 ? 15 - period : period - 5
-  const cautionLimit = period < 10 ? 40 - period * 2 : period + 10
+  const { cautionLimit, onTrackLimit } = quotaUsagePaceBands(periodPercent)
   if (used <= onTrackLimit) return 'on-track'
   return used <= cautionLimit ? 'caution' : 'high'
 }
