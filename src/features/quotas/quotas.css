@@ -90,6 +90,15 @@
 .quota-bar-period span {
   background: var(--secondary);
 }
+.quota-bar-pace-on-track span {
+  background: var(--success);
+}
+.quota-bar-pace-caution span {
+  background: var(--warning);
+}
+.quota-bar-pace-high span {
+  background: var(--danger);
+}
 .quota-row small {
   display: block;
   margin-top: 6px;

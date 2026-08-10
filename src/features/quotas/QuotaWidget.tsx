@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import { copilotPeriodProgress, quotaPeriodProgress } from './quota-display.ts'
+import {
+  copilotPeriodProgress,
+  quotaPeriodProgress,
+  quotaUsagePace,
+  type QuotaUsagePace,
+} from './quota-display.ts'
 import type { QuotaProviderSnapshot, QuotaSnapshot } from '../../../shared/types.ts'
 
 /** Displays normalized quota readings without deducing absent quota from provider responses. */
@@ -54,6 +59,9 @@ export function QuotaWidget(
               {quotas.openai.data.map((window) => {
                 const periodProgress = quotaPeriodProgress(window.period, window.resetsAt, now)
                 const usedPercent = 100 - window.remainingPercent
+                const pace = periodProgress === undefined
+                  ? undefined
+                  : quotaUsagePace(usedPercent, periodProgress)
                 return (
                   <div className='quota-row' key={window.period}>
                     <div className='quota-row-copy'>
@@ -63,6 +71,7 @@ export function QuotaWidget(
                     <div className='quota-bars'>
                       <QuotaBar
                         label={`${formatPercent(usedPercent)} used`}
+                        pace={pace}
                         value={usedPercent}
                       />
                       {periodProgress !== undefined && (
@@ -83,6 +92,10 @@ export function QuotaWidget(
             <ProviderSection name='GitHub Copilot' provider={quotas.copilot}>
               {quotas.copilot.data.map((window) => {
                 const periodProgress = copilotPeriodProgress(window.resetsAt, now)
+                const usedPercent = window.used / window.limit * 100
+                const pace = periodProgress === undefined
+                  ? undefined
+                  : quotaUsagePace(usedPercent, periodProgress)
                 return (
                   <div className='quota-row' key={window.name}>
                     <div className='quota-row-copy'>
@@ -92,7 +105,8 @@ export function QuotaWidget(
                     <div className='quota-bars'>
                       <QuotaBar
                         label={`${formatNumber(window.used)} used of ${formatNumber(window.limit)}`}
-                        value={window.used / window.limit * 100}
+                        pace={pace}
+                        value={usedPercent}
                       />
                       {periodProgress !== undefined && (
                         <QuotaBar
@@ -111,6 +125,9 @@ export function QuotaWidget(
               {quotas.glm.data.map((window) => {
                 const isPercent = window.kind === 'session' || window.kind === 'weekly'
                 const periodProgress = quotaPeriodProgress(window.kind, window.resetsAt, now)
+                const pace = isPercent && periodProgress !== undefined
+                  ? quotaUsagePace(window.usedPercent ?? 0, periodProgress)
+                  : undefined
                 return (
                   <div className='quota-row' key={window.kind}>
                     <div className='quota-row-copy'>
@@ -130,6 +147,7 @@ export function QuotaWidget(
                           : `${formatNumber(window.used ?? 0)} used of ${
                             formatNumber(window.limit ?? 0)
                           }`}
+                        pace={pace}
                         value={isPercent
                           ? window.usedPercent ?? 0
                           : window.limit
@@ -191,20 +209,29 @@ function QuotaBar(
   {
     caption,
     label,
+    pace,
     period = false,
     value,
-  }: { caption?: string; label: string; period?: boolean; value: number },
+  }: {
+    caption?: string
+    label: string
+    pace?: QuotaUsagePace
+    period?: boolean
+    value: number
+  },
 ) {
   const bounded = Math.min(100, Math.max(0, value))
   return (
     <div className='quota-bar-row'>
       <span className='quota-bar-label'>{caption ?? (period ? 'Period' : 'Usage')}</span>
       <div
-        aria-label={label}
+        aria-label={pace ? `${label}; ${paceLabel(pace)}` : label}
         aria-valuemax={100}
         aria-valuemin={0}
         aria-valuenow={Math.round(bounded)}
-        className={`quota-bar${period ? ' quota-bar-period' : ''}`}
+        className={`quota-bar${period ? ' quota-bar-period' : ''}${
+          pace ? ` quota-bar-pace-${pace}` : ''
+        }`}
         role='progressbar'
       >
         <span style={{ width: `${bounded}%` }} />
@@ -221,6 +248,12 @@ function useCurrentTime(): number {
     return () => window.clearInterval(interval)
   }, [])
   return now
+}
+
+function paceLabel(pace: QuotaUsagePace): string {
+  if (pace === 'on-track') return 'comfortably within the period pace'
+  if (pace === 'caution') return 'near or slightly ahead of the period pace'
+  return 'well ahead of the period pace'
 }
 
 function QuotaSkeleton() {

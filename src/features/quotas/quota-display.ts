@@ -8,6 +8,8 @@ export interface RailQuota {
   value: string
 }
 
+export type QuotaUsagePace = 'on-track' | 'caution' | 'high'
+
 const periodDuration: Record<'5h' | '7d' | 'session' | 'weekly', number> = {
   '5h': 5 * 60 * 60 * 1000,
   '7d': 7 * 24 * 60 * 60 * 1000,
@@ -37,6 +39,19 @@ export function copilotPeriodProgress(
   const duration = resetsAt - startsAt
   if (!Number.isFinite(duration) || duration <= 0) return undefined
   return Math.max(0, Math.min(100, (now - startsAt) / duration * 100))
+}
+
+/**
+ * Rates cumulative usage against elapsed time. The first 10% of a window has wider
+ * limits because setup work often causes a short, non-representative usage burst.
+ */
+export function quotaUsagePace(usedPercent: number, periodPercent: number): QuotaUsagePace {
+  const used = Math.max(0, Math.min(100, usedPercent))
+  const period = Math.max(0, Math.min(100, periodPercent))
+  const onTrackLimit = period < 10 ? 15 - period : period - 5
+  const cautionLimit = period < 10 ? 40 - period * 2 : period + 10
+  if (used <= onTrackLimit) return 'on-track'
+  return used <= cautionLimit ? 'caution' : 'high'
 }
 
 export function quotaProviderForModel(provider: unknown): QuotaProvider | undefined {

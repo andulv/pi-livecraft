@@ -12,6 +12,7 @@ import {
   copilotPeriodProgress,
   quotaPeriodProgress,
   quotaProviderForModel,
+  quotaUsagePace,
   railQuota,
 } from '../src/features/quotas/quota-display.ts'
 
@@ -115,6 +116,15 @@ test('calculates elapsed quota periods from their reset times', () => {
   assert.equal(quotaPeriodProgress('weekly', now - 1, now), 100)
   assert.equal(quotaPeriodProgress('web-searches', now, now), undefined)
   assert.equal(quotaPeriodProgress('session', undefined, now), undefined)
+})
+
+test('rates quota usage against period progress with early-window grace', () => {
+  assert.equal(quotaUsagePace(15, 0), 'on-track')
+  assert.equal(quotaUsagePace(16, 0), 'caution')
+  assert.equal(quotaUsagePace(41, 0), 'high')
+  assert.equal(quotaUsagePace(45, 50), 'on-track')
+  assert.equal(quotaUsagePace(55, 50), 'caution')
+  assert.equal(quotaUsagePace(61, 50), 'high')
 })
 
 test('calculates elapsed Copilot calendar-month periods from reset times', () => {
