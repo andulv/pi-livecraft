@@ -186,6 +186,25 @@ test('displays file tool paths relative to the repository and truncates them', (
   assert.deepEqual(toolCallPresentation({ id: 'call_3', name: 'read', args: {} }, root), {})
 })
 
+test('shows file tool paths while streamed arguments are incomplete', () => {
+  const root = '/workspace/repository'
+
+  for (const name of ['read', 'edit', 'write']) {
+    assert.deepEqual(
+      toolCallPresentation(
+        { id: 'call_1', name, args: {} },
+        root,
+        '{"content":"...","path":"/workspace/repository/src/App',
+      ),
+      { headerDetail: { text: 'src/App', title: 'src/App' } },
+    )
+  }
+  assert.deepEqual(
+    toolCallPresentation({ id: 'call_2', name: 'read', args: {} }, root, '{"path":'),
+    {},
+  )
+})
+
 test('keeps the read range visible beside a truncated path', () => {
   const root = '/workspace/repository'
   const path = `${root}/src/${'a'.repeat(80)}`

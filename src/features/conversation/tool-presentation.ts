@@ -186,8 +186,30 @@ export function fileUrl(path: string): string {
 export function toolCallPresentation(
   call: ToolCall,
   repositoryRoot?: string | null,
+  rawArguments?: string,
 ): ToolCallPresentation {
-  return toolCallPresentations[call.name]?.(call.args, repositoryRoot) ?? {}
+  const presenter = toolCallPresentations[call.name]
+  if (!presenter) return {}
+
+  const args = call.name === 'edit' || call.name === 'read' || call.name === 'write'
+    ? fileToolArguments(call.args, rawArguments)
+    : call.args
+  return presenter(args, repositoryRoot)
+}
+
+/** Adds a streamed file path to presentation without changing final tool arguments. */
+function fileToolArguments(args: unknown, rawArguments?: string): unknown {
+  if (!rawArguments || toolFilePath(args)) return args
+  // ponytail: only streamed string paths matter; use an incremental parser if more fields need display.
+  const match = rawArguments.match(/(?:^|[,{])\s*"path"\s*:\s*"((?:\\.|[^"\\])*)/)
+  if (!match) return args
+
+  try {
+    const path = JSON.parse(`"${match[1]}"`)
+    return typeof path === 'string' ? (isObject(args) ? { ...args, path } : { path }) : args
+  } catch {
+    return args
+  }
 }
 
 /** Infers a built-in tool name from complete or partial argument keys. */

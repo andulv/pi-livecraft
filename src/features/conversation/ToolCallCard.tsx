@@ -111,7 +111,11 @@ export const ToolCallCard = memo(function ToolCallCard({
   const outputLength = output.length
   const durationLabel = durationMs === undefined ? undefined : formatDuration(durationMs)
   const displayedOutput = output || 'No output.'
-  const presentation = toolCallPresentation({ id, name: toolName, args }, repositoryRoot)
+  const presentation = toolCallPresentation(
+    { id, name: toolName, args },
+    repositoryRoot,
+    streamingArguments,
+  )
   const commandText = presentation.headerDetail?.text
   const bashCommandMatch = toolName === 'bash' ? commandText?.match(/^\s*(\S+)/) : undefined
   const bashCommandName = bashCommandMatch?.[1]
