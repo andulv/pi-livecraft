@@ -42,6 +42,7 @@ export function Conversation(
     pendingSteering,
     repositoryRoot,
     scrollToBottomRequest,
+    toolDurations,
     toolExecutions,
     workingDirectory,
     onError,
@@ -56,6 +57,7 @@ export function Conversation(
     pendingSteering: string[]
     repositoryRoot?: string | null
     scrollToBottomRequest: number
+    toolDurations: ReadonlyMap<string, number>
     toolExecutions: ToolExecution[]
     workingDirectory: string
     onError: (cause: unknown) => void
@@ -364,6 +366,7 @@ export function Conversation(
                       hasResult={result !== undefined}
                       semiDetailed={semiDetailed}
                       id={call.id}
+                      durationMs={toolDurations.get(call.id)}
                       interrupted={execution?.status === 'interrupted'}
                       key={call.id}
                       name={call.name}
@@ -414,6 +417,7 @@ export function Conversation(
                     hasResult={result !== undefined}
                     semiDetailed={semiDetailed}
                     id={part.call.id}
+                    durationMs={toolDurations.get(part.call.id)}
                     interrupted={execution?.status === 'interrupted'}
                     key={part.call.id}
                     name={part
@@ -446,6 +450,7 @@ export function Conversation(
               hasResult={execution.result !== undefined}
               semiDetailed={semiDetailed}
               id={execution.id}
+              durationMs={toolDurations.get(execution.id)}
               interrupted={execution.status === 'interrupted'}
               key={execution.id}
               name={execution.name}

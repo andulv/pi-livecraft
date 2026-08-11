@@ -1160,6 +1160,7 @@ function App() {
                     repositoryRoot={gitSnapshot?.root}
                     scrollToBottomRequest={scrollToBottomRequest}
                     workingDirectory={selectedSession.cwd}
+                    toolDurations={observedToolDurations}
                     toolExecutions={toolExecutions}
                   />
                   <div className={`chat-detail-control ${conversationView}`}>

@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'reac
 import { Tooltip } from '../../components/Tooltip.tsx'
 import { CopyButton } from './CopyButton.tsx'
 import { canHighlightFile } from './file-preview.ts'
+import { formatDuration } from './message-usage.ts'
 import { OpenFileButton } from './OpenFileButton.tsx'
 import {
   formatToolCallTooltip,
@@ -42,6 +43,7 @@ interface ToolCallCardProps {
   args: unknown
   hasResult: boolean
   id: string
+  durationMs?: number
   interrupted?: boolean
   name: string
   onError: (cause: unknown) => void
@@ -63,6 +65,7 @@ export const ToolCallCard = memo(function ToolCallCard({
   args,
   hasResult,
   id,
+  durationMs,
   interrupted = false,
   name,
   onError,
@@ -104,6 +107,7 @@ export const ToolCallCard = memo(function ToolCallCard({
     ? `${partialOutput.slice(0, maxPreviewChars)}…`
     : partialOutput
   const outputLength = output.length
+  const durationLabel = durationMs === undefined ? undefined : formatDuration(durationMs)
   const displayedOutput = output || 'No output.'
   const presentation = toolCallPresentation({ id, name, args }, repositoryRoot)
   const commandText = presentation.headerDetail?.text
@@ -118,7 +122,9 @@ export const ToolCallCard = memo(function ToolCallCard({
     inputLength,
     hasResult ? outputLength : undefined,
   )
-  const resolvedSizeLabel = `Input: ${inputLength} characters. Output: ${outputLength} characters.`
+  const resolvedSizeLabel = `Input: ${inputLength} characters. Output: ${outputLength} characters.${
+    durationLabel ? ` Duration: ${durationLabel}.` : ''
+  }`
   const writeContent = name === 'write' ? toolWriteContent(args) : null
   const content = name === 'write' && !resultError && writeContent ? writeContent : displayedOutput
   const isRenderable = display.kind === 'csv' || display.kind === 'markdown'
@@ -218,7 +224,12 @@ export const ToolCallCard = memo(function ToolCallCard({
             {hasResult
               ? contentError
                 ? 'Failed'
-                : <span aria-hidden='true'>↘ {inputLength} car. · ↗ {outputLength} car.</span>
+                : (
+                  <span aria-hidden='true'>
+                    ↘ {inputLength} car. · ↗ {outputLength} car.
+                    {durationLabel && ` · ⏱ ${durationLabel}`}
+                  </span>
+                )
               : interrupted
               ? 'Generation interrupted'
               : streaming
