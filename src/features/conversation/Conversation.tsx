@@ -375,6 +375,7 @@ export function Conversation(
                       resultDetails={result?.details}
                       resultError={result?.isError}
                       streaming={execution?.status === 'generating'}
+                      streamingArguments={execution?.rawArguments}
                       targeted={highlightedTarget === `tool:${call.id}`}
                     />
                   )
@@ -426,6 +427,7 @@ export function Conversation(
                     resultDetails={result?.details}
                     resultError={result?.isError}
                     streaming={execution?.status === 'generating'}
+                    streamingArguments={execution?.rawArguments}
                     targeted={highlightedTarget === `tool:${part.call.id}`}
                   />
                 )
@@ -455,6 +457,7 @@ export function Conversation(
               resultDetails={execution.result?.details}
               resultError={execution.result?.isError}
               streaming={execution.status === 'generating'}
+              streamingArguments={execution.rawArguments}
               targeted={highlightedTarget === `tool:${execution.id}`}
             />
           ))}

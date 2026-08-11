@@ -52,6 +52,7 @@ interface ToolCallCardProps {
   resultError?: boolean
   semiDetailed?: boolean
   streaming?: boolean
+  streamingArguments?: string
   targeted?: boolean
   workingDirectory: string
 }
@@ -72,6 +73,7 @@ export const ToolCallCard = memo(function ToolCallCard({
   resultError,
   semiDetailed = false,
   streaming = false,
+  streamingArguments,
   targeted = false,
   workingDirectory,
 }: ToolCallCardProps) {
@@ -138,7 +140,7 @@ export const ToolCallCard = memo(function ToolCallCard({
         : toolTextPreview(content),
     [content, display.kind],
   )
-  const streamingArgs = streaming || interrupted ? input : undefined
+  const streamingArgs = streaming || interrupted ? streamingArguments ?? input : undefined
   const streamingTruncated = Boolean(streamingArgs && streamingArgs.length > maxPreviewChars)
   const streamingPreviewText = streamingArgs && streamingArgs.length > maxPreviewChars
     ? `${streamingArgs.slice(0, maxPreviewChars)}…`
