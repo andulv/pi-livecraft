@@ -288,6 +288,12 @@
 .git-commit-files {
   padding: 0 0 7px;
 }
+.git-commit-files .git-file-item {
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+}
+.git-commit-files .git-file-button {
+  grid-column: 1 / -1;
+}
 .git-empty {
   margin: 4px 14px;
   color: var(--muted);
