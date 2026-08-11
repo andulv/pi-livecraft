@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pi Livecraft · File icons preview</title>
+    <style>
+    :root {
+      color-scheme: light;
+      --canvas: #fafafc;
+      --surface: #ffffff;
+      --surface-raised: color-mix(in srgb, var(--surface) 92%, var(--canvas));
+      --ink: #1d2924;
+      --muted: color-mix(in srgb, var(--ink) 55%, var(--canvas));
+      --subtle: color-mix(in srgb, var(--ink) 42%, var(--canvas));
+      --line: color-mix(in srgb, var(--ink) 12%, var(--canvas));
+      --line-strong: color-mix(in srgb, var(--ink) 20%, var(--canvas));
+      --accent: #23776d;
+      --accent-hover: color-mix(in srgb, var(--accent) 78%, var(--ink));
+      --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+      --secondary: #6851a4;
+      --success: #28734b;
+      --success-soft: color-mix(in srgb, var(--success) 13%, var(--surface));
+      --warning: #b8860b;
+      --danger: #a13f37;
+      --danger-soft: color-mix(in srgb, var(--danger) 10%, var(--surface));
+      --shadow-soft: 0 4px 14px rgb(0 0 0 / 5%);
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --canvas: #171c1a;
+      --surface: #1e2422;
+      --surface-raised: color-mix(in srgb, var(--surface) 92%, var(--canvas));
+      --ink: #dde3e0;
+      --muted: color-mix(in srgb, var(--ink) 55%, var(--canvas));
+      --subtle: color-mix(in srgb, var(--ink) 42%, var(--canvas));
+      --line: color-mix(in srgb, var(--ink) 12%, var(--canvas));
+      --line-strong: color-mix(in srgb, var(--ink) 20%, var(--canvas));
+      --accent: #4fb9ab;
+      --accent-hover: color-mix(in srgb, var(--accent) 78%, var(--ink));
+      --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+      --secondary: #9d91d4;
+      --success: #59ba7c;
+      --success-soft: color-mix(in srgb, var(--success) 13%, var(--surface));
+      --warning: #d6aa45;
+      --danger: #e26e63;
+      --danger-soft: color-mix(in srgb, var(--danger) 10%, var(--surface));
+      --shadow-soft: 0 3px 10px rgb(0 0 0 / 18%);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-width: 320px;
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font:
+        13px/1.5 ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    button:focus-visible,
+    summary:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    button:not(:disabled),
+    summary {
+      cursor: pointer;
+    }
+
+    .icon-sprite {
+      position: absolute;
+      width: 0;
+      height: 0;
+      overflow: hidden;
+    }
+
+    .preview-page {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 42px 0 64px;
+    }
+
+    .preview-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .eyebrow,
+    .kicker,
+    .surface-size {
+      color: var(--muted);
+      font: 10px/1.3 ui-monospace, SFMono-Regular, Consolas, monospace;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .kicker {
+      margin: 0 0 9px;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      max-width: 720px;
+      margin-bottom: 8px;
+      font-size: clamp(27px, 4vw, 38px);
+      letter-spacing: -0.035em;
+      line-height: 1.05;
+    }
+
+    .intro {
+      max-width: 680px;
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
+      min-height: 32px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      padding: 0 10px;
+      background: var(--surface);
+      color: var(--ink);
+      box-shadow: var(--shadow-soft);
+      transition:
+        border-color 180ms ease,
+        background 180ms ease,
+        transform 180ms ease;
+    }
+
+    .theme-toggle:hover {
+      border-color: var(--accent);
+      background: var(--surface-raised);
+    }
+
+    .theme-toggle:active {
+      transform: scale(0.97);
+    }
+
+    .theme-toggle svg {
+      width: 15px;
+      height: 15px;
+      color: var(--accent);
+    }
+
+    .preview-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 352px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .preview-surface {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .surface-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 61px;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .surface-heading h2 {
+      margin: 3px 0 0;
+      font-size: 15px;
+      letter-spacing: -0.01em;
+    }
+
+    .surface-size {
+      flex: 0 0 auto;
+      color: var(--subtle);
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .conversation-body {
+      min-width: 0;
+      padding: 18px 16px 22px;
+      background: color-mix(in srgb, var(--canvas) 32%, var(--surface));
+    }
+
+    .icon-legend {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow-x: auto;
+      margin: 0 0 17px;
+      padding: 0 1px 3px;
+      scrollbar-width: thin;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      flex: 0 0 auto;
+      color: var(--muted);
+      font: 10px ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .tool-stack {
+      display: grid;
+      gap: 12px;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .tool-call {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line));
+      border-radius: 9px;
+      background: color-mix(in srgb, var(--accent) 3%, var(--surface));
+      color: color-mix(in srgb, var(--accent) 40%, var(--ink));
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .tool-call.edit {
+      border-color: color-mix(in srgb, var(--secondary) 26%, var(--line));
+      background: color-mix(in srgb, var(--secondary) 3%, var(--surface));
+      color: color-mix(in srgb, var(--secondary) 35%, var(--ink));
+    }
+
+    .tool-call.write {
+      border-color: color-mix(in srgb, var(--success) 27%, var(--line));
+      background: color-mix(in srgb, var(--success) 3%, var(--surface));
+      color: color-mix(in srgb, var(--success) 35%, var(--ink));
+    }
+
+    .tool-heading {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      padding: 8px 10px;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+    }
+
+    .tool-heading:hover {
+      background: color-mix(in srgb, var(--accent) 5%, transparent);
+    }
+
+    .tool-heading:active {
+      transform: scale(0.997);
+    }
+
+    .tool-heading strong {
+      flex: 0 0 auto;
+      color: var(--accent);
+    }
+
+    .edit .tool-heading strong {
+      color: var(--secondary);
+    }
+
+    .write .tool-heading strong {
+      color: var(--success);
+    }
+
+    .tool-command {
+      min-width: 0;
+      color: inherit;
+      font: 11px ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .tool-command code {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tool-range {
+      flex: 0 0 auto;
+      color: inherit;
+      font-size: 11px;
+    }
+
+    .tool-stats {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      flex: 0 0 auto;
+      margin-left: auto;
+      color: currentColor;
+      font-size: 10px;
+    }
+
+    .tool-chevron {
+      flex: 0 0 auto;
+      width: 13px;
+      height: 13px;
+      color: var(--muted);
+      transition: transform 180ms ease;
+    }
+
+    .tool-heading[aria-expanded="false"] .tool-chevron {
+      transform: rotate(-90deg);
+    }
+
+    .tool-body {
+      border-top: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--accent) 2%,
+        color-mix(in srgb, var(--surface) 97%, var(--canvas))
+      );
+    }
+
+    .edit .tool-body {
+      border-top-color: color-mix(in srgb, var(--secondary) 14%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--secondary) 2%,
+        color-mix(in srgb, var(--surface) 97%, var(--canvas))
+      );
+    }
+
+    .write .tool-body {
+      border-top-color: color-mix(in srgb, var(--success) 14%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--success) 2%,
+        color-mix(in srgb, var(--surface) 97%, var(--canvas))
+      );
+    }
+
+    .tool-body[hidden] {
+      display: none;
+    }
+
+    .tool-body pre {
+      max-height: 168px;
+      overflow: auto;
+      margin: 0;
+      padding: 9px 10px 10px;
+      color: inherit;
+      font: 11px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .tool-note {
+      display: block;
+      padding: 6px 10px 0;
+      color: var(--muted);
+      font: 10px/1.5 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .diff {
+      display: grid;
+      padding: 8px 0 9px;
+      font: 11px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .diff-line {
+      display: grid;
+      grid-template-columns: 28px 14px minmax(0, 1fr);
+      padding: 0 10px;
+      white-space: pre-wrap;
+    }
+
+    .diff-line > span:first-child {
+      color: var(--subtle);
+      text-align: right;
+      user-select: none;
+    }
+
+    .diff-line > span:nth-child(2) {
+      color: var(--subtle);
+      text-align: center;
+      user-select: none;
+    }
+
+    .diff-line code {
+      min-width: 0;
+      font: inherit;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .diff-line.added {
+      background: color-mix(in srgb, var(--success) 13%, var(--surface));
+      color: var(--success);
+    }
+
+    .diff-line.removed {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .diff-line.context {
+      color: var(--muted);
+    }
+
+    .file-icon {
+      display: block;
+      flex: 0 0 auto;
+      width: 21px;
+      height: 21px;
+      color: var(--file-color, var(--accent));
+    }
+
+    .file-icon.small {
+      width: 18px;
+      height: 18px;
+    }
+
+    .file-icon.large {
+      width: 32px;
+      height: 32px;
+    }
+
+    .file-icon.html {
+      --file-color: #e44f26;
+    }
+
+    .file-icon.tsx {
+      --file-color: #2f8edb;
+    }
+
+    .file-icon.css {
+      --file-color: #2d70b3;
+    }
+
+    .file-icon.md {
+      --file-color: #6f8fa8;
+    }
+
+    .file-icon.json {
+      --file-color: #d1a51b;
+      --file-mark: #302915;
+    }
+
+    .file-icon.svg {
+      --file-color: #e39a27;
+      --file-mark: #382810;
+    }
+
+    .file-icon.csharp {
+      --file-color: #7f5ab6;
+    }
+
+    .file-icon.js {
+      --file-color: #d5ac2a;
+      --file-mark: #302915;
+    }
+
+    .file-page {
+      fill: currentColor;
+    }
+
+    .file-fold {
+      fill: var(--file-mark, #ffffff);
+      opacity: 0.32;
+    }
+
+    .file-mark {
+      fill: none;
+      stroke: var(--file-mark, #ffffff);
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.35;
+    }
+
+    .file-label {
+      fill: var(--file-mark, #ffffff);
+      font: 700 5.8px/1 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: -0.25px;
+      text-anchor: middle;
+    }
+
+    .git-widget {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .widget-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+      min-height: 61px;
+      padding: 10px 10px 10px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .widget-header > div {
+      min-width: 0;
+    }
+
+    .widget-header strong,
+    .widget-header span {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .widget-header strong {
+      font-size: 13px;
+    }
+
+    .widget-header span {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .refresh-button,
+    .commit-action,
+    .discard-button {
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .refresh-button {
+      width: 29px;
+      height: 29px;
+      font-size: 18px;
+    }
+
+    .refresh-button:hover,
+    .commit-action:hover,
+    .discard-button:hover {
+      background: color-mix(in srgb, var(--surface) 70%, var(--canvas));
+      color: var(--ink);
+    }
+
+    .refresh-button:active,
+    .commit-action:active,
+    .discard-button:active {
+      transform: scale(0.97);
+    }
+
+    .git-file-list {
+      display: grid;
+      gap: 1px;
+      margin: 0;
+      padding: 8px 8px 11px;
+      list-style: none;
+    }
+
+    .git-file-item {
+      display: grid;
+      grid-template-columns: 16px 20px minmax(0, 1fr) auto 27px;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      min-height: 31px;
+      padding: 4px 5px;
+      border-radius: 6px;
+      font: 11px ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .git-file-item:hover {
+      background: color-mix(in srgb, var(--surface) 50%, var(--canvas));
+    }
+
+    .git-file-status {
+      font-size: 10px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .git-file-status.added {
+      color: var(--success);
+    }
+
+    .git-file-status.modified {
+      color: var(--accent);
+    }
+
+    .git-file-status.deleted {
+      color: var(--danger);
+    }
+
+    .git-file-status.renamed {
+      color: var(--secondary);
+    }
+
+    .git-file-path {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .git-file-counts {
+      display: inline-flex;
+      gap: 5px;
+      color: var(--subtle);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .git-file-counts b {
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    .git-file-counts i {
+      color: var(--danger);
+      font-style: normal;
+      font-weight: 700;
+    }
+
+    .discard-button {
+      width: 27px;
+      height: 27px;
+      font-size: 16px;
+    }
+
+    .git-commits {
+      border-top: 1px solid var(--line);
+      padding: 10px 8px 12px;
+    }
+
+    .git-commits h2 {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin: 0 6px 7px;
+      font-size: 11px;
+    }
+
+    .git-commits h2 small {
+      display: grid;
+      place-items: center;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 9px;
+      padding: 0 5px;
+      background: var(--accent-soft);
+      color: var(--accent-hover);
+      font-size: 10px;
+    }
+
+    .git-commit {
+      display: flex;
+      align-items: flex-start;
+      gap: 2px;
+      min-width: 0;
+      border-radius: 6px;
+    }
+
+    .git-commit details {
+      flex: 1;
+      min-width: 0;
+      border-radius: inherit;
+    }
+
+    .git-commits summary {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      padding: 7px 6px;
+      list-style: none;
+      font-size: 11px;
+    }
+
+    .git-commits summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .git-commits summary::before {
+      content: "›";
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1;
+      transform: rotate(0deg);
+      transition: transform 180ms ease;
+    }
+
+    .git-commits details[open] summary::before {
+      transform: rotate(90deg);
+    }
+
+    .git-commits summary:hover {
+      background: color-mix(in srgb, var(--surface) 50%, var(--canvas));
+    }
+
+    .git-commits summary code {
+      flex: 0 0 auto;
+      color: var(--accent);
+      font: 700 10px ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .git-commits summary span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .commit-actions {
+      display: flex;
+      flex: 0 0 auto;
+    }
+
+    .commit-action {
+      width: 27px;
+      height: 27px;
+      margin: 2px 0;
+      font-size: 16px;
+    }
+
+    .commit-action.danger:hover {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .commit-files {
+      width: 100%;
+      padding: 0 0 7px;
+    }
+
+    .commit-files .git-file-item {
+      width: 100%;
+      padding-right: 5px;
+    }
+
+    .git-actions {
+      display: grid;
+      gap: 7px;
+      border-top: 1px solid var(--line);
+      padding: 10px;
+    }
+
+    .git-actions input {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 11px;
+    }
+
+    .git-action-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 6px;
+    }
+
+    .git-action-buttons button {
+      min-height: 29px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 11px;
+    }
+
+    .git-action-buttons button:first-child {
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .git-action-buttons button:hover {
+      border-color: var(--accent);
+    }
+
+    .git-action-buttons button:first-child:hover {
+      background: var(--accent-hover);
+    }
+
+    @media (max-width: 850px) {
+      .preview-layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .git-widget {
+        max-width: 760px;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .preview-page {
+        width: min(100% - 28px, 760px);
+        padding-top: 28px;
+      }
+
+      .preview-header {
+        margin-bottom: 20px;
+      }
+
+      .surface-heading {
+        min-height: 56px;
+        padding: 11px 13px;
+      }
+
+      .conversation-body {
+        padding: 14px 11px 18px;
+      }
+
+      .tool-stack {
+        gap: 10px;
+      }
+
+      .tool-range,
+      .tool-stats {
+        display: none;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .preview-page {
+        width: calc(100% - 20px);
+        padding: 20px 0 36px;
+      }
+
+      .preview-header {
+        display: block;
+      }
+
+      .theme-toggle {
+        margin-top: 14px;
+      }
+
+      h1 {
+        font-size: 29px;
+      }
+
+      .surface-size {
+        display: none;
+      }
+
+      .tool-heading {
+        gap: 5px;
+        padding-inline: 8px;
+      }
+
+      .tool-command {
+        font-size: 10px;
+      }
+
+      .git-file-item {
+        grid-template-columns: 15px 18px minmax(0, 1fr) auto 25px;
+        gap: 5px;
+        padding-inline: 3px;
+      }
+
+      .git-file-counts {
+        gap: 3px;
+        font-size: 9px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+    </style>
+  </head>
+  <body data-theme="light">
+    <svg class="icon-sprite" aria-hidden="true" focusable="false">
+      <defs>
+        <symbol id="file-html" viewBox="0 0 24 24">
+          <path class="file-page" d="M4 2h10l6 6v14H4z" />
+          <path class="file-fold" d="M14 2v6h6z" />
+          <path class="file-mark" d="m9 11-2 2 2 2m6-4 2 2-2 2m-2-6-2 8" />
+        </symbol>
+        <symbol id="file-tsx" viewBox="0 0 24 24">
+          <path class="file-page" d="M4 2h10l6 6v14H4z" />
+          <path class="file-fold" d="M14 2v6h6z" />
+          <path class="file-mark" d="M7 12h6M10 10v7m4-4 2 2-2 2m2-4 2 2-2 2" />
+        </symbol>
+        <symbol id="file-css" viewBox="0 0 24 24">
+          <path class="file-page" d="M4 2h10l6 6v14H4z" />
+          <path class="file-fold" d="M14 2v6h6z" />
+          <path class="file-mark" d="M8 11h8M8 14h5M8 17h3" />
+        </symbol>
+        <symbol id="file-md" viewBox="0 0 24 24">
+          <path class="file-page" d="M4 2h10l6 6v14H4z" />
+          <path class="file-fold" d="M14 2v6h6z" />
+          <path class="file-mark" d="M7 16v-4l2 2 2-2v4m3-4v4m0-2h3" />
+        </symbol>
+        <symbol id="file-json" viewBox="0 0 24 24">
+          <path class="file-page" d="M4 2h10l6 6v14H4z" />
+          <path class="file-fold" d="M14 2v6h6z" />
+          <path
+            class="file-mark"
+            d="M10 11c-1 0-1 1-1 2s0 2-1 2m6-4c1 0 1 1 1 2s0 2 1 2"
+          />
+        </symbol>
+        <symbol id="file-svg" viewBox="0 0 24 24">
+          <path class="file-page" d="M4 2h10l6 6v14H4z" />
+          <path class="file-fold" d="M14 2v6h6z" />
+          <path class="file-mark" d="m8 14 4-4 4 4-4 3z" />
+        </symbol>
+        <symbol id="file-csharp" viewBox="0 0 24 24">
+          <path class="file-page" d="M4 2h10l6 6v14H4z" />
+          <path class="file-fold" d="M14 2v6h6z" />
+          <text class="file-label" x="12" y="16">C#</text>
+        </symbol>
+        <symbol id="file-js" viewBox="0 0 24 24">
+          <path class="file-page" d="M4 2h10l6 6v14H4z" />
+          <path class="file-fold" d="M14 2v6h6z" />
+          <text class="file-label" x="12" y="16">JS</text>
+        </symbol>
+      </defs>
+    </svg>
+
+    <div class="preview-page">
+      <header class="preview-header">
+        <div>
+          <p class="kicker">Pi Livecraft · UI preview</p>
+          <h1>File-aware tool calls</h1>
+          <p class="intro">
+            Extension icons stay quiet and useful: they identify the file before
+            the path is read, edited, written, or inspected in Git.
+          </p>
+        </div>
+        <button
+          class="theme-toggle"
+          id="theme-toggle"
+          type="button"
+          aria-pressed="false"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="4" fill="currentColor" />
+            <path
+              d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="1.8"
+            />
+          </svg>
+          <span>Dark mode</span>
+        </button>
+      </header>
+
+      <main class="preview-layout">
+        <section class="preview-surface" aria-labelledby="conversation-title">
+          <header class="surface-heading">
+            <div>
+              <span class="eyebrow">Conversation</span>
+              <h2 id="conversation-title">Tool calls</h2>
+            </div>
+            <span class="surface-size">file identity at 18–32 px</span>
+          </header>
+          <div class="conversation-body">
+            <div class="icon-legend" aria-label="Known file type examples">
+              <span class="legend-item"><svg
+                  class="file-icon small html"
+                  aria-hidden="true"
+                >
+                  <use href="#file-html" />
+                </svg>.html</span>
+              <span class="legend-item"><svg
+                  class="file-icon small csharp"
+                  aria-hidden="true"
+                >
+                  <use href="#file-csharp" />
+                </svg>C#</span>
+              <span class="legend-item"><svg
+                  class="file-icon small tsx"
+                  aria-hidden="true"
+                >
+                  <use href="#file-tsx" />
+                </svg>.tsx</span>
+              <span class="legend-item"><svg
+                  class="file-icon small css"
+                  aria-hidden="true"
+                >
+                  <use href="#file-css" />
+                </svg>.css</span>
+              <span class="legend-item"><svg
+                  class="file-icon small md"
+                  aria-hidden="true"
+                >
+                  <use href="#file-md" />
+                </svg>.md</span>
+              <span class="legend-item"><svg
+                  class="file-icon small json"
+                  aria-hidden="true"
+                >
+                  <use href="#file-json" />
+                </svg>.json</span>
+              <span class="legend-item"><svg
+                  class="file-icon small svg"
+                  aria-hidden="true"
+                >
+                  <use href="#file-svg" />
+                </svg>.svg</span>
+            </div>
+
+            <div class="tool-stack">
+              <article class="tool-call read">
+                <button class="tool-heading" type="button" aria-expanded="true">
+                  <svg class="file-icon small html" aria-hidden="true">
+                    <use href="#file-html" />
+                  </svg>
+                  <strong>read</strong>
+                  <span class="tool-command"><code
+                    >src/pages/index.html</code></span>
+                  <span class="tool-range">1–140</span>
+                  <small class="tool-stats">↘ 1,820 car.</small>
+                  <svg
+                    class="tool-chevron"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path
+                      d="m7 10 5 5 5-5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                    />
+                  </svg>
+                </button>
+                <div class="tool-body">
+                  <pre>&lt;main class="app-shell"&gt;
+  &lt;h1&gt;Livecraft&lt;/h1&gt;
+  &lt;script type="module" src="/src/main.tsx"&gt;&lt;/script&gt;
+&lt;/main&gt;</pre>
+                </div>
+              </article>
+
+              <article class="tool-call edit">
+                <button class="tool-heading" type="button" aria-expanded="true">
+                  <svg class="file-icon small tsx" aria-hidden="true">
+                    <use href="#file-tsx" />
+                  </svg>
+                  <strong>edit</strong>
+                  <span class="tool-command"><code
+                    >src/features/conversation/tool-call-presentations/ToolCallCard.tsx</code></span>
+                  <small class="tool-stats"
+                  >↘ 1,208 car. · ↗ 1,344 car.</small>
+                  <svg
+                    class="tool-chevron"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path
+                      d="m7 10 5 5 5-5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                    />
+                  </svg>
+                </button>
+                <div class="tool-body">
+                  <div class="diff" aria-label="Edit diff">
+                    <div class="diff-line context">
+                      <span>118</span><span> </span><code>const display =
+                        readContentDisplay(filePath)</code>
+                    </div>
+                    <div class="diff-line removed">
+                      <span>119</span><span>−</span><code>return
+                        &lt;span&gt;⌘&lt;/span&gt;</code>
+                    </div>
+                    <div class="diff-line added">
+                      <span>119</span><span>+</span><code>return &lt;FileIcon
+                        path={filePath} /&gt;</code>
+                    </div>
+                    <div class="diff-line context">
+                      <span>120</span><span> </span><code>// keep the command
+                        and path aligned</code>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article class="tool-call write">
+                <button class="tool-heading" type="button" aria-expanded="true">
+                  <svg class="file-icon small md" aria-hidden="true">
+                    <use href="#file-md" />
+                  </svg>
+                  <strong>write</strong>
+                  <span class="tool-command"><code
+                    >docs/feature-notes/file-icons.md</code></span>
+                  <small class="tool-stats">↘ 482 car.</small>
+                  <svg
+                    class="tool-chevron"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path
+                      d="m7 10 5 5 5-5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                    />
+                  </svg>
+                </button>
+                <div class="tool-body">
+                  <span class="tool-note">Created file · Markdown</span>
+                  <pre># File icon mapping
+
+Known extensions keep their own colour and glyph.</pre>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <aside class="git-widget" aria-labelledby="git-title">
+          <header class="widget-header">
+            <div>
+              <strong id="git-title">feature/file-icons</strong>
+              <span>3 files modified</span>
+            </div>
+            <button
+              class="refresh-button"
+              type="button"
+              aria-label="Refresh Git state"
+            >
+              ↻
+            </button>
+          </header>
+
+          <ul class="git-file-list" aria-label="Changed files">
+            <li class="git-file-item">
+              <span class="git-file-status modified" title="Modified">M</span>
+              <svg class="file-icon" aria-hidden="true">
+                <use href="#file-tsx" />
+              </svg>
+              <span
+                class="git-file-path"
+                title="src/features/conversation/ToolCallCard.tsx"
+              >src/features/conversation/ToolCallCard.tsx</span>
+              <span class="git-file-counts"><b>+18</b><i>−4</i></span>
+              <button
+                class="discard-button"
+                type="button"
+                aria-label="Discard changes"
+              >
+                ↶
+              </button>
+            </li>
+            <li class="git-file-item">
+              <span class="git-file-status modified" title="Modified">M</span>
+              <svg class="file-icon" aria-hidden="true">
+                <use href="#file-css" />
+              </svg>
+              <span
+                class="git-file-path"
+                title="src/features/conversation/tool-call.css"
+              >src/features/conversation/tool-call.css</span>
+              <span class="git-file-counts"><b>+32</b><i>−2</i></span>
+              <button
+                class="discard-button"
+                type="button"
+                aria-label="Discard changes"
+              >
+                ↶
+              </button>
+            </li>
+            <li class="git-file-item">
+              <span class="git-file-status added" title="Added">A</span>
+              <svg class="file-icon" aria-hidden="true">
+                <use href="#file-svg" />
+              </svg>
+              <span
+                class="git-file-path"
+                title="src/components/icons/file-type-icon.svg"
+              >src/components/icons/file-type-icon.svg</span>
+              <span class="git-file-counts"><b>+74</b><i>−0</i></span>
+              <button
+                class="discard-button"
+                type="button"
+                aria-label="Discard changes"
+              >
+                ↶
+              </button>
+            </li>
+          </ul>
+
+          <section class="git-commits" aria-label="Unpushed commits">
+            <h2>Unpushed commits <small>2</small></h2>
+            <div class="git-commit">
+              <details open>
+                <summary>
+                  <code>4f9ac2d</code>
+                  <span>Show file identity in tool calls and Git</span>
+                </summary>
+                <ul
+                  class="git-file-list commit-files"
+                  aria-label="Files in commit"
+                >
+                  <li class="git-file-item">
+                    <span class="git-file-status modified" title="Modified"
+                    >M</span>
+                    <svg class="file-icon" aria-hidden="true">
+                      <use href="#file-tsx" />
+                    </svg>
+                    <span
+                      class="git-file-path"
+                      title="src/features/conversation/tool-call-presentations/file.ts"
+                    >src/features/conversation/tool-call-presentations/file.ts</span>
+                    <span class="git-file-counts"><b>+26</b><i>−1</i></span>
+                    <span aria-hidden="true"></span>
+                  </li>
+                  <li class="git-file-item">
+                    <span class="git-file-status added" title="Added">A</span>
+                    <svg class="file-icon" aria-hidden="true">
+                      <use href="#file-json" />
+                    </svg>
+                    <span class="git-file-path" title="package-lock.json"
+                    >package-lock.json</span>
+                    <span class="git-file-counts"><b>+9</b><i>−0</i></span>
+                    <span aria-hidden="true"></span>
+                  </li>
+                </ul>
+              </details>
+              <div class="commit-actions">
+                <button
+                  class="commit-action"
+                  type="button"
+                  aria-label="Revert commit"
+                >
+                  ↶
+                </button>
+                <button
+                  class="commit-action danger"
+                  type="button"
+                  aria-label="Reset commit"
+                >
+                  ⌫
+                </button>
+              </div>
+            </div>
+            <div class="git-commit">
+              <details>
+                <summary>
+                  <code>18c4b61</code>
+                  <span>Refresh the conversation file preview</span>
+                </summary>
+              </details>
+              <div class="commit-actions">
+                <button
+                  class="commit-action"
+                  type="button"
+                  aria-label="Revert commit"
+                >
+                  ↶
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <form class="git-actions" onsubmit="return false">
+            <input aria-label="Commit message" placeholder="Commit message" />
+            <div class="git-action-buttons">
+              <button type="submit">Commit</button>
+              <button type="button">Push 2</button>
+              <button type="button">Reset</button>
+            </div>
+          </form>
+        </aside>
+      </main>
+    </div>
+
+    <script>
+    const body = document.body
+    const toggle = document.querySelector('#theme-toggle')
+    const label = toggle.querySelector('span')
+
+    toggle.addEventListener('click', () => {
+      const dark = body.dataset.theme !== 'dark'
+      body.dataset.theme = dark ? 'dark' : 'light'
+      toggle.setAttribute('aria-pressed', String(dark))
+      label.textContent = dark ? 'Light mode' : 'Dark mode'
+    })
+
+    document.querySelectorAll('.tool-heading').forEach((heading) => {
+      heading.addEventListener('click', () => {
+        const body = heading.nextElementSibling
+        const expanded = heading.getAttribute('aria-expanded') === 'true'
+        heading.setAttribute('aria-expanded', String(!expanded))
+        body.hidden = expanded
+      })
+    })
+    </script>
+  </body>
+</html>
