@@ -49,6 +49,20 @@ test('retains only the events needed to restore active thinking and tools', () =
   assert.deepEqual(live.snapshot(), [])
 })
 
+test('retains the latest steering queue for snapshot replay', () => {
+  const live = new LiveSessionEvents()
+  live.receive({ type: 'queue_update', steering: ['First'] }, 1)
+  live.receive({ type: 'queue_update', steering: ['First', 'Second'] }, 2)
+
+  assert.deepEqual(live.snapshot(), [{
+    data: { type: 'queue_update', steering: ['First', 'Second'] },
+    sequence: 2,
+  }])
+
+  live.receive({ type: 'agent_settled' }, 3)
+  assert.deepEqual(live.snapshot(), [])
+})
+
 test('stores an assembled assistant message for delta-only replay', () => {
   const live = new LiveSessionEvents()
   live.receive({ type: 'message_start', message: { role: 'assistant', content: [] } }, 1)

@@ -23,6 +23,7 @@ export class LiveSessionEvents {
       return
     }
     if (type === 'agent_start') this.#events.set('agent', { data, sequence })
+    if (type === 'queue_update') this.#events.set('queue', { data, sequence })
     if (type === 'message_start') {
       this.#deletePrefix('message:')
       this.#assistantMessage = assistantMessageInEvent(data)
