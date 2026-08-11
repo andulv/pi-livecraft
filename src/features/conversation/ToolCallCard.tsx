@@ -115,7 +115,7 @@ export const ToolCallCard = memo(function ToolCallCard({
   const commandText = presentation.headerDetail?.text
   const bashCommandMatch = toolName === 'bash' ? commandText?.match(/^\s*(\S+)/) : undefined
   const bashCommandName = bashCommandMatch?.[1]
-  const headingName = bashCommandName ?? (toolName || 'Tool')
+  const headingName = bashCommandName ?? (toolName || 'tool')
   const displayedCommand = bashCommandMatch && commandText
     ? commandText.slice(bashCommandMatch[0].length).trimStart()
     : commandText
