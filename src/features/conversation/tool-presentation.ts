@@ -190,6 +190,49 @@ export function toolCallPresentation(
   return toolCallPresentations[call.name]?.(call.args, repositoryRoot) ?? {}
 }
 
+/** Infers a built-in tool name from complete or partial argument keys. */
+export function provisionalToolName(args: unknown, rawArguments?: string): string | undefined {
+  const keys = new Set(isObject(args) ? Object.keys(args) : [])
+  if (rawArguments) {
+    for (const key of partialJsonObjectKeys(rawArguments)) keys.add(key)
+  }
+  if (keys.has('edits') || (keys.has('oldText') && keys.has('newText'))) return 'edit'
+  if (keys.has('command')) return 'bash'
+  if (keys.has('path') && keys.has('content')) return 'write'
+  return undefined
+}
+
+// ponytail: schema-shape inference can mislabel custom tools; use streamed names if RPC exposes them.
+function partialJsonObjectKeys(value: string): string[] {
+  const keys: string[] = []
+  let depth = 0
+  for (let index = 0; index < value.length; index++) {
+    const char = value[index]
+    if (char === '"') {
+      const start = index
+      let escaped = false
+      for (index += 1; index < value.length; index++) {
+        const next = value[index]
+        if (escaped) escaped = false
+        else if (next === '\\') escaped = true
+        else if (next === '"') break
+      }
+      if (depth === 1 && value[index] === '"' && /^\s*:/.test(value.slice(index + 1))) {
+        try {
+          const key = JSON.parse(value.slice(start, index + 1))
+          if (typeof key === 'string') keys.push(key)
+        } catch {
+          // Ignore malformed or incomplete partial JSON.
+        }
+      }
+      continue
+    }
+    if (char === '{') depth += 1
+    else if (char === '}') depth = Math.max(0, depth - 1)
+  }
+  return keys
+}
+
 /** Returns the target path for tools that manipulate a file directly. */
 export function toolFilePath(args: unknown): string | null {
   return isObject(args) && typeof args.path === 'string' && args.path.length > 0 ? args.path : null

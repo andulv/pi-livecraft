@@ -7,6 +7,7 @@ import { OpenFileButton } from './OpenFileButton.tsx'
 import {
   formatToolCallTooltip,
   formatToolData,
+  provisionalToolName,
   readContentDisplay,
   toolCallPresentation,
   toolDataLength,
@@ -80,15 +81,16 @@ export const ToolCallCard = memo(function ToolCallCard({
   targeted = false,
   workingDirectory,
 }: ToolCallCardProps) {
+  const toolName = name || provisionalToolName(args, streamingArguments) || ''
   const pending = !hasResult
   const active = pending && !interrupted
-  const filePath = name === 'read' || name === 'write' || name === 'edit'
+  const filePath = toolName === 'read' || toolName === 'write' || toolName === 'edit'
     ? toolFilePath(args)
     : null
-  const display = filePath && name !== 'edit'
+  const display = filePath && toolName !== 'edit'
     ? readContentDisplay({ path: filePath })
     : { kind: 'text' as const }
-  const [expanded, setExpanded] = useState(name === 'edit')
+  const [expanded, setExpanded] = useState(toolName === 'edit')
   const [semiExpanded, setSemiExpanded] = useState(false)
   const [partialOutputExpanded, setPartialOutputExpanded] = useState(false)
   const [codeRendered, setCodeRendered] = useState(false)
@@ -109,11 +111,11 @@ export const ToolCallCard = memo(function ToolCallCard({
   const outputLength = output.length
   const durationLabel = durationMs === undefined ? undefined : formatDuration(durationMs)
   const displayedOutput = output || 'No output.'
-  const presentation = toolCallPresentation({ id, name, args }, repositoryRoot)
+  const presentation = toolCallPresentation({ id, name: toolName, args }, repositoryRoot)
   const commandText = presentation.headerDetail?.text
-  const bashCommandMatch = name === 'bash' ? commandText?.match(/^\s*(\S+)/) : undefined
+  const bashCommandMatch = toolName === 'bash' ? commandText?.match(/^\s*(\S+)/) : undefined
   const bashCommandName = bashCommandMatch?.[1]
-  const headingName = bashCommandName ?? (name || 'Tool')
+  const headingName = bashCommandName ?? (toolName || 'Tool')
   const displayedCommand = bashCommandMatch && commandText
     ? commandText.slice(bashCommandMatch[0].length).trimStart()
     : commandText
@@ -125,8 +127,10 @@ export const ToolCallCard = memo(function ToolCallCard({
   const resolvedSizeLabel = `Input: ${inputLength} characters. Output: ${outputLength} characters.${
     durationLabel ? ` Duration: ${durationLabel}.` : ''
   }`
-  const writeContent = name === 'write' ? toolWriteContent(args) : null
-  const content = name === 'write' && !resultError && writeContent ? writeContent : displayedOutput
+  const writeContent = toolName === 'write' ? toolWriteContent(args) : null
+  const content = toolName === 'write' && !resultError && writeContent
+    ? writeContent
+    : displayedOutput
   const isRenderable = display.kind === 'csv' || display.kind === 'markdown'
     || display.kind === 'html' || display.kind === 'svg'
   const hasRenderedPreview = isRenderable && hasResult && !expanded && !resultError
@@ -324,7 +328,7 @@ export const ToolCallCard = memo(function ToolCallCard({
               {expanded
                 ? (
                   <ToolCallContent
-                    call={{ name, args }}
+                    call={{ name: toolName, args }}
                     content={content}
                     onCollapse={() => setExpanded(false)}
                     renderingCode={renderingCode}
@@ -334,7 +338,7 @@ export const ToolCallCard = memo(function ToolCallCard({
                 )
                 : (
                   <ToolCallPreview
-                    call={{ name, args }}
+                    call={{ name: toolName, args }}
                     content={display.kind === 'csv' || display
                           .kind === 'svg'
                         || display

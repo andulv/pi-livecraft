@@ -7,6 +7,7 @@ import {
   formatToolCallTooltip,
   intraLineDiff,
   parseEditDiff,
+  provisionalToolName,
   readContentDisplay,
   toolCallPresentation,
   toolDataLength,
@@ -123,6 +124,20 @@ test('uses the Bash presentation while preserving the generic fallback', () => {
     },
   )
   assert.deepEqual(toolCallPresentation({ id: 'call_2', name: 'bash', args: { timeout: 30 } }), {})
+})
+
+test('infers built-in tool names from complete and partial argument bodies', () => {
+  assert.equal(
+    provisionalToolName({}, '{"path":"src/App.tsx","content":"const value ='),
+    'write',
+  )
+  assert.equal(provisionalToolName({}, '{"path":"src/App.tsx","edits":['), 'edit')
+  assert.equal(
+    provisionalToolName({}, '{"command":"printf \'{\\"path\\":\\"x\\"}\''),
+    'bash',
+  )
+  assert.equal(provisionalToolName({ command: 'pwd' }), 'bash')
+  assert.equal(provisionalToolName({}, '{"path":"src/App.tsx"}'), undefined)
 })
 
 test('displays search patterns and their optional paths', () => {
