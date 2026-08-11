@@ -637,7 +637,7 @@ function App() {
           event.method === 'notify' || (event.method === 'setStatus' && event.statusKey === 'agent')
         ) selectCreatedSession(sessionId)
         if (event.method === 'notify' && typeof event.message === 'string')
-          showToast('notice', event.message, sessionId)
+          showToast(event.notifyType === 'error' ? 'error' : 'notice', event.message, sessionId)
         // Intercept agent selector silently when Livecraft requested the options list.
         if (isAgentSelector(event) && agentOptionsLoadingRef.current[sessionId]) {
           const options = event.options.filter((o): o is string => typeof o === 'string')
