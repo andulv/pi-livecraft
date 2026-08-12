@@ -47,15 +47,53 @@
   color: var(--accent);
 }
 .tool-call-command {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   min-width: 0;
   color: inherit;
   font: 11px ui-monospace, monospace;
 }
 .tool-call-command > code {
-  display: block;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.tool-call-file-icon {
+  display: block;
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  font-family: "Pi Nerd Font Symbols";
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 15px;
+  text-align: center;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--file-icon-slate);
+}
+.tool-call-file-icon[data-color="blue"] {
+  color: var(--file-icon-blue);
+}
+.tool-call-file-icon[data-color="green"] {
+  color: var(--file-icon-green);
+}
+.tool-call-file-icon[data-color="yellow"] {
+  color: var(--file-icon-yellow);
+}
+.tool-call-file-icon[data-color="orange"] {
+  color: var(--file-icon-orange);
+}
+.tool-call-file-icon[data-color="red"] {
+  color: var(--file-icon-red);
+}
+.tool-call-file-icon[data-color="purple"] {
+  color: var(--file-icon-purple);
+}
+.tool-call-file-icon[data-color="pink"] {
+  color: var(--file-icon-pink);
 }
 .tool-call-range {
   flex: 0 0 auto;

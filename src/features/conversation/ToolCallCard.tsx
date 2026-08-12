@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { resolveFileIcon } from '../../../shared/file-icon.ts'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import { CopyButton } from './CopyButton.tsx'
 import { canHighlightFile } from './file-preview.ts'
@@ -116,6 +117,10 @@ export const ToolCallCard = memo(function ToolCallCard({
     repositoryRoot,
     streamingArguments,
   )
+  const fileIcon = (toolName === 'read' || toolName === 'write' || toolName === 'edit')
+      && presentation.headerDetail
+    ? resolveFileIcon(presentation.headerDetail.title)
+    : null
   const commandText = presentation.headerDetail?.text
   const bashCommandMatch = toolName === 'bash' ? commandText?.match(/^\s*(\S+)/) : undefined
   const bashCommandName = bashCommandMatch?.[1]
@@ -209,6 +214,15 @@ export const ToolCallCard = memo(function ToolCallCard({
           </span>
           {presentation.headerDetail && displayedCommand && (
             <span className='tool-call-command'>
+              {fileIcon && (
+                <span
+                  aria-hidden='true'
+                  className='tool-call-file-icon'
+                  data-color={fileIcon.color}
+                >
+                  {fileIcon.glyph}
+                </span>
+              )}
               <code aria-label={`Full command: ${presentation.headerDetail.title}`}>
                 {displayedCommand}
               </code>
