@@ -137,6 +137,7 @@ test('infers built-in tool names from complete and partial argument bodies', () 
     'bash',
   )
   assert.equal(provisionalToolName({ command: 'pwd' }), 'bash')
+  assert.equal(provisionalToolName({}, '{"questions":['), 'ask_user_question')
   assert.equal(provisionalToolName({}, '{"path":"src/App.tsx"}'), undefined)
 })
 

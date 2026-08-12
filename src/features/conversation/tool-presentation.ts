@@ -218,6 +218,7 @@ export function provisionalToolName(args: unknown, rawArguments?: string): strin
   if (rawArguments) {
     for (const key of partialJsonObjectKeys(rawArguments)) keys.add(key)
   }
+  if (keys.has('questions')) return 'ask_user_question'
   if (keys.has('edits') || (keys.has('oldText') && keys.has('newText'))) return 'edit'
   if (keys.has('command')) return 'bash'
   if (keys.has('path') && keys.has('content')) return 'write'
