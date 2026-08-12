@@ -6,6 +6,7 @@ import {
   defaultRightSidebarWidth,
   isRightWidget,
   maxRightSidebarWidth,
+  readActiveRightWidget,
   minRightSidebarWidth,
   readRightSidebarWidth,
 } from '../src/features/right-sidebar/right-sidebar.ts'
@@ -17,8 +18,16 @@ test('borne et restaure la largeur de la sidebar droite', () => {
   assert.equal(clampRightSidebarWidth(320.6), 321)
   assert.equal(readRightSidebarWidth(null), defaultRightSidebarWidth)
   assert.equal(readRightSidebarWidth('invalid'), defaultRightSidebarWidth)
+  assert.equal(isRightWidget('index'), true)
   assert.equal(isRightWidget('git'), true)
   assert.equal(isRightWidget('unknown'), false)
+})
+
+test('restores the session index by default while preserving an explicit collapse', () => {
+  assert.equal(readActiveRightWidget(null, null), 'index')
+  assert.equal(readActiveRightWidget(null, 'true'), null)
+  assert.equal(readActiveRightWidget('analysis', null), 'analysis')
+  assert.equal(readActiveRightWidget('none', null), null)
 })
 
 test('parse un diff unifié sans ses métadonnées Git', () => {

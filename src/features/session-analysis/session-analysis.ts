@@ -5,6 +5,7 @@ import {
   turnUsageByMessage,
   type MessageUsage,
 } from '../conversation/message-usage.ts'
+import type { ConversationNavigationTarget } from '../conversation/conversation-navigation.ts'
 import { toolDataLength } from '../conversation/tool-presentation.ts'
 import {
   toolCallsInMessage,
@@ -13,10 +14,7 @@ import {
   type ToolExecution,
 } from '../conversation/tool-protocol.ts'
 
-export type SessionAnalysisTarget = { kind: 'message' | 'turn'; index: number } | {
-  kind: 'tool'
-  id: string
-}
+export type SessionAnalysisTarget = ConversationNavigationTarget
 
 export interface AnalyzedTurn {
   messageIndex: number

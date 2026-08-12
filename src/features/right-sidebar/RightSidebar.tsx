@@ -12,17 +12,17 @@ import type {
   GitResetResult,
   GitRevertResult,
   GitSnapshot,
+  JsonObject,
   QuotaSnapshot,
   SessionSummary,
 } from '../../../shared/types.ts'
 import { GitWidget } from '../git/GitWidget.tsx'
 import { QuotaWidget } from '../quotas/QuotaWidget.tsx'
 import { railQuota, type QuotaProvider } from '../quotas/quota-display.ts'
+import type { ConversationNavigationTarget } from '../conversation/conversation-navigation.ts'
+import { SessionIndexWidget } from '../session-index/SessionIndexWidget.tsx'
 import { SessionAnalysisWidget } from '../session-analysis/SessionAnalysisWidget.tsx'
-import type {
-  SessionAnalysis,
-  SessionAnalysisTarget,
-} from '../session-analysis/session-analysis.ts'
+import type { SessionAnalysis } from '../session-analysis/session-analysis.ts'
 import { TodoWidget } from '../todo/TodoWidget.tsx'
 import { loadTodos } from '../todo/todo-cache.ts'
 import { maxRightSidebarWidth, minRightSidebarWidth, type RightWidget } from './right-sidebar.ts'
@@ -45,8 +45,10 @@ export function RightSidebar({
   compactingSessionIds,
   completedSessionIds,
   currentQuotaProvider,
-  onAnalysisNavigate,
+  onConversationNavigate,
   onResize,
+  sessionMessages,
+  sessionMessagesAvailable,
   snapshot,
   quotas,
   width,
@@ -73,8 +75,10 @@ export function RightSidebar({
   compactingSessionIds: ReadonlySet<string>
   completedSessionIds: ReadonlySet<string>
   currentQuotaProvider: QuotaProvider | undefined
-  onAnalysisNavigate: (target: SessionAnalysisTarget) => void
+  onConversationNavigate: (target: ConversationNavigationTarget) => void
   onResize: (width: number) => void
+  sessionMessages: readonly JsonObject[]
+  sessionMessagesAvailable: boolean
   snapshot: GitSnapshot | null
   quotas: QuotaSnapshot | null
   width: number
@@ -177,6 +181,14 @@ export function RightSidebar({
             id={`${activeWidget}-panel`}
             key={activeWidget ?? 'empty'}
           >
+            {activeWidget === 'index' && (
+              <SessionIndexWidget
+                activeSessionId={activeSessionId}
+                messages={sessionMessages}
+                onNavigate={onConversationNavigate}
+                sessionMessagesAvailable={sessionMessagesAvailable}
+              />
+            )}
             {activeWidget === 'analysis' && analysis && (
               <WidgetLayout
                 header={
@@ -196,7 +208,7 @@ export function RightSidebar({
               >
                 <SessionAnalysisWidget
                   analysis={analysis}
-                  onNavigate={onAnalysisNavigate}
+                  onNavigate={onConversationNavigate}
                   sessionId={activeSessionId}
                 />
               </WidgetLayout>
@@ -233,6 +245,20 @@ export function RightSidebar({
         </div>
       )}
       <div className='right-sidebar-rail'>
+        <Tooltip label='Session index'>
+          <button
+            aria-controls={activeWidget === 'index' ? 'index-panel' : undefined}
+            aria-expanded={activeWidget === 'index'}
+            aria-label={activeWidget === 'index'
+              ? 'Collapse session index'
+              : 'Expand session index'}
+            className='rail-tab'
+            onClick={() => onWidgetSelect('index')}
+            type='button'
+          >
+            <span aria-hidden='true'>☷</span>
+          </button>
+        </Tooltip>
         {analysisAvailable && (
           <Tooltip label='Session analysis'>
             <button
@@ -322,7 +348,9 @@ export function RightSidebar({
 }
 
 function panelLabel(activeWidget: RightWidget | null): string {
-  return activeWidget === 'analysis'
+  return activeWidget === 'index'
+    ? 'Session index'
+    : activeWidget === 'analysis'
     ? 'Session analysis'
     : activeWidget === 'todo'
     ? 'Workspace tasks'

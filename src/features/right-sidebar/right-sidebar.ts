@@ -1,4 +1,5 @@
 export const rightWidgetDefinitions = [
+  { id: 'index', label: 'Session index' },
   { id: 'analysis', label: 'Session analysis' },
   { id: 'git', label: 'Git' },
   { id: 'quotas', label: 'Quotas' },
@@ -9,6 +10,16 @@ export type RightWidget = typeof rightWidgetDefinitions[number]['id']
 
 export function isRightWidget(value: string | null): value is RightWidget {
   return rightWidgetDefinitions.some(({ id }) => id === value)
+}
+
+/** Restores the saved panel, defaulting to the always-available session index. */
+export function readActiveRightWidget(
+  value: string | null,
+  legacyGitSidebarCollapsed: string | null,
+): RightWidget | null {
+  if (isRightWidget(value)) return value
+  if (value === 'none') return null
+  return legacyGitSidebarCollapsed === 'true' ? null : 'index'
 }
 
 export const defaultRightSidebarWidth = 300

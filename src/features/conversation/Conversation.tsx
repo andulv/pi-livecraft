@@ -18,7 +18,7 @@ import {
   type LiveMessage,
 } from './message-reconciliation.ts'
 import { toolCallsInMessage, toolResultInMessage, type ToolExecution } from './tool-protocol.ts'
-import type { SessionAnalysisTarget } from '../session-analysis/session-analysis.ts'
+import type { ConversationNavigationTarget } from './conversation-navigation.ts'
 import { ActivityIndicator } from './ActivityIndicator.tsx'
 import { Markdown } from './Markdown.tsx'
 import { MessageCard, TurnUsage } from './MessageCard.tsx'
@@ -51,7 +51,7 @@ export function Conversation(
     messages: JsonObject[]
     liveMessages: LiveMessage[]
     conversationView: 'simple' | 'semi-detailed' | 'detailed'
-    navigationRequest?: { id: number; target: SessionAnalysisTarget }
+    navigationRequest?: { id: number; target: ConversationNavigationTarget }
     pendingSteering: string[]
     repositoryRoot?: string | null
     scrollToBottomRequest: number
@@ -506,6 +506,6 @@ export function Conversation(
 
 export { ActivityIndicator } from './ActivityIndicator.tsx'
 
-function navigationTargetKey(target: SessionAnalysisTarget): string {
+function navigationTargetKey(target: ConversationNavigationTarget): string {
   return target.kind === 'tool' ? `tool:${target.id}` : `message:${target.index}`
 }

@@ -45,7 +45,7 @@ import {
 } from './features/dialogs/dialog-protocol.ts'
 import {
   clampRightSidebarWidth,
-  isRightWidget,
+  readActiveRightWidget,
   readRightSidebarWidth,
   type RightWidget,
 } from './features/right-sidebar/right-sidebar.ts'
@@ -96,10 +96,8 @@ import {
   updateThemeColor,
   type ThemeVariable,
 } from './features/settings/themes.ts'
-import {
-  analyzeSession,
-  type SessionAnalysisTarget,
-} from './features/session-analysis/session-analysis.ts'
+import { analyzeSession } from './features/session-analysis/session-analysis.ts'
+import type { ConversationNavigationTarget } from './features/conversation/conversation-navigation.ts'
 import './features/commands/commands.css'
 
 const emptyAgentOptions: string[] = []
@@ -285,8 +283,11 @@ function LivecraftProjectApp(
   )
   const [gitSnapshot, setGitSnapshot] = useState<GitSnapshot | null>(null)
   const [quotas, setQuotas] = useState<QuotaSnapshot | null>(null)
-  const [activeRightWidget, setActiveRightWidget] = useState<RightWidget | null>(
-    readActiveRightWidget,
+  const [activeRightWidget, setActiveRightWidget] = useState<RightWidget | null>(() =>
+    readActiveRightWidget(
+      window.localStorage.getItem('pi-livecraft.right-sidebar-widget'),
+      window.localStorage.getItem('pi-livecraft.git-sidebar-collapsed'),
+    )
   )
   const [rightSidebarWidth, setRightSidebarWidth] = useState(() =>
     readRightSidebarWidth(
@@ -315,7 +316,7 @@ function LivecraftProjectApp(
   >()
   const [scrollToBottomRequest, setScrollToBottomRequest] = useState(0)
   const [conversationNavigation, setConversationNavigation] = useState<
-    { id: number; target: SessionAnalysisTarget }
+    { id: number; target: ConversationNavigationTarget }
   >()
   const [shortcuts, setShortcuts] = useState(() => readShortcuts())
   const [terminalCommand, setTerminalCommand] = useState(() => readTerminalCommand())
@@ -1219,8 +1220,8 @@ function LivecraftProjectApp(
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [commandPaletteOpen, dialog, executeCommand, settingsOpen, shortcuts])
 
-  /** Positions the conversation on the element chosen from session analysis. */
-  const navigateToAnalysisTarget = useCallback((target: SessionAnalysisTarget): void => {
+  /** Positions the conversation on an element chosen from a session navigation widget. */
+  const navigateToConversationTarget = useCallback((target: ConversationNavigationTarget): void => {
     if (target.kind === 'tool' || target.kind === 'turn') {
       setConversationView('detailed')
       window.localStorage.setItem('pi-livecraft.conversation-view', 'detailed')
@@ -1296,7 +1297,8 @@ function LivecraftProjectApp(
   ])
 
   // Application layout
-  const rightPanelVisible = activeRightWidget === 'todo' || activeRightWidget === 'quotas'
+  const rightPanelVisible = activeRightWidget === 'index' || activeRightWidget === 'todo'
+    || activeRightWidget === 'quotas'
     || (activeRightWidget === 'analysis' && sessionAnalysis !== null)
     || (activeRightWidget === 'git' && gitSnapshot?.repository === true)
 
@@ -1608,8 +1610,11 @@ function LivecraftProjectApp(
         compactingSessionIds={compactingSessionIds}
         completedSessionIds={completedSessionIds}
         currentQuotaProvider={currentQuotaProvider}
-        onAnalysisNavigate={navigateToAnalysisTarget}
+        onConversationNavigate={navigateToConversationTarget}
         onResize={updateRightSidebarWidth}
+        sessionMessages={snapshot.messages}
+        sessionMessagesAvailable={selectedSession !== undefined
+          && snapshotSessionId === selectedSession.id}
         snapshot={gitSnapshot?.repository ? gitSnapshot : null}
         sessions={sessions}
         quotas={quotas}
@@ -1739,14 +1744,6 @@ function readShortcuts(): Partial<Record<CommandId, string>> {
 function readTerminalCommand(): string {
   const stored = window.localStorage.getItem('pi-livecraft.terminal-command')
   return stored && stored.trim() && stored.includes('{cwd}') ? stored : ''
-}
-
-/** Restores the last-selected right sidebar widget, falling back to git when not collapsed. */
-function readActiveRightWidget(): RightWidget | null {
-  const stored = window.localStorage.getItem('pi-livecraft.right-sidebar-widget')
-  if (isRightWidget(stored)) return stored
-  if (stored === 'none') return null
-  return window.localStorage.getItem('pi-livecraft.git-sidebar-collapsed') === 'true' ? null : 'git'
 }
 
 function isManagerRuntimeStatus(value: unknown): value is ManagerRuntimeStatus {

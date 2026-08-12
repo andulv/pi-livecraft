@@ -11,6 +11,7 @@
 @import "./features/conversation/conversation-actions.css";
 @import "./features/conversation/activity.css";
 @import "./features/conversation/conversation-motion.css";
+@import "./features/session-index/session-index.css";
 @import "./features/session-analysis/session-analysis.css";
 @import "./features/dialogs/dialogs.css";
 @import "./features/settings/settings.css";
