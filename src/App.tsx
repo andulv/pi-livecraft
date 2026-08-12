@@ -42,7 +42,9 @@ import {
   isAgentSelector,
   isAskUserQuestionDialog,
   isBlockingDialog,
+  pendingDialogForSession,
   type UiDialog,
+  visibleDialogForSession,
 } from './features/dialogs/dialog-protocol.ts'
 import {
   clampRightSidebarWidth,
@@ -402,14 +404,14 @@ function LivecraftProjectApp(
   /** Restores visible dialogs and resolves stale agent selectors that block manager restart. */
   const handleSessionsRefreshed = useCallback((nextSessions: SessionSummary[]): void => {
     // Restore user-facing dialogs (excludes agent selectors which are handled silently)
-    const pending = nextSessions
-      .flatMap((session) =>
-        session.pendingUi.map((request) => ({ sessionId: session.id, request }))
-      )
-      .find(({ request }) => !isAgentSelector(request))
+    const selectedSessionId = selectedIdRef.current
+    const pending = pendingDialogForSession(nextSessions, selectedSessionId)
     setDialog((current) =>
       pending
-        ?? (current && nextSessions.some(({ id }) => id === current.sessionId) ? current : null)
+        ?? (current?.sessionId === selectedSessionId
+            && nextSessions.some(({ id }) => id === current.sessionId)
+          ? current
+          : null)
     )
     // Resolve stale agent selectors that were missed during an SSE disconnect.
     // Options are fetched on demand when the user opens the dropdown.
@@ -815,10 +817,12 @@ function LivecraftProjectApp(
         }
         if (isAgentSelector(event)) {
           // Pi-initiated selector (e.g. user typed /agent in Pi terminal) — show as normal dialog.
-          if (isBlockingDialog(event)) setDialog({ sessionId, request: event })
+          if (isBlockingDialog(event) && sessionId === selectedIdRef.current)
+            setDialog({ sessionId, request: event })
           return
         }
-        if (isBlockingDialog(event)) setDialog({ sessionId, request: event })
+        if (isBlockingDialog(event) && sessionId === selectedIdRef.current)
+          setDialog({ sessionId, request: event })
       }
 
       const selected = sessionId === selectedIdRef.current
@@ -1020,7 +1024,11 @@ function LivecraftProjectApp(
     snapshot.stats,
     toolExecutions,
   ])
-  const questionnaire = dialog && isAskUserQuestionDialog(dialog.request) ? dialog : null
+  const pendingDialog = pendingDialogForSession(sessions, selectedId)
+  const visibleDialog = pendingDialog ?? visibleDialogForSession(dialog, selectedId)
+  const questionnaire = visibleDialog && isAskUserQuestionDialog(visibleDialog.request)
+    ? visibleDialog
+    : null
   const questionnaireSession = questionnaire
     ? sessions.find((session) => session.id === questionnaire.sessionId)
     : undefined
@@ -1222,7 +1230,7 @@ function LivecraftProjectApp(
         ?.[0]
       if (!command) return
       if (
-        event.key === 'Escape' && (commandPaletteOpen || settingsOpen || dialog || document
+        event.key === 'Escape' && (commandPaletteOpen || settingsOpen || visibleDialog || document
           .querySelector(
             '[aria-modal="true"],.composer-select-content,[data-radix-select-content],.slash-commands',
           ))
@@ -1232,7 +1240,7 @@ function LivecraftProjectApp(
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [commandPaletteOpen, dialog, executeCommand, settingsOpen, shortcuts])
+  }, [commandPaletteOpen, executeCommand, settingsOpen, shortcuts, visibleDialog])
 
   /** Positions the conversation on an element chosen from a session navigation widget. */
   const navigateToConversationTarget = useCallback((target: ConversationNavigationTarget): void => {
@@ -1693,10 +1701,10 @@ function LivecraftProjectApp(
           onOpenSession={openQuestionnaireSession}
         />
       )}
-      {dialog && !questionnaire && (
+      {visibleDialog && !questionnaire && (
         <ExtensionDialog
-          dialog={dialog}
-          onClose={() => closeDialog(dialog)}
+          dialog={visibleDialog}
+          onClose={() => closeDialog(visibleDialog)}
           onError={(cause) => showToast('error', messageOf(cause))}
         />
       )}

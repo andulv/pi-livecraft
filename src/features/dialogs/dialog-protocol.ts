@@ -2,12 +2,32 @@ import {
   askUserQuestionProtocol,
   parseAskUserQuestionRequest,
 } from '../../../shared/ask-user-question.ts'
-import type { JsonObject } from '../../../shared/types.ts'
+import type { JsonObject, SessionSummary } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
 
 export interface UiDialog {
   sessionId: string
   request: JsonObject
+}
+
+/** Hides a dialog that belongs to a different active session. */
+export function visibleDialogForSession(
+  dialog: UiDialog | null,
+  sessionId: string,
+): UiDialog | null {
+  return dialog?.sessionId === sessionId ? dialog : null
+}
+
+/** Returns the first blocking request owned by the selected session. */
+export function pendingDialogForSession(
+  sessions: readonly SessionSummary[],
+  sessionId: string,
+): UiDialog | null {
+  const session = sessions.find(({ id }) => id === sessionId)
+  const request = session?.pendingUi.find((candidate) =>
+    isBlockingDialog(candidate) && !isAgentSelector(candidate)
+  )
+  return request ? { sessionId, request } : null
 }
 
 export function isAskUserQuestionDialog(value: JsonObject): boolean {
