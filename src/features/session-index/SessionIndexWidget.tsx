@@ -48,7 +48,9 @@ export function SessionIndexWidget(
                 return (
                   <li key={entry.messageIndex}>
                     <button
-                      aria-label={`Go to user message ${entry.number}: ${entry.preview}`}
+                      aria-label={`Go to user message ${entry.number}: ${entry.preview}${
+                        entry.assistant ? `. Response: ${entry.assistant.preview}` : ''
+                      }`}
                       onClick={() => onNavigate({ kind: 'message', index: entry.messageIndex })}
                       title={entry.preview}
                       type='button'
@@ -58,6 +60,13 @@ export function SessionIndexWidget(
                       </span>
                       <span className='session-index-copy'>
                         <strong>{entry.preview}</strong>
+                        {entry.assistant && (
+                          <span aria-hidden='true' className='session-index-response'>
+                            {entry
+                              .assistant
+                              .preview}
+                          </span>
+                        )}
                         {time && <time dateTime={time.dateTime}>{time.label}</time>}
                       </span>
                     </button>

@@ -16,7 +16,13 @@ test('indexes user messages chronologically with their original message position
   ])
 
   assert.deepEqual(entries, [
-    { messageIndex: 1, number: 1, preview: 'First request.', timestamp: 100 },
+    {
+      messageIndex: 1,
+      number: 1,
+      preview: 'First request.',
+      timestamp: 100,
+      assistant: { messageIndex: 2, preview: 'First response.' },
+    },
     { messageIndex: 3, number: 2, preview: 'Second request.', timestamp: 200 },
   ])
 })
@@ -36,4 +42,63 @@ test('keeps image-only, empty, and long user messages navigable', () => {
   assert.equal(entries[2]?.number, 3)
   assert.equal(entries[2]?.preview.length, 180)
   assert.equal(entries[2]?.preview.endsWith('…'), true)
+})
+
+test('keeps the final assistant response of each turn as a muted preview', () => {
+  const entries = sessionIndexEntries([
+    { role: 'system', content: 'ignored' },
+    { role: 'user', timestamp: 100, content: 'First request.' },
+    {
+      role: 'assistant',
+      content: [
+        { type: 'thinking', thinking: 'hidden reasoning' },
+        { type: 'text', text: '# Earlier summary' },
+      ],
+    },
+    { role: 'toolResult', content: 'ignored tool output' },
+    { role: 'assistant', content: [{ type: 'text', text: 'Final notes for turn one.' }] },
+    { role: 'user', timestamp: 200, content: 'Second request.' },
+    {
+      role: 'assistant',
+      content: [{ type: 'text', text: 'No heading here.\n\nSecond paragraph is ignored.' }],
+    },
+    { role: 'user', timestamp: 300, content: 'Third, still running.' },
+  ])
+
+  assert.deepEqual(entries[0]?.assistant, {
+    messageIndex: 4,
+    preview: 'Final notes for turn one.',
+  })
+  assert.deepEqual(entries[1]?.assistant, {
+    messageIndex: 6,
+    preview: 'No heading here.',
+  })
+  assert.equal(entries[2]?.assistant, undefined)
+})
+
+test('prefers the first Markdown heading of the final response and strips markup', () => {
+  const entries = sessionIndexEntries([
+    { role: 'user', content: 'Plan it.' },
+    {
+      role: 'assistant',
+      content: [{ type: 'text', text: 'Intro line.\n\n## Planned changes ##\nbody' }],
+    },
+  ])
+
+  assert.equal(entries[0]?.assistant?.preview, 'Planned changes')
+})
+
+test('ignores fences and horizontal rules when picking the first response line', () => {
+  const entries = sessionIndexEntries([
+    { role: 'user', content: 'Show code.' },
+    {
+      role: 'assistant',
+      content: [{
+        type: 'text',
+        text: '```ts\nconst x = 1\n```\n\n---\n\nHere is the summary.',
+      }],
+    },
+  ])
+
+  assert.equal(entries[0]?.assistant?.preview, 'Here is the summary.')
 })

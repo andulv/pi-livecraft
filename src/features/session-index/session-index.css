@@ -61,6 +61,17 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
+.session-index-response {
+  overflow: hidden;
+  border-left: 2px solid var(--line);
+  padding-left: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  font-style: italic;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .session-index-copy time {
   overflow: hidden;
   color: var(--muted);
