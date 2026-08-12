@@ -26,10 +26,14 @@ interface PiSessionHeader {
 
 const MAX_SESSIONS = 30
 
-/** Pi stores sessions in a deterministic subfolder named after the canonical workspace path. */
-function workspaceSessionDir(cwd: string, baseDir: string): string {
-  const encoded = '--' + cwd.replace(/[/\\]/g, '-') + '--'
-  return join(baseDir, encoded)
+/**
+ * Pi stores sessions in a deterministic subfolder named after the workspace path:
+ * the leading separator is dropped and each remaining separator becomes `-`.
+ * Exported so tests can place fixtures exactly where Pi would store them.
+ */
+export function workspaceSessionDir(cwd: string, baseDir: string): string {
+  const segments = cwd.split(/[/\\]+/).filter(Boolean)
+  return join(baseDir, `--${segments.join('-')}--`)
 }
 
 /** Reads the metadata for the most recent sessions in a single workspace folder. */
