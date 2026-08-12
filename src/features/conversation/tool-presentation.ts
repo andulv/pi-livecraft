@@ -191,25 +191,33 @@ export function toolCallPresentation(
   const presenter = toolCallPresentations[call.name]
   if (!presenter) return {}
 
-  const args = call.name === 'edit' || call.name === 'read' || call.name === 'write'
-    ? fileToolArguments(call.args, rawArguments)
-    : call.args
-  return presenter(args, repositoryRoot)
+  return presenter(streamedToolArguments(call.args, rawArguments), repositoryRoot)
 }
 
-/** Adds a streamed file path to presentation without changing final tool arguments. */
-function fileToolArguments(args: unknown, rawArguments?: string): unknown {
-  if (!rawArguments || toolFilePath(args)) return args
-  // ponytail: only streamed string paths matter; use an incremental parser if more fields need display.
-  const match = rawArguments.match(/(?:^|[,{])\s*"path"\s*:\s*"((?:\\.|[^"\\])*)/)
-  if (!match) return args
+/** Merges safe scalar values from incomplete JSON without changing final call arguments. */
+function streamedToolArguments(args: unknown, rawArguments?: string): unknown {
+  if (!rawArguments) return args
 
-  try {
-    const path = JSON.parse(`"${match[1]}"`)
-    return typeof path === 'string' ? (isObject(args) ? { ...args, path } : { path }) : args
-  } catch {
-    return args
+  const { values } = partialJsonObject(rawArguments, [
+    'command',
+    'path',
+    'pattern',
+    'offset',
+    'limit',
+    'timeout',
+  ])
+  if (Object.keys(values).length === 0) return args
+
+  const merged = isObject(args) ? { ...args } : {}
+  for (const [key, value] of Object.entries(values)) {
+    const existing = merged[key]
+    if (
+      !(key in merged) || existing === null || existing === undefined
+      || typeof existing !== typeof value
+      || (key === 'path' && !toolFilePath(merged))
+    ) merged[key] = value
   }
+  return merged
 }
 
 /** Infers a built-in tool name from complete or partial argument keys. */
@@ -222,38 +230,150 @@ export function provisionalToolName(args: unknown, rawArguments?: string): strin
   if (keys.has('edits') || (keys.has('oldText') && keys.has('newText'))) return 'edit'
   if (keys.has('command')) return 'bash'
   if (keys.has('path') && keys.has('content')) return 'write'
+  if (keys.has('path') && keys.has('offset')) return 'read'
+  if (
+    keys.has('pattern')
+    && ['glob', 'ignoreCase', 'literal', 'context'].some((key) => keys.has(key))
+  ) return 'grep'
   return undefined
 }
 
-// ponytail: schema-shape inference can mislabel custom tools; use streamed names if RPC exposes them.
-function partialJsonObjectKeys(value: string): string[] {
+type PartialJsonPrimitive = number | string
+
+interface PartialJsonObject {
+  keys: string[]
+  values: Record<string, PartialJsonPrimitive>
+}
+
+function partialJsonObject(value: string, wantedKeys: readonly string[]): PartialJsonObject {
+  const wanted = new Set(wantedKeys)
   const keys: string[] = []
+  const values: Record<string, PartialJsonPrimitive> = {}
   let depth = 0
-  for (let index = 0; index < value.length; index++) {
+
+  for (let index = 0; index < value.length;) {
     const char = value[index]
     if (char === '"') {
-      const start = index
-      let escaped = false
-      for (index += 1; index < value.length; index++) {
-        const next = value[index]
-        if (escaped) escaped = false
-        else if (next === '\\') escaped = true
-        else if (next === '"') break
-      }
-      if (depth === 1 && value[index] === '"' && /^\s*:/.test(value.slice(index + 1))) {
-        try {
-          const key = JSON.parse(value.slice(start, index + 1))
-          if (typeof key === 'string') keys.push(key)
-        } catch {
-          // Ignore malformed or incomplete partial JSON.
+      const token = readJsonString(value, index)
+      if (token.end === undefined) break
+
+      if (depth === 1) {
+        const colon = skipWhitespace(value, token.end + 1)
+        if (value[colon] === ':') {
+          const key = decodeJsonString(token.raw)
+          if (key !== undefined) {
+            keys.push(key)
+            if (wanted.has(key)) {
+              const parsed = partialJsonPrimitive(value, skipWhitespace(value, colon + 1))
+              if (parsed) {
+                values[key] = parsed.value
+                if (!parsed.complete) break
+              }
+            }
+          }
         }
       }
+      index = token.end + 1
       continue
     }
-    if (char === '{') depth += 1
-    else if (char === '}') depth = Math.max(0, depth - 1)
+
+    if (char === '{' || char === '[') depth += 1
+    else if (char === '}' || char === ']') depth = Math.max(0, depth - 1)
+    index += 1
   }
-  return keys
+
+  return { keys, values }
+}
+
+function partialJsonObjectKeys(value: string): string[] {
+  return partialJsonObject(value, []).keys
+}
+
+function readJsonString(value: string, start: number): { raw: string; end?: number } {
+  let escaped = false
+  for (let index = start + 1; index < value.length; index++) {
+    const char = value[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\') {
+      escaped = true
+      continue
+    }
+    if (char === '"') return { raw: value.slice(start, index + 1), end: index }
+  }
+  return { raw: value.slice(start) }
+}
+
+function decodeJsonString(value: string): string | undefined {
+  try {
+    const parsed: unknown = JSON.parse(value)
+    return typeof parsed === 'string' ? parsed : undefined
+  } catch {
+    // Decode the available prefix when string has not closed yet.
+  }
+
+  const source = value.startsWith('"')
+    ? value.slice(1, value.endsWith('"') ? -1 : undefined)
+    : value
+  let decoded = ''
+  for (let index = 0; index < source.length; index++) {
+    const char = source[index]
+    if (char !== '\\') {
+      decoded += char
+      continue
+    }
+
+    const escaped = source[index + 1]
+    if (escaped === undefined) {
+      decoded += '\\'
+      continue
+    }
+    if (escaped === 'u' && /^[\da-fA-F]{4}$/.test(source.slice(index + 2, index + 6))) {
+      decoded += String.fromCharCode(parseInt(source.slice(index + 2, index + 6), 16))
+      index += 5
+      continue
+    }
+    decoded += ({
+      '"': '"',
+      '\\': '\\',
+      '/': '/',
+      b: '\b',
+      f: '\f',
+      n: '\n',
+      r: '\r',
+      t: '\t',
+    } as Record<string, string>)[escaped] ?? `\\${escaped}`
+    index += 1
+  }
+  return decoded
+}
+
+function partialJsonPrimitive(
+  value: string,
+  start: number,
+): { value: PartialJsonPrimitive; complete: boolean } | undefined {
+  if (value[start] === '"') {
+    const token = readJsonString(value, start)
+    const decoded = decodeJsonString(token.raw)
+    return decoded === undefined
+      ? undefined
+      : { value: decoded, complete: token.end !== undefined }
+  }
+
+  const match = value.slice(start).match(/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/)
+  if (!match) return undefined
+  const next = value[start + match[0].length]
+  if (next !== undefined && !/[\s,}\]]/.test(next)) return undefined
+  const number = Number(match[0])
+  return Number.isFinite(number) ? { value: number, complete: true } : undefined
+}
+
+function skipWhitespace(value: string, start: number): number {
+  let index = start
+  while (/\s/.test(value[index] ?? '')) index += 1
+  return index
 }
 
 /** Returns the target path for tools that manipulate a file directly. */
