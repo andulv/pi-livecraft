@@ -1,6 +1,6 @@
 const maxSessionTitleLength = 90
 
-/** Builds an immediate fallback title while leaving later extension-generated titles free to replace it. */
+/** Builds a compact title from arbitrary text. */
 export function promptSessionTitle(prompt: string): string {
   const normalized = prompt.replace(/\s+/g, ' ').trim()
   return normalized.length > maxSessionTitleLength

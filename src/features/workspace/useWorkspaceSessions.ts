@@ -15,7 +15,6 @@ import type {
   RecentSession,
   SessionSummary,
 } from '../../../shared/types.ts'
-import { promptSessionTitle } from '../composer/prompt-title.ts'
 import { readPinnedSessions, togglePinnedSession, writePinnedSessions } from './pinned-sessions.ts'
 import { recentWorkspaces } from './recent-workspaces.ts'
 import type { Project } from './projects.ts'
@@ -45,7 +44,6 @@ interface StartSessionOptions {
   refreshCwd?: string
   initialImages?: JsonObject[]
   initialMessage?: string
-  nameFromInitialMessage?: boolean
 }
 
 const MAX_COMPLETED_SESSIONS = 30
@@ -346,31 +344,6 @@ export function useWorkspaceSessions(
       selectWorkspace(workspacePaths[0])
   }, [workspacePaths, selectWorkspace, workspacePath])
 
-  /** Stores the optimistic title shared by first prompts in new and existing sessions. */
-  const nameSessionFromFirstPrompt = useCallback(
-    (session: SessionSummary, message: string): void => {
-      const name = promptSessionTitle(message)
-      setSessions((current) =>
-        current.map((candidate) => candidate.id === session.id ? { ...candidate, name } : candidate)
-      )
-      const sessionPath = session.sessionPath
-      if (!sessionPath) return
-      setSentSessions((current) => [
-        {
-          id: session.id,
-          cwd: session.cwd,
-          name,
-          sessionPath,
-          updatedAt: Date.now(),
-        },
-        ...current.filter((recent) =>
-          recent.id !== session.id && recent.sessionPath !== sessionPath
-        ),
-      ])
-    },
-    [],
-  )
-
   const rememberStartedSession = useCallback((session: SessionSummary): void => {
     const sessionPath = session.sessionPath
     if (!sessionPath) return
@@ -409,8 +382,6 @@ export function useWorkspaceSessions(
             message: options.initialMessage,
             images: options.initialImages ?? [],
           })
-          if (options.nameFromInitialMessage !== false)
-            nameSessionFromFirstPrompt(session, options.initialMessage)
           await refreshSessions(options.refreshCwd)
           onInitialMessageSent()
         }
@@ -425,7 +396,6 @@ export function useWorkspaceSessions(
     },
     [
       discardTransientNewSession,
-      nameSessionFromFirstPrompt,
       onDraftMessage,
       onError,
       onInitialMessageSent,
@@ -615,7 +585,6 @@ export function useWorkspaceSessions(
     creatingSession,
     isRefreshingSessions,
     markSessionCompleted,
-    nameSessionFromFirstPrompt,
     openPinnedSession,
     pinnedSessions,
     projectWorkspaces,

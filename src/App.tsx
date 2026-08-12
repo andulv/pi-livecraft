@@ -447,7 +447,6 @@ function LivecraftProjectApp(
     creatingSession,
     isRefreshingSessions,
     markSessionCompleted,
-    nameSessionFromFirstPrompt,
     openPinnedSession,
     pinnedSessions,
     projectWorkspaces,
@@ -932,12 +931,6 @@ function LivecraftProjectApp(
       try {
         await sendPiCommand(selectedId, command)
         if (!isCommand) retainNewSession(selectedId)
-        const sentSession = sessions.find((session) => session.id === selectedId)
-        const shouldNameSession = !isCommand && sentSession?.name === 'New session'
-          && !snapshot
-            .messages
-            .some((entry) => entry.role === 'user')
-        if (sentSession && shouldNameSession) nameSessionFromFirstPrompt(sentSession, message)
         setScrollToBottomRequest((current) => current + 1)
       } catch (cause) {
         if (optimisticId) removeLiveMessage(optimisticId)
@@ -948,14 +941,11 @@ function LivecraftProjectApp(
     [
       addOptimisticUserMessage,
       addPendingSteering,
-      nameSessionFromFirstPrompt,
       removeLiveMessage,
       removePendingSteering,
       retainNewSession,
       selectedId,
       selectedSessionStatus,
-      sessions,
-      snapshot.messages,
     ],
   )
   const handleComposerAbort = useCallback(() => sendPiCommand(selectedId, { type: 'abort' }), [
