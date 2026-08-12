@@ -7,6 +7,7 @@ import {
   getGitFileDiff,
   getGitSnapshot,
   getQuotas,
+  getVSCodeTitleBarColor,
   improvePrompt,
   openExplorer,
   openSession,
@@ -59,6 +60,7 @@ import {
 } from './features/workspace/project-url.ts'
 import { projectFaviconHref, projectPageTitle } from './features/workspace/project-tab.ts'
 import { worktreeColor } from './features/workspace/project-definition.ts'
+import { contrastColor } from './features/settings/themes.ts'
 import type { Project } from './features/workspace/projects.ts'
 import { useProjects } from './features/workspace/useProjects.ts'
 import { sidebarSessions } from './features/workspace/sidebar-sessions.ts'
@@ -282,6 +284,7 @@ function LivecraftProjectApp(
     )
   )
   const [gitSnapshot, setGitSnapshot] = useState<GitSnapshot | null>(null)
+  const [vscodeTitleBarColor, setVSCodeTitleBarColor] = useState<string | null>(null)
   const [quotas, setQuotas] = useState<QuotaSnapshot | null>(null)
   const [activeRightWidget, setActiveRightWidget] = useState<RightWidget | null>(() =>
     readActiveRightWidget(
@@ -712,6 +715,19 @@ function LivecraftProjectApp(
       }
     }
   }, [refreshGit])
+
+  /** Refreshes the branded title bar color so the launcher button matches the VS Code window. */
+  const refreshVSCodeTitleBarColor = useCallback(async (cwd = workspacePath): Promise<void> => {
+    try {
+      setVSCodeTitleBarColor(await getVSCodeTitleBarColor(cwd))
+    } catch {
+      setVSCodeTitleBarColor(null)
+    }
+  }, [workspacePath])
+
+  useEffect(() => {
+    void refreshVSCodeTitleBarColor()
+  }, [refreshVSCodeTitleBarColor])
   useEffect(() => {
     void getQuotas().then(setQuotas).catch(() => undefined)
   }, [])
@@ -1053,6 +1069,9 @@ function LivecraftProjectApp(
         vscodeColor,
         isMainWorktree,
       )
+        .then(() => {
+          void refreshVSCodeTitleBarColor()
+        })
         .catch((
           cause,
         ) => showToast('error', messageOf(cause)))
@@ -1140,6 +1159,7 @@ function LivecraftProjectApp(
     workspacePath,
     project.name,
     vscodeColor,
+    refreshVSCodeTitleBarColor,
   ])
 
   const paletteCommands: PaletteCommand[] = useMemo(() => {
@@ -1265,6 +1285,13 @@ function LivecraftProjectApp(
       key: 'vscode',
       icon: <VSCodeIcon />,
       label: `Open ${vscodeWorkspaceName} in VS Code`,
+      className: vscodeTitleBarColor ? 'vscode-branded' : undefined,
+      style: vscodeTitleBarColor
+        ? ({
+          '--vscode-title-bar': vscodeTitleBarColor,
+          '--vscode-title-foreground': contrastColor(vscodeTitleBarColor),
+        } as CSSProperties)
+        : undefined,
       onClick: () => {
         void openVSCode(
           workspacePath,
@@ -1273,6 +1300,9 @@ function LivecraftProjectApp(
           vscodeColor,
           isMainWorktree,
         )
+          .then(() => {
+            void refreshVSCodeTitleBarColor()
+          })
           .catch((
             cause,
           ) => showToast('error', messageOf(cause)))
@@ -1281,8 +1311,10 @@ function LivecraftProjectApp(
   ], [
     isMainWorktree,
     project.name,
+    refreshVSCodeTitleBarColor,
     showToast,
     vscodeColor,
+    vscodeTitleBarColor,
     terminalCommand,
     vscodeWorkspaceName,
     workspacePath,

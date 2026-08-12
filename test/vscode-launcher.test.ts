@@ -8,6 +8,7 @@ import test from 'node:test'
 import {
   configureVSCodeWorkspace,
   openVSCodeApplication,
+  readWorkspaceTitleBarColor,
   VSCodeSettingsError,
 } from '../server/features/vscode/launcher.ts'
 
@@ -103,4 +104,59 @@ test('launches a new VS Code window after configuring the worktree', async () =>
     }) as never,
   )
   assert.deepEqual(call, { command: 'code', args: ['--new-window', workspace], shell: false })
+})
+
+test('readWorkspaceTitleBarColor returns null without VS Code settings', async () => {
+  const workspace = await mkdtemp(join(tmpdir(), 'livecraft-vscode-'))
+  assert.equal(await readWorkspaceTitleBarColor(workspace), null)
+})
+
+test('readWorkspaceTitleBarColor reads the branded title bar color after launch', async () => {
+  const workspace = await mkdtemp(join(tmpdir(), 'livecraft-vscode-'))
+  await configureVSCodeWorkspace(workspace, branding)
+  assert.equal(await readWorkspaceTitleBarColor(workspace), '#3c6fa8')
+})
+
+test('readWorkspaceTitleBarColor normalizes three- and eight-digit hex colors', async () => {
+  const workspace = await mkdtemp(join(tmpdir(), 'livecraft-vscode-'))
+  await mkdir(join(workspace, '.vscode'))
+  await writeFile(
+    join(workspace, '.vscode', 'settings.json'),
+    JSON.stringify({
+      'workbench.colorCustomizations': { 'titleBar.activeBackground': '#1a2' },
+    }),
+  )
+  assert.equal(await readWorkspaceTitleBarColor(workspace), '#11aa22')
+
+  await writeFile(
+    join(workspace, '.vscode', 'settings.json'),
+    JSON.stringify({
+      'workbench.colorCustomizations': { 'titleBar.activeBackground': '#3c6fa8cc' },
+    }),
+  )
+  assert.equal(await readWorkspaceTitleBarColor(workspace), '#3c6fa8')
+})
+
+test('readWorkspaceTitleBarColor returns null for non-hex colors or missing values', async () => {
+  const workspace = await mkdtemp(join(tmpdir(), 'livecraft-vscode-'))
+  await mkdir(join(workspace, '.vscode'))
+  const settingsPath = join(workspace, '.vscode', 'settings.json')
+
+  await writeFile(
+    settingsPath,
+    JSON.stringify({
+      'workbench.colorCustomizations': { 'titleBar.activeBackground': 'rgb(60, 111, 168)' },
+    }),
+  )
+  assert.equal(await readWorkspaceTitleBarColor(workspace), null)
+
+  await writeFile(settingsPath, JSON.stringify({ 'editor.tabSize': 2 }))
+  assert.equal(await readWorkspaceTitleBarColor(workspace), null)
+})
+
+test('readWorkspaceTitleBarColor returns null when VS Code settings are malformed', async () => {
+  const workspace = await mkdtemp(join(tmpdir(), 'livecraft-vscode-'))
+  await mkdir(join(workspace, '.vscode'))
+  await writeFile(join(workspace, '.vscode', 'settings.json'), '{ invalid }')
+  assert.equal(await readWorkspaceTitleBarColor(workspace), null)
 })

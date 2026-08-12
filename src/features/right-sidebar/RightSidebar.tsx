@@ -1,6 +1,7 @@
 import {
   useEffect,
   useState,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -33,6 +34,8 @@ export interface RailAction {
   icon: ReactNode
   label: string
   disabled?: boolean
+  className?: string
+  style?: CSSProperties
   onClick: () => void
 }
 
@@ -333,9 +336,10 @@ export function RightSidebar({
           <Tooltip key={action.key} label={action.label}>
             <button
               aria-label={action.label}
-              className='rail-tab'
+              className={`rail-tab${action.className ? ` ${action.className}` : ''}`}
               disabled={action.disabled}
               onClick={action.onClick}
+              style={action.style}
               type='button'
             >
               {action.icon}

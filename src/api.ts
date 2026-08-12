@@ -161,6 +161,14 @@ export async function openVSCode(
   })
 }
 
+/** Reads the branded title bar color for a workspace, if its VS Code settings define one. */
+export async function getVSCodeTitleBarColor(cwd: string): Promise<string | null> {
+  const result = await request<{ color: string | null }>(
+    `/api/vscode/titlebar-color?cwd=${encodeURIComponent(cwd)}`,
+  )
+  return result.color
+}
+
 export async function openTerminal(cwd: string, template: string): Promise<void> {
   await request<void>('/api/terminal', {
     method: 'POST',

@@ -4,4 +4,4 @@
 
 The generated settings file is added to the worktree's `.gitignore` unless an equivalent `.vscode` rule already exists. Existing `workbench.colorCustomizations` must be an object; malformed or incompatible settings are rejected rather than overwritten.
 
-The launcher tries `code`, then `code-insiders`, uses `--new-window`, and never invokes a shell. HTTP routing and working-directory validation remain in `server/backend.ts`. Main coverage: `test/vscode-launcher.test.ts`.
+The launcher tries `code`, then `code-insiders`, uses `--new-window`, and never invokes a shell. `readWorkspaceTitleBarColor` reads the branded `titleBar.activeBackground` back out of a workspace's settings (normalizing `#rgb`, `#rrggbb`, and `#rrggbbaa` to `#rrggbb`) so the launcher button can mirror the VS Code window; it returns `null` for missing, malformed, or non-hex values. HTTP routing and working-directory validation remain in `server/backend.ts` (`POST /api/vscode` launches; `GET /api/vscode/titlebar-color?cwd=` reads the color). Main coverage: `test/vscode-launcher.test.ts`.

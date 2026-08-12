@@ -19,7 +19,11 @@ import {
 } from './features/git/git.ts'
 import { QuotaService } from './features/quotas/quota-service.ts'
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
-import { openVSCodeApplication, VSCodeSettingsError } from './features/vscode/launcher.ts'
+import {
+  openVSCodeApplication,
+  readWorkspaceTitleBarColor,
+  VSCodeSettingsError,
+} from './features/vscode/launcher.ts'
 import {
   loadWorkspaceTodos,
   parseTodoItems,
@@ -276,6 +280,12 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     }
     await saveWorkspaceTodos(cwd, todos)
     sendJson(response, 200, todos)
+    return
+  }
+
+  if (method === 'GET' && url.pathname === '/api/vscode/titlebar-color') {
+    const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
+    sendJson(response, 200, { color: await readWorkspaceTitleBarColor(cwd) })
     return
   }
 

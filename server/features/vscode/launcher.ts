@@ -63,6 +63,24 @@ export async function configureVSCodeWorkspace(
   await ensureSettingsIgnored(join(workspacePath, '.gitignore'))
 }
 
+/**
+ * Reads the title bar background color VS Code applies for this workspace.
+ * Returns the value as a six-digit `#rrggbb` color when Livecraft (or the user)
+ * has branded the title bar, or `null` when the workspace has no such setting.
+ */
+export async function readWorkspaceTitleBarColor(workspacePath: string): Promise<string | null> {
+  let settings: Record<string, unknown>
+  try {
+    settings = await readSettings(join(workspacePath, vscodeSettingsPath))
+  } catch {
+    return null
+  }
+  const customizations = settings['workbench.colorCustomizations']
+  if (!isRecord(customizations)) return null
+  const value = customizations['titleBar.activeBackground']
+  return typeof value === 'string' ? normalizedHexColor(value) : null
+}
+
 /** Adds the generated settings file to the worktree's local ignore rules when needed. */
 export async function ensureSettingsIgnored(gitignorePath: string): Promise<void> {
   let content = ''
@@ -163,6 +181,16 @@ function removeJsoncSyntax(source: string): string {
     result += character
   }
   return result
+}
+
+/** Normalizes VS Code hex colors (#rgb, #rrggbb, #rrggbbaa) to a six-digit #rrggbb form. */
+function normalizedHexColor(value: string): string | null {
+  const digits = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(value.trim())?.[1]
+  if (!digits) return null
+  if (digits.length === 3)
+    return `#${[...digits].map((character) => character + character).join('')}`
+      .toLowerCase()
+  return `#${digits.slice(0, 6)}`.toLowerCase()
 }
 
 function ignoresVSCodeSettings(line: string): boolean {
