@@ -1,12 +1,3 @@
-/* Nerd Fonts Symbols 1.0.1, ISC. Vendored from https://cdn.jsdelivr.net/npm/nerdfonts-web@1.0.1/ */
-@font-face {
-  font-family: "Pi Nerd Font Symbols";
-  src: url("./assets/nerd-fonts-symbols.woff2") format("woff2");
-  font-display: swap;
-  font-style: normal;
-  font-weight: 400;
-}
-
 .git-refresh {
   display: grid;
   place-items: center;
