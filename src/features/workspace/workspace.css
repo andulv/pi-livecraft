@@ -309,11 +309,65 @@
   color: color-mix(in srgb, var(--secondary) 72%, var(--muted));
 }
 .sessions-heading {
+  position: relative;
   margin-top: -8px;
 }
 .sessions-heading > span {
   flex: 1;
   min-width: 0;
+}
+.sessions-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.session-list-options {
+  width: 24px;
+  padding: 0 !important;
+  font-size: 16px !important;
+  line-height: 1;
+}
+.session-list-options[aria-expanded="true"] {
+  border-color: var(--line-strong);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.session-list-options-menu {
+  position: absolute;
+  z-index: 45;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 190px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 4px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.session-list-options-menu label {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 7px 9px;
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+.session-list-options-menu label:hover,
+.session-list-options-menu label:has(input:focus-visible) {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.session-list-options-menu input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
 }
 .refresh-sessions svg {
   animation: none;
@@ -576,6 +630,26 @@
 .session-item.selected:not(.working):not(.waiting):not(.compacting) strong {
   color: color-mix(in srgb, var(--secondary) 76%, var(--ink));
 }
+.session-item.archived {
+  border-left-color: color-mix(in srgb, var(--subtle) 56%, transparent);
+  background: transparent;
+  color: var(--muted);
+}
+.session-item.archived:hover:not(:disabled) {
+  border-left-color: color-mix(in srgb, var(--subtle) 78%, transparent);
+  background: color-mix(in srgb, var(--subtle) 9%, transparent);
+}
+.session-item.archived strong,
+.session-item.archived.selected strong {
+  color: var(--muted);
+  font-weight: 400;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.archived-session-icon {
+  flex: 0 0 auto;
+  color: var(--subtle);
+}
 .session-item small {
   margin-top: 2px;
   color: var(--muted);
@@ -597,6 +671,13 @@
 }
 .session-item.waiting strong {
   color: var(--secondary);
+}
+.session-item.archived.working strong,
+.session-item.archived.compacting strong,
+.session-item.archived.waiting strong {
+  color: var(--muted);
+  font-weight: 400;
+  animation: none;
 }
 
 /* completion — keep the normal row surface and emphasize the result */
@@ -865,6 +946,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .session-context-menu button,
+  .session-list-options-menu label,
   .session-rename-input {
     transition: none;
   }

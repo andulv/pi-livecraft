@@ -443,6 +443,7 @@ function LivecraftProjectApp(
   )
   const {
     addPendingRequest,
+    archivedSessionPaths,
     completedSessionIds,
     creatingSession,
     isRefreshingSessions,
@@ -468,6 +469,7 @@ function LivecraftProjectApp(
     startAndSelectSession: startWorkspaceSession,
     startNewSession,
     toggleProjectPin,
+    toggleSessionArchive,
     updateSession,
     workspacePath,
     retryProjectDiscovery,
@@ -1325,6 +1327,7 @@ function LivecraftProjectApp(
       } as CSSProperties}
     >
       <WorkspaceSidebar
+        archivedSessionPaths={archivedSessionPaths}
         collapsed={workspaceSidebarCollapsed}
         compactingSessionIds={compactingSessionIds}
         completedSessionIds={completedSessionIds}
@@ -1367,6 +1370,7 @@ function LivecraftProjectApp(
         onResize={updateWorkspaceSidebarWidth}
         onToggleCollapsed={toggleWorkspaceSidebar}
         onToggleProjectPin={toggleProjectPin}
+        onToggleSessionArchive={toggleSessionArchive}
       />
 
       <main className='workspace'>

@@ -37,6 +37,7 @@ interface WorkspaceContextMenuState {
 }
 
 interface WorkspaceSidebarProps {
+  archivedSessionPaths: readonly string[]
   collapsed: boolean
   compactingSessionIds: ReadonlySet<string>
   completedSessionIds: ReadonlySet<string>
@@ -64,11 +65,13 @@ interface WorkspaceSidebarProps {
   onResize: (width: number) => void
   onToggleCollapsed: () => void
   onToggleProjectPin: (target: SessionActionTarget) => void
+  onToggleSessionArchive: (target: SessionActionTarget) => void
   onError: (cause: unknown) => void
 }
 
 /** Displays the current workspace and opens or selects its recent Pi sessions. */
 export function WorkspaceSidebar({
+  archivedSessionPaths,
   collapsed,
   compactingSessionIds,
   completedSessionIds,
@@ -96,6 +99,7 @@ export function WorkspaceSidebar({
   onResize,
   onToggleCollapsed,
   onToggleProjectPin,
+  onToggleSessionArchive,
   onError,
 }: WorkspaceSidebarProps) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
@@ -104,15 +108,25 @@ export function WorkspaceSidebar({
   const [workspaceMenu, setWorkspaceMenu] = useState<WorkspaceContextMenuState | null>(null)
   const [workspaceMenuPosition, setWorkspaceMenuPosition] = useState({ left: 0, top: 0 })
   const [renameTarget, setRenameTarget] = useState<SessionActionTarget | null>(null)
+  const [sessionListMenuOpen, setSessionListMenuOpen] = useState(false)
+  const [showArchivedSessions, setShowArchivedSessions] = useState(false)
   const [startingNewSession, setStartingNewSession] = useState(false)
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
   const contextMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const workspaceMenuRef = useRef<HTMLDivElement>(null)
   const workspaceMenuTriggerRef = useRef<HTMLButtonElement>(null)
+  const sessionListMenuRef = useRef<HTMLDivElement>(null)
+  const sessionListMenuTriggerRef = useRef<HTMLButtonElement>(null)
+  const archivedSessionPathSet = useMemo(
+    () => new Set(archivedSessionPaths),
+    [archivedSessionPaths],
+  )
   const resolvedPinnedSessions = useMemo(
-    () => resolvePinnedSessions(pinnedSessions, recentSessions, sentSessions),
-    [pinnedSessions, recentSessions, sentSessions],
+    () =>
+      resolvePinnedSessions(pinnedSessions, recentSessions, sentSessions)
+        .filter(({ sessionPath }) => !archivedSessionPathSet.has(sessionPath)),
+    [archivedSessionPathSet, pinnedSessions, recentSessions, sentSessions],
   )
   const pinnedSessionPaths = useMemo(
     () => new Set(resolvedPinnedSessions.map(({ sessionPath }) => sessionPath)),
@@ -121,8 +135,18 @@ export function WorkspaceSidebar({
   const visibleSessions = useMemo(
     () =>
       sidebarSessions(recentSessions, workspacePath, sentSessions)
-        .filter(({ sessionPath }) => !pinnedSessionPaths.has(sessionPath)),
-    [pinnedSessionPaths, recentSessions, sentSessions, workspacePath],
+        .filter(({ sessionPath }) => !pinnedSessionPaths.has(sessionPath))
+        .filter(({ sessionPath }) =>
+          showArchivedSessions || !archivedSessionPathSet.has(sessionPath)
+        ),
+    [
+      archivedSessionPathSet,
+      pinnedSessionPaths,
+      recentSessions,
+      sentSessions,
+      showArchivedSessions,
+      workspacePath,
+    ],
   )
   const workspaces = useMemo(() => projectDetails?.workspaces ?? [], [projectDetails])
   const selectedWorkspace = workspaces.find(({ path }) => path === workspacePath)
@@ -140,6 +164,9 @@ export function WorkspaceSidebar({
   const contextSessionCanPin = contextSessionPinned || Boolean(
     contextSessionPath
       && recentSessions.some(({ sessionPath }) => sessionPath === contextSessionPath),
+  )
+  const contextSessionArchived = Boolean(
+    contextSessionPath && archivedSessionPathSet.has(contextSessionPath),
   )
 
   useEffect(() => {
@@ -193,6 +220,26 @@ export function WorkspaceSidebar({
   }, [workspaceMenu])
 
   useEffect(() => {
+    if (!sessionListMenuOpen) return
+    const dismissOnPointerDown = (event: PointerEvent): void => {
+      if (!(event.target instanceof Node) || !sessionListMenuRef.current?.contains(event.target))
+        setSessionListMenuOpen(false)
+    }
+    const dismissOnKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setSessionListMenuOpen(false)
+      sessionListMenuTriggerRef.current?.focus()
+    }
+    document.addEventListener('pointerdown', dismissOnPointerDown)
+    document.addEventListener('keydown', dismissOnKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', dismissOnPointerDown)
+      document.removeEventListener('keydown', dismissOnKeyDown)
+    }
+  }, [sessionListMenuOpen])
+
+  useEffect(() => {
     if (!workspaceMenu) return
     const dismissOnPointerDown = (event: PointerEvent): void => {
       if (!(event.target instanceof Node) || !workspaceMenuRef.current?.contains(event.target))
@@ -223,6 +270,7 @@ export function WorkspaceSidebar({
   ): void {
     event.preventDefault()
     setContextMenu(null)
+    setSessionListMenuOpen(false)
     workspaceMenuTriggerRef.current = event.currentTarget
     setWorkspaceMenu({ workspace, x: event.clientX, y: event.clientY })
   }
@@ -239,6 +287,7 @@ export function WorkspaceSidebar({
     event: ReactMouseEvent<HTMLButtonElement>,
   ): void {
     event.preventDefault()
+    setSessionListMenuOpen(false)
     setWorkspaceMenu(null)
     contextMenuTriggerRef.current = event.currentTarget
     setContextMenu({ target, x: event.clientX, y: event.clientY })
@@ -256,6 +305,13 @@ export function WorkspaceSidebar({
     const { target } = contextMenu
     dismissContextMenu()
     onToggleProjectPin(target)
+  }
+
+  function toggleContextArchive(): void {
+    if (!contextMenu) return
+    const { target } = contextMenu
+    dismissContextMenu()
+    onToggleSessionArchive(target)
   }
 
   function dismissRename(): void {
@@ -453,30 +509,68 @@ export function WorkspaceSidebar({
         <span title={workspacePath}>
           Sessions – <b>{selectedWorkspaceLabel}</b>
         </span>
-        <Tooltip label='Refresh sessions'>
-          <button
-            aria-label={`Refresh sessions in ${selectedWorkspaceLabel}`}
-            className='new-session refresh-sessions'
-            disabled={isRefreshing}
-            onClick={onRefreshSessions}
-            type='button'
-          >
-            <RefreshIcon />
-          </button>
-        </Tooltip>
-        <Tooltip label='New session'>
-          <button
-            aria-label={`New session in ${selectedWorkspaceLabel}`}
-            className='new-session'
-            disabled={startingNewSession}
-            onClick={() => void startNewSession()}
-            type='button'
-          >
-            ＋
-          </button>
-        </Tooltip>
+        <div className='sessions-heading-actions'>
+          <Tooltip label='Session list options'>
+            <button
+              aria-expanded={sessionListMenuOpen}
+              aria-haspopup='true'
+              aria-label='Session list options'
+              className='session-list-options'
+              onClick={() => {
+                setContextMenu(null)
+                setWorkspaceMenu(null)
+                setSessionListMenuOpen((current) => !current)
+              }}
+              ref={sessionListMenuTriggerRef}
+              type='button'
+            >
+              …
+            </button>
+          </Tooltip>
+          {sessionListMenuOpen && (
+            <div
+              aria-label='Session list options'
+              className='session-list-options-menu'
+              ref={sessionListMenuRef}
+            >
+              <label>
+                <input
+                  checked={showArchivedSessions}
+                  type='checkbox'
+                  onChange={(event) => setShowArchivedSessions(event.target.checked)}
+                />
+                Show archived items
+              </label>
+            </div>
+          )}
+          <Tooltip label='Refresh sessions'>
+            <button
+              aria-label={`Refresh sessions in ${selectedWorkspaceLabel}`}
+              className='new-session refresh-sessions'
+              disabled={isRefreshing}
+              onClick={onRefreshSessions}
+              type='button'
+            >
+              <RefreshIcon />
+            </button>
+          </Tooltip>
+          <Tooltip label='New session'>
+            <button
+              aria-label={`New session in ${selectedWorkspaceLabel}`}
+              className='new-session'
+              disabled={startingNewSession}
+              onClick={() => void startNewSession()}
+              type='button'
+            >
+              ＋
+            </button>
+          </Tooltip>
+        </div>
       </div>
-      <nav className='session-list' aria-label='Recent Pi sessions'>
+      <nav
+        className='session-list'
+        aria-label={showArchivedSessions ? 'Pi sessions' : 'Recent Pi sessions'}
+      >
         {isRefreshing && visibleSessions.length === 0 && (
           <p className='session-list-loading' role='status'>Loading sessions…</p>
         )}
@@ -490,6 +584,7 @@ export function WorkspaceSidebar({
             compactingSessionIds,
             completedSessionIds,
           )
+          const archived = archivedSessionPathSet.has(recentSession.sessionPath)
           const sessionLabel = openingSessionPath === recentSession.sessionPath
             ? 'Opening…'
             : recentSession.name
@@ -508,8 +603,8 @@ export function WorkspaceSidebar({
               >
                 <button
                   className={`session-item${activeSession?.id === selectedId ? ' selected' : ''}${
-                    indicator ? ` ${indicator}` : ''
-                  }`}
+                    archived ? ' archived' : ''
+                  }${indicator ? ` ${indicator}` : ''}`}
                   disabled={openingSessionPath === recentSession.sessionPath}
                   onClick={() => {
                     if (activeSession) {
@@ -525,6 +620,7 @@ export function WorkspaceSidebar({
                   type='button'
                 >
                   {indicator && <SessionStatusIndicator status={indicator} />}
+                  {archived && <ArchivedSessionIcon />}
                   <span className='session-item-copy'>
                     <strong>{sessionLabel}</strong>
                   </span>
@@ -535,7 +631,11 @@ export function WorkspaceSidebar({
           )
         })}
         {visibleSessions.length === 0 && !isRefreshing && (
-          <p className='empty-sidebar'>No Pi sessions in this directory.</p>
+          <p className='empty-sidebar'>
+            {showArchivedSessions
+              ? 'No archived sessions in this directory.'
+              : 'No Pi sessions in this directory.'}
+          </p>
         )}
       </nav>
       {workspaceMenu && (
@@ -572,6 +672,9 @@ export function WorkspaceSidebar({
           </button>
           <button onClick={startRename} role='menuitem' type='button'>
             Rename…
+          </button>
+          <button onClick={toggleContextArchive} role='menuitem' type='button'>
+            {contextSessionArchived ? 'Restore from archive' : 'Archive session'}
           </button>
         </div>
       )}
@@ -625,6 +728,27 @@ function SidebarToggleIcon({ collapsed }: { collapsed: boolean }) {
     >
       <path d='M3 3v18' />
       <path d={collapsed ? 'm9 6 6 6-6 6' : 'm15 6-6 6 6 6'} />
+    </svg>
+  )
+}
+
+function ArchivedSessionIcon() {
+  return (
+    <svg
+      aria-hidden='true'
+      className='archived-session-icon'
+      fill='none'
+      height='14'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='1.6'
+      viewBox='0 0 24 24'
+      width='14'
+    >
+      <path d='M4 7h16v12H4z' />
+      <path d='M3 4h18v3H3z' />
+      <path d='M10 11h4' />
     </svg>
   )
 }

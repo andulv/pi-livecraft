@@ -15,6 +15,11 @@ import type {
   RecentSession,
   SessionSummary,
 } from '../../../shared/types.ts'
+import {
+  readArchivedSessionPaths,
+  toggleArchivedSessionPath,
+  writeArchivedSessionPaths,
+} from './archived-sessions.ts'
 import { readPinnedSessions, togglePinnedSession, writePinnedSessions } from './pinned-sessions.ts'
 import { recentWorkspaces } from './recent-workspaces.ts'
 import type { Project } from './projects.ts'
@@ -66,6 +71,9 @@ export function useWorkspaceSessions(
   const [sentSessions, setSentSessions] = useState<RecentSession[]>([])
   const [pinnedSessions, setPinnedSessions] = useState<RecentSession[]>(() =>
     readPinnedSessions(window.localStorage, project.id)
+  )
+  const [archivedSessionPaths, setArchivedSessionPaths] = useState<string[]>(() =>
+    readArchivedSessionPaths(window.localStorage, project.id)
   )
   const [completedSessionIds, setCompletedSessionIds] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -161,6 +169,10 @@ export function useWorkspaceSessions(
   useEffect(() => {
     writePinnedSessions(window.localStorage, project.id, pinnedSessions)
   }, [pinnedSessions, project.id])
+
+  useEffect(() => {
+    writeArchivedSessionPaths(window.localStorage, project.id, archivedSessionPaths)
+  }, [archivedSessionPaths, project.id])
 
   /** Refreshes pinned-session metadata by path without scanning the whole session store. */
   const refreshPinnedSessions = useCallback(async (): Promise<void> => {
@@ -448,6 +460,18 @@ export function useWorkspaceSessions(
     })
   }, [])
 
+  /** Archives a session locally and removes an archive from project pins. */
+  const toggleSessionArchive = useCallback((target: SessionActionTarget): void => {
+    const sessionPath = target.sessionPath
+    if (!sessionPath) return
+    const archiving = !archivedSessionPaths.includes(sessionPath)
+    setArchivedSessionPaths((current) => toggleArchivedSessionPath(current, sessionPath))
+    if (archiving)
+      setPinnedSessions((current) =>
+        current.filter((session) => session.sessionPath !== sessionPath)
+      )
+  }, [archivedSessionPaths])
+
   /** Opens a pin from any workspace while preserving the explicit target over auto-selection. */
   const openPinnedSession = useCallback(async (recent: RecentSession): Promise<void> => {
     const active = sessionsRef.current.find((session) =>
@@ -580,6 +604,7 @@ export function useWorkspaceSessions(
 
   return {
     addPendingRequest,
+    archivedSessionPaths,
     closeManagedSession,
     completedSessionIds,
     creatingSession,
@@ -608,6 +633,7 @@ export function useWorkspaceSessions(
     startAndSelectSession,
     startNewSession,
     toggleProjectPin,
+    toggleSessionArchive,
     updateSession,
     workspacePath,
   }
