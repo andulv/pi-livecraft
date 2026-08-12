@@ -214,6 +214,9 @@ export const ToolCallCard = memo(function ToolCallCard({
           </span>
           {presentation.headerDetail && displayedCommand && (
             <span className='tool-call-command'>
+              <code aria-label={`Full command: ${presentation.headerDetail.title}`}>
+                {displayedCommand}
+              </code>
               {fileIcon && (
                 <span
                   aria-hidden='true'
@@ -223,9 +226,6 @@ export const ToolCallCard = memo(function ToolCallCard({
                   {fileIcon.glyph}
                 </span>
               )}
-              <code aria-label={`Full command: ${presentation.headerDetail.title}`}>
-                {displayedCommand}
-              </code>
             </span>
           )}
           {presentation.headerDetail?.suffix && (
