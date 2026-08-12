@@ -7,9 +7,9 @@ import type {
   GitRevertResult,
   GitSnapshot,
 } from '../../../shared/types.ts'
+import { resolveFileIcon } from '../../../shared/file-icon.ts'
 import { WidgetLayout } from '../right-sidebar/WidgetLayout.tsx'
 import { parseGitDiff } from './git-diff.ts'
-import { resolveFileIcon } from './file-icon.ts'
 
 /** Local git-error target — which element to shake on failure. */
 type ErrorTarget = 'push' | 'commit' | 'discard' | 'refresh'
@@ -399,7 +399,13 @@ function GitFileRow({ file }: { file: GitSnapshot['files'][number] }) {
           className={`git-file-status ${file.status}`}
           role='img'
         >
-          <span aria-hidden='true' className='git-file-icon'>{fileIcon.glyph}</span>
+          <span
+            aria-hidden='true'
+            className='git-file-icon'
+            data-color={fileIcon.color}
+          >
+            {fileIcon.glyph}
+          </span>
         </span>
       </Tooltip>
       <Tooltip label={file.path}>

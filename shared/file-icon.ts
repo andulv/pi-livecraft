@@ -1,9 +1,95 @@
+export type FileIconColor =
+  | 'blue'
+  | 'green'
+  | 'yellow'
+  | 'orange'
+  | 'red'
+  | 'purple'
+  | 'pink'
+  | 'slate'
+
 export interface FileIcon {
   readonly glyph: string
   readonly label: string
+  readonly color: FileIconColor
 }
 
-const icon = (glyph: string, label: string): FileIcon => ({ glyph, label })
+/** Seti UI-inspired semantic colours, with theme-aware values in the Git CSS. */
+const fileIconColors: Readonly<Record<string, FileIconColor>> = {
+  Archive: 'orange',
+  Audio: 'purple',
+  'C source': 'blue',
+  'C header': 'blue',
+  'C++ source': 'blue',
+  'C++ header': 'blue',
+  'C# source': 'purple',
+  Changelog: 'slate',
+  Configuration: 'slate',
+  CSS: 'blue',
+  Dart: 'blue',
+  'Docker Compose': 'blue',
+  Dockerfile: 'blue',
+  'Elixir package': 'purple',
+  'Environment configuration': 'yellow',
+  File: 'slate',
+  'Git attributes': 'slate',
+  'Git ignore rules': 'slate',
+  'Git modules': 'slate',
+  Go: 'blue',
+  'Go module': 'blue',
+  GraphQL: 'pink',
+  HTML: 'orange',
+  Image: 'purple',
+  Java: 'red',
+  'Java package': 'red',
+  JavaScript: 'yellow',
+  JSON: 'yellow',
+  Kotlin: 'orange',
+  Less: 'blue',
+  License: 'yellow',
+  Lockfile: 'green',
+  Log: 'slate',
+  Lua: 'blue',
+  Makefile: 'orange',
+  Markdown: 'blue',
+  'Markdown JSX': 'blue',
+  'Package lock': 'red',
+  'Package manifest': 'yellow',
+  PDF: 'red',
+  Perl: 'blue',
+  PHP: 'purple',
+  'PHP package': 'purple',
+  'PowerShell script': 'blue',
+  Python: 'blue',
+  'React JSX': 'blue',
+  'React TypeScript': 'blue',
+  Readme: 'blue',
+  'Ruby package': 'red',
+  Ruby: 'red',
+  Rust: 'slate',
+  'Rust package': 'slate',
+  Sass: 'pink',
+  SCSS: 'pink',
+  'Shell script': 'green',
+  SQL: 'purple',
+  SVG: 'purple',
+  Svelte: 'red',
+  Swift: 'orange',
+  Test: 'red',
+  Text: 'slate',
+  TypeScript: 'blue',
+  Video: 'pink',
+  Vue: 'green',
+  WebAssembly: 'purple',
+  XML: 'blue',
+  YAML: 'yellow',
+}
+
+const icon = (glyph: string, label: string): FileIcon => ({
+  glyph,
+  label,
+  color: fileIconColors[label] ?? 'slate',
+})
 
 export const fallbackFileIcon = icon('\uf016', 'File')
 
@@ -28,7 +114,7 @@ const specialFileIcons: Readonly<Record<string, FileIcon>> = {
   'package.json': icon('\ue616', 'Package manifest'),
   'pnpm-lock.yaml': icon('\ue616', 'Package lock'),
   'pom.xml': icon('\ue738', 'Java package'),
-  'readme': icon('\ue609', 'Readme'),
+  'readme': icon('\ue73e', 'Readme'),
   'yarn.lock': icon('\ue616', 'Package lock'),
 }
 
@@ -43,14 +129,6 @@ const compoundExtensionIcons: Readonly<Record<string, FileIcon>> = {
   'config.tsx': icon('\ue615', 'Configuration'),
   'config.yaml': icon('\ue615', 'Configuration'),
   'config.yml': icon('\ue615', 'Configuration'),
-  'spec.js': icon('\uf0c3', 'Test'),
-  'spec.jsx': icon('\uf0c3', 'Test'),
-  'spec.ts': icon('\uf0c3', 'Test'),
-  'spec.tsx': icon('\uf0c3', 'Test'),
-  'test.js': icon('\uf0c3', 'Test'),
-  'test.jsx': icon('\uf0c3', 'Test'),
-  'test.ts': icon('\uf0c3', 'Test'),
-  'test.tsx': icon('\uf0c3', 'Test'),
 }
 
 const extensionIcons: Readonly<Record<string, FileIcon>> = {
@@ -93,9 +171,9 @@ const extensionIcons: Readonly<Record<string, FileIcon>> = {
   less: icon('\ue758', 'Less'),
   log: icon('\uf0f6', 'Log'),
   lua: icon('\ue620', 'Lua'),
-  markdown: icon('\ue609', 'Markdown'),
-  md: icon('\ue609', 'Markdown'),
-  mdx: icon('\ue609', 'Markdown JSX'),
+  markdown: icon('\ue73e', 'Markdown'),
+  md: icon('\ue73e', 'Markdown'),
+  mdx: icon('\ue73e', 'Markdown JSX'),
   mkv: icon('\uf1c8', 'Video'),
   mjs: icon('\ue60c', 'JavaScript'),
   mov: icon('\uf1c8', 'Video'),

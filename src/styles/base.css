@@ -39,6 +39,16 @@
   --warning-strong: color-mix(in srgb, var(--warning) 65%, var(--ink));
   --danger-soft: color-mix(in srgb, var(--danger) 10%, var(--surface));
 
+  /* ── File icon colours ── */
+  --file-icon-blue: #498ba7;
+  --file-icon-green: #7fae42;
+  --file-icon-yellow: #b7b73b;
+  --file-icon-orange: #cc6d2e;
+  --file-icon-red: #b8383d;
+  --file-icon-purple: #9068b0;
+  --file-icon-pink: #dd4b78;
+  --file-icon-slate: #627379;
+
   /* ── Contrast colours (overridden by JS) ── */
   --on-accent: #ffffff;
   --on-danger: #ffffff;
@@ -57,6 +67,14 @@
   --success: #59ba7c;
   --warning: #d6aa45;
   --danger: #e26e63;
+  --file-icon-blue: #519aba;
+  --file-icon-green: #8dc149;
+  --file-icon-yellow: #cbcb41;
+  --file-icon-orange: #e37933;
+  --file-icon-red: #cc3e44;
+  --file-icon-purple: #a074c4;
+  --file-icon-pink: #f55385;
+  --file-icon-slate: #6d8086;
   --sidebar: color-mix(in srgb, var(--canvas) 90%, var(--ink));
   --on-accent: #000000;
   --on-danger: #ffffff;

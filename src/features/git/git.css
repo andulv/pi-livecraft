@@ -173,6 +173,31 @@
   text-align: center;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color: var(--file-icon-slate);
+}
+.git-file-icon[data-color="blue"] {
+  color: var(--file-icon-blue);
+}
+.git-file-icon[data-color="green"] {
+  color: var(--file-icon-green);
+}
+.git-file-icon[data-color="yellow"] {
+  color: var(--file-icon-yellow);
+}
+.git-file-icon[data-color="orange"] {
+  color: var(--file-icon-orange);
+}
+.git-file-icon[data-color="red"] {
+  color: var(--file-icon-red);
+}
+.git-file-icon[data-color="purple"] {
+  color: var(--file-icon-purple);
+}
+.git-file-icon[data-color="pink"] {
+  color: var(--file-icon-pink);
+}
+.git-file-icon[data-color="slate"] {
+  color: var(--file-icon-slate);
 }
 .git-file-status.added {
   color: var(--success);
