@@ -60,7 +60,6 @@ import {
 } from './features/workspace/project-url.ts'
 import { projectFaviconHref, projectPageTitle } from './features/workspace/project-tab.ts'
 import { worktreeColor } from './features/workspace/project-definition.ts'
-import { contrastColor } from './features/settings/themes.ts'
 import type { Project } from './features/workspace/projects.ts'
 import { useProjects } from './features/workspace/useProjects.ts'
 import { sidebarSessions } from './features/workspace/sidebar-sessions.ts'
@@ -1285,12 +1284,9 @@ function LivecraftProjectApp(
       key: 'vscode',
       icon: <VSCodeIcon />,
       label: `Open ${vscodeWorkspaceName} in VS Code`,
-      className: vscodeTitleBarColor ? 'vscode-branded' : undefined,
+      className: vscodeTitleBarColor ? 'vscode-colored' : undefined,
       style: vscodeTitleBarColor
-        ? ({
-          '--vscode-title-bar': vscodeTitleBarColor,
-          '--vscode-title-foreground': contrastColor(vscodeTitleBarColor),
-        } as CSSProperties)
+        ? ({ '--vscode-title-bar': vscodeTitleBarColor } as CSSProperties)
         : undefined,
       onClick: () => {
         void openVSCode(
