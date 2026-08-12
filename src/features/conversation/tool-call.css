@@ -59,6 +59,7 @@
 }
 .tool-call-range {
   flex: 0 0 auto;
+  color: var(--warning-strong);
   font: 11px ui-monospace, monospace;
 }
 .tool-call-heading small {
