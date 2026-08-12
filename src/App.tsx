@@ -123,7 +123,7 @@ function nextConversationView(current: ConversationView): ConversationView {
 }
 
 /** Compact VS Code mark for the workspace launcher in the tool rail. */
-function VSCodeIcon() {
+function VSCodeIcon({ fill = 'none' }: { fill?: string }) {
   return (
     <svg
       aria-hidden='true'
@@ -136,7 +136,10 @@ function VSCodeIcon() {
       viewBox='0 0 24 24'
       width='18'
     >
-      <path d='m17.1 2.8-7.3 7-4.5-3.4-2.4 1.3v8.6l2.4 1.3 4.5-3.4 7.3 7 4-1.8V4.6l-4-1.8Z' />
+      <path
+        fill={fill}
+        d='m17.1 2.8-7.3 7-4.5-3.4-2.4 1.3v8.6l2.4 1.3 4.5-3.4 7.3 7 4-1.8V4.6l-4-1.8Z'
+      />
       <path d='m15.7 7.7-4.1 4.3 4.1 4.3' />
     </svg>
   )
@@ -1282,12 +1285,8 @@ function LivecraftProjectApp(
     },
     {
       key: 'vscode',
-      icon: <VSCodeIcon />,
+      icon: <VSCodeIcon fill={vscodeTitleBarColor ?? undefined} />,
       label: `Open ${vscodeWorkspaceName} in VS Code`,
-      className: vscodeTitleBarColor ? 'vscode-colored' : undefined,
-      style: vscodeTitleBarColor
-        ? ({ '--vscode-title-bar': vscodeTitleBarColor } as CSSProperties)
-        : undefined,
       onClick: () => {
         void openVSCode(
           workspacePath,
