@@ -12,14 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Copy assistant code blocks to the clipboard with a single click.
 - Launch Pi Livecraft from any directory with the global `pi-livecraft` command.
 - Fork conversations from user messages and edit the returned prompt before continuing.
-- Show tool calls while they are being generated, including inferred built-in names, streamed file paths, and a lowercase fallback label.
-- Display file-type icons in the Git widget.
+- Show partially generated tool calls with inferred built-in names such as `ask_user_question`, streamed scalar arguments and file paths, and a lowercase fallback label.
+- Display semantic file-type icons in the Git widget and after tool-call paths.
 
 ### Changed
 
 - Highlight tool call names with the app accent color for better readability.
 - Display tool call durations in conversation cards.
 - Give Git commit file lists the available width while keeping their actions accessible.
+- Highlight read ranges with the app accent color.
 
 ### Fixed
 
@@ -28,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preserve queued steering when switching sessions.
 - Avoid conflicts with Pi's existing `ask_user_question` tool.
 - Display Pi error notifications as errors instead of notices.
+- Automatically dismiss error notifications after five seconds.
 - Open files outside the current working directory from conversation actions.
 
 ## [1.1.0] - 2026-08-05

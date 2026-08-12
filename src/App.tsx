@@ -236,7 +236,10 @@ function App() {
       const publish = () => {
         pendingManagerUnavailableToastsRef.current.delete(toast.id)
         setToasts((current) => [...current, toast])
-        if (kind !== 'error') window.setTimeout(() => startDismissal(toast.id), 3000)
+        window.setTimeout(
+          () => startDismissal(toast.id),
+          kind === 'error' ? 5000 : 3000,
+        )
       }
       if (kind === 'error' && message === managerUnavailableMessage) {
         const timer = window.setTimeout(publish, managerUnavailableToastDelayMs)
