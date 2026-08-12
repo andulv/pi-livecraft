@@ -5,20 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - 2026-08-07
+## [1.2.0] - 2026-08-12
 
 ### Added
 
 - Copy assistant code blocks to the clipboard with a single click.
+- Launch Pi Livecraft from any directory with the global `pi-livecraft` command.
+- Fork conversations from user messages and edit the returned prompt before continuing.
+- Show tool calls while they are being generated, including inferred built-in names, streamed file paths, and a lowercase fallback label.
+- Display file-type icons in the Git widget.
 
 ### Changed
 
 - Highlight tool call names with the app accent color for better readability.
+- Display tool call durations in conversation cards.
+- Give Git commit file lists the available width while keeping their actions accessible.
 
 ### Fixed
 
 - Assemble live assistant RPC deltas so streaming replies display as complete, coherent text.
 - Show assistant output before blocking questions, instead of hiding it behind the prompt.
+- Preserve queued steering when switching sessions.
+- Avoid conflicts with Pi's existing `ask_user_question` tool.
+- Display Pi error notifications as errors instead of notices.
+- Open files outside the current working directory from conversation actions.
 
 ## [1.1.0] - 2026-08-05
 
