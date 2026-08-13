@@ -147,6 +147,15 @@
   background: var(--surface);
   box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
 }
+.rail-tab .vscode-chip {
+  display: grid;
+  place-items: center;
+  padding: 3px;
+  border: 1px solid
+    color-mix(in srgb, var(--vscode-title-bar) 45%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--vscode-title-bar) 16%, transparent);
+}
 @keyframes right-sidebar-content-in {
   from {
     opacity: 0;
