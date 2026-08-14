@@ -1000,6 +1000,15 @@
   background: var(--secondary-soft);
   color: var(--secondary);
 }
+.model-menu-covered {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.model-menu-covered .model-menu-cost {
+  text-decoration: line-through;
+  text-decoration-color: var(--danger);
+}
 .model-menu-star {
   flex: 0 0 auto;
   display: inline-flex;

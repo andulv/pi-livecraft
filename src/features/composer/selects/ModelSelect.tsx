@@ -245,5 +245,13 @@ function ModelMeta({ option }: { option: ModelOption }) {
   if (label.kind === 'subscription') {
     return <span className='model-menu-sub'>Subscription</span>
   }
+  if (label.kind === 'covered') {
+    return (
+      <span className='model-menu-covered'>
+        <small aria-hidden='true' className='model-menu-cost'>{label.text}</small>
+        <span className='model-menu-sub'>Plan</span>
+      </span>
+    )
+  }
   return <small className='model-menu-cost'>{label.text}</small>
 }

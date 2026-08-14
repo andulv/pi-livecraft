@@ -53,7 +53,7 @@ test('toModelOption flags all-zero cost as subscription and falls back to id for
   assert.equal(toModelOption({ name: 'nope' }), undefined)
 })
 
-test('modelCostLabel renders paid pricing, a subscription marker, or nothing', () => {
+test('modelCostLabel renders paid, plan-covered, subscription, or nothing', () => {
   assert.deepEqual(
     modelCostLabel({
       key: 'a',
@@ -64,6 +64,18 @@ test('modelCostLabel renders paid pricing, a subscription marker, or nothing', (
       subscription: false,
     }),
     { kind: 'paid', text: '$3.00 in · $15.00 out' },
+  )
+  // A subscription provider with real list prices marks its per-token price as plan-covered.
+  assert.deepEqual(
+    modelCostLabel({
+      key: 'o/gpt-5.2',
+      id: 'gpt-5.2',
+      provider: 'openai-codex',
+      name: 'GPT-5.2',
+      cost: { input: 1.25, output: 10 },
+      subscription: false,
+    }),
+    { kind: 'covered', text: '$1.25 in · $10.00 out' },
   )
   assert.deepEqual(
     modelCostLabel({

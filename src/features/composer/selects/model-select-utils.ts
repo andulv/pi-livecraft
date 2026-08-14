@@ -20,6 +20,7 @@ export interface ModelGroup {
 
 export type ModelCostLabel =
   | { kind: 'paid'; text: string }
+  | { kind: 'covered'; text: string }
   | { kind: 'subscription' }
   | null
 
@@ -114,12 +115,21 @@ export function groupModelOptions(
   return groups
 }
 
+/** Providers whose models are billed through a coding-plan subscription rather than per token. */
+const subscriptionProviders = new Set([
+  'github-copilot',
+  'openai-codex',
+  'zai',
+  'zai-coding-cn',
+])
+
 /** Per-token price for paid models; a subscription marker when cost is all-zero; `null` otherwise. */
 export function modelCostLabel(option: ModelOption): ModelCostLabel {
   if (option.cost === null) return null
   if (option.subscription) return { kind: 'subscription' }
+  const plan = subscriptionProviders.has(option.provider)
   return {
-    kind: 'paid',
+    kind: plan ? 'covered' : 'paid',
     text: `$${formatPrice(option.cost.input)} in · $${formatPrice(option.cost.output)} out`,
   }
 }
