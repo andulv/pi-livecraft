@@ -10,6 +10,7 @@ import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import { QuotaCache } from '../server/features/quotas/quota-cache.ts'
 import {
   copilotPeriodProgress,
+  glmPeakDay,
   quotaPeriodProgress,
   quotaProviderForModel,
   quotaUsagePace,
@@ -135,6 +136,21 @@ test('calculates elapsed Copilot calendar-month periods from reset times', () =>
   assert.equal(copilotPeriodProgress(resetsAt, Date.UTC(2030, 0, 1)), 0)
   assert.equal(copilotPeriodProgress(resetsAt, resetsAt), 100)
   assert.equal(copilotPeriodProgress(undefined, resetsAt), undefined)
+})
+
+test('lays out Z.AI peak pricing across the local day', () => {
+  const now = Date.UTC(2030, 0, 1, 12)
+  const utc = glmPeakDay(now, 0)
+  assert.equal(utc.nowFraction, 0.5)
+  assert.deepEqual(utc.peakSegments, [{ start: 6 / 24, end: 10 / 24 }])
+
+  const cet = glmPeakDay(now, 60)
+  assert.equal(cet.nowFraction, 13 / 24)
+  assert.deepEqual(cet.peakSegments, [{ start: 7 / 24, end: 11 / 24 }])
+
+  // UTC-7 places local midnight inside the UTC block, splitting it across the day edges.
+  const split = glmPeakDay(Date.UTC(2030, 0, 1, 15), -420)
+  assert.deepEqual(split.peakSegments, [{ start: 0, end: 3 / 24 }, { start: 23 / 24, end: 1 }])
 })
 
 test('shows the primary quota for the provider selected by the model', () => {

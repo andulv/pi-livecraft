@@ -47,6 +47,49 @@ export function copilotPeriodProgress(
   return Math.max(0, Math.min(100, (now - startsAt) / duration * 100))
 }
 
+const dayMs = 24 * 60 * 60 * 1000
+const glmPeakUtcStartHour = 6
+const glmPeakUtcHours = 4
+
+/** One peak-priced span of the local day, as fractions from 0 to 1. */
+export interface GlmPeakSegment {
+  end: number
+  start: number
+}
+
+export interface GlmPeakDay {
+  /** UTC timestamp of local midnight starting the displayed day. */
+  dayStart: number
+  /** Current time as a fraction of the local day (0 to 1). */
+  nowFraction: number
+  peakSegments: GlmPeakSegment[]
+}
+
+/**
+ * Lays out Z.AI's peak-pricing window (14:00-18:00 UTC+8, i.e. 06:00-10:00 UTC)
+ * across the local day. `localOffsetMinutes` is minutes east of UTC (the
+ * negated `Date#getTimezoneOffset`), so segments wrap local midnight correctly.
+ */
+export function glmPeakDay(now: number, localOffsetMinutes: number): GlmPeakDay {
+  const offsetMs = localOffsetMinutes * 60_000
+  const localDayStart = now - (now + offsetMs) % dayMs
+  const utcDay = Math.floor(localDayStart / dayMs) * dayMs
+  const peakSegments: GlmPeakSegment[] = []
+  for (const dayShift of [-1, 0, 1]) {
+    const peakStart = utcDay + dayShift * dayMs + glmPeakUtcStartHour * 3_600_000
+    const peakEnd = peakStart + glmPeakUtcHours * 3_600_000
+    const from = Math.max(peakStart, localDayStart)
+    const to = Math.min(peakEnd, localDayStart + dayMs)
+    if (to > from) {
+      peakSegments.push({
+        start: (from - localDayStart) / dayMs,
+        end: (to - localDayStart) / dayMs,
+      })
+    }
+  }
+  return { dayStart: localDayStart, nowFraction: (now - localDayStart) / dayMs, peakSegments }
+}
+
 /**
  * Returns pace bands for cumulative usage. The first 10% of a window has wider
  * limits because setup work often causes a short, non-representative usage burst.

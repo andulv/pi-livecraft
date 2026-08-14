@@ -96,6 +96,43 @@
   color: var(--muted);
   font-size: 10px;
 }
+.quota-peak {
+  margin-top: 17px;
+}
+.quota-peak-track {
+  position: relative;
+  overflow: hidden;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+}
+.quota-peak-block {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--warning) 60%, var(--line));
+}
+.quota-peak-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: color-mix(in srgb, var(--ink) 16%, transparent);
+}
+.quota-peak-now {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink);
+}
+.quota-peak small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 10px;
+}
 .quota-error {
   margin: 11px 0 0;
   border-radius: 6px;

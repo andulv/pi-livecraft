@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import {
   copilotPeriodProgress,
+  glmPeakDay,
   quotaPeriodProgress,
   quotaUsagePace,
   quotaUsagePaceBands,
@@ -182,6 +183,7 @@ export function QuotaWidget(
                   </div>
                 )
               })}
+              {quotas.glm.data.length > 0 && <GlmPeakHoursBar now={now} />}
             </ProviderSection>
             <p className='quota-now'>Now {formatNow(now)}</p>
           </>
@@ -266,6 +268,51 @@ function useCurrentTime(): number {
   return now
 }
 
+const dayMs = 86_400_000
+
+/** Shows when Z.AI's ×3 peak pricing applies across the local day. */
+function GlmPeakHoursBar({ now }: { now: number }) {
+  const { dayStart, nowFraction, peakSegments } = glmPeakDay(
+    now,
+    -new Date(now).getTimezoneOffset(),
+  )
+  const windowLabel = peakSegments
+    .map((segment) =>
+      `${formatHour(dayStart + segment.start * dayMs)}–${
+        formatHour(dayStart + segment.end * dayMs)
+      }`
+    )
+    .join(' + ')
+  const inPeak = peakSegments.some((s) => nowFraction >= s.start && nowFraction < s.end)
+  return (
+    <div className='quota-peak'>
+      <div
+        aria-label={`Z.AI peak pricing ×3 between ${windowLabel} local time; currently ${
+          inPeak ? 'in peak hours' : 'off-peak'
+        }`}
+        className='quota-peak-track'
+        role='img'
+      >
+        {[0.25, 0.5, 0.75].map((tick) => (
+          <span className='quota-peak-tick' key={tick} style={{ left: `${tick * 100}%` }} />
+        ))}
+        {peakSegments.map((segment) => (
+          <span
+            className='quota-peak-block'
+            key={`${segment.start}-${segment.end}`}
+            style={{
+              left: `${segment.start * 100}%`,
+              width: `${(segment.end - segment.start) * 100}%`,
+            }}
+          />
+        ))}
+        <span className='quota-peak-now' style={{ left: `${nowFraction * 100}%` }} />
+      </div>
+      <small>Peak ×3 · {windowLabel} local</small>
+    </div>
+  )
+}
+
 function usageFillStyle(
   value: number,
   paceBands: QuotaUsagePaceBands | undefined,
@@ -321,6 +368,11 @@ function formatNow(timestamp: number): string {
     minute: '2-digit',
     timeZoneName: 'short',
   })
+    .format(timestamp)
+}
+
+function formatHour(timestamp: number): string {
+  return new Intl.DateTimeFormat(navigator.language, { hour: '2-digit', minute: '2-digit' })
     .format(timestamp)
 }
 
