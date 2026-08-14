@@ -309,6 +309,7 @@ function formatReset(timestamp: number): string {
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
+    timeZoneName: 'short',
   })
     .format(timestamp)
 }
