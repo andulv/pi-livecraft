@@ -99,6 +99,28 @@
 .quota-peak {
   margin-top: 17px;
 }
+.quota-peak-labels {
+  position: relative;
+  height: 12px;
+  color: var(--muted);
+  font: 650 9px/12px ui-sans-serif, system-ui, sans-serif;
+}
+.quota-peak-hour,
+.quota-peak-word {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.quota-peak-hour-start {
+  transform: none;
+}
+.quota-peak-hour-end {
+  transform: translateX(-100%);
+}
+.quota-peak-word {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .quota-peak-track {
   position: relative;
   overflow: hidden;
@@ -111,6 +133,9 @@
   top: 0;
   bottom: 0;
   background: color-mix(in srgb, var(--warning) 60%, var(--line));
+}
+.quota-peak-block.active {
+  background: var(--danger);
 }
 .quota-peak-tick {
   position: absolute;
@@ -126,12 +151,6 @@
   width: 2px;
   margin-left: -1px;
   background: var(--ink);
-}
-.quota-peak small {
-  display: block;
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 10px;
 }
 .quota-error {
   margin: 11px 0 0;

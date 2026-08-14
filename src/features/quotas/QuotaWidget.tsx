@@ -286,6 +286,28 @@ function GlmPeakHoursBar({ now }: { now: number }) {
   const inPeak = peakSegments.some((s) => nowFraction >= s.start && nowFraction < s.end)
   return (
     <div className='quota-peak'>
+      <div aria-hidden='true' className='quota-peak-labels'>
+        {peakSegments
+          .flatMap((segment) => [
+            { fraction: segment.start, timestamp: dayStart + segment.start * dayMs },
+            { fraction: segment.end, timestamp: dayStart + segment.end * dayMs },
+          ])
+          .map((marker, index) => (
+            <span
+              className={`quota-peak-hour${
+                marker.fraction <= 0
+                  ? ' quota-peak-hour-start'
+                  : marker.fraction >= 1
+                  ? ' quota-peak-hour-end'
+                  : ''
+              }`}
+              key={index}
+              style={{ left: `${marker.fraction * 100}%` }}
+            >
+              {formatHourShort(marker.timestamp)}
+            </span>
+          ))}
+      </div>
       <div
         aria-label={`Z.AI peak pricing ×3 between ${windowLabel} local time; currently ${
           inPeak ? 'in peak hours' : 'off-peak'
@@ -298,7 +320,9 @@ function GlmPeakHoursBar({ now }: { now: number }) {
         ))}
         {peakSegments.map((segment) => (
           <span
-            className='quota-peak-block'
+            className={`quota-peak-block${
+              nowFraction >= segment.start && nowFraction < segment.end ? ' active' : ''
+            }`}
             key={`${segment.start}-${segment.end}`}
             style={{
               left: `${segment.start * 100}%`,
@@ -308,7 +332,17 @@ function GlmPeakHoursBar({ now }: { now: number }) {
         ))}
         <span className='quota-peak-now' style={{ left: `${nowFraction * 100}%` }} />
       </div>
-      <small>Peak ×3 · {windowLabel} local</small>
+      <div aria-hidden='true' className='quota-peak-labels'>
+        {peakSegments.map((segment) => (
+          <span
+            className='quota-peak-word'
+            key={`${segment.start}-${segment.end}`}
+            style={{ left: `${(segment.start + segment.end) / 2 * 100}%` }}
+          >
+            peak
+          </span>
+        ))}
+      </div>
     </div>
   )
 }
@@ -373,6 +407,11 @@ function formatNow(timestamp: number): string {
 
 function formatHour(timestamp: number): string {
   return new Intl.DateTimeFormat(navigator.language, { hour: '2-digit', minute: '2-digit' })
+    .format(timestamp)
+}
+
+function formatHourShort(timestamp: number): string {
+  return new Intl.DateTimeFormat(navigator.language, { hour: '2-digit', hourCycle: 'h23' })
     .format(timestamp)
 }
 
