@@ -399,10 +399,12 @@ export function WorkspaceSidebar({
         tabIndex={0}
       />
       <div className='brand'>
-        <span className='brand-mark'>π</span>
+        <span className='brand-signature'>
+          <span aria-hidden='true' className='brand-mark'>π</span>
+          <small>Livecraft</small>
+        </span>
         <div>
-          <strong>Pi Livecraft</strong>
-          <small>Local workspace</small>
+          <strong title={project.name}>{project.name}</strong>
         </div>
         <Tooltip label='Settings'>
           <button

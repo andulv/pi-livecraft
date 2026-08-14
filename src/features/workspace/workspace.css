@@ -157,10 +157,29 @@
   letter-spacing: -0.02em;
   color: var(--accent);
 }
+.brand > div > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .brand small {
   margin-top: 2px;
   color: var(--muted);
   font-size: 11px;
+}
+.brand-signature {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.brand-signature small {
+  margin: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
 }
 .brand-mark {
   display: grid;
@@ -175,8 +194,11 @@
   font: 500 23px ui-monospace, monospace;
   box-shadow: 0 3px 0 var(--accent-hover);
 }
-.brand > .brand-mark {
-  border-radius: 10px;
+.brand-signature .brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  font-size: 20px;
   box-shadow: none;
 }
 .brand-mark.large {
