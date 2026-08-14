@@ -41,6 +41,8 @@ Messages and tool calls expose contextual actions through explicit composition r
 Action components are implementations, not the extension contract. `CopyButton.tsx` uses the browser Clipboard API, while `OpenFileButton.tsx` delegates to the local backend so the operating system can launch the file. Both report failures through `onError` and expose accessible labels through the shared `Tooltip` component.
 
 - Text messages expose one copy action when `visibleText()` returns content.
+- Forkable user messages expose an action that starts a Pi fork before that prompt, refreshes the
+  active branch, and places Pi's returned prompt text in the composer for editing.
 - Tool calls always expose their serialized input (`↘`) and expose raw output (`↗`) once a result exists, including error results.
 - Successful `read`, `write`, and `edit` calls expose an action that resolves relative paths from the session working directory and opens the resulting file, including absolute targets outside it.
 - Pending calls have no output or file action. Directional markers distinguish copy actions without visible button text.

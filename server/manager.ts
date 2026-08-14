@@ -553,6 +553,15 @@ async function sendCommand(request: ManagerRequest): Promise<JsonObject> {
   if (startsAgent) markSessionRunning(session)
   try {
     const response = await requestPi(session, request.command)
+    if (
+      request.command.type === 'fork'
+      && (!isObject(response.data) || response.data.cancelled !== true)
+    ) {
+      const state = await requestPi(session, { type: 'get_state' })
+      if (!isObject(state.data) || typeof state.data.sessionFile !== 'string')
+        throw new Error('Pi returned an invalid session file after forking')
+      session.summary.sessionPath = state.data.sessionFile
+    }
     if (!startsAgent && session.summary.status === 'idle' && session.pendingUi.size === 0)
       markSessionIdle(session, true)
     return response

@@ -15,10 +15,18 @@ import {
 const rpcTitle = 'Pi Livecraft questionnaire'
 export default function registerAskUserQuestion(pi: ExtensionAPI): void {
   // Register after extension loading so a same-named auto-discovered tool does not trigger Pi's fatal load diagnostic.
-  pi.on('session_start', () => registerAskUserQuestionTool(pi))
+  pi.on('session_start', (_event, ctx) => registerAskUserQuestionTool(pi, ctx))
 }
 
-function registerAskUserQuestionTool(pi: ExtensionAPI): void {
+function registerAskUserQuestionTool(pi: ExtensionAPI, ctx: ExtensionContext): void {
+  if (pi.getAllTools().some((tool) => tool.name === 'ask_user_question')) {
+    ctx.ui.notify(
+      'The ask_user_question tool is already registered in Pi. Pi Livecraft will not replace it; the questionnaire remains available, but its UI may be limited while that tool remains registered.',
+      'error',
+    )
+    return
+  }
+
   pi.registerTool({
     name: 'ask_user_question',
     label: 'Ask User Question',

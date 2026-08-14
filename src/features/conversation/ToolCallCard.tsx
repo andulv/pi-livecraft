@@ -1,11 +1,14 @@
 import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { resolveFileIcon } from '../../../shared/file-icon.ts'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import { CopyButton } from './CopyButton.tsx'
 import { canHighlightFile } from './file-preview.ts'
+import { formatDuration } from './message-usage.ts'
 import { OpenFileButton } from './OpenFileButton.tsx'
 import {
   formatToolCallTooltip,
   formatToolData,
+  provisionalToolName,
   readContentDisplay,
   toolCallPresentation,
   toolDataLength,
@@ -42,6 +45,7 @@ interface ToolCallCardProps {
   args: unknown
   hasResult: boolean
   id: string
+  durationMs?: number
   interrupted?: boolean
   name: string
   onError: (cause: unknown) => void
@@ -52,6 +56,7 @@ interface ToolCallCardProps {
   resultError?: boolean
   semiDetailed?: boolean
   streaming?: boolean
+  streamingArguments?: string
   targeted?: boolean
   workingDirectory: string
 }
@@ -62,6 +67,7 @@ export const ToolCallCard = memo(function ToolCallCard({
   args,
   hasResult,
   id,
+  durationMs,
   interrupted = false,
   name,
   onError,
@@ -72,18 +78,20 @@ export const ToolCallCard = memo(function ToolCallCard({
   resultError,
   semiDetailed = false,
   streaming = false,
+  streamingArguments,
   targeted = false,
   workingDirectory,
 }: ToolCallCardProps) {
+  const toolName = name || provisionalToolName(args, streamingArguments) || ''
   const pending = !hasResult
   const active = pending && !interrupted
-  const filePath = name === 'read' || name === 'write' || name === 'edit'
+  const filePath = toolName === 'read' || toolName === 'write' || toolName === 'edit'
     ? toolFilePath(args)
     : null
-  const display = filePath && name !== 'edit'
+  const display = filePath && toolName !== 'edit'
     ? readContentDisplay({ path: filePath })
     : { kind: 'text' as const }
-  const [expanded, setExpanded] = useState(name === 'edit')
+  const [expanded, setExpanded] = useState(toolName === 'edit')
   const [semiExpanded, setSemiExpanded] = useState(false)
   const [partialOutputExpanded, setPartialOutputExpanded] = useState(false)
   const [codeRendered, setCodeRendered] = useState(false)
@@ -102,12 +110,21 @@ export const ToolCallCard = memo(function ToolCallCard({
     ? `${partialOutput.slice(0, maxPreviewChars)}…`
     : partialOutput
   const outputLength = output.length
+  const durationLabel = durationMs === undefined ? undefined : formatDuration(durationMs)
   const displayedOutput = output || 'No output.'
-  const presentation = toolCallPresentation({ id, name, args }, repositoryRoot)
+  const presentation = toolCallPresentation(
+    { id, name: toolName, args },
+    repositoryRoot,
+    streamingArguments,
+  )
+  const fileIcon = (toolName === 'read' || toolName === 'write' || toolName === 'edit')
+      && presentation.headerDetail
+    ? resolveFileIcon(presentation.headerDetail.title)
+    : null
   const commandText = presentation.headerDetail?.text
-  const bashCommandMatch = name === 'bash' ? commandText?.match(/^\s*(\S+)/) : undefined
+  const bashCommandMatch = toolName === 'bash' ? commandText?.match(/^\s*(\S+)/) : undefined
   const bashCommandName = bashCommandMatch?.[1]
-  const headingName = bashCommandName ?? (name || 'Tool')
+  const headingName = bashCommandName ?? (toolName || 'tool')
   const displayedCommand = bashCommandMatch && commandText
     ? commandText.slice(bashCommandMatch[0].length).trimStart()
     : commandText
@@ -116,9 +133,13 @@ export const ToolCallCard = memo(function ToolCallCard({
     inputLength,
     hasResult ? outputLength : undefined,
   )
-  const resolvedSizeLabel = `Input: ${inputLength} characters. Output: ${outputLength} characters.`
-  const writeContent = name === 'write' ? toolWriteContent(args) : null
-  const content = name === 'write' && !resultError && writeContent ? writeContent : displayedOutput
+  const resolvedSizeLabel = `Input: ${inputLength} characters. Output: ${outputLength} characters.${
+    durationLabel ? ` Duration: ${durationLabel}.` : ''
+  }`
+  const writeContent = toolName === 'write' ? toolWriteContent(args) : null
+  const content = toolName === 'write' && !resultError && writeContent
+    ? writeContent
+    : displayedOutput
   const isRenderable = display.kind === 'csv' || display.kind === 'markdown'
     || display.kind === 'html' || display.kind === 'svg'
   const hasRenderedPreview = isRenderable && hasResult && !expanded && !resultError
@@ -138,7 +159,7 @@ export const ToolCallCard = memo(function ToolCallCard({
         : toolTextPreview(content),
     [content, display.kind],
   )
-  const streamingArgs = streaming || interrupted ? input : undefined
+  const streamingArgs = streaming || interrupted ? streamingArguments ?? input : undefined
   const streamingTruncated = Boolean(streamingArgs && streamingArgs.length > maxPreviewChars)
   const streamingPreviewText = streamingArgs && streamingArgs.length > maxPreviewChars
     ? `${streamingArgs.slice(0, maxPreviewChars)}…`
@@ -196,6 +217,15 @@ export const ToolCallCard = memo(function ToolCallCard({
               <code aria-label={`Full command: ${presentation.headerDetail.title}`}>
                 {displayedCommand}
               </code>
+              {fileIcon && (
+                <span
+                  aria-hidden='true'
+                  className='tool-call-file-icon'
+                  data-color={fileIcon.color}
+                >
+                  {fileIcon.glyph}
+                </span>
+              )}
             </span>
           )}
           {presentation.headerDetail?.suffix && (
@@ -216,7 +246,12 @@ export const ToolCallCard = memo(function ToolCallCard({
             {hasResult
               ? contentError
                 ? 'Failed'
-                : <span aria-hidden='true'>↘ {inputLength} car. · ↗ {outputLength} car.</span>
+                : (
+                  <span aria-hidden='true'>
+                    ↘ {inputLength} car. · ↗ {outputLength} car.
+                    {durationLabel && ` · ⏱ ${durationLabel}`}
+                  </span>
+                )
               : interrupted
               ? 'Generation interrupted'
               : streaming
@@ -311,7 +346,7 @@ export const ToolCallCard = memo(function ToolCallCard({
               {expanded
                 ? (
                   <ToolCallContent
-                    call={{ name, args }}
+                    call={{ name: toolName, args }}
                     content={content}
                     onCollapse={() => setExpanded(false)}
                     renderingCode={renderingCode}
@@ -321,7 +356,7 @@ export const ToolCallCard = memo(function ToolCallCard({
                 )
                 : (
                   <ToolCallPreview
-                    call={{ name, args }}
+                    call={{ name: toolName, args }}
                     content={display.kind === 'csv' || display
                           .kind === 'svg'
                         || display

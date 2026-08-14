@@ -435,6 +435,45 @@ test(
   },
 )
 
+test('tracks the new Pi session file after forking', { timeout: 10_000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
+  const port = 45_000 + (process.pid % 10_000)
+  await writeFakePi(directory)
+  const manager = spawn(process.execPath, ['server/manager.ts'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      PATH: `${fakePiBin(directory)}${delimiter}${process.env.PATH}`,
+      PI_LIVECRAFT_MANAGER_PORT: String(port),
+    },
+    stdio: 'ignore',
+  })
+  const client = await connectManager(port)
+  try {
+    const originalPath = join(directory, 'original.jsonl')
+    const opened = await client.request('open', {
+      cwd: process.cwd(),
+      name: 'Original',
+      sessionPath: originalPath,
+    })
+    const id = sessionId(opened)
+
+    const forked = await client.request('command', {
+      sessionId: id,
+      command: { type: 'fork', entryId: 'user-1' },
+    })
+
+    assert.equal(forked.ok, true)
+    const forkedPath = sessionPath(await client.request('list', {}), id)
+    assert.equal(typeof forkedPath, 'string')
+    assert.notEqual(forkedPath, originalPath)
+  } finally {
+    client.close()
+    await stopProcess(manager)
+    await rm(directory, { force: true, recursive: true })
+  }
+})
+
 test('completes a manual compact without timeout', { timeout: 10_000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
   const port = 45_000 + (process.pid % 10_000)
@@ -762,6 +801,13 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
     console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: { cancelled: false } }))
     return
   }
+  if (!isolated && command.type === 'fork') {
+    if (command.entryId !== 'user-1') throw new Error('Unexpected fork entry ID')
+    createdSessionCount += 1
+    sessionPath = sessionDirectory + '/fork-' + process.pid + '-' + createdSessionCount + '.jsonl'
+    console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: { text: 'Original prompt', cancelled: false } }))
+    return
+  }
   if (!isolated && command.type === 'set_session_name') {
     if (command.name !== 'Renamed session') throw new Error('Unexpected session name')
     console.log(JSON.stringify({ type: 'session_info_changed', name: command.name }))
@@ -962,6 +1008,12 @@ function sessionName(response: ManagerResponse, id: string): unknown {
   if (!Array.isArray(response.data)) throw new Error('Invalid sessions response')
   const session = response.data.find((value) => isObject(value) && value.id === id)
   return isObject(session) ? session.name : undefined
+}
+
+function sessionPath(response: ManagerResponse, id: string): unknown {
+  if (!Array.isArray(response.data)) throw new Error('Invalid sessions response')
+  const session = response.data.find((value) => isObject(value) && value.id === id)
+  return isObject(session) ? session.sessionPath : undefined
 }
 
 function processId(response: ManagerResponse): number {

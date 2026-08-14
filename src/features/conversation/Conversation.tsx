@@ -42,9 +42,11 @@ export function Conversation(
     pendingSteering,
     repositoryRoot,
     scrollToBottomRequest,
+    toolDurations,
     toolExecutions,
     workingDirectory,
     onError,
+    onFork,
   }: {
     activity: Activity | null
     agentName?: string
@@ -55,9 +57,11 @@ export function Conversation(
     pendingSteering: string[]
     repositoryRoot?: string | null
     scrollToBottomRequest: number
+    toolDurations: ReadonlyMap<string, number>
     toolExecutions: ToolExecution[]
     workingDirectory: string
     onError: (cause: unknown) => void
+    onFork: (entryId: string) => Promise<boolean>
   },
 ) {
   const showToolCalls = conversationView !== 'simple'
@@ -351,7 +355,7 @@ export function Conversation(
                 key={entry.key}
               >
                 {isVisibleConversationMessage(message) && (
-                  <MessageCard message={message} onError={onError} />
+                  <MessageCard message={message} onError={onError} onFork={onFork} />
                 )}
                 {calls.map((call) => {
                   const execution = executionsByCallId.get(call.id)
@@ -362,6 +366,7 @@ export function Conversation(
                       hasResult={result !== undefined}
                       semiDetailed={semiDetailed}
                       id={call.id}
+                      durationMs={toolDurations.get(call.id)}
                       interrupted={execution?.status === 'interrupted'}
                       key={call.id}
                       name={call.name}
@@ -373,6 +378,7 @@ export function Conversation(
                       resultDetails={result?.details}
                       resultError={result?.isError}
                       streaming={execution?.status === 'generating'}
+                      streamingArguments={execution?.rawArguments}
                       targeted={highlightedTarget === `tool:${call.id}`}
                     />
                   )
@@ -397,6 +403,7 @@ export function Conversation(
                         key='message'
                         message={part.message}
                         onError={onError}
+                        onFork={onFork}
                       />
                     )
                     : null
@@ -410,6 +417,7 @@ export function Conversation(
                     hasResult={result !== undefined}
                     semiDetailed={semiDetailed}
                     id={part.call.id}
+                    durationMs={toolDurations.get(part.call.id)}
                     interrupted={execution?.status === 'interrupted'}
                     key={part.call.id}
                     name={part
@@ -423,6 +431,7 @@ export function Conversation(
                     resultDetails={result?.details}
                     resultError={result?.isError}
                     streaming={execution?.status === 'generating'}
+                    streamingArguments={execution?.rawArguments}
                     targeted={highlightedTarget === `tool:${part.call.id}`}
                   />
                 )
@@ -441,6 +450,7 @@ export function Conversation(
               hasResult={execution.result !== undefined}
               semiDetailed={semiDetailed}
               id={execution.id}
+              durationMs={toolDurations.get(execution.id)}
               interrupted={execution.status === 'interrupted'}
               key={execution.id}
               name={execution.name}
@@ -452,6 +462,7 @@ export function Conversation(
               resultDetails={execution.result?.details}
               resultError={execution.result?.isError}
               streaming={execution.status === 'generating'}
+              streamingArguments={execution.rawArguments}
               targeted={highlightedTarget === `tool:${execution.id}`}
             />
           ))}

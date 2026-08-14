@@ -107,6 +107,44 @@ test('tracks raw tool arguments from generation start to completion', () => {
   )
 })
 
+test('accepts delta-only tool calls before execution starts', () => {
+  const start = toolCallInUpdate({
+    type: 'message_update',
+    assistantMessageEvent: { type: 'toolcall_start', contentIndex: 0 },
+  })
+  const firstDelta = toolCallInUpdate({
+    type: 'message_update',
+    assistantMessageEvent: {
+      type: 'toolcall_delta',
+      contentIndex: 0,
+      delta: '{"path":"src/App',
+    },
+  })
+  const secondDelta = toolCallInUpdate({
+    type: 'message_update',
+    assistantMessageEvent: {
+      type: 'toolcall_delta',
+      contentIndex: 0,
+      delta: '.tsx"}',
+    },
+  })
+
+  assert.deepEqual(start?.call, { id: '', name: '', args: {} })
+  const executions = applyToolCallUpdate(
+    applyToolCallUpdate(
+      applyToolCallUpdate([], start!, 'draft_1'),
+      firstDelta!,
+      'unused',
+    ),
+    secondDelta!,
+    'unused',
+  )
+
+  assert.equal(executions[0]?.status, 'generating')
+  assert.equal(executions[0]?.rawArguments, '{"path":"src/App.tsx"}')
+  assert.deepEqual(executions[0]?.args, { path: 'src/App.tsx' })
+})
+
 test('accumulates arguments and preserves interrupted generations', () => {
   const start = {
     call: { id: '', name: 'write', args: {} },
@@ -127,6 +165,7 @@ test('accumulates arguments and preserves interrupted generations', () => {
     name: 'write',
     args: { path: 'note' },
     contentIndex: 0,
+    rawArguments: '{"path":"note',
     status: 'generating',
   }])
   assert.equal(interruptToolCallGeneration(executions)[0]?.status, 'interrupted')

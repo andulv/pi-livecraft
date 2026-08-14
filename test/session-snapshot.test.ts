@@ -49,6 +49,20 @@ test('retains only the events needed to restore active thinking and tools', () =
   assert.deepEqual(live.snapshot(), [])
 })
 
+test('retains the latest steering queue for snapshot replay', () => {
+  const live = new LiveSessionEvents()
+  live.receive({ type: 'queue_update', steering: ['First'] }, 1)
+  live.receive({ type: 'queue_update', steering: ['First', 'Second'] }, 2)
+
+  assert.deepEqual(live.snapshot(), [{
+    data: { type: 'queue_update', steering: ['First', 'Second'] },
+    sequence: 2,
+  }])
+
+  live.receive({ type: 'agent_settled' }, 3)
+  assert.deepEqual(live.snapshot(), [])
+})
+
 test('stores an assembled assistant message for delta-only replay', () => {
   const live = new LiveSessionEvents()
   live.receive({ type: 'message_start', message: { role: 'assistant', content: [] } }, 1)
@@ -105,6 +119,39 @@ test('keeps the active conversation before and after compaction', () => {
     { role: 'assistant', content: 'Original response' },
     { role: 'custom', customType: 'compaction', content: 'Summary', display: true },
     { role: 'user', content: 'Continue' },
+  ])
+})
+
+test('marks forkable user messages by entry ID instead of duplicated text', () => {
+  const messages = activeSessionMessages(
+    [
+      {
+        type: 'message',
+        id: 'user-1',
+        parentId: null,
+        message: { role: 'user', content: 'Repeat this' },
+      },
+      {
+        type: 'message',
+        id: 'assistant-1',
+        parentId: 'user-1',
+        message: { role: 'assistant', content: 'Done' },
+      },
+      {
+        type: 'message',
+        id: 'user-2',
+        parentId: 'assistant-1',
+        message: { role: 'user', content: 'Repeat this' },
+      },
+    ],
+    'user-2',
+    new Set(['user-2', 'assistant-1']),
+  )
+
+  assert.deepEqual(messages, [
+    { role: 'user', content: 'Repeat this' },
+    { role: 'assistant', content: 'Done' },
+    { role: 'user', content: 'Repeat this', forkEntryId: 'user-2' },
   ])
 })
 

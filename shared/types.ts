@@ -214,9 +214,13 @@ export interface PromptTemplate {
   description?: string
 }
 
+export interface ConversationMessage extends JsonObject {
+  forkEntryId?: string
+}
+
 export interface SessionSnapshot {
   state: JsonObject | null
-  messages: JsonObject[]
+  messages: ConversationMessage[]
   models: JsonObject[]
   commands: JsonObject[]
   promptTemplates: PromptTemplate[]

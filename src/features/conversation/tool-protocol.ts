@@ -30,6 +30,8 @@ export interface ToolCallUpdate {
 
 export interface ToolExecution extends ToolCall {
   contentIndex?: number
+  /** Retains delta-only JSON while public RPC omits partial assistant messages. */
+  rawArguments?: string
   partialResult?: ToolResult
   result?: ToolResult
   status: 'generating' | 'running' | 'interrupted'
@@ -57,7 +59,11 @@ export function toolCallInUpdate(event: JsonObject): ToolCallUpdate | null {
 
   const call = update.type === 'toolcall_end'
     ? toolCallFromValue(update.toolCall)
-    : toolCallFromPartial(update.partial, update.contentIndex as number)
+    : toolCallFromPartial(update.partial, update.contentIndex as number) ?? {
+      id: '',
+      name: '',
+      args: {},
+    }
   if (!call) return null
 
   return {
@@ -100,18 +106,25 @@ export function applyToolCallUpdate(
     matched = true
     if (update.phase === 'end') return { ...execution, ...update.call, status: 'running' as const }
 
+    const rawArguments = `${execution.rawArguments ?? ''}${update.delta}`
+    const parsedArguments = parseToolArguments(rawArguments)
     return {
       ...execution,
       ...update.call,
       id: update.call.id || execution.id,
+      args: parsedArguments ?? update.call.args,
+      rawArguments,
     }
   })
   if (matched) return updated
 
+  const rawArguments = update.phase === 'delta' ? update.delta : undefined
   return [...executions, {
     ...update.call,
+    args: rawArguments ? parseToolArguments(rawArguments) ?? update.call.args : update.call.args,
     contentIndex: update.contentIndex,
     id: update.call.id || draftId,
+    rawArguments,
     status: update.phase === 'end' ? 'running' : 'generating',
   }]
 }
@@ -200,4 +213,13 @@ function toolCallFromValue(value: unknown): ToolCall | null {
 function toolCallFromPartial(value: unknown, contentIndex: number): ToolCall | null {
   if (!isObject(value) || !Array.isArray(value.content)) return null
   return toolCallFromValue(value.content[contentIndex])
+}
+
+function parseToolArguments(value: string): unknown | undefined {
+  if (!value) return undefined
+  try {
+    return JSON.parse(value)
+  } catch {
+    return undefined
+  }
 }

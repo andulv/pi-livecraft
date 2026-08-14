@@ -7,6 +7,7 @@ import type {
   GitRevertResult,
   GitSnapshot,
 } from '../../../shared/types.ts'
+import { resolveFileIcon } from '../../../shared/file-icon.ts'
 import { WidgetLayout } from '../right-sidebar/WidgetLayout.tsx'
 import { parseGitDiff } from './git-diff.ts'
 
@@ -396,10 +397,25 @@ export function GitWidget(
 
 /** Displays common file metadata in Git lists. */
 function GitFileRow({ file }: { file: GitSnapshot['files'][number] }) {
+  const fileIcon = resolveFileIcon(file.path)
+  const statusLabel = gitStatusLabel(file.status)
+
   return (
     <>
-      <Tooltip label={gitStatusLabel(file.status)}>
-        <span className={`git-file-status ${file.status}`}>{gitStatusInitial(file.status)}</span>
+      <Tooltip hint={`${fileIcon.label} file`} label={statusLabel}>
+        <span
+          aria-label={`${statusLabel} ${fileIcon.label} file`}
+          className={`git-file-status ${file.status}`}
+          role='img'
+        >
+          <span
+            aria-hidden='true'
+            className='git-file-icon'
+            data-color={fileIcon.color}
+          >
+            {fileIcon.glyph}
+          </span>
+        </span>
       </Tooltip>
       <Tooltip label={file.path}>
         <span className='git-file-path'>{file.path}</span>
@@ -435,8 +451,4 @@ function GitDiff({ diff }: { diff: string }) {
 
 function gitStatusLabel(status: 'added' | 'deleted' | 'modified' | 'renamed'): string {
   return { added: 'Added', deleted: 'Deleted', modified: 'Modified', renamed: 'Renamed' }[status]
-}
-
-function gitStatusInitial(status: 'added' | 'deleted' | 'modified' | 'renamed'): string {
-  return { added: 'A', deleted: 'D', modified: 'M', renamed: 'R' }[status]
 }

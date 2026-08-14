@@ -371,7 +371,10 @@ function LivecraftProjectApp(
       const publish = () => {
         pendingManagerUnavailableToastsRef.current.delete(toast.id)
         setToasts((current) => [...current, toast])
-        if (kind !== 'error') window.setTimeout(() => startDismissal(toast.id), 3000)
+        window.setTimeout(
+          () => startDismissal(toast.id),
+          kind === 'error' ? 5000 : 3000,
+        )
       }
       if (kind === 'error' && message === managerUnavailableMessage) {
         const timer = window.setTimeout(publish, managerUnavailableToastDelayMs)
@@ -536,6 +539,21 @@ function LivecraftProjectApp(
     snapshotSessionId,
     toolExecutions,
   } = useConversationRuntime(selectedId, handleWorkspaceError, replayPiEvent)
+  const handleForkConversation = useCallback(async (entryId: string): Promise<boolean> => {
+    const response = await sendPiCommand(selectedId, { type: 'fork', entryId })
+    const data = isObject(response.data) ? response.data : undefined
+    if (data?.cancelled === true) return false
+    if (typeof data?.text === 'string') {
+      setComposerDraftRequest({
+        id: crypto.randomUUID(),
+        message: data.text,
+        sessionId: selectedId,
+      })
+    }
+    await Promise.all([refreshSnapshot(selectedId), refreshSessions()])
+    return true
+  }, [refreshSessions, refreshSnapshot, selectedId])
+
   const model = isObject(snapshot.state?.model) ? snapshot.state.model : undefined
   const currentQuotaProvider = quotaProviderForModel(model?.provider)
   const currentQuotaProviderRef = useRef(currentQuotaProvider)
@@ -798,7 +816,7 @@ function LivecraftProjectApp(
           event.method === 'notify' || (event.method === 'setStatus' && event.statusKey === 'agent')
         ) selectCreatedSession(sessionId)
         if (event.method === 'notify' && typeof event.message === 'string')
-          showToast('notice', event.message, sessionId)
+          showToast(event.notifyType === 'error' ? 'error' : 'notice', event.message, sessionId)
         // Intercept agent selector silently when Livecraft requested the options list.
         if (isAgentSelector(event) && agentOptionsLoadingRef.current[sessionId]) {
           const options = event.options.filter((o): o is string => typeof o === 'string')
@@ -1456,10 +1474,12 @@ function LivecraftProjectApp(
                     messages={snapshot.messages}
                     navigationRequest={conversationNavigation}
                     onError={handleConversationError}
+                    onFork={handleForkConversation}
                     pendingSteering={pendingSteering}
                     repositoryRoot={gitSnapshot?.root}
                     scrollToBottomRequest={scrollToBottomRequest}
                     workingDirectory={selectedSession.cwd}
+                    toolDurations={observedToolDurations}
                     toolExecutions={toolExecutions}
                   />
                   <div className={`chat-detail-control ${conversationView}`}>

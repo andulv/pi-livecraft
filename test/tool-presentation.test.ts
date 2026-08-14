@@ -7,6 +7,7 @@ import {
   formatToolCallTooltip,
   intraLineDiff,
   parseEditDiff,
+  provisionalToolName,
   readContentDisplay,
   toolCallPresentation,
   toolDataLength,
@@ -125,6 +126,74 @@ test('uses the Bash presentation while preserving the generic fallback', () => {
   assert.deepEqual(toolCallPresentation({ id: 'call_2', name: 'bash', args: { timeout: 30 } }), {})
 })
 
+test('infers built-in tool names from complete and partial argument bodies', () => {
+  assert.equal(
+    provisionalToolName({}, '{"path":"src/App.tsx","content":"const value ='),
+    'write',
+  )
+  assert.equal(provisionalToolName({}, '{"path":"src/App.tsx","edits":['), 'edit')
+  assert.equal(
+    provisionalToolName({}, '{"command":"printf \'{\\"path\\":\\"x\\"}\''),
+    'bash',
+  )
+  assert.equal(provisionalToolName({ command: 'pwd' }), 'bash')
+  assert.equal(provisionalToolName({}, '{"questions":['), 'ask_user_question')
+  assert.equal(provisionalToolName({}, '{"path":"src/App.tsx"}'), undefined)
+  assert.equal(provisionalToolName({}, '{"path":"src/App.tsx","offset":4'), 'read')
+  assert.equal(provisionalToolName({}, '{"pattern":"TODO","glob":"*.ts"'), 'grep')
+  assert.equal(provisionalToolName({}, '{"pattern":"TODO","path":"src"'), undefined)
+  assert.equal(provisionalToolName({}, '{"path":"src","limit":20'), undefined)
+})
+
+test('shows streamed scalar arguments before the JSON body is complete', () => {
+  assert.deepEqual(
+    toolCallPresentation(
+      { id: 'call_1', name: 'bash', args: {} },
+      undefined,
+      '{"command":"npm run bu',
+    ),
+    {
+      headerDetail: { text: 'npm run bu', title: 'npm run bu' },
+      pendingDetail: undefined,
+    },
+  )
+  assert.deepEqual(
+    toolCallPresentation(
+      { id: 'call_2', name: 'grep', args: {} },
+      '/workspace/repository',
+      '{"pattern":"toolCall","path":"/workspace/repo',
+    ),
+    { headerDetail: { text: 'toolCall · /workspace/repo', title: 'toolCall · /workspace/repo' } },
+  )
+  assert.deepEqual(
+    toolCallPresentation(
+      { id: 'call_3', name: 'read', args: {} },
+      '/workspace/repository',
+      '{"path":"/workspace/repository/src/App.tsx","offset":4,"limit":2',
+    ),
+    {
+      headerDetail: { text: 'src/App.tsx', title: 'src/App.tsx', suffix: '[4:5]' },
+    },
+  )
+})
+
+test('decodes escaped streamed paths without consuming nested strings', () => {
+  assert.deepEqual(
+    toolCallPresentation(
+      { id: 'call_1', name: 'read', args: {} },
+      undefined,
+      '{"path":"src/\\"quoted\\"/App.tsx","offset":2',
+    ),
+    {
+      headerDetail: { text: 'src/"quoted"/App.tsx', title: 'src/"quoted"/App.tsx', suffix: '[2:]' },
+    },
+  )
+  assert.equal(
+    provisionalToolName({}, '{"command":"printf \'{\\"path\\":\\"x\\"}\''),
+    'bash',
+  )
+})
+
 test('displays search patterns and their optional paths', () => {
   const root = '/workspace/repository'
 
@@ -169,6 +238,25 @@ test('displays file tool paths relative to the repository and truncates them', (
     },
   )
   assert.deepEqual(toolCallPresentation({ id: 'call_3', name: 'read', args: {} }, root), {})
+})
+
+test('shows file tool paths while streamed arguments are incomplete', () => {
+  const root = '/workspace/repository'
+
+  for (const name of ['read', 'edit', 'write']) {
+    assert.deepEqual(
+      toolCallPresentation(
+        { id: 'call_1', name, args: {} },
+        root,
+        '{"content":"...","path":"/workspace/repository/src/App',
+      ),
+      { headerDetail: { text: 'src/App', title: 'src/App' } },
+    )
+  }
+  assert.deepEqual(
+    toolCallPresentation({ id: 'call_2', name: 'read', args: {} }, root, '{"path":'),
+    {},
+  )
 })
 
 test('keeps the read range visible beside a truncated path', () => {
