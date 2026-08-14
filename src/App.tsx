@@ -199,7 +199,11 @@ function App() {
   }, [project, projectId])
 
   const navigate = useCallback((nextProject: Project | null): void => {
-    window.history.pushState({}, '', nextProject ? projectPageUrl(nextProject.id) : '/')
+    window.history.pushState(
+      {},
+      '',
+      nextProject ? projectPageUrl(nextProject.id, nextProject.name) : '/',
+    )
     setProjectId(nextProject?.id ?? null)
   }, [])
 
@@ -502,13 +506,14 @@ function LivecraftProjectApp(
     const current = projectUrlState(window.location.pathname, window.location.search)
     const path = projectPageUrl(
       project.id,
+      project.name,
       workspacePath,
       selectedSessionPath ?? current.sessionPath,
     )
     if (window.location.pathname + window.location.search !== path) {
       window.history.replaceState({}, '', path)
     }
-  }, [project.id, selectedSessionPath, workspacePath])
+  }, [project.id, project.name, selectedSessionPath, workspacePath])
 
   const startAndSelectSession = useCallback(
     (
