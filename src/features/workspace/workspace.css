@@ -14,6 +14,8 @@
   );
 }
 .sidebar.collapsed {
+  /* Keep the expand rail above the workspace's sticky top bar (z-index: 5). */
+  z-index: 6;
   width: 0;
   height: 0;
   padding: 0;
