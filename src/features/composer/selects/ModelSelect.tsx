@@ -12,10 +12,12 @@ import { createPortal } from 'react-dom'
 import type { JsonObject } from '../../../../shared/types.ts'
 import { usePinnedModels } from './model-favorites.ts'
 import {
+  buildListPriceIndex,
   groupModelOptions,
   modelCostLabel,
   providerDisplayName,
   toModelOption,
+  type ListPriceIndex,
   type ModelOption,
 } from './model-select-utils.ts'
 
@@ -43,6 +45,7 @@ export const ModelSelect = memo(function ModelSelect(
   const options = models.map(toModelOption).filter((option): option is ModelOption =>
     option !== undefined
   )
+  const listPrices = buildListPriceIndex(options)
   const groups = groupModelOptions(options, pinned)
   const flat: ModelOption[] = []
   const flatIndex = new Map<string, number>()
@@ -212,7 +215,7 @@ export const ModelSelect = memo(function ModelSelect(
                     >
                       <span className='model-menu-item-copy'>
                         <span className='model-menu-name'>{option.name}</span>
-                        <ModelMeta option={option} />
+                        <ModelMeta listPrices={listPrices} option={option} />
                       </span>
                       <button
                         aria-label={isPinned ? `Unpin ${option.name}` : `Pin ${option.name}`}
@@ -239,8 +242,8 @@ export const ModelSelect = memo(function ModelSelect(
   )
 })
 
-function ModelMeta({ option }: { option: ModelOption }) {
-  const label = modelCostLabel(option)
+function ModelMeta({ listPrices, option }: { listPrices: ListPriceIndex; option: ModelOption }) {
+  const label = modelCostLabel(option, listPrices)
   if (label === null) return null
   if (label.kind === 'subscription') {
     return <span className='model-menu-sub'>Subscription</span>

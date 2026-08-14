@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  baseModelKey,
+  buildListPriceIndex,
   groupModelOptions,
   modelCostLabel,
   providerDisplayName,
   toModelOption,
+  type ModelOption,
 } from '../src/features/composer/selects/model-select-utils.ts'
 import {
   readPinnedModels,
@@ -99,6 +102,26 @@ test('modelCostLabel renders paid, plan-covered, subscription, or nothing', () =
     }),
     null,
   )
+})
+
+test('subscription models reuse a priced sibling provider as their struck-through list price', () => {
+  const glm = (id: string): ModelOption =>
+    toModelOption({ id, name: id, provider: 'zai', cost: { input: 0, output: 0 } })!
+  const fireworks = toModelOption({
+    id: 'accounts/fireworks/models/glm-5p2',
+    name: 'GLM-5.2',
+    provider: 'fireworks',
+    cost: { input: 1.4, output: 4.4 },
+  })!
+
+  assert.equal(baseModelKey('accounts/fireworks/models/glm-5p2'), 'glm-5.2')
+  const index = buildListPriceIndex([glm('glm-5.2'), glm('glm-5.3'), fireworks])
+  // The sibling's price becomes the covered list price; models without one stay plain.
+  assert.deepEqual(modelCostLabel(glm('glm-5.2'), index), {
+    kind: 'covered',
+    text: '$1.40 in · $4.40 out',
+  })
+  assert.deepEqual(modelCostLabel(glm('glm-5.3'), index), { kind: 'subscription' })
 })
 
 test('groupModelOptions puts pinned favorites first and drops them from provider groups', () => {

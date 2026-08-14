@@ -24,6 +24,9 @@ export type ModelCostLabel =
   | { kind: 'subscription' }
   | null
 
+/** Base-model id to pay-as-you-go price, built from every provider's priced models. */
+export type ListPriceIndex = ReadonlyMap<string, { input: number; output: number }>
+
 const PROVIDER_NAMES: Record<string, string> = {
   'amazon-bedrock': 'Amazon Bedrock',
   anthropic: 'Anthropic',
@@ -123,15 +126,52 @@ const subscriptionProviders = new Set([
   'zai-coding-cn',
 ])
 
-/** Per-token price for paid models; a subscription marker when cost is all-zero; `null` otherwise. */
-export function modelCostLabel(option: ModelOption): ModelCostLabel {
+/**
+ * Normalizes a model id to its base form for cross-provider matching: last path
+ * segment, lowercased, with version separators written as `p` (glm-5p2) turned
+ * back into dots (glm-5.2).
+ */
+export function baseModelKey(id: string): string {
+  const base = id.split('/').at(-1) ?? id
+  return base.toLowerCase().replace(/(\d)p(\d)/g, '$1.$2')
+}
+
+/**
+ * Indexes pay-as-you-go prices by base model id so subscription rows can show a
+ * struck-through reference price for the same model under another provider.
+ */
+export function buildListPriceIndex(models: ModelOption[]): ListPriceIndex {
+  const index = new Map<string, { input: number; output: number }>()
+  for (const model of models) {
+    if (!model.cost || model.cost.input === 0 && model.cost.output === 0) continue
+    const key = baseModelKey(model.id)
+    if (!index.has(key)) index.set(key, { input: model.cost.input, output: model.cost.output })
+  }
+  return index
+}
+
+/**
+ * Per-token price for paid models; a plan-covered price for subscription models;
+ * `null` when nothing is known. Subscription rows use a sibling provider's
+ * pay-as-you-go price from `listPrices` when one exists.
+ */
+export function modelCostLabel(option: ModelOption, listPrices?: ListPriceIndex): ModelCostLabel {
   if (option.cost === null) return null
-  if (option.subscription) return { kind: 'subscription' }
+  if (option.subscription) {
+    const listPrice = listPrices?.get(baseModelKey(option.id))
+    return listPrice
+      ? { kind: 'covered', text: priceText(listPrice) }
+      : { kind: 'subscription' }
+  }
   const plan = subscriptionProviders.has(option.provider)
   return {
     kind: plan ? 'covered' : 'paid',
-    text: `$${formatPrice(option.cost.input)} in · $${formatPrice(option.cost.output)} out`,
+    text: priceText(option.cost),
   }
+}
+
+function priceText(cost: { input: number; output: number }): string {
+  return `$${formatPrice(cost.input)} in · $${formatPrice(cost.output)} out`
 }
 
 function readCost(cost: unknown): { input: number; output: number } | null {
