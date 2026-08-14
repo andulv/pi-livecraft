@@ -185,7 +185,7 @@ export function QuotaWidget(
               })}
               {quotas.glm.data.length > 0 && <GlmPeakHoursBar now={now} />}
             </ProviderSection>
-            <p className='quota-now'>Now {formatNow(now)}</p>
+            <p className='quota-now'>Now {formatNowDate(now)} · {formatNow(now)}</p>
           </>
         )}
       </div>
@@ -286,6 +286,7 @@ function GlmPeakHoursBar({ now }: { now: number }) {
   const inPeak = peakSegments.some((s) => nowFraction >= s.start && nowFraction < s.end)
   return (
     <div className='quota-peak'>
+      <h3>Pricing</h3>
       <div aria-hidden='true' className='quota-peak-labels'>
         {peakSegments
           .flatMap((segment) => [
@@ -402,6 +403,11 @@ function formatNow(timestamp: number): string {
     minute: '2-digit',
     timeZoneName: 'short',
   })
+    .format(timestamp)
+}
+
+function formatNowDate(timestamp: number): string {
+  return new Intl.DateTimeFormat(navigator.language, { dateStyle: 'full' })
     .format(timestamp)
 }
 

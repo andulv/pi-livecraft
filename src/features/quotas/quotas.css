@@ -13,6 +13,9 @@
   border-bottom: 1px solid var(--line);
 }
 .quota-provider:last-of-type {
+  border-bottom: 1px solid var(--line);
+}
+.quota-now {
   border-bottom: 0;
 }
 .quota-provider-heading {
@@ -99,6 +102,10 @@
 .quota-peak {
   margin-top: 17px;
 }
+.quota-peak h3 {
+  margin: 0 0 13px;
+  font-size: 12px;
+}
 .quota-peak-labels {
   position: relative;
   height: 12px;
@@ -174,6 +181,8 @@
 }
 .quota-now {
   margin: 14px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
   color: var(--muted);
   font: 10px ui-monospace, monospace;
 }
