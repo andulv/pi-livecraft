@@ -7,7 +7,7 @@ The quotas widget gives a quick answer to a practical question: how much of the 
 - OpenAI Codex five-hour and seven-day windows, with used percentage, elapsed-period progress, and reset time;
 - GitHub Copilot usage categories, with used and total values, elapsed calendar-month progress, and reset times when available;
 - time-bound usage bars stack green, yellow, and red segments to show how much usage is within pace, close to pace, or well ahead of pace; GLM web searches retain the standard bar because their period is unknown;
-- when the reading was last updated;
+- when the reading was last updated, plus the current time so reset times can be read against the local clock;
 - a stale marker when the latest refresh failed but an older valid reading is still available;
 - provider errors without hiding valid data from the other provider.
 

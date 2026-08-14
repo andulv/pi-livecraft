@@ -183,6 +183,7 @@ export function QuotaWidget(
                 )
               })}
             </ProviderSection>
+            <p className='quota-now'>Now {formatNow(now)}</p>
           </>
         )}
       </div>
@@ -307,6 +308,15 @@ function formatReset(timestamp: number): string {
   return new Intl.DateTimeFormat(navigator.language, {
     day: 'numeric',
     month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  })
+    .format(timestamp)
+}
+
+function formatNow(timestamp: number): string {
+  return new Intl.DateTimeFormat(navigator.language, {
     hour: '2-digit',
     minute: '2-digit',
     timeZoneName: 'short',

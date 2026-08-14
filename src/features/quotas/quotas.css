@@ -12,7 +12,7 @@
   padding: 16px 0 18px;
   border-bottom: 1px solid var(--line);
 }
-.quota-provider:last-child {
+.quota-provider:last-of-type {
   border-bottom: 0;
 }
 .quota-provider-heading {
@@ -115,6 +115,11 @@
 }
 .quota-provider-empty {
   margin: 0;
+}
+.quota-now {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font: 10px ui-monospace, monospace;
 }
 .quota-skeleton {
   display: grid;
