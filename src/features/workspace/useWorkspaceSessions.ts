@@ -249,12 +249,7 @@ export function useWorkspaceSessions(
       )
       const namedSessions = nextSessions.map((session) => {
         const recentName = session.sessionPath ? recentNames.get(session.sessionPath) : undefined
-        const previousName = sessionsRef.current.find((current) => current.id === session.id)?.name
-        return recentName
-          ? { ...session, name: recentName }
-          : previousName && previousName !== 'New session'
-          ? { ...session, name: previousName }
-          : session
+        return recentName ? { ...session, name: recentName } : session
       })
       setSessionLoadError(null)
       setSessions(namedSessions)

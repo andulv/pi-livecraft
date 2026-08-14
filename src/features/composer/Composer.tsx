@@ -18,10 +18,12 @@ import type {
 } from '../../../shared/types.ts'
 import { maxComposerImages, prepareComposerImage, type ComposerImage } from './composer-images.ts'
 import {
-  ensureCompactCommand,
+  ensureLocalCommands,
   isCommandDraft,
   isCompactCommandDraft,
+  isNameCommandDraft,
   isObject,
+  nameCommandArgument,
   readComposerDraft,
 } from './composer-utils.ts'
 import { AgentSelect } from './selects/AgentSelect.tsx'
@@ -152,8 +154,10 @@ export const Composer = memo(function Composer({
   // Keep a ref to the latest draft so stable callbacks can read it without re-creating on every keystroke.
   const messageRef = useRef(message)
   messageRef.current = message
-  /** Snapshot commands augmented with the local compact command when Pi doesn't expose it. */
-  const allCommands = ensureCompactCommand(commands)
+  /** Snapshot commands augmented with local commands Pi does not expose. */
+  const allCommands = ensureLocalCommands(commands)
+  /** A Pi-provided /name command takes priority over the local rename interception. */
+  const piNameCommand = commands.some((command) => String(command.name).toLowerCase() === 'name')
   const commandPending = isCommandDraft(message, allCommands)
   const promptTemplates = useMemo(() =>
     [...savedPrompts, ...snapshot.promptTemplates].filter((
@@ -355,6 +359,14 @@ export const Composer = memo(function Composer({
     try {
       if (isCompactCommandDraft(nextMessage)) {
         await onCommand({ type: 'compact' })
+        return
+      }
+      // /name renames the live session through Pi's native RPC; a draft without an
+      // argument is swallowed so it never reaches the model as a prompt. A Pi-provided
+      // command of the same name is forwarded untouched instead.
+      if (isNameCommandDraft(nextMessage) && !piNameCommand) {
+        const name = nameCommandArgument(nextMessage)
+        if (name) await onCommand({ type: 'set_session_name', name })
         return
       }
       await onSend(

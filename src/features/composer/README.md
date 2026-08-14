@@ -19,7 +19,7 @@ All data arrives through props. The Composer never calls the backend directly.
 | `Composer.tsx` | Form, textarea, images, slash-commands, send/stop, assembly |
 | `composer.css` | All composer styles |
 | `composer-images.ts` | Image paste, resize, compress (`maxComposerImages` = 4) |
-| `composer-utils.ts` | Label/token formatting, command detection, compact-command fallback, draft loading, `isObject` |
+| `composer-utils.ts` | Label/token formatting, command detection, local `compact`/`name` command fallbacks, draft loading, `isObject` |
 | `prompt-title.ts` | Immediate session title, replaced later by Pi's extension title |
 | `selects/ComposerSelect.tsx` | Generic Radix Select wrapper with tone-based icons |
 | `selects/AgentSelect.tsx` | Agent picker — derives label from options, calls `onAgentChange` |

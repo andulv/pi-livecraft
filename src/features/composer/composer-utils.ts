@@ -92,11 +92,23 @@ export function isCompactCommandDraft(text: string): boolean {
   return text.trim() === '/compact'
 }
 
-/** Prepends the local compact command when Pi does not already expose it in the snapshot. */
-export function ensureCompactCommand(commands: JsonObject[]): JsonObject[] {
-  return commands.some((cmd) => String(cmd.name).toLowerCase() === 'compact')
-    ? commands
-    : [{ name: 'compact' }, ...commands]
+/** Returns true when the draft invokes the local /name command, with or without an argument. */
+export function isNameCommandDraft(text: string): boolean {
+  return /^\/name(?:\s|$)/i.test(text.trim())
+}
+
+/** Extracts the trimmed /name argument; empty when the draft has no argument. */
+export function nameCommandArgument(text: string): string {
+  return text.trim().replace(/^\/name/i, '').trim()
+}
+
+/** Prepends the local compact and name commands when Pi does not already expose them. */
+export function ensureLocalCommands(commands: JsonObject[]): JsonObject[] {
+  const names = new Set(commands.map((command) => String(command.name).toLowerCase()))
+  const local: JsonObject[] = []
+  if (!names.has('compact')) local.push({ name: 'compact' })
+  if (!names.has('name')) local.push({ name: 'name', description: 'Rename this session' })
+  return local.length === 0 ? commands : [...local, ...commands]
 }
 
 /** Restores the draft for one session from local storage. */

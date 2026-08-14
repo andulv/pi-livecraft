@@ -25,6 +25,16 @@ interface PiSessionHeader {
 }
 
 const MAX_SESSIONS = 30
+const HEAD_CHUNK_BYTES = 8192
+const TAIL_CHUNK_BYTES = 16384
+
+interface SessionTailScan {
+  /** Whether a session_info entry was found; `name` is undefined when it cleared the title. */
+  nameFound: boolean
+  name: string | undefined
+  hasMessage: boolean
+  lastMessageAt: number | undefined
+}
 
 /**
  * Pi stores sessions in a deterministic subfolder named after the workspace path:
@@ -91,7 +101,10 @@ export async function resolvePiSessions(paths: readonly string[]): Promise<Recen
   return sessions.filter((session): session is RecentSession => session !== null)
 }
 
-/** Reads the first and last ~8 KB of a session file to extract metadata without scanning the middle. */
+/** Reads session metadata without loading full histories: the header and first user
+ *  message come from the head, while the latest session_info name and the last message
+ *  timestamp are found by scanning backwards from the end until both are located. This
+ *  mirrors Pi's own rule that the last session_info entry wins, including clears. */
 async function readPiSession(path: string, updatedAt: number): Promise<RecentSession | null> {
   let canonicalPath: string
   try {
@@ -100,16 +113,17 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
     return null
   }
 
-  let headContent: string
-  let tailContent: string | undefined
+  let size: number
   try {
-    const { size } = await stat(canonicalPath)
-    if (size <= 16384) {
-      headContent = await readChunk(canonicalPath, 0, size)
-    } else {
-      headContent = await readChunk(canonicalPath, 0, 8192)
-      tailContent = await readChunk(canonicalPath, Math.max(0, size - 8192), 8192)
-    }
+    size = (await stat(canonicalPath)).size
+  } catch (error) {
+    if (isNotFound(error)) return null
+    throw error
+  }
+
+  let headContent: string
+  try {
+    headContent = await readChunk(canonicalPath, 0, Math.min(size, HEAD_CHUNK_BYTES))
   } catch (error) {
     if (isNotFound(error)) return null
     throw error
@@ -135,15 +149,19 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
   let lastMessageAt: number | undefined
   let prompt: string | undefined
 
-  // Scan head lines (after the header) for first user message and session_info
+  // Scan head lines (after the header) for the first user message and any early
+  // session_info or message timestamps. The head is truncated when the file is larger
+  // than its chunk; its trailing partial line is completed by the backwards scan.
   if (firstNewline >= 0) {
-    for (const line of headContent.slice(firstNewline + 1).split('\n')) {
+    const headLines = headContent.slice(firstNewline + 1).split('\n')
+    const headPartial = size > HEAD_CHUNK_BYTES ? headLines.pop() : undefined
+    for (const line of headLines) {
       const trimmed = line.trim()
       if (!trimmed) continue
       const value = parseLine(trimmed)
       if (!value) continue
-      if (value.type === 'session_info' && typeof value.name === 'string' && value.name.trim()) {
-        name = value.name.trim()
+      if (value.type === 'session_info') {
+        name = typeof value.name === 'string' && value.name.trim() ? value.name.trim() : undefined
       }
       if (value.type !== 'message') continue
       hasMessage = true
@@ -157,28 +175,16 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
           lastMessageAt = timestamp
       }
     }
-  }
-
-  // Scan tail lines for the latest session_info and latest message
-  if (tailContent) {
-    // Drop the first fragment if it's a partial continuation from before the tail chunk
-    const startAtNewline = tailContent[0] !== '\n' && firstNewline < headContent.length - 1
-    const body = startAtNewline ? tailContent.slice(tailContent.indexOf('\n') + 1) : tailContent
-    for (const line of body.split('\n')) {
-      const trimmed = line.trim()
-      if (!trimmed) continue
-      const value = parseLine(trimmed)
-      if (!value) continue
-      if (value.type === 'session_info' && typeof value.name === 'string' && value.name.trim()) {
-        name = value.name.trim()
-      }
-      if (value.type !== 'message') continue
-      hasMessage = true
-      if (typeof value.timestamp === 'string') {
-        const timestamp = Date.parse(value.timestamp)
-        if (!Number.isNaN(timestamp) && (lastMessageAt === undefined || timestamp > lastMessageAt))
-          lastMessageAt = timestamp
-      }
+    if (headPartial !== undefined) {
+      const tail = await scanSessionTail(canonicalPath, size, headPartial)
+      // The backwards scan covers everything after the head chunk, so its session_info
+      // is the latest one and replaces any name found in the head.
+      if (tail.nameFound) name = tail.name
+      hasMessage = hasMessage || tail.hasMessage
+      if (
+        tail.lastMessageAt !== undefined
+        && (lastMessageAt === undefined || tail.lastMessageAt > lastMessageAt)
+      ) lastMessageAt = tail.lastMessageAt
     }
   }
 
@@ -191,6 +197,63 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
     sessionPath: canonicalPath,
     updatedAt: lastMessageAt ?? (Number.isNaN(createdAt) ? updatedAt : createdAt),
   }
+}
+
+/** Scans a session file backwards from its end for the latest session_info entry and
+ *  the latest message timestamp, stopping once both are found or the head region begins.
+ *  `headPartial` completes the line that the truncated head chunk ended with. */
+async function scanSessionTail(
+  path: string,
+  size: number,
+  headPartial: string,
+): Promise<SessionTailScan> {
+  const scan: SessionTailScan = {
+    nameFound: false,
+    name: undefined,
+    hasMessage: false,
+    lastMessageAt: undefined,
+  }
+  let pending = ''
+  let end = size
+  while (end > HEAD_CHUNK_BYTES && !(scan.nameFound && scan.lastMessageAt !== undefined)) {
+    const start = Math.max(HEAD_CHUNK_BYTES, end - TAIL_CHUNK_BYTES)
+    // The earliest chunk completes the line the truncated head ended with, so a
+    // session_info entry spanning the head boundary is parsed exactly once. Its first
+    // line is therefore complete; every earlier chunk carries its first fragment instead.
+    const prefix = start === HEAD_CHUNK_BYTES ? headPartial : ''
+    const raw = (prefix + (await readChunk(path, start, end - start)) + pending).split('\n')
+    const lines = start === HEAD_CHUNK_BYTES ? raw : raw.slice(1)
+    if (start > HEAD_CHUNK_BYTES) pending = raw[0] ?? ''
+    for (let index = lines.length - 1; index >= 0; index--) {
+      const trimmed = lines[index].trim()
+      if (!trimmed || !mayCarrySessionMetadata(trimmed)) continue
+      const value = parseLine(trimmed)
+      if (!value) continue
+      if (!scan.nameFound && value.type === 'session_info') {
+        scan.nameFound = true
+        scan.name = typeof value.name === 'string' && value.name.trim()
+          ? value.name.trim()
+          : undefined
+      }
+      if (value.type !== 'message') continue
+      scan.hasMessage = true
+      if (typeof value.timestamp === 'string') {
+        const timestamp = Date.parse(value.timestamp)
+        if (
+          !Number.isNaN(timestamp)
+          && (scan.lastMessageAt === undefined || timestamp > scan.lastMessageAt)
+        ) scan.lastMessageAt = timestamp
+      }
+      if (scan.nameFound && scan.lastMessageAt !== undefined) break
+    }
+    end = start
+  }
+  return scan
+}
+
+/** Cheap pre-filter so only lines that can carry a session name or message timestamp are parsed. */
+function mayCarrySessionMetadata(line: string): boolean {
+  return line.includes('session_info') || line.includes('"message"')
 }
 
 /** Reads a byte range from a file without streaming the full content. */

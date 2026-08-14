@@ -145,37 +145,31 @@ test('uses the first non-command user prompt and hides sessions without messages
   assert.equal(recent[0].name, 'One two three four five six seven eight…')
 })
 
-test('reads a large session through its head and tail windows', async () => {
+test('finds a rename buried deep in a large session', async () => {
   const { directory, workspace } = await fixture()
   const folder = workspaceSessionDir(workspace, directory)
   await mkdir(folder, { recursive: true })
-  // A single large message pushes the file past the 16 KB whole-file threshold, so
-  // metadata is read from an 8 KB head and an 8 KB tail instead of the full history.
-  const padding = JSON.stringify({
-    type: 'message',
-    timestamp: '2026-07-19T10:00:00.000Z',
-    message: { role: 'assistant', content: 'x'.repeat(20 * 1024) },
-  })
+  // The rename sits more than 8 KB from both ends of the file, so neither a head nor a
+  // tail window can see it; the backwards scan must walk through the padding to reach it.
+  const padding = (timestamp: string) =>
+    JSON.stringify({
+      type: 'message',
+      timestamp,
+      message: { role: 'assistant', content: 'x'.repeat(20 * 1024) },
+    })
   await writeFile(
-    join(folder, 'big.jsonl'),
+    join(folder, 'buried.jsonl'),
     [
       JSON.stringify({
         type: 'session',
         version: 3,
-        id: 'big',
+        id: 'buried',
         timestamp: '2026-07-19T09:00:00.000Z',
         cwd: workspace,
       }),
-      JSON.stringify({ type: 'session_info', name: 'Original name' }),
-      JSON.stringify({
-        type: 'message',
-        timestamp: '2026-07-19T09:00:00.000Z',
-        message: { role: 'user', content: 'first prompt' },
-      }),
-      padding,
-      // The rename and the final message sit after the padding, so they fall inside
-      // the tail window and are detected even though the file is never read in full.
+      padding('2026-07-19T09:00:00.000Z'),
       JSON.stringify({ type: 'session_info', name: 'Renamed session' }),
+      padding('2026-07-19T10:00:00.000Z'),
       JSON.stringify({
         type: 'message',
         timestamp: '2026-07-19T11:00:00.000Z',
@@ -188,8 +182,74 @@ test('reads a large session through its head and tail windows', async () => {
   assert.equal(recent.length, 1)
   assert.equal(recent[0].name, 'Renamed session')
   assert.equal(recent[0].updatedAt, Date.parse('2026-07-19T11:00:00.000Z'))
-  // Known trade-off: a rename sandwiched between two >8 KB blocks would sit outside
-  // both windows and would not be captured without scanning the whole file.
+})
+
+test('reads a session_info line that spans the head boundary', async () => {
+  const { directory, workspace } = await fixture()
+  const folder = workspaceSessionDir(workspace, directory)
+  await mkdir(folder, { recursive: true })
+  const header = JSON.stringify({
+    type: 'session',
+    version: 3,
+    id: 'boundary',
+    timestamp: '2026-07-19T09:00:00.000Z',
+    cwd: workspace,
+  })
+  // Size an unparseable filler line so the session_info entry starts 30 bytes before
+  // the 8 KB head boundary and is split across the head chunk and the backwards scan.
+  const fillerLength = 8192 - 30 - header.length - 2
+  await writeFile(
+    join(folder, 'boundary.jsonl'),
+    [
+      header,
+      'x'.repeat(fillerLength),
+      JSON.stringify({ type: 'session_info', name: 'Boundary name' }),
+      JSON.stringify({
+        type: 'message',
+        timestamp: '2026-07-19T10:00:00.000Z',
+        message: { role: 'user', content: 'final prompt' },
+      }),
+      JSON.stringify({
+        type: 'message',
+        timestamp: '2026-07-19T11:00:00.000Z',
+        message: { role: 'assistant', content: 'y'.repeat(20 * 1024) },
+      }),
+    ]
+      .join('\n') + '\n',
+  )
+  const recent = await listRecentPiSessions(workspace, directory)
+  assert.equal(recent.length, 1)
+  assert.equal(recent[0].name, 'Boundary name')
+  assert.equal(recent[0].updatedAt, Date.parse('2026-07-19T11:00:00.000Z'))
+})
+
+test('falls back to the first prompt when the latest session_info clears the name', async () => {
+  const { directory, workspace } = await fixture()
+  const folder = workspaceSessionDir(workspace, directory)
+  await mkdir(folder, { recursive: true })
+  await writeFile(
+    join(folder, 'cleared.jsonl'),
+    [
+      JSON.stringify({
+        type: 'session',
+        version: 3,
+        id: 'cleared',
+        timestamp: '2026-07-19T10:00:00.000Z',
+        cwd: workspace,
+      }),
+      JSON.stringify({ type: 'session_info', name: 'Old name' }),
+      JSON.stringify({
+        type: 'message',
+        timestamp: '2026-07-19T10:00:00.000Z',
+        message: { role: 'user', content: 'the first prompt here' },
+      }),
+      JSON.stringify({ type: 'session_info', name: '' }),
+    ]
+      .join('\n') + '\n',
+  )
+  const recent = await listRecentPiSessions(workspace, directory)
+  assert.equal(recent.length, 1)
+  assert.equal(recent[0].name, 'the first prompt here')
 })
 
 async function writeSession(
