@@ -58,6 +58,7 @@ export function SessionEnvironmentWidget(
     )
   }, [tools, toolFilter])
   const activeCount = tools.filter((tool) => tool.active).length
+  const activeToolContextChars = useMemo(() => contextCharsForTools(tools), [tools])
   const toolGroups = useMemo(() => groupTools(filteredTools), [filteredTools])
   const commandList = useMemo(() => readCommands(commands), [commands])
   const skills = useMemo(
@@ -162,7 +163,16 @@ export function SessionEnvironmentWidget(
           <div className='environment-heading'>
             <h2>Tools</h2>
             {tools.length > 0 && (
-              <span className='environment-chip'>{activeCount} active · {tools.length} loaded</span>
+              <div className='environment-heading-meta'>
+                <span className='environment-chip'>
+                  {activeCount} active · {tools.length} loaded
+                </span>
+                <Tooltip label='Estimated from active tool names, descriptions, and parameter schemas. Token count uses a four-characters-per-token heuristic.'>
+                  <span className='environment-chip muted'>
+                    {formatPromptFootprint(activeToolContextChars)} estimated
+                  </span>
+                </Tooltip>
+              </div>
             )}
           </div>
           {tools.length === 0
@@ -296,6 +306,7 @@ function ToolGroup(
   },
 ) {
   const activeCount = group.tools.filter((tool) => tool.active).length
+  const contextChars = contextCharsForTools(group.tools)
   return (
     <div className='environment-tool-group'>
       <button
@@ -312,7 +323,8 @@ function ToolGroup(
           {group.label}
         </span>
         <span className='environment-tool-group-count'>
-          {activeCount} active · {group.tools.length}
+          <span>{activeCount} active · {group.tools.length}</span>
+          <span>{formatPromptFootprint(contextChars)}</span>
         </span>
       </button>
       {expanded && (
@@ -338,6 +350,7 @@ function ToolRow(
   },
 ) {
   const expandable = (tool.params?.length ?? 0) > 0
+  const footprint = formatPromptFootprint(tool.active ? tool.estimatedContextChars ?? 0 : 0)
   const status = !tool.active && <span className='environment-chip warn'>off</span>
   return (
     <div className={tool.active ? 'environment-tool-row' : 'environment-tool-row off'}>
@@ -351,6 +364,7 @@ function ToolRow(
           >
             <span className='environment-tool-name'>{tool.name}</span>
             <span className='environment-tool-desc'>{tool.description ?? ''}</span>
+            <span className='environment-tool-footprint'>{footprint}</span>
             {status}
           </button>
         )
@@ -358,6 +372,7 @@ function ToolRow(
           <div className='environment-tool-line'>
             <span className='environment-tool-name'>{tool.name}</span>
             <span className='environment-tool-desc'>{tool.description ?? ''}</span>
+            <span className='environment-tool-footprint'>{footprint}</span>
             {status}
           </div>
         )}
@@ -375,6 +390,19 @@ function ToolRow(
       )}
     </div>
   )
+}
+
+/** Sums only active tools because inactive tools are not sent in the current prompt. */
+function contextCharsForTools(tools: readonly SessionEnvironmentTool[]): number {
+  return tools.reduce(
+    (total, tool) => total + (tool.active ? tool.estimatedContextChars ?? 0 : 0),
+    0,
+  )
+}
+
+/** Uses a transparent, model-agnostic character-to-token heuristic. */
+function formatPromptFootprint(chars: number): string {
+  return `~${formatTokens(Math.ceil(chars / 4))} tok · ${formatTokens(chars)} ch`
 }
 
 interface ToolGroupInfo {

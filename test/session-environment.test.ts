@@ -34,6 +34,7 @@ const fullReport = JSON.stringify({
       source: 'extension',
       sourceName: 'index.ts',
       sourcePath: '/home/user/.pi/agent/extensions/pi-ketch/index.ts',
+      estimatedContextChars: 1_290,
     },
   ],
   contextFiles: [{ path: '/repo/AGENTS.md', bytes: 8_400 }],
@@ -48,6 +49,7 @@ test('accepts the versioned environment payload', () => {
   assert.deepEqual(snapshot.tools[0].params?.[0], { name: 'path', type: 'string', required: true })
   assert.equal(snapshot.tools[1].active, false)
   assert.equal(snapshot.tools[1].sourcePath, '/home/user/.pi/agent/extensions/pi-ketch/index.ts')
+  assert.equal(snapshot.tools[1].estimatedContextChars, 1_290)
   assert.deepEqual(snapshot.contextFiles, [{ path: '/repo/AGENTS.md', bytes: 8_400 }])
   assert.equal(snapshot.updatedAt, 1_000)
   assert.equal(snapshot.refreshing, false)

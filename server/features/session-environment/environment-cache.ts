@@ -99,6 +99,8 @@ function parseTool(value: unknown): SessionEnvironmentTool | undefined {
     entry.sourceName = tool.sourceName.slice(0, 200)
   if (typeof tool.sourcePath === 'string' && tool.sourcePath)
     entry.sourcePath = tool.sourcePath.slice(0, 1000)
+  if (finiteNumber(tool.estimatedContextChars) && tool.estimatedContextChars >= 0)
+    entry.estimatedContextChars = Math.min(Math.floor(tool.estimatedContextChars), 10_000_000)
   if (tool.params !== undefined) {
     const params = parseArray(tool.params, parseToolParam)
     if (!params) return undefined

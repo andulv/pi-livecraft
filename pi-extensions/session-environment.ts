@@ -62,10 +62,30 @@ function buildTools(pi: ExtensionAPI): SessionEnvironmentTool[] {
       entry.sourceName = fileNameOf(tool.sourceInfo.path)
       entry.sourcePath = tool.sourceInfo.path
     }
+    entry.estimatedContextChars = estimateToolContextChars(tool)
     const params = summarizeParams(tool.parameters)
     if (params.length > 0) entry.params = params
     return entry
   })
+}
+
+/**
+ * Approximates the tool definition's prompt footprint without exposing its schema.
+ * Providers and tokenizers serialize tools differently, so callers must label this as an estimate.
+ */
+function estimateToolContextChars(
+  tool: { name: string; description?: string; parameters?: unknown },
+): number {
+  try {
+    return [...JSON.stringify({
+      name: tool.name,
+      description: tool.description ?? '',
+      parameters: tool.parameters ?? {},
+    })]
+      .length
+  } catch {
+    return 0
+  }
 }
 
 /** Summarizes the top-level object properties of a tool's parameter schema. */
