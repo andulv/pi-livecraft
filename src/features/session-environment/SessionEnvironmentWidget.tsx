@@ -407,7 +407,10 @@ function SkillGroup(
             </p>
           )}
           {group.skills.map((skill) => (
-            <div className='environment-skill-row' key={skill.path}>
+            <div
+              className='environment-skill-row'
+              key={skill.path ?? skill.name}
+            >
               <div className='environment-item-top'>
                 <span className='environment-item-name'>{skill.name.replace(/^skill:/, '')}</span>
                 <span className='environment-skill-footprint'>
@@ -415,7 +418,9 @@ function SkillGroup(
                 </span>
               </div>
               {skill.description && <p className='environment-item-desc'>{skill.description}</p>}
-              <p className='environment-item-path' title={skill.path}>{skill.path}</p>
+              {skill.path && (
+                <p className='environment-item-path' title={skill.path}>{skill.path}</p>
+              )}
             </div>
           ))}
         </div>
@@ -539,7 +544,7 @@ interface CommandInfo {
 }
 
 type SkillInfo = CommandInfo & {
-  path: string
+  path?: string
   active: boolean
   contentChars?: number
   scope?: string
@@ -559,19 +564,18 @@ function mergeSkills(
   commands: readonly CommandInfo[],
   definitions: readonly SessionEnvironmentSkill[],
 ): SkillInfo[] {
-  const definitionsByPath = new Map(definitions.map((skill) => [skill.path, skill]))
-  return commands.flatMap((command) => {
-    if (!command.path) return []
-    const definition = definitionsByPath.get(command.path)
-    return [{
+  const definitionsByName = new Map(definitions.map((skill) => [skill.name, skill]))
+  return commands.map((command) => {
+    const definition = definitionsByName.get(command.name)
+    return {
       ...command,
-      path: command.path,
+      path: command.path ?? definition?.path,
       active: definition?.active ?? true,
       ...(definition?.contentChars !== undefined ? { contentChars: definition.contentChars } : {}),
       ...(definition?.scope ? { scope: definition.scope } : {}),
       ...(definition?.origin ? { origin: definition.origin } : {}),
       ...(definition?.baseDir ? { baseDir: definition.baseDir } : {}),
-    }]
+    }
   })
 }
 

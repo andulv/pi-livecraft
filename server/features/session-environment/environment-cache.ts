@@ -117,8 +117,11 @@ function parseTool(value: unknown): SessionEnvironmentTool | undefined {
 
 function parseSkill(value: unknown): SessionEnvironmentSkill | undefined {
   const skill = object(value)
-  if (!nonEmptyString(skill?.path)) return undefined
-  const entry: SessionEnvironmentSkill = { path: skill.path.slice(0, 1000) }
+  if (!nonEmptyString(skill?.name) || !nonEmptyString(skill.path)) return undefined
+  const entry: SessionEnvironmentSkill = {
+    name: skill.name.slice(0, 120),
+    path: skill.path.slice(0, 1000),
+  }
   if (typeof skill.active === 'boolean') entry.active = skill.active
   if (finiteNumber(skill.contentChars) && skill.contentChars >= 0)
     entry.contentChars = Math.min(Math.floor(skill.contentChars), 10_000_000)

@@ -38,6 +38,7 @@ const fullReport = JSON.stringify({
     },
   ],
   skills: [{
+    name: 'skill:ketch',
     path: '/home/user/.pi/agent/skills/ketch/SKILL.md',
     contentChars: 2_400,
     active: true,
@@ -58,6 +59,7 @@ test('accepts the versioned environment payload', () => {
   assert.equal(snapshot.tools[1].sourcePath, '/home/user/.pi/agent/extensions/pi-ketch/index.ts')
   assert.equal(snapshot.tools[1].estimatedContextChars, 1_290)
   assert.deepEqual(snapshot.skills, [{
+    name: 'skill:ketch',
     path: '/home/user/.pi/agent/skills/ketch/SKILL.md',
     contentChars: 2_400,
     active: true,

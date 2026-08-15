@@ -297,6 +297,8 @@ export interface SessionEnvironmentToolParam {
 }
 
 export interface SessionEnvironmentSkill {
+  /** Pi slash-command name, used when the RPC command listing omits its path. */
+  name: string
   /** Absolute SKILL.md path; skill contents never leave Pi. */
   path: string
   /** Character count of the loaded skill definition. */

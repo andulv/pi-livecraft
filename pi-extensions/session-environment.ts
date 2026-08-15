@@ -127,7 +127,7 @@ function buildSkills(
   return pi.getCommands().flatMap((command) => {
     if (command.source !== 'skill' || !command.sourceInfo?.path) return []
     const source = command.sourceInfo
-    const entry: SessionEnvironmentSkill = { path: source.path, active }
+    const entry: SessionEnvironmentSkill = { name: command.name, path: source.path, active }
     const chars = contentChars.get(source.path)
     if (chars !== undefined) entry.contentChars = chars
     if (typeof source.scope === 'string') entry.scope = source.scope
