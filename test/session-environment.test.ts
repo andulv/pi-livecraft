@@ -40,7 +40,6 @@ const fullReport = JSON.stringify({
   skills: [{
     name: 'skill:ketch',
     path: '/home/user/.pi/agent/skills/ketch/SKILL.md',
-    contentChars: 2_400,
     active: true,
     scope: 'user',
     origin: 'top-level',
@@ -61,7 +60,6 @@ test('accepts the versioned environment payload', () => {
   assert.deepEqual(snapshot.skills, [{
     name: 'skill:ketch',
     path: '/home/user/.pi/agent/skills/ketch/SKILL.md',
-    contentChars: 2_400,
     active: true,
     scope: 'user',
     origin: 'top-level',

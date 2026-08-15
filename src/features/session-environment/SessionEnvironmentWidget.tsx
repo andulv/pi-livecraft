@@ -270,7 +270,7 @@ export function SessionEnvironmentWidget(
             {skills.length > 0 && (
               <div className='environment-heading-meta'>
                 <span className='environment-chip'>{skills.length} available</span>
-                <Tooltip label='Definition character counts come from Pi after an Environment refresh. Token count uses a four-characters-per-token heuristic.'>
+                <Tooltip label='Entry footprint: the skill name and description Pi places in the system prompt for each available skill. Skill file contents load only on invocation. Token count uses a four-characters-per-token heuristic.'>
                   <span className='environment-chip muted'>
                     {formatSkillFootprint(skills)}
                   </span>
@@ -428,9 +428,11 @@ function SkillGroup(
       </button>
       {expanded && (
         <div className='environment-skill-group-skills'>
-          <p className='environment-skill-group-path' title={group.sourcePath}>
-            {group.sourcePath ?? 'Path awaiting Pi metadata'}
-          </p>
+          {group.sourcePath && (
+            <p className='environment-skill-group-path' title={group.sourcePath}>
+              {group.sourcePath}
+            </p>
+          )}
           {group.skills.map((skill) => (
             <div
               className='environment-skill-row'
@@ -443,9 +445,9 @@ function SkillGroup(
                 </span>
               </div>
               {skill.description && <p className='environment-item-desc'>{skill.description}</p>}
-              <p className='environment-item-path' title={skill.path}>
-                {skill.path ?? 'Path awaiting Pi metadata'}
-              </p>
+              {skill.path && (
+                <p className='environment-item-path' title={skill.path}>{skill.path}</p>
+              )}
             </div>
           ))}
         </div>
@@ -513,20 +515,21 @@ function contextCharsForTools(tools: readonly SessionEnvironmentTool[]): number 
   )
 }
 
-/** Sums only skills Pi currently includes in the system prompt. */
+/** Entry footprint: Pi places each active skill's name and description in the prompt. */
 function contextCharsForSkills(skills: readonly SkillInfo[]): number {
   return skills.reduce(
-    (total, skill) => total + (skill.active ? skill.contentChars ?? 0 : 0),
+    (total, skill) =>
+      total + (skill.active
+        ? [...skill.name + (skill.description ?? '')].length
+        : 0),
     0,
   )
 }
 
-/** Does not present missing extension data as a zero-sized prompt contribution. */
+/** Shows the measured entry footprint; skill file contents are not part of it. */
 function formatSkillFootprint(skills: readonly SkillInfo[]): string {
   const activeSkills = skills.filter((skill) => skill.active)
   if (activeSkills.length === 0) return 'Not in context'
-  if (activeSkills.some((skill) => skill.contentChars === undefined))
-    return 'Awaiting Pi definition'
   return `${formatPromptFootprint(contextCharsForSkills(activeSkills))} estimated`
 }
 
@@ -580,7 +583,6 @@ interface CommandInfo {
 type SkillInfo = CommandInfo & {
   path?: string
   active: boolean
-  contentChars?: number
   scope?: string
   origin?: string
   baseDir?: string
@@ -593,7 +595,7 @@ interface SkillGroupInfo {
   skills: SkillInfo[]
 }
 
-/** Combines RPC skill commands with provenance and content sizes from the extension payload. */
+/** Combines RPC skill commands with provenance from the extension payload. */
 function mergeSkills(
   commands: readonly CommandInfo[],
   definitions: readonly SessionEnvironmentSkill[],
@@ -605,7 +607,6 @@ function mergeSkills(
       ...command,
       path: command.path ?? definition?.path,
       active: definition?.active ?? true,
-      ...(definition?.contentChars !== undefined ? { contentChars: definition.contentChars } : {}),
       ...(definition?.scope ? { scope: definition.scope } : {}),
       ...(definition?.origin ? { origin: definition.origin } : {}),
       ...(definition?.baseDir ? { baseDir: definition.baseDir } : {}),
@@ -617,12 +618,14 @@ function mergeSkills(
 function groupSkills(skills: readonly SkillInfo[]): SkillGroupInfo[] {
   const groups = new Map<string, SkillGroupInfo>()
   for (const skill of skills) {
-    const scope = skill.scope ?? skill.location ?? 'other'
+    const scope = skill.scope ?? skill.location
     const origin = skill.origin ?? 'top-level'
-    const key = `${origin}:${scope}:${skill.baseDir ?? ''}`
+    const key = `${origin}:${scope ?? ''}:${skill.baseDir ?? ''}`
     const label = origin === 'package'
       ? `Package · ${fileNameOf(skill.baseDir)}`
-      : `${capitalize(scope)} skills`
+      : scope
+      ? `${capitalize(scope)} skills`
+      : 'Available skills'
     const group = groups.get(key) ?? {
       key,
       label,

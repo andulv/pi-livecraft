@@ -301,8 +301,6 @@ export interface SessionEnvironmentSkill {
   name: string
   /** Absolute SKILL.md path; skill contents never leave Pi. */
   path: string
-  /** Character count of the loaded skill definition. */
-  contentChars?: number
   /** Whether Pi currently includes skills in the system prompt. */
   active?: boolean
   /** Pi's canonical resource scope. */

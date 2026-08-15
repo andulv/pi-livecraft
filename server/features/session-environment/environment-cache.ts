@@ -123,8 +123,6 @@ function parseSkill(value: unknown): SessionEnvironmentSkill | undefined {
     path: skill.path.slice(0, 1000),
   }
   if (typeof skill.active === 'boolean') entry.active = skill.active
-  if (finiteNumber(skill.contentChars) && skill.contentChars >= 0)
-    entry.contentChars = Math.min(Math.floor(skill.contentChars), 10_000_000)
   if (nonEmptyString(skill.scope)) entry.scope = skill.scope.slice(0, 40)
   if (nonEmptyString(skill.origin)) entry.origin = skill.origin.slice(0, 40)
   if (nonEmptyString(skill.baseDir)) entry.baseDir = skill.baseDir.slice(0, 1000)
