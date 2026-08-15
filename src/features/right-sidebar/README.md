@@ -1,6 +1,6 @@
 # Right sidebar
 
-The right sidebar keeps workspace tools close without mixing their behavior. `RightSidebar.tsx` composes the rail, active panel, and accessible resizing; `App.tsx` owns the active widget and width because they affect the whole layout.
+The right sidebar keeps workspace tools close without mixing their behavior. Its rail separates current-session widgets (index, analysis, environment), current-workspace tools (Git, Todo, folder, terminal, VS Code), and global quotas with accessible groups and compact dividers. `RightSidebar.tsx` composes the rail, active panel, and accessible resizing; `App.tsx` owns the active widget and width because they affect the whole layout.
 
 ## Adding a widget
 

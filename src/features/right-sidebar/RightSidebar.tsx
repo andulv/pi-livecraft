@@ -267,125 +267,131 @@ export function RightSidebar({
         </div>
       )}
       <div className='right-sidebar-rail'>
-        <Tooltip label='Session index'>
-          <button
-            aria-controls={activeWidget === 'index' ? 'index-panel' : undefined}
-            aria-expanded={activeWidget === 'index'}
-            aria-label={activeWidget === 'index'
-              ? 'Collapse session index'
-              : 'Expand session index'}
-            className='rail-tab'
-            onClick={() => onWidgetSelect('index')}
-            type='button'
-          >
-            <span aria-hidden='true'>☷</span>
-          </button>
-        </Tooltip>
-        {analysisAvailable && (
-          <Tooltip label='Session analysis'>
+        <div aria-label='Current session' className='right-sidebar-rail-group' role='group'>
+          <Tooltip label='Session index'>
             <button
-              aria-controls={activeWidget === 'analysis' ? 'analysis-panel' : undefined}
-              aria-expanded={activeWidget === 'analysis'}
-              aria-label={activeWidget === 'analysis'
-                ? 'Collapse session analysis'
-                : 'Expand session analysis'}
+              aria-controls={activeWidget === 'index' ? 'index-panel' : undefined}
+              aria-expanded={activeWidget === 'index'}
+              aria-label={activeWidget === 'index'
+                ? 'Collapse session index'
+                : 'Expand session index'}
               className='rail-tab'
-              onClick={() => onWidgetSelect('analysis')}
+              onClick={() => onWidgetSelect('index')}
               type='button'
             >
-              <span aria-hidden='true'>∑</span>
-              {analysis && analysis.failedToolCalls > 0 && (
-                <small>{analysis.failedToolCalls}</small>
+              <span aria-hidden='true'>☷</span>
+            </button>
+          </Tooltip>
+          {analysisAvailable && (
+            <Tooltip label='Session analysis'>
+              <button
+                aria-controls={activeWidget === 'analysis' ? 'analysis-panel' : undefined}
+                aria-expanded={activeWidget === 'analysis'}
+                aria-label={activeWidget === 'analysis'
+                  ? 'Collapse session analysis'
+                  : 'Expand session analysis'}
+                className='rail-tab'
+                onClick={() => onWidgetSelect('analysis')}
+                type='button'
+              >
+                <span aria-hidden='true'>∑</span>
+                {analysis && analysis.failedToolCalls > 0 && (
+                  <small>{analysis.failedToolCalls}</small>
+                )}
+              </button>
+            </Tooltip>
+          )}
+          <Tooltip label='Session environment'>
+            <button
+              aria-controls={activeWidget === 'environment' ? 'environment-panel' : undefined}
+              aria-expanded={activeWidget === 'environment'}
+              aria-label={activeWidget === 'environment'
+                ? 'Collapse session environment'
+                : 'Expand session environment'}
+              className='rail-tab'
+              onClick={() => onWidgetSelect('environment')}
+              type='button'
+            >
+              <span aria-hidden='true'>⚙</span>
+              {environment && environment.tools.length > 0 && (
+                <small aria-label={`${environment.tools.length} tools loaded`}>
+                  {environment
+                    .tools
+                    .length}
+                </small>
               )}
             </button>
           </Tooltip>
-        )}
-        {snapshot && (
-          <Tooltip label='Git'>
+        </div>
+        <div aria-label='Current workspace' className='right-sidebar-rail-group' role='group'>
+          {snapshot && (
+            <Tooltip label='Git'>
+              <button
+                aria-controls={activeWidget === 'git' ? 'git-panel' : undefined}
+                aria-expanded={activeWidget === 'git'}
+                aria-label={activeWidget === 'git' ? 'Collapse Git panel' : 'Expand Git panel'}
+                className='rail-tab'
+                onClick={() => onWidgetSelect('git')}
+                type='button'
+              >
+                <span aria-hidden='true'>⎇</span>
+                {(hasChanges || snapshot.ahead > 0) && (
+                  <small>{snapshot.files.length + snapshot.ahead}</small>
+                )}
+              </button>
+            </Tooltip>
+          )}
+          <Tooltip label='Todo'>
             <button
-              aria-controls={activeWidget === 'git' ? 'git-panel' : undefined}
-              aria-expanded={activeWidget === 'git'}
-              aria-label={activeWidget === 'git' ? 'Collapse Git panel' : 'Expand Git panel'}
+              aria-controls={activeWidget === 'todo' ? 'todo-panel' : undefined}
+              aria-expanded={activeWidget === 'todo'}
+              aria-label={activeWidget === 'todo'
+                ? 'Collapse the task panel'
+                : 'Expand the task panel'}
               className='rail-tab'
-              onClick={() => onWidgetSelect('git')}
+              onClick={() => onWidgetSelect('todo')}
               type='button'
             >
-              <span aria-hidden='true'>⎇</span>
-              {(hasChanges || snapshot.ahead > 0) && (
-                <small>{snapshot.files.length + snapshot.ahead}</small>
+              <span aria-hidden='true'>☑</span>
+              {todoOpenCount !== null && todoOpenCount > 0 && (
+                <small aria-label={`${todoOpenCount} tasks remaining`}>{todoOpenCount}</small>
               )}
             </button>
           </Tooltip>
-        )}
-        <Tooltip label={quotaSummary?.label ?? 'Quotas'}>
-          <button
-            aria-controls={activeWidget === 'quotas' ? 'quotas-panel' : undefined}
-            aria-expanded={activeWidget === 'quotas'}
-            aria-label={`${activeWidget === 'quotas' ? 'Collapse' : 'Expand'} quota panel${
-              quotaSummary ? `. ${quotaSummary.label}` : ''
-            }`}
-            className='rail-tab'
-            onClick={() => onWidgetSelect('quotas')}
-            type='button'
-          >
-            <span aria-hidden='true' className='quota-rail-value'>
-              <span>{quotaSummary?.value ?? '%'}</span>
-              {quotaSummary?.secondaryValue && <span>{quotaSummary.secondaryValue}</span>}
-            </span>
-            {quotaSummary?.stale && <small>!</small>}
-          </button>
-        </Tooltip>
-        <Tooltip label='Todo'>
-          <button
-            aria-controls={activeWidget === 'todo' ? 'todo-panel' : undefined}
-            aria-expanded={activeWidget === 'todo'}
-            aria-label={activeWidget === 'todo'
-              ? 'Collapse the task panel'
-              : 'Expand the task panel'}
-            className='rail-tab'
-            onClick={() => onWidgetSelect('todo')}
-            type='button'
-          >
-            <span aria-hidden='true'>☑</span>
-            {todoOpenCount !== null && todoOpenCount > 0 && (
-              <small aria-label={`${todoOpenCount} tasks remaining`}>{todoOpenCount}</small>
-            )}
-          </button>
-        </Tooltip>
-        <Tooltip label='Session environment'>
-          <button
-            aria-controls={activeWidget === 'environment' ? 'environment-panel' : undefined}
-            aria-expanded={activeWidget === 'environment'}
-            aria-label={activeWidget === 'environment'
-              ? 'Collapse session environment'
-              : 'Expand session environment'}
-            className='rail-tab'
-            onClick={() => onWidgetSelect('environment')}
-            type='button'
-          >
-            <span aria-hidden='true'>⚙</span>
-            {environment && environment.tools.length > 0 && (
-              <small aria-label={`${environment.tools.length} tools loaded`}>
-                {environment
-                  .tools
-                  .length}
-              </small>
-            )}
-          </button>
-        </Tooltip>
-        {railActions.map((action) => (
-          <Tooltip key={action.key} label={action.label}>
+          {railActions.map((action) => (
+            <Tooltip key={action.key} label={action.label}>
+              <button
+                aria-label={action.label}
+                className='rail-tab'
+                disabled={action.disabled}
+                onClick={action.onClick}
+                type='button'
+              >
+                {action.icon}
+              </button>
+            </Tooltip>
+          ))}
+        </div>
+        <div aria-label='Global' className='right-sidebar-rail-group' role='group'>
+          <Tooltip label={quotaSummary?.label ?? 'Quotas'}>
             <button
-              aria-label={action.label}
+              aria-controls={activeWidget === 'quotas' ? 'quotas-panel' : undefined}
+              aria-expanded={activeWidget === 'quotas'}
+              aria-label={`${activeWidget === 'quotas' ? 'Collapse' : 'Expand'} quota panel${
+                quotaSummary ? `. ${quotaSummary.label}` : ''
+              }`}
               className='rail-tab'
-              disabled={action.disabled}
-              onClick={action.onClick}
+              onClick={() => onWidgetSelect('quotas')}
               type='button'
             >
-              {action.icon}
+              <span aria-hidden='true' className='quota-rail-value'>
+                <span>{quotaSummary?.value ?? '%'}</span>
+                {quotaSummary?.secondaryValue && <span>{quotaSummary.secondaryValue}</span>}
+              </span>
+              {quotaSummary?.stale && <small>!</small>}
             </button>
           </Tooltip>
-        ))}
+        </div>
       </div>
     </aside>
   )
