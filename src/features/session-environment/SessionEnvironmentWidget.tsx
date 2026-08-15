@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import { isObject } from '../../../shared/is-object.ts'
 import type {
@@ -32,6 +32,9 @@ export function SessionEnvironmentWidget(
   const [refreshing, setRefreshing] = useState(false)
   const [toolFilter, setToolFilter] = useState('')
   const [expandedTool, setExpandedTool] = useState<string | null>(null)
+  const [collapsedToolGroups, setCollapsedToolGroups] = useState<ReadonlySet<string>>(() =>
+    new Set()
+  )
 
   /** Keeps the button disabled until the manual refresh completes, whether success or error. */
   async function refresh(): Promise<void> {
@@ -55,6 +58,7 @@ export function SessionEnvironmentWidget(
     )
   }, [tools, toolFilter])
   const activeCount = tools.filter((tool) => tool.active).length
+  const toolGroups = useMemo(() => groupTools(filteredTools), [filteredTools])
   const commandList = useMemo(() => readCommands(commands), [commands])
   const skills = useMemo(
     () => commandList.filter((command) => command.source === 'skill'),
@@ -174,15 +178,38 @@ export function SessionEnvironmentWidget(
                 {filteredTools.length === 0 && (
                   <p className='environment-empty'>No tools match “{toolFilter.trim()}”.</p>
                 )}
-                {filteredTools.map((tool) => (
-                  <ToolRow
-                    expanded={expandedTool === tool.name}
-                    key={tool.name}
-                    onToggle={() =>
-                      setExpandedTool((current) => current === tool.name ? null : tool.name)}
-                    tool={tool}
-                  />
-                ))}
+                <div className='environment-tool-groups'>
+                  {toolGroups.map((group) => {
+                    const expanded = toolFilter.trim().length > 0
+                      || !collapsedToolGroups.has(group.key)
+                    return (
+                      <ToolGroup
+                        expanded={expanded}
+                        group={group}
+                        key={group.key}
+                        onToggle={() =>
+                          setCollapsedToolGroups((current) => {
+                            const next = new Set(current)
+                            if (next.has(group.key)) next.delete(group.key)
+                            else next.add(group.key)
+                            return next
+                          })}
+                      >
+                        {group.tools.map((tool) => (
+                          <ToolRow
+                            expanded={expandedTool === tool.name}
+                            key={tool.name}
+                            onToggle={() =>
+                              setExpandedTool((current) =>
+                                current === tool.name ? null : tool.name
+                              )}
+                            tool={tool}
+                          />
+                        ))}
+                      </ToolGroup>
+                    )
+                  })}
+                </div>
               </>
             )}
         </section>
@@ -257,6 +284,40 @@ export function SessionEnvironmentWidget(
   )
 }
 
+/** One collapsible source group; filtering opens matching groups without changing saved disclosure. */
+function ToolGroup(
+  { children, expanded, group, onToggle }: {
+    children: ReactNode
+    expanded: boolean
+    group: ToolGroupInfo
+    onToggle: () => void
+  },
+) {
+  const activeCount = group.tools.filter((tool) => tool.active).length
+  return (
+    <div className='environment-tool-group'>
+      <button
+        aria-expanded={expanded}
+        aria-label={`${expanded ? 'Collapse' : 'Expand'} ${group.label} tools`}
+        className='environment-tool-group-toggle'
+        onClick={onToggle}
+        type='button'
+      >
+        <span className='environment-tool-group-title'>
+          <span aria-hidden='true' className='environment-tool-group-chevron'>
+            {expanded ? '⌄' : '›'}
+          </span>
+          {group.label}
+        </span>
+        <span className='environment-tool-group-count'>
+          {activeCount} active · {group.tools.length}
+        </span>
+      </button>
+      {expanded && <div className='environment-tool-group-tools'>{children}</div>}
+    </div>
+  )
+}
+
 /** One tool row; rows with parameters expand into a schema summary on click. */
 function ToolRow(
   { expanded, onToggle, tool }: {
@@ -266,19 +327,7 @@ function ToolRow(
   },
 ) {
   const expandable = (tool.params?.length ?? 0) > 0
-  const badges = (
-    <>
-      {tool.source === 'builtin' && <span className='environment-chip muted'>built-in</span>}
-      {tool.source === 'extension' && (
-        <span className='environment-chip secondary'>
-          ext ·{' '}
-          {tool.sourceName ? fileNameOf(tool.sourceName).replace(/\.(ts|js)$/, '') : 'extension'}
-        </span>
-      )}
-      {tool.source === 'sdk' && <span className='environment-chip muted'>sdk</span>}
-      {!tool.active && <span className='environment-chip warn'>off</span>}
-    </>
-  )
+  const status = !tool.active && <span className='environment-chip warn'>off</span>
   return (
     <div className={tool.active ? 'environment-tool-row' : 'environment-tool-row off'}>
       {expandable
@@ -291,14 +340,14 @@ function ToolRow(
           >
             <span className='environment-tool-name'>{tool.name}</span>
             <span className='environment-tool-desc'>{tool.description ?? ''}</span>
-            {badges}
+            {status}
           </button>
         )
         : (
           <div className='environment-tool-line'>
             <span className='environment-tool-name'>{tool.name}</span>
             <span className='environment-tool-desc'>{tool.description ?? ''}</span>
-            {badges}
+            {status}
           </div>
         )}
       {expanded && tool.params && (
@@ -315,6 +364,35 @@ function ToolRow(
       )}
     </div>
   )
+}
+
+interface ToolGroupInfo {
+  key: string
+  label: string
+  tools: SessionEnvironmentTool[]
+}
+
+/** Groups tools by Pi's source metadata while preserving a stable source order. */
+function groupTools(tools: readonly SessionEnvironmentTool[]): ToolGroupInfo[] {
+  const groups = new Map<string, ToolGroupInfo>()
+  for (const tool of tools) {
+    const key = tool.source === 'extension'
+      ? `extension:${tool.sourceName ?? 'unknown'}`
+      : tool.source
+    const label = tool.source === 'builtin'
+      ? 'Built-in'
+      : tool.source === 'sdk'
+      ? 'SDK'
+      : `Extension · ${fileNameOf(tool.sourceName)}`
+    const group = groups.get(key) ?? { key, label, tools: [] }
+    group.tools.push(tool)
+    groups.set(key, group)
+  }
+  return [...groups.values()].sort((left, right) => {
+    const rank = (group: ToolGroupInfo): number =>
+      group.key === 'builtin' ? 0 : group.key === 'sdk' ? 2 : 1
+    return rank(left) - rank(right) || left.label.localeCompare(right.label)
+  })
 }
 
 interface CommandInfo {
