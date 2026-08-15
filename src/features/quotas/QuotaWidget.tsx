@@ -284,30 +284,20 @@ function GlmPeakHoursBar({ now }: { now: number }) {
     )
     .join(' + ')
   const inPeak = peakSegments.some((s) => nowFraction >= s.start && nowFraction < s.end)
+  const markers = hourMarkers(dayStart, peakSegments)
   return (
     <div className='quota-peak'>
       <h3>Pricing</h3>
       <div aria-hidden='true' className='quota-peak-labels'>
-        {peakSegments
-          .flatMap((segment) => [
-            { fraction: segment.start, timestamp: dayStart + segment.start * dayMs },
-            { fraction: segment.end, timestamp: dayStart + segment.end * dayMs },
-          ])
-          .map((marker, index) => (
-            <span
-              className={`quota-peak-hour${
-                marker.fraction <= 0
-                  ? ' quota-peak-hour-start'
-                  : marker.fraction >= 1
-                  ? ' quota-peak-hour-end'
-                  : ''
-              }`}
-              key={index}
-              style={{ left: `${marker.fraction * 100}%` }}
-            >
-              {formatHourShort(marker.timestamp)}
-            </span>
-          ))}
+        {markers.map((marker) => (
+          <span
+            className={`quota-peak-hour${marker.edge ? ` quota-peak-hour-${marker.edge}` : ''}`}
+            key={marker.fraction}
+            style={{ left: `${marker.fraction * 100}%` }}
+          >
+            {marker.label}
+          </span>
+        ))}
       </div>
       <div
         aria-label={`Z.AI peak pricing ×3 between ${windowLabel} local time; currently ${
@@ -346,6 +336,41 @@ function GlmPeakHoursBar({ now }: { now: number }) {
       </div>
     </div>
   )
+}
+
+const fixedMarkerHours = [0, 4, 8, 12, 16, 20, 24]
+
+interface PeakHourMarker {
+  edge: 'end' | 'start' | undefined
+  fraction: number
+  label: string
+}
+
+/** Hour labels every four hours, plus peak boundaries that fall between them. */
+function hourMarkers(
+  dayStart: number,
+  peakSegments: ReadonlyArray<{ end: number; start: number }>,
+): PeakHourMarker[] {
+  const byFraction = new Map<number, PeakHourMarker>()
+  for (const hour of fixedMarkerHours) {
+    byFraction.set(hour / 24, {
+      fraction: hour / 24,
+      label: hour === 24 ? '24' : formatHourShort(dayStart + hour * 3_600_000),
+      edge: hour === 0 ? 'start' : hour === 24 ? 'end' : undefined,
+    })
+  }
+  for (const segment of peakSegments) {
+    for (const fraction of [segment.start, segment.end]) {
+      if (!byFraction.has(fraction)) {
+        byFraction.set(fraction, {
+          fraction,
+          label: formatHourShort(dayStart + fraction * dayMs),
+          edge: fraction <= 0 ? 'start' : fraction >= 1 ? 'end' : undefined,
+        })
+      }
+    }
+  }
+  return [...byFraction.values()].sort((left, right) => left.fraction - right.fraction)
 }
 
 function usageFillStyle(
