@@ -58,8 +58,10 @@ function buildTools(pi: ExtensionAPI): SessionEnvironmentTool[] {
     }
     if (typeof tool.description === 'string' && tool.description)
       entry.description = clip(tool.description, 200)
-    if (entry.source === 'extension' && typeof tool.sourceInfo?.path === 'string')
+    if (entry.source === 'extension' && typeof tool.sourceInfo?.path === 'string') {
       entry.sourceName = fileNameOf(tool.sourceInfo.path)
+      entry.sourcePath = tool.sourceInfo.path
+    }
     const params = summarizeParams(tool.parameters)
     if (params.length > 0) entry.params = params
     return entry

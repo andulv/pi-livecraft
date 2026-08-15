@@ -97,6 +97,8 @@ function parseTool(value: unknown): SessionEnvironmentTool | undefined {
     entry.description = tool.description.slice(0, 300)
   if (typeof tool.sourceName === 'string' && tool.sourceName)
     entry.sourceName = tool.sourceName.slice(0, 200)
+  if (typeof tool.sourcePath === 'string' && tool.sourcePath)
+    entry.sourcePath = tool.sourcePath.slice(0, 1000)
   if (tool.params !== undefined) {
     const params = parseArray(tool.params, parseToolParam)
     if (!params) return undefined

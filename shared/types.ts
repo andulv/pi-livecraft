@@ -304,6 +304,8 @@ export interface SessionEnvironmentTool {
   source: string
   /** Extension file name for extension-registered tools. */
   sourceName?: string
+  /** Extension source path; used to distinguish unrelated `index.ts` entry points. */
+  sourcePath?: string
   params?: SessionEnvironmentToolParam[]
 }
 

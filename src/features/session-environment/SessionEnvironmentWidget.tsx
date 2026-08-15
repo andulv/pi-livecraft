@@ -73,8 +73,10 @@ export function SessionEnvironmentWidget(
   const extensionToolCounts = useMemo(() => {
     const counts = new Map<string, number>()
     for (const tool of tools) {
-      if (tool.source !== 'extension' || !tool.sourceName) continue
-      counts.set(tool.sourceName, (counts.get(tool.sourceName) ?? 0) + 1)
+      if (tool.source !== 'extension') continue
+      const source = tool.sourcePath ?? tool.sourceName
+      if (!source) continue
+      counts.set(source, (counts.get(source) ?? 0) + 1)
     }
     return counts
   }, [tools])
@@ -376,14 +378,13 @@ interface ToolGroupInfo {
 function groupTools(tools: readonly SessionEnvironmentTool[]): ToolGroupInfo[] {
   const groups = new Map<string, ToolGroupInfo>()
   for (const tool of tools) {
-    const key = tool.source === 'extension'
-      ? `extension:${tool.sourceName ?? 'unknown'}`
-      : tool.source
+    const source = tool.sourcePath ?? tool.sourceName
+    const key = tool.source === 'extension' ? `extension:${source ?? 'unknown'}` : tool.source
     const label = tool.source === 'builtin'
       ? 'Built-in'
       : tool.source === 'sdk'
       ? 'SDK'
-      : `Extension · ${fileNameOf(tool.sourceName)}`
+      : `Extension · ${extensionSourceLabel(tool.sourcePath, tool.sourceName)}`
     const group = groups.get(key) ?? { key, label, tools: [] }
     group.tools.push(tool)
     groups.set(key, group)
@@ -439,7 +440,23 @@ function toolCountForExtension(
   extension: ExtensionGroup,
   counts: ReadonlyMap<string, number>,
 ): number {
-  return extension.path ? counts.get(fileNameOf(extension.path)) ?? 0 : 0
+  if (!extension.path) return 0
+  return counts.get(extension.path) ?? counts.get(fileNameOf(extension.path)) ?? 0
+}
+
+/** Produces a compact source label without exposing the extension's absolute path. */
+function extensionSourceLabel(
+  sourcePath: string | undefined,
+  sourceName: string | undefined,
+): string {
+  if (!sourcePath) return fileNameOf(sourceName)
+  const parts = sourcePath.replace(/\\/g, '/').split('/').filter(Boolean)
+  const file = parts.at(-1) ?? fileNameOf(sourceName)
+  const immediateParent = parts.at(-2)
+  const parent = immediateParent && ['build', 'dist', 'lib', 'src'].includes(immediateParent)
+    ? parts.at(-3)
+    : immediateParent
+  return /^index\.(ts|js)$/i.test(file) && parent ? `${parent} / ${file}` : file
 }
 
 function readModel(state: JsonObject | null): { label: string; thinkingLevel?: string } | null {
