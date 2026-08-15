@@ -6,7 +6,7 @@ The environment widget answers the question the Pi terminal answers at startup: 
 
 - **Context** — the selected session's model and thinking level, context-window usage with the same pressure thresholds as the composer, and the context files Pi loaded into the system prompt (path and byte size; contents never cross the boundary);
 - **Tools** — every configured tool grouped by source (built-in, extension, or sdk), with its description and active state; extension groups show their source path, rows with parameter schemas expand on click, and a filter box narrows the list by name or description. The widget also shows a clearly labelled estimate of each active tool's prompt footprint from its name, description, and parameter schema; it uses a four-characters-per-token heuristic rather than a model-specific token count;
-- **Skills** — loaded skills with description, user/project scope, and SKILL.md path;
+- **Skills** — loaded skills grouped by Pi provenance (scope or source package), with each SKILL.md path, description, and an estimated prompt footprint. Livecraft receives only character counts, never skill contents; token counts use the same four-characters-per-token heuristic as tools;
 - **Extensions & prompts** — extension files grouped by path with their registered commands and a count of tools they register, plus prompt templates with their invocation name.
 
 Tools and context files arrive through the versioned `pi-livecraft.environment` status payload published by the [session-environment extension](/pi-extensions/README.md). Skills, prompt templates, and extension commands come from the snapshot's `get_commands` data, so those sections work even before the first environment reading lands.

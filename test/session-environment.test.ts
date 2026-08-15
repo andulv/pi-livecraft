@@ -37,6 +37,13 @@ const fullReport = JSON.stringify({
       estimatedContextChars: 1_290,
     },
   ],
+  skills: [{
+    path: '/home/user/.pi/agent/skills/ketch/SKILL.md',
+    contentChars: 2_400,
+    active: true,
+    scope: 'user',
+    origin: 'top-level',
+  }],
   contextFiles: [{ path: '/repo/AGENTS.md', bytes: 8_400 }],
 })
 
@@ -50,6 +57,13 @@ test('accepts the versioned environment payload', () => {
   assert.equal(snapshot.tools[1].active, false)
   assert.equal(snapshot.tools[1].sourcePath, '/home/user/.pi/agent/extensions/pi-ketch/index.ts')
   assert.equal(snapshot.tools[1].estimatedContextChars, 1_290)
+  assert.deepEqual(snapshot.skills, [{
+    path: '/home/user/.pi/agent/skills/ketch/SKILL.md',
+    contentChars: 2_400,
+    active: true,
+    scope: 'user',
+    origin: 'top-level',
+  }])
   assert.deepEqual(snapshot.contextFiles, [{ path: '/repo/AGENTS.md', bytes: 8_400 }])
   assert.equal(snapshot.updatedAt, 1_000)
   assert.equal(snapshot.refreshing, false)
@@ -92,6 +106,9 @@ test('keeps the previous section when a newer report omits it', () => {
   assert.equal(cache.receiveManagerEvent(setStatusEvent(toolsOnly)), true)
   const snapshot = cache.snapshot(false)
   assert.deepEqual(snapshot.tools.map((tool) => tool.name), ['bash'])
+  assert.deepEqual(snapshot.skills.map((skill) => skill.path), [
+    '/home/user/.pi/agent/skills/ketch/SKILL.md',
+  ])
   assert.deepEqual(snapshot.contextFiles, [{ path: '/repo/AGENTS.md', bytes: 8_400 }])
   assert.equal(snapshot.updatedAt, 2_000)
 })

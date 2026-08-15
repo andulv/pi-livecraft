@@ -177,18 +177,21 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
-.environment-tool-groups {
+.environment-tool-groups,
+.environment-skill-groups {
   display: grid;
   gap: 6px;
 }
-.environment-tool-group {
+.environment-tool-group,
+.environment-skill-group {
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: color-mix(in srgb, var(--ink) 2%, var(--surface));
 }
-.environment-tool-group-toggle {
+.environment-tool-group-toggle,
+.environment-skill-group-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -203,18 +206,22 @@
   text-align: left;
   transition: background 180ms ease, color 180ms ease, transform 180ms ease;
 }
-.environment-tool-group-toggle:hover:not(:disabled) {
+.environment-tool-group-toggle:hover:not(:disabled),
+.environment-skill-group-toggle:hover:not(:disabled) {
   background: var(--accent-soft);
   color: var(--accent-hover);
 }
-.environment-tool-group-toggle:focus-visible {
+.environment-tool-group-toggle:focus-visible,
+.environment-skill-group-toggle:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
-.environment-tool-group-toggle:active:not(:disabled) {
+.environment-tool-group-toggle:active:not(:disabled),
+.environment-skill-group-toggle:active:not(:disabled) {
   transform: scale(0.97);
 }
-.environment-tool-group-title {
+.environment-tool-group-title,
+.environment-skill-group-title {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -233,7 +240,8 @@
   line-height: 1;
   text-align: center;
 }
-.environment-tool-group-count {
+.environment-tool-group-count,
+.environment-skill-group-count {
   display: grid;
   flex: 0 0 auto;
   gap: 1px;
@@ -242,10 +250,12 @@
   text-align: right;
   white-space: nowrap;
 }
-.environment-tool-group-tools {
+.environment-tool-group-tools,
+.environment-skill-group-skills {
   padding: 0 8px 4px;
 }
-.environment-tool-group-path {
+.environment-tool-group-path,
+.environment-skill-group-path {
   margin: 6px 0 3px;
   color: var(--subtle);
   font: 9.5px/1.45 ui-monospace, monospace;
@@ -324,6 +334,19 @@
   font: 10.5px/1.7 ui-monospace, monospace;
   overflow-wrap: anywhere;
 }
+.environment-skill-row {
+  min-width: 0;
+  padding: 7px 0;
+}
+.environment-skill-row + .environment-skill-row {
+  border-top: 1px solid var(--panel-line);
+}
+.environment-skill-footprint {
+  flex: 0 0 auto;
+  color: var(--subtle);
+  font: 9.5px ui-monospace, monospace;
+  white-space: nowrap;
+}
 .environment-tool-params b {
   color: var(--ink);
   font-weight: 600;
@@ -379,6 +402,7 @@
   .environment-usage-fill,
   .environment-filter,
   .environment-tool-group-toggle,
+  .environment-skill-group-toggle,
   .environment-tool-toggle {
     transition: none;
   }

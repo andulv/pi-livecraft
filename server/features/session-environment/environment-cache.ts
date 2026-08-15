@@ -3,6 +3,7 @@ import type {
   JsonObject,
   SessionEnvironmentContextFile,
   SessionEnvironmentReport,
+  SessionEnvironmentSkill,
   SessionEnvironmentSnapshot,
   SessionEnvironmentTool,
   SessionEnvironmentToolParam,
@@ -11,6 +12,7 @@ import type {
 /** Keeps the last valid value of each section when a newer report omits it. */
 export class EnvironmentCache {
   #tools: SessionEnvironmentTool[] = []
+  #skills: SessionEnvironmentSkill[] = []
   #contextFiles: SessionEnvironmentContextFile[] = []
   #updatedAt: number | undefined
   #refreshing = false
@@ -18,6 +20,7 @@ export class EnvironmentCache {
   snapshot(sessionRequired: boolean): SessionEnvironmentSnapshot {
     return {
       tools: this.#tools,
+      skills: this.#skills,
       contextFiles: this.#contextFiles,
       ...(this.#updatedAt !== undefined ? { updatedAt: this.#updatedAt } : {}),
       refreshing: this.#refreshing,
@@ -46,6 +49,7 @@ export class EnvironmentCache {
     const report = parseEnvironmentReport(parsed)
     if (!report) return false
     if (report.tools) this.#tools = report.tools
+    if (report.skills) this.#skills = report.skills
     if (report.contextFiles) this.#contextFiles = report.contextFiles
     this.#updatedAt = report.refreshedAt
     this.#refreshing = false
@@ -60,15 +64,17 @@ function parseEnvironmentReport(value: unknown): SessionEnvironmentReport | unde
     || !finiteNumber(report.refreshedAt)
   ) return undefined
   const tools = report.tools === undefined ? undefined : parseArray(report.tools, parseTool)
+  const skills = report.skills === undefined ? undefined : parseArray(report.skills, parseSkill)
   const contextFiles = report.contextFiles === undefined
     ? undefined
     : parseArray(report.contextFiles, parseContextFile)
-  if (!tools && !contextFiles) return undefined
+  if (!tools && !skills && !contextFiles) return undefined
   return {
     protocol: 'pi-livecraft.environment',
     version: 1,
     refreshedAt: report.refreshedAt,
     ...(tools ? { tools } : {}),
+    ...(skills ? { skills } : {}),
     ...(contextFiles ? { contextFiles } : {}),
   }
 }
@@ -106,6 +112,19 @@ function parseTool(value: unknown): SessionEnvironmentTool | undefined {
     if (!params) return undefined
     if (params.length > 0) entry.params = params
   }
+  return entry
+}
+
+function parseSkill(value: unknown): SessionEnvironmentSkill | undefined {
+  const skill = object(value)
+  if (!nonEmptyString(skill?.path)) return undefined
+  const entry: SessionEnvironmentSkill = { path: skill.path.slice(0, 1000) }
+  if (typeof skill.active === 'boolean') entry.active = skill.active
+  if (finiteNumber(skill.contentChars) && skill.contentChars >= 0)
+    entry.contentChars = Math.min(Math.floor(skill.contentChars), 10_000_000)
+  if (nonEmptyString(skill.scope)) entry.scope = skill.scope.slice(0, 40)
+  if (nonEmptyString(skill.origin)) entry.origin = skill.origin.slice(0, 40)
+  if (nonEmptyString(skill.baseDir)) entry.baseDir = skill.baseDir.slice(0, 1000)
   return entry
 }
 

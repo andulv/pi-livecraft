@@ -3,6 +3,7 @@ import { Tooltip } from '../../components/Tooltip.tsx'
 import { isObject } from '../../../shared/is-object.ts'
 import type {
   JsonObject,
+  SessionEnvironmentSkill,
   SessionEnvironmentSnapshot,
   SessionEnvironmentTool,
   SessionStats,
@@ -35,6 +36,9 @@ export function SessionEnvironmentWidget(
   const [collapsedToolGroups, setCollapsedToolGroups] = useState<ReadonlySet<string>>(() =>
     new Set()
   )
+  const [collapsedSkillGroups, setCollapsedSkillGroups] = useState<ReadonlySet<string>>(() =>
+    new Set()
+  )
 
   /** Keeps the button disabled until the manual refresh completes, whether success or error. */
   async function refresh(): Promise<void> {
@@ -61,10 +65,17 @@ export function SessionEnvironmentWidget(
   const activeToolContextChars = useMemo(() => contextCharsForTools(tools), [tools])
   const toolGroups = useMemo(() => groupTools(filteredTools), [filteredTools])
   const commandList = useMemo(() => readCommands(commands), [commands])
+  const skillDefinitions = environment?.skills
   const skills = useMemo(
-    () => commandList.filter((command) => command.source === 'skill'),
-    [commandList],
+    () =>
+      mergeSkills(
+        commandList.filter((command) => command.source === 'skill'),
+        skillDefinitions ?? [],
+      ),
+    [commandList, skillDefinitions],
   )
+  const skillGroups = useMemo(() => groupSkills(skills), [skills])
+  const skillContextChars = useMemo(() => contextCharsForSkills(skills), [skills])
   const prompts = useMemo(
     () => commandList.filter((command) => command.source === 'prompt'),
     [commandList],
@@ -229,22 +240,40 @@ export function SessionEnvironmentWidget(
         <section className='environment-section'>
           <div className='environment-heading'>
             <h2>Skills</h2>
-            {skills.length > 0 && <span className='environment-chip'>{skills.length} loaded</span>}
+            {skills.length > 0 && (
+              <div className='environment-heading-meta'>
+                <span className='environment-chip'>{skills.length} loaded</span>
+                <Tooltip label='Skill definition character counts come from Pi. Token count uses a four-characters-per-token heuristic.'>
+                  <span className='environment-chip muted'>
+                    {formatPromptFootprint(skillContextChars)} estimated
+                  </span>
+                </Tooltip>
+              </div>
+            )}
           </div>
           {skills.length === 0
             ? <p className='environment-empty'>No skills loaded in the selected session.</p>
-            : skills.map((skill) => (
-              <div className='environment-item' key={skill.name}>
-                <div className='environment-item-top'>
-                  <span className='environment-item-name'>{skill.name.replace(/^skill:/, '')}</span>
-                  {skill.location && (
-                    <span className='environment-chip muted'>{skill.location}</span>
-                  )}
-                </div>
-                {skill.description && <p className='environment-item-desc'>{skill.description}</p>}
-                {skill.path && <p className='environment-item-path'>{skill.path}</p>}
+            : (
+              <div className='environment-skill-groups'>
+                {skillGroups.map((group) => {
+                  const expanded = !collapsedSkillGroups.has(group.key)
+                  return (
+                    <SkillGroup
+                      expanded={expanded}
+                      group={group}
+                      key={group.key}
+                      onToggle={() =>
+                        setCollapsedSkillGroups((current) => {
+                          const next = new Set(current)
+                          if (next.has(group.key)) next.delete(group.key)
+                          else next.add(group.key)
+                          return next
+                        })}
+                    />
+                  )
+                })}
               </div>
-            ))}
+            )}
         </section>
 
         <section className='environment-section'>
@@ -341,6 +370,60 @@ function ToolGroup(
   )
 }
 
+/** One collapsible skill provenance group. */
+function SkillGroup(
+  { expanded, group, onToggle }: {
+    expanded: boolean
+    group: SkillGroupInfo
+    onToggle: () => void
+  },
+) {
+  const contextChars = contextCharsForSkills(group.skills)
+  return (
+    <div className='environment-skill-group'>
+      <button
+        aria-expanded={expanded}
+        aria-label={`${expanded ? 'Collapse' : 'Expand'} ${group.label} skills`}
+        className='environment-skill-group-toggle'
+        onClick={onToggle}
+        type='button'
+      >
+        <span className='environment-skill-group-title'>
+          <span aria-hidden='true' className='environment-tool-group-chevron'>
+            {expanded ? '⌄' : '›'}
+          </span>
+          {group.label}
+        </span>
+        <span className='environment-skill-group-count'>
+          <span>{group.skills.length} loaded</span>
+          <span>{formatPromptFootprint(contextChars)}</span>
+        </span>
+      </button>
+      {expanded && (
+        <div className='environment-skill-group-skills'>
+          {group.sourcePath && (
+            <p className='environment-skill-group-path' title={group.sourcePath}>
+              {group.sourcePath}
+            </p>
+          )}
+          {group.skills.map((skill) => (
+            <div className='environment-skill-row' key={skill.path}>
+              <div className='environment-item-top'>
+                <span className='environment-item-name'>{skill.name.replace(/^skill:/, '')}</span>
+                <span className='environment-skill-footprint'>
+                  {formatPromptFootprint(skill.active === false ? 0 : skill.contentChars ?? 0)}
+                </span>
+              </div>
+              {skill.description && <p className='environment-item-desc'>{skill.description}</p>}
+              <p className='environment-item-path' title={skill.path}>{skill.path}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** One tool row; rows with parameters expand into a schema summary on click. */
 function ToolRow(
   { expanded, onToggle, tool }: {
@@ -400,6 +483,14 @@ function contextCharsForTools(tools: readonly SessionEnvironmentTool[]): number 
   )
 }
 
+/** Sums only skills Pi currently includes in the system prompt. */
+function contextCharsForSkills(skills: readonly SkillInfo[]): number {
+  return skills.reduce(
+    (total, skill) => total + (skill.active ? skill.contentChars ?? 0 : 0),
+    0,
+  )
+}
+
 /** Uses a transparent, model-agnostic character-to-token heuristic. */
 function formatPromptFootprint(chars: number): string {
   return `~${formatTokens(Math.ceil(chars / 4))} tok · ${formatTokens(chars)} ch`
@@ -447,6 +538,65 @@ interface CommandInfo {
   path?: string
 }
 
+type SkillInfo = CommandInfo & {
+  path: string
+  active: boolean
+  contentChars?: number
+  scope?: string
+  origin?: string
+  baseDir?: string
+}
+
+interface SkillGroupInfo {
+  key: string
+  label: string
+  sourcePath?: string
+  skills: SkillInfo[]
+}
+
+/** Combines RPC skill commands with provenance and content sizes from the extension payload. */
+function mergeSkills(
+  commands: readonly CommandInfo[],
+  definitions: readonly SessionEnvironmentSkill[],
+): SkillInfo[] {
+  const definitionsByPath = new Map(definitions.map((skill) => [skill.path, skill]))
+  return commands.flatMap((command) => {
+    if (!command.path) return []
+    const definition = definitionsByPath.get(command.path)
+    return [{
+      ...command,
+      path: command.path,
+      active: definition?.active ?? true,
+      ...(definition?.contentChars !== undefined ? { contentChars: definition.contentChars } : {}),
+      ...(definition?.scope ? { scope: definition.scope } : {}),
+      ...(definition?.origin ? { origin: definition.origin } : {}),
+      ...(definition?.baseDir ? { baseDir: definition.baseDir } : {}),
+    }]
+  })
+}
+
+/** Groups skills by Pi's canonical scope and package provenance. */
+function groupSkills(skills: readonly SkillInfo[]): SkillGroupInfo[] {
+  const groups = new Map<string, SkillGroupInfo>()
+  for (const skill of skills) {
+    const scope = skill.scope ?? skill.location ?? 'other'
+    const origin = skill.origin ?? 'top-level'
+    const key = `${origin}:${scope}:${skill.baseDir ?? ''}`
+    const label = origin === 'package'
+      ? `Package · ${fileNameOf(skill.baseDir)}`
+      : `${capitalize(scope)} skills`
+    const group = groups.get(key) ?? {
+      key,
+      label,
+      ...(skill.baseDir ? { sourcePath: skill.baseDir } : {}),
+      skills: [],
+    }
+    group.skills.push(skill)
+    groups.set(key, group)
+  }
+  return [...groups.values()].sort((left, right) => left.label.localeCompare(right.label))
+}
+
 function readCommands(commands: readonly JsonObject[]): CommandInfo[] {
   return commands.flatMap((command) => {
     const name = typeof command.name === 'string' ? command.name : ''
@@ -485,6 +635,10 @@ function toolCountForExtension(
 ): number {
   if (!extension.path) return 0
   return counts.get(extension.path) ?? counts.get(fileNameOf(extension.path)) ?? 0
+}
+
+function capitalize(value: string): string {
+  return value ? `${value[0].toUpperCase()}${value.slice(1)}` : 'Other'
 }
 
 /** Produces a compact source label without exposing the extension's absolute path. */

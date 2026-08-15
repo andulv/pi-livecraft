@@ -8,6 +8,7 @@ import { isObject } from '../shared/is-object.ts'
 import type {
   SessionEnvironmentContextFile,
   SessionEnvironmentReport,
+  SessionEnvironmentSkill,
   SessionEnvironmentTool,
   SessionEnvironmentToolParam,
 } from '../shared/types.ts'
@@ -42,6 +43,8 @@ function publish(
     refreshedAt: Date.now(),
     tools: buildTools(pi),
   }
+  const skills = buildSkills(pi, options)
+  if (skills) report.skills = skills
   const contextFiles = buildContextFiles(options)
   if (contextFiles) report.contextFiles = contextFiles
   ctx.ui.setStatus(statusKey, JSON.stringify(report))
@@ -104,6 +107,33 @@ function summarizeParams(schema: unknown): SessionEnvironmentToolParam[] {
     if (typeof property.description === 'string' && property.description)
       param.description = clip(property.description, 140)
     return param
+  })
+}
+
+/**
+ * Publishes skill provenance and definition sizes after a command refresh, without exposing content.
+ * The command metadata supplies Pi's canonical sourceInfo; prompt options supply loaded content.
+ */
+function buildSkills(
+  pi: ExtensionAPI,
+  options: BuildSystemPromptOptions | undefined,
+): SessionEnvironmentSkill[] | undefined {
+  if (!options?.skills) return undefined
+  const contentChars = new Map(options.skills.map((skill) => [
+    skill.path,
+    [...skill.content].length,
+  ]))
+  const active = options.selectedTools?.includes('read') ?? true
+  return pi.getCommands().flatMap((command) => {
+    if (command.source !== 'skill' || !command.sourceInfo?.path) return []
+    const source = command.sourceInfo
+    const entry: SessionEnvironmentSkill = { path: source.path, active }
+    const chars = contentChars.get(source.path)
+    if (chars !== undefined) entry.contentChars = chars
+    if (typeof source.scope === 'string') entry.scope = source.scope
+    if (typeof source.origin === 'string') entry.origin = source.origin
+    if (typeof source.baseDir === 'string' && source.baseDir) entry.baseDir = source.baseDir
+    return [entry]
   })
 }
 

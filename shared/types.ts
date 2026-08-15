@@ -296,6 +296,21 @@ export interface SessionEnvironmentToolParam {
   description?: string
 }
 
+export interface SessionEnvironmentSkill {
+  /** Absolute SKILL.md path; skill contents never leave Pi. */
+  path: string
+  /** Character count of the loaded skill definition. */
+  contentChars?: number
+  /** Whether Pi currently includes skills in the system prompt. */
+  active?: boolean
+  /** Pi's canonical resource scope. */
+  scope?: string
+  /** Whether Pi loaded the skill directly or from a package. */
+  origin?: string
+  /** Package or resource base directory when Pi provides one. */
+  baseDir?: string
+}
+
 export interface SessionEnvironmentTool {
   name: string
   description?: string
@@ -327,11 +342,13 @@ export interface SessionEnvironmentReport {
   version: 1
   refreshedAt: number
   tools?: SessionEnvironmentTool[]
+  skills?: SessionEnvironmentSkill[]
   contextFiles?: SessionEnvironmentContextFile[]
 }
 
 export interface SessionEnvironmentSnapshot {
   tools: SessionEnvironmentTool[]
+  skills: SessionEnvironmentSkill[]
   contextFiles: SessionEnvironmentContextFile[]
   updatedAt?: number
   refreshing: boolean
