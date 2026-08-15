@@ -32,6 +32,8 @@ export function SessionEnvironmentWidget(
 ) {
   const [refreshing, setRefreshing] = useState(false)
   const [toolFilter, setToolFilter] = useState('')
+  const [toolsSectionExpanded, setToolsSectionExpanded] = useState(true)
+  const [skillsSectionExpanded, setSkillsSectionExpanded] = useState(true)
   const [expandedTool, setExpandedTool] = useState<string | null>(null)
   const [collapsedToolGroups, setCollapsedToolGroups] = useState<ReadonlySet<string>>(() =>
     new Set()
@@ -75,7 +77,6 @@ export function SessionEnvironmentWidget(
     [commandList, skillDefinitions],
   )
   const skillGroups = useMemo(() => groupSkills(skills), [skills])
-  const skillContextChars = useMemo(() => contextCharsForSkills(skills), [skills])
   const prompts = useMemo(
     () => commandList.filter((command) => command.source === 'prompt'),
     [commandList],
@@ -172,11 +173,24 @@ export function SessionEnvironmentWidget(
 
         <section className='environment-section'>
           <div className='environment-heading'>
-            <h2>Tools</h2>
+            <h2>
+              <button
+                aria-controls='environment-tools'
+                aria-expanded={toolsSectionExpanded}
+                className='environment-section-toggle'
+                onClick={() => setToolsSectionExpanded((expanded) => !expanded)}
+                type='button'
+              >
+                <span aria-hidden='true' className='environment-section-chevron'>
+                  {toolsSectionExpanded ? '⌄' : '›'}
+                </span>
+                Tools
+              </button>
+            </h2>
             {tools.length > 0 && (
               <div className='environment-heading-meta'>
                 <span className='environment-chip'>
-                  {activeCount} active · {tools.length} loaded
+                  {activeCount} active · {tools.length} available
                 </span>
                 <Tooltip label='Estimated from active tool names, descriptions, and parameter schemas. Token count uses a four-characters-per-token heuristic.'>
                   <span className='environment-chip muted'>
@@ -186,10 +200,10 @@ export function SessionEnvironmentWidget(
               </div>
             )}
           </div>
-          {tools.length === 0
+          {toolsSectionExpanded && (tools.length === 0
             ? <p className='environment-empty'>{emptyToolsText(environment)}</p>
             : (
-              <>
+              <div id='environment-tools'>
                 <input
                   aria-label='Filter tools'
                   className='environment-filter'
@@ -233,28 +247,41 @@ export function SessionEnvironmentWidget(
                     )
                   })}
                 </div>
-              </>
-            )}
+              </div>
+            ))}
         </section>
 
         <section className='environment-section'>
           <div className='environment-heading'>
-            <h2>Skills</h2>
+            <h2>
+              <button
+                aria-controls='environment-skills'
+                aria-expanded={skillsSectionExpanded}
+                className='environment-section-toggle'
+                onClick={() => setSkillsSectionExpanded((expanded) => !expanded)}
+                type='button'
+              >
+                <span aria-hidden='true' className='environment-section-chevron'>
+                  {skillsSectionExpanded ? '⌄' : '›'}
+                </span>
+                Skills
+              </button>
+            </h2>
             {skills.length > 0 && (
               <div className='environment-heading-meta'>
-                <span className='environment-chip'>{skills.length} loaded</span>
-                <Tooltip label='Skill definition character counts come from Pi. Token count uses a four-characters-per-token heuristic.'>
+                <span className='environment-chip'>{skills.length} available</span>
+                <Tooltip label='Definition character counts come from Pi after an Environment refresh. Token count uses a four-characters-per-token heuristic.'>
                   <span className='environment-chip muted'>
-                    {formatPromptFootprint(skillContextChars)} estimated
+                    {formatSkillFootprint(skills)}
                   </span>
                 </Tooltip>
               </div>
             )}
           </div>
-          {skills.length === 0
-            ? <p className='environment-empty'>No skills loaded in the selected session.</p>
+          {skillsSectionExpanded && (skills.length === 0
+            ? <p className='environment-empty'>No skills available in the selected session.</p>
             : (
-              <div className='environment-skill-groups'>
+              <div className='environment-skill-groups' id='environment-skills'>
                 {skillGroups.map((group) => {
                   const expanded = !collapsedSkillGroups.has(group.key)
                   return (
@@ -273,7 +300,7 @@ export function SessionEnvironmentWidget(
                   )
                 })}
               </div>
-            )}
+            ))}
         </section>
 
         <section className='environment-section'>
@@ -378,7 +405,7 @@ function SkillGroup(
     onToggle: () => void
   },
 ) {
-  const contextChars = contextCharsForSkills(group.skills)
+  const footprint = formatSkillFootprint(group.skills)
   return (
     <div className='environment-skill-group'>
       <button
@@ -395,17 +422,15 @@ function SkillGroup(
           {group.label}
         </span>
         <span className='environment-skill-group-count'>
-          <span>{group.skills.length} loaded</span>
-          <span>{formatPromptFootprint(contextChars)}</span>
+          <span>{group.skills.length} available</span>
+          <span>{footprint}</span>
         </span>
       </button>
       {expanded && (
         <div className='environment-skill-group-skills'>
-          {group.sourcePath && (
-            <p className='environment-skill-group-path' title={group.sourcePath}>
-              {group.sourcePath}
-            </p>
-          )}
+          <p className='environment-skill-group-path' title={group.sourcePath}>
+            {group.sourcePath ?? 'Path available after refresh'}
+          </p>
           {group.skills.map((skill) => (
             <div
               className='environment-skill-row'
@@ -414,13 +439,13 @@ function SkillGroup(
               <div className='environment-item-top'>
                 <span className='environment-item-name'>{skill.name.replace(/^skill:/, '')}</span>
                 <span className='environment-skill-footprint'>
-                  {formatPromptFootprint(skill.active === false ? 0 : skill.contentChars ?? 0)}
+                  {formatSkillFootprint([skill])}
                 </span>
               </div>
               {skill.description && <p className='environment-item-desc'>{skill.description}</p>}
-              {skill.path && (
-                <p className='environment-item-path' title={skill.path}>{skill.path}</p>
-              )}
+              <p className='environment-item-path' title={skill.path}>
+                {skill.path ?? 'Path available after refresh'}
+              </p>
             </div>
           ))}
         </div>
@@ -494,6 +519,14 @@ function contextCharsForSkills(skills: readonly SkillInfo[]): number {
     (total, skill) => total + (skill.active ? skill.contentChars ?? 0 : 0),
     0,
   )
+}
+
+/** Does not present missing extension data as a zero-sized prompt contribution. */
+function formatSkillFootprint(skills: readonly SkillInfo[]): string {
+  const activeSkills = skills.filter((skill) => skill.active)
+  if (activeSkills.length === 0) return 'Not in context'
+  if (activeSkills.some((skill) => skill.contentChars === undefined)) return 'Refresh to measure'
+  return `${formatPromptFootprint(contextCharsForSkills(activeSkills))} estimated`
 }
 
 /** Uses a transparent, model-agnostic character-to-token heuristic. */
