@@ -2,6 +2,7 @@ import { useState, type CSSProperties } from 'react'
 import type { GitProject } from '../../../shared/types.ts'
 import { ProjectPicker } from './ProjectPicker.tsx'
 import type { Project } from './projects.ts'
+import { projectPageUrl } from './project-url.ts'
 
 interface ProjectHomeProps {
   activity: Record<string, number>
@@ -67,11 +68,9 @@ export function ProjectHome({
                     key={project.id}
                     style={{ '--project-color': project.color } as CSSProperties}
                   >
-                    <button
+                    <a
                       className='project-card-open'
-                      disabled={unavailable || checking}
-                      onClick={() => onOpen(project)}
-                      type='button'
+                      href={projectPageUrl(project.id, project.name)}
                     >
                       <span className='project-card-name'>{project.name}</span>
                       <span className='project-card-path'>{project.root}</span>
@@ -82,7 +81,7 @@ export function ProjectHome({
                           ? 'Repository unavailable'
                           : `${workspaceCount ?? 1} workspace${workspaceCount === 1 ? '' : 's'}`}
                       </span>
-                    </button>
+                    </a>
                     <button
                       aria-label={`Remove ${project.name}`}
                       className='project-card-remove'
