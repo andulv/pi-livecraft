@@ -429,7 +429,7 @@ function SkillGroup(
       {expanded && (
         <div className='environment-skill-group-skills'>
           <p className='environment-skill-group-path' title={group.sourcePath}>
-            {group.sourcePath ?? 'Path available after refresh'}
+            {group.sourcePath ?? 'Path awaiting Pi metadata'}
           </p>
           {group.skills.map((skill) => (
             <div
@@ -444,7 +444,7 @@ function SkillGroup(
               </div>
               {skill.description && <p className='environment-item-desc'>{skill.description}</p>}
               <p className='environment-item-path' title={skill.path}>
-                {skill.path ?? 'Path available after refresh'}
+                {skill.path ?? 'Path awaiting Pi metadata'}
               </p>
             </div>
           ))}
@@ -525,7 +525,8 @@ function contextCharsForSkills(skills: readonly SkillInfo[]): number {
 function formatSkillFootprint(skills: readonly SkillInfo[]): string {
   const activeSkills = skills.filter((skill) => skill.active)
   if (activeSkills.length === 0) return 'Not in context'
-  if (activeSkills.some((skill) => skill.contentChars === undefined)) return 'Refresh to measure'
+  if (activeSkills.some((skill) => skill.contentChars === undefined))
+    return 'Awaiting Pi definition'
   return `${formatPromptFootprint(contextCharsForSkills(activeSkills))} estimated`
 }
 

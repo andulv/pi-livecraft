@@ -26,6 +26,9 @@ export default function registerSessionEnvironment(pi: ExtensionAPI): void {
     // A command context is needed for system-prompt options; report tools only at start.
     publish(pi, ctx, undefined)
   })
+  pi.on('before_agent_start', (event, ctx) => {
+    publish(pi, ctx, event.systemPromptOptions)
+  })
   pi.registerCommand('livecraft-environment', {
     description: 'Refresh the Pi Livecraft session environment',
     handler: async (_args, ctx) => publish(pi, ctx, ctx.getSystemPromptOptions()),
@@ -118,16 +121,16 @@ function buildSkills(
   pi: ExtensionAPI,
   options: BuildSystemPromptOptions | undefined,
 ): SessionEnvironmentSkill[] | undefined {
-  if (!options?.skills) return undefined
-  const contentChars = new Map(options.skills.map((skill) => [
+  const contentChars = new Map((options?.skills ?? []).map((skill) => [
     skill.path,
     [...skill.content].length,
   ]))
-  const active = options.selectedTools?.includes('read') ?? true
+  const active = options?.selectedTools?.includes('read')
   return pi.getCommands().flatMap((command) => {
     if (command.source !== 'skill' || !command.sourceInfo?.path) return []
     const source = command.sourceInfo
-    const entry: SessionEnvironmentSkill = { name: command.name, path: source.path, active }
+    const entry: SessionEnvironmentSkill = { name: command.name, path: source.path }
+    if (active !== undefined) entry.active = active
     const chars = contentChars.get(source.path)
     if (chars !== undefined) entry.contentChars = chars
     if (typeof source.scope === 'string') entry.scope = source.scope
