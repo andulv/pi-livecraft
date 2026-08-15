@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Show assistant output before blocking questions, instead of hiding it behind the prompt.
 - Preserve queued steering when switching sessions.
 - Avoid conflicts with Pi's existing `ask_user_question` tool.
+- Skip re-registering `ask_user_question` on forked or resumed sessions, which falsely reported the tool as already registered.
 - Display Pi error notifications as errors instead of notices.
 - Automatically dismiss error notifications after five seconds.
 - Open files outside the current working directory from conversation actions.

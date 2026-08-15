@@ -13,12 +13,23 @@ import {
   parseAskUserQuestionResponse,
 } from '../shared/ask-user-question.ts'
 const rpcTitle = 'Pi Livecraft questionnaire'
+
+/**
+ * Set once this module instance has registered the tool. Tool registration is
+ * process-scoped and survives session switches, while `session_start` re-fires
+ * for every new, forked, or resumed session in the same process; without this
+ * flag the duplicate check below would flag our own registration. `/reload`
+ * and process restarts re-evaluate this module and reset the flag.
+ */
+let registeredInThisProcess = false
+
 export default function registerAskUserQuestion(pi: ExtensionAPI): void {
   // Register after extension loading so a same-named auto-discovered tool does not trigger Pi's fatal load diagnostic.
   pi.on('session_start', (_event, ctx) => registerAskUserQuestionTool(pi, ctx))
 }
 
 function registerAskUserQuestionTool(pi: ExtensionAPI, ctx: ExtensionContext): void {
+  if (registeredInThisProcess) return
   if (pi.getAllTools().some((tool) => tool.name === 'ask_user_question')) {
     ctx.ui.notify(
       'The ask_user_question tool is already registered in Pi. Pi Livecraft will not replace it; the questionnaire remains available, but its UI may be limited while that tool remains registered.',
@@ -27,6 +38,7 @@ function registerAskUserQuestionTool(pi: ExtensionAPI, ctx: ExtensionContext): v
     return
   }
 
+  registeredInThisProcess = true
   pi.registerTool({
     name: 'ask_user_question',
     label: 'Ask User Question',
