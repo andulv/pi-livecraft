@@ -44,6 +44,14 @@ const fullReport = JSON.stringify({
     scope: 'user',
     origin: 'top-level',
   }],
+  systemPrompt: {
+    totalChars: 18_400,
+    guidelinesCount: 2,
+    guidelinesChars: 120,
+    appendChars: 300,
+    toolSnippetCount: 8,
+    toolSnippetChars: 640,
+  },
   contextFiles: [{ path: '/repo/AGENTS.md', bytes: 8_400 }],
 })
 
@@ -64,6 +72,14 @@ test('accepts the versioned environment payload', () => {
     scope: 'user',
     origin: 'top-level',
   }])
+  assert.deepEqual(snapshot.systemPrompt, {
+    totalChars: 18_400,
+    guidelinesCount: 2,
+    guidelinesChars: 120,
+    appendChars: 300,
+    toolSnippetCount: 8,
+    toolSnippetChars: 640,
+  })
   assert.deepEqual(snapshot.contextFiles, [{ path: '/repo/AGENTS.md', bytes: 8_400 }])
   assert.equal(snapshot.updatedAt, 1_000)
   assert.equal(snapshot.refreshing, false)

@@ -5,6 +5,7 @@ import type {
   SessionEnvironmentReport,
   SessionEnvironmentSnapshot,
   SessionEnvironmentSkill,
+  SessionEnvironmentSystemPrompt,
   SessionEnvironmentTool,
   SessionEnvironmentToolParam,
 } from '../../../shared/types.ts'
@@ -12,6 +13,7 @@ import type {
 interface EnvironmentEntry {
   tools: SessionEnvironmentTool[]
   skills: SessionEnvironmentSkill[]
+  systemPrompt?: SessionEnvironmentSystemPrompt
   contextFiles: SessionEnvironmentContextFile[]
   updatedAt?: number
 }
@@ -32,6 +34,7 @@ export class EnvironmentCache {
     return {
       tools: entry.tools,
       skills: entry.skills,
+      ...(entry.systemPrompt ? { systemPrompt: entry.systemPrompt } : {}),
       contextFiles: entry.contextFiles,
       ...(entry.updatedAt !== undefined ? { updatedAt: entry.updatedAt } : {}),
       refreshing: this.#refreshing.has(sessionId),
@@ -68,6 +71,7 @@ export class EnvironmentCache {
     const entry = this.#entries.get(sessionId) ?? emptyEntry()
     if (report.tools) entry.tools = report.tools
     if (report.skills) entry.skills = report.skills
+    if (report.systemPrompt) entry.systemPrompt = report.systemPrompt
     if (report.contextFiles) entry.contextFiles = report.contextFiles
     entry.updatedAt = report.refreshedAt
     this.#entries.set(sessionId, entry)
@@ -87,13 +91,17 @@ function parseEnvironmentReport(value: unknown): SessionEnvironmentReport | unde
   const contextFiles = report.contextFiles === undefined
     ? undefined
     : parseArray(report.contextFiles, parseContextFile)
-  if (!tools && !skills && !contextFiles) return undefined
+  const systemPrompt = report.systemPrompt === undefined
+    ? undefined
+    : parseSystemPrompt(report.systemPrompt)
+  if (!tools && !skills && !contextFiles && !systemPrompt) return undefined
   return {
     protocol: 'pi-livecraft.environment',
     version: 1,
     refreshedAt: report.refreshedAt,
     ...(tools ? { tools } : {}),
     ...(skills ? { skills } : {}),
+    ...(systemPrompt ? { systemPrompt } : {}),
     ...(contextFiles ? { contextFiles } : {}),
   }
 }
@@ -163,6 +171,34 @@ function parseContextFile(value: unknown): SessionEnvironmentContextFile | undef
   const file = object(value)
   if (!nonEmptyString(file?.path) || !finiteNumber(file?.bytes) || file.bytes < 0) return undefined
   return { path: file.path.slice(0, 1000), bytes: file.bytes }
+}
+
+function parseSystemPrompt(value: unknown): SessionEnvironmentSystemPrompt | undefined {
+  const prompt = object(value)
+  if (!finiteNumber(prompt?.totalChars) || prompt.totalChars < 0) return undefined
+  const entry: SessionEnvironmentSystemPrompt = {
+    totalChars: Math.min(Math.floor(prompt.totalChars), 100_000_000),
+  }
+  if (prompt.hasCustomPrompt === true) entry.hasCustomPrompt = true
+  const guidelinesCount = count(prompt?.guidelinesCount)
+  if (guidelinesCount !== undefined) entry.guidelinesCount = guidelinesCount
+  const guidelinesChars = chars(prompt?.guidelinesChars)
+  if (guidelinesChars !== undefined) entry.guidelinesChars = guidelinesChars
+  const appendChars = chars(prompt?.appendChars)
+  if (appendChars !== undefined) entry.appendChars = appendChars
+  const toolSnippetCount = count(prompt?.toolSnippetCount)
+  if (toolSnippetCount !== undefined) entry.toolSnippetCount = toolSnippetCount
+  const toolSnippetChars = chars(prompt?.toolSnippetChars)
+  if (toolSnippetChars !== undefined) entry.toolSnippetChars = toolSnippetChars
+  return entry
+}
+
+function count(value: unknown): number | undefined {
+  return finiteNumber(value) && value >= 0 ? Math.min(Math.floor(value), 100_000) : undefined
+}
+
+function chars(value: unknown): number | undefined {
+  return finiteNumber(value) && value >= 0 ? Math.min(Math.floor(value), 100_000_000) : undefined
 }
 
 function object(value: unknown): JsonObject | undefined {

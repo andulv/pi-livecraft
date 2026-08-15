@@ -94,6 +94,7 @@ export function SessionEnvironmentWidget(
     return counts
   }, [tools])
   const contextFiles = environment?.contextFiles ?? []
+  const systemPrompt = environment?.systemPrompt
 
   return (
     <>
@@ -155,6 +156,45 @@ export function SessionEnvironmentWidget(
                 />
               </div>
             </>
+          )}
+          {systemPrompt && (
+            <div className='environment-kv'>
+              <span className='environment-key'>System prompt</span>
+              <span className='environment-value'>
+                {formatPromptFootprint(systemPrompt.totalChars)}
+                {systemPrompt.hasCustomPrompt && (
+                  <span className='environment-chip accent'>custom</span>
+                )}
+              </span>
+            </div>
+          )}
+          {systemPrompt?.guidelinesCount !== undefined && (
+            <div className='environment-kv'>
+              <span className='environment-key'>Guidelines</span>
+              <span className='environment-value'>
+                {systemPrompt.guidelinesCount} · {formatTokens(systemPrompt.guidelinesChars ?? 0)}
+                {' '}
+                ch
+              </span>
+            </div>
+          )}
+          {systemPrompt?.appendChars !== undefined && systemPrompt.appendChars > 0 && (
+            <div className='environment-kv'>
+              <span className='environment-key'>Appended text</span>
+              <span className='environment-value'>
+                {formatTokens(systemPrompt.appendChars)} ch
+              </span>
+            </div>
+          )}
+          {systemPrompt?.toolSnippetCount !== undefined && (
+            <div className='environment-kv'>
+              <span className='environment-key'>Tool snippets</span>
+              <span className='environment-value'>
+                {systemPrompt.toolSnippetCount} · {formatTokens(systemPrompt.toolSnippetChars ?? 0)}
+                {' '}
+                ch
+              </span>
+            </div>
           )}
           <p className='environment-sub-label'>
             Context files · {contextFiles.length}

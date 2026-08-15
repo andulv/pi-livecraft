@@ -9,6 +9,7 @@ import type {
   SessionEnvironmentContextFile,
   SessionEnvironmentReport,
   SessionEnvironmentSkill,
+  SessionEnvironmentSystemPrompt,
   SessionEnvironmentTool,
   SessionEnvironmentToolParam,
 } from '../shared/types.ts'
@@ -45,6 +46,7 @@ function publish(
   }
   const skills = buildSkills(pi, options)
   if (skills) report.skills = skills
+  report.systemPrompt = buildSystemPrompt(ctx, options)
   const contextFiles = buildContextFiles(options)
   if (contextFiles) report.contextFiles = contextFiles
   ctx.ui.setStatus(statusKey, JSON.stringify(report))
@@ -130,6 +132,31 @@ function buildSkills(
     if (typeof source.baseDir === 'string' && source.baseDir) entry.baseDir = source.baseDir
     return [entry]
   })
+}
+
+/**
+ * Measures the assembled system prompt — the string Pi will actually send — together
+ * with its structured components. The prompt embeds context-file contents, so only
+ * sizes are published, never text.
+ */
+function buildSystemPrompt(
+  ctx: ExtensionContext | ExtensionCommandContext,
+  options: BuildSystemPromptOptions | undefined,
+): SessionEnvironmentSystemPrompt {
+  const entry: SessionEnvironmentSystemPrompt = { totalChars: ctx.getSystemPrompt().length }
+  if (options?.customPrompt) entry.hasCustomPrompt = true
+  const guidelines = options?.promptGuidelines ?? []
+  if (guidelines.length > 0) {
+    entry.guidelinesCount = guidelines.length
+    entry.guidelinesChars = guidelines.reduce((total, guideline) => total + guideline.length, 0)
+  }
+  if (options?.appendSystemPrompt) entry.appendChars = options.appendSystemPrompt.length
+  const snippets = options?.toolSnippets ? Object.values(options.toolSnippets) : []
+  if (snippets.length > 0) {
+    entry.toolSnippetCount = snippets.length
+    entry.toolSnippetChars = snippets.reduce((total, snippet) => total + snippet.length, 0)
+  }
+  return entry
 }
 
 /** Context file contents stay inside Pi; only paths and byte sizes are published. */

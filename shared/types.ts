@@ -333,6 +333,21 @@ export interface SessionEnvironmentContextFile {
 }
 
 /**
+ * Sizes of the assembled system prompt and its structured components. The prompt text
+ * itself embeds context-file contents, so only measurements cross the boundary.
+ */
+export interface SessionEnvironmentSystemPrompt {
+  totalChars: number
+  /** True when a custom prompt replaces Pi's default prompt. */
+  hasCustomPrompt?: boolean
+  guidelinesCount?: number
+  guidelinesChars?: number
+  appendChars?: number
+  toolSnippetCount?: number
+  toolSnippetChars?: number
+}
+
+/**
  * Versioned status payload published by the session-environment extension. Sections are
  * optional because session start reports tools before a command context can read the
  * system-prompt options; the cache keeps the previous value of an absent section.
@@ -343,12 +358,14 @@ export interface SessionEnvironmentReport {
   refreshedAt: number
   tools?: SessionEnvironmentTool[]
   skills?: SessionEnvironmentSkill[]
+  systemPrompt?: SessionEnvironmentSystemPrompt
   contextFiles?: SessionEnvironmentContextFile[]
 }
 
 export interface SessionEnvironmentSnapshot {
   tools: SessionEnvironmentTool[]
   skills: SessionEnvironmentSkill[]
+  systemPrompt?: SessionEnvironmentSystemPrompt
   contextFiles: SessionEnvironmentContextFile[]
   updatedAt?: number
   refreshing: boolean
