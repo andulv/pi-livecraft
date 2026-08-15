@@ -18,6 +18,7 @@ import {
   revertGitCommit,
 } from './features/git/git.ts'
 import { QuotaService } from './features/quotas/quota-service.ts'
+import { EnvironmentService } from './features/session-environment/environment-service.ts'
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
 import {
   openVSCodeApplication,
@@ -55,12 +56,14 @@ const liveSessionEvents = new Map<string, LiveSessionEvents>()
 let piEventSequence = 0
 const distDirectory = fileURLToPath(new URL('../dist/', import.meta.url))
 const quotas = new QuotaService(manager)
+const environment = new EnvironmentService(manager)
 const managerRuntime = new ManagerRuntimeMonitor(manager, (status) => {
   broadcast({ kind: 'event', event: 'manager_status', sessionId: '', data: status })
 })
 
 manager.on('event', (event: ManagerEvent) => {
   quotas.receiveManagerEvent(event)
+  environment.receiveManagerEvent(event)
   if (event.event === 'session_exited' || event.event === 'session_reassigned')
     liveSessionEvents.delete(event.sessionId)
   if (event.event === 'pi' && isObject(event.data)) {
@@ -77,6 +80,7 @@ manager.on('connected', () => {
   managerRuntime.connected()
   broadcast({ kind: 'event', event: 'manager_connected', sessionId: '' })
   void quotas.restoreFromIdleSession()
+  void environment.restoreFromIdleSession()
 })
 manager.on('disconnected', () => {
   managerRuntime.disconnected()
@@ -168,6 +172,19 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     if (typeof body.sessionId !== 'string' || !body.sessionId)
       throw new HttpError(409, 'An open Pi session is required to refresh quotas.')
     sendJson(response, 200, await quotas.refresh(body.sessionId, body.automatic === true))
+    return
+  }
+
+  if (method === 'GET' && url.pathname === '/api/environment') {
+    sendJson(response, 200, await environment.snapshot())
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/environment/refresh') {
+    const body = await readJsonBody(request)
+    if (typeof body.sessionId !== 'string' || !body.sessionId)
+      throw new HttpError(409, 'An open Pi session is required to refresh the environment.')
+    sendJson(response, 200, await environment.refresh(body.sessionId))
     return
   }
 

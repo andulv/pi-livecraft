@@ -11,6 +11,7 @@ import type {
   PromptTemplate,
   QuotaSnapshot,
   RecentSession,
+  SessionEnvironmentSnapshot,
   SessionSnapshot,
   SessionSummary,
   TodoItem,
@@ -268,6 +269,17 @@ export async function refreshQuotas(sessionId: string, automatic = false): Promi
   return request<QuotaSnapshot>('/api/quotas/refresh', {
     method: 'POST',
     body: JSON.stringify({ automatic, sessionId }),
+  })
+}
+
+export async function getEnvironment(): Promise<SessionEnvironmentSnapshot> {
+  return request<SessionEnvironmentSnapshot>('/api/environment')
+}
+
+export async function refreshEnvironment(sessionId: string): Promise<SessionEnvironmentSnapshot> {
+  return request<SessionEnvironmentSnapshot>('/api/environment/refresh', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId }),
   })
 }
 

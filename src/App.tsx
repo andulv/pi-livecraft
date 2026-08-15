@@ -6,6 +6,7 @@ import {
   discardChanges,
   getGitFileDiff,
   getGitSnapshot,
+  getEnvironment,
   getQuotas,
   getVSCodeTitleBarColor,
   improvePrompt,
@@ -14,6 +15,7 @@ import {
   openTerminal,
   openVSCode,
   pushCommits,
+  refreshEnvironment,
   refreshQuotas,
   resetGitCommit,
   restartManager,
@@ -28,6 +30,7 @@ import type {
   JsonObject,
   ManagerRuntimeStatus,
   QuotaSnapshot,
+  SessionEnvironmentSnapshot,
   SessionSummary,
 } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
@@ -291,6 +294,7 @@ function LivecraftProjectApp(
   const [gitSnapshot, setGitSnapshot] = useState<GitSnapshot | null>(null)
   const [vscodeTitleBarColor, setVSCodeTitleBarColor] = useState<string | null>(null)
   const [quotas, setQuotas] = useState<QuotaSnapshot | null>(null)
+  const [environment, setEnvironment] = useState<SessionEnvironmentSnapshot | null>(null)
   const [activeRightWidget, setActiveRightWidget] = useState<RightWidget | null>(() =>
     readActiveRightWidget(
       window.localStorage.getItem('pi-livecraft.right-sidebar-widget'),
@@ -351,6 +355,8 @@ function LivecraftProjectApp(
   const quotaAutoRefreshAtRef = useRef(new Map<string, number>())
   const quotasRef = useRef(quotas)
   quotasRef.current = quotas
+  const environmentRef = useRef(environment)
+  environmentRef.current = environment
 
   const dismissingRef = useRef(new Set<string>())
   const pendingManagerUnavailableToastsRef = useRef(new Map<string, number>())
@@ -708,6 +714,21 @@ function LivecraftProjectApp(
     [showToast],
   )
 
+  /** Reads the loaded tools and context files from the Pi session. */
+  const refreshSessionEnvironment = useCallback(
+    async (sessionId: string): Promise<void> => {
+      if (!sessionId) throw new Error('An open Pi session is required to refresh the environment.')
+      try {
+        setEnvironment((current) => current && { ...current, refreshing: true })
+        setEnvironment(await refreshEnvironment(sessionId))
+      } catch (cause) {
+        showToast('error', messageOf(cause))
+        setEnvironment(await getEnvironment().catch(() => environmentRef.current))
+      }
+    },
+    [showToast],
+  )
+
   /** Sends /agent to Pi, intercepts the resulting selector silently, and caches its options. */
   const fetchAgentOptions = useCallback((sessionId: string) => {
     if (agentOptionsLoadingRef.current[sessionId] || agentOptions[sessionId]) return
@@ -754,6 +775,7 @@ function LivecraftProjectApp(
   }, [refreshVSCodeTitleBarColor])
   useEffect(() => {
     void getQuotas().then(setQuotas).catch(() => undefined)
+    void getEnvironment().then(setEnvironment).catch(() => undefined)
   }, [])
 
   // Selected session synchronization
@@ -807,6 +829,12 @@ function LivecraftProjectApp(
         && event.statusKey === 'pi-livecraft.quotas'
       ) {
         void getQuotas().then(setQuotas).catch(() => undefined)
+      }
+      if (
+        event.type === 'extension_ui_request' && event.method === 'setStatus'
+        && event.statusKey === 'pi-livecraft.environment'
+      ) {
+        void getEnvironment().then(setEnvironment).catch(() => undefined)
       }
       if (
         event.type === 'extension_ui_request' && isBlockingDialog(event) && !isAgentSelector(event)
@@ -1354,7 +1382,7 @@ function LivecraftProjectApp(
 
   // Application layout
   const rightPanelVisible = activeRightWidget === 'index' || activeRightWidget === 'todo'
-    || activeRightWidget === 'quotas'
+    || activeRightWidget === 'quotas' || activeRightWidget === 'environment'
     || (activeRightWidget === 'analysis' && sessionAnalysis !== null)
     || (activeRightWidget === 'git' && gitSnapshot?.repository === true)
 
@@ -1677,6 +1705,10 @@ function LivecraftProjectApp(
         snapshot={gitSnapshot?.repository ? gitSnapshot : null}
         sessions={sessions}
         quotas={quotas}
+        environment={environment}
+        sessionCommands={snapshot.commands}
+        sessionState={snapshot.state}
+        sessionStats={snapshot.stats}
         width={rightSidebarWidth}
         workspacePath={workspacePath}
         railActions={railActions}
@@ -1688,6 +1720,7 @@ function LivecraftProjectApp(
         }}
         onPush={() => pushCommits(workspacePath)}
         onFileSelect={(path, commitHash) => getGitFileDiff(workspacePath, path, commitHash)}
+        onEnvironmentRefresh={() => refreshSessionEnvironment(selectedId)}
         onQuotaRefresh={() => refreshSessionQuotas(selectedId, false)}
         onRefresh={() => refreshGit(workspacePath, true)}
         onReset={async (hash) => {

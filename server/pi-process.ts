@@ -72,6 +72,8 @@ export class PiProcess extends EventEmitter {
         fileURLToPath(new URL('../pi-extensions/ask-user-question.ts', import.meta.url)),
         '--extension',
         fileURLToPath(new URL('../pi-extensions/quotas.ts', import.meta.url)),
+        '--extension',
+        fileURLToPath(new URL('../pi-extensions/session-environment.ts', import.meta.url)),
         ...(sessionPath ? ['--session', sessionPath] : ['--session-id', sessionId]),
       ]
 

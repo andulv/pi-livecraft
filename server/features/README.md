@@ -4,6 +4,7 @@ This directory contains local product capabilities used by `server/backend.ts`. 
 
 - [`git/`](/server/features/git/README.md) reads and mutates the selected repository.
 - [`quotas/`](/server/features/quotas/README.md) caches provider reports and coordinates refreshes through the manager.
+- [`session-environment/`](/server/features/session-environment/README.md) caches loaded tools and context files and coordinates refreshes through the manager.
 - [`terminal/`](/server/features/terminal/README.md) launches an external terminal application in the workspace directory.
 - [`vscode/`](/server/features/vscode/README.md) launches a branded VS Code window for a worktree.
 - [`todos/`](/server/features/todos/README.md) persists workspace task lists.

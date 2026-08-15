@@ -16,7 +16,7 @@ test(
       env: { ...process.env, PI_LIVECRAFT_MANAGER_PORT: 'invalid' },
       stdio: ['ignore', 'ignore', 'pipe'],
     })
-    t.after(() => void stopProcess(supervisor))
+    t.after(() => stopProcess(supervisor))
     let errors = ''
     supervisor.stderr.on('data', (chunk: Buffer) => {
       errors += chunk.toString('utf8')
@@ -34,13 +34,16 @@ test(
 test(
   'restarts a supervised manager only after an explicit request',
   { timeout: 10_000 },
-  async () => {
+  async (t) => {
     const port = 45_000 + (process.pid % 10_000)
     const supervisor = spawn(process.execPath, ['server/manager-supervisor.ts'], {
       cwd: process.cwd(),
       env: { ...process.env, PI_LIVECRAFT_MANAGER_PORT: String(port) },
       stdio: 'ignore',
     })
+    // Guaranteed cleanup: a leaked supervisor keeps the shared test port occupied,
+    // fails every later test in this file, and keeps node --test alive indefinitely.
+    t.after(() => stopProcess(supervisor))
     const firstClient = await connectManager(port)
     try {
       const firstStatus = await firstClient.request('status', {})
@@ -748,6 +751,7 @@ const expectedExtensions = ${
     JSON.stringify([
       join(process.cwd(), 'pi-extensions/ask-user-question.ts'),
       join(process.cwd(), 'pi-extensions/quotas.ts'),
+      join(process.cwd(), 'pi-extensions/session-environment.ts'),
     ])
   }
 const extensionPaths = process.argv.flatMap((argument, index) =>
@@ -978,7 +982,8 @@ async function waitFor(predicate: () => boolean): Promise<void> {
 }
 
 async function connectWithRetry(port: number): Promise<Socket> {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  // Manager startup competes with parallel integration workers on CI and developer machines.
+  for (let attempt = 0; attempt < 100; attempt += 1) {
     try {
       return await new Promise<Socket>((resolve, reject) => {
         const socket = connect({ host: '127.0.0.1', port })

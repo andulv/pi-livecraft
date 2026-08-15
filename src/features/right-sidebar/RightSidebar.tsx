@@ -14,10 +14,13 @@ import type {
   GitSnapshot,
   JsonObject,
   QuotaSnapshot,
+  SessionEnvironmentSnapshot,
+  SessionStats,
   SessionSummary,
 } from '../../../shared/types.ts'
 import { GitWidget } from '../git/GitWidget.tsx'
 import { QuotaWidget } from '../quotas/QuotaWidget.tsx'
+import { SessionEnvironmentWidget } from '../session-environment/SessionEnvironmentWidget.tsx'
 import { railQuota, type QuotaProvider } from '../quotas/quota-display.ts'
 import type { ConversationNavigationTarget } from '../conversation/conversation-navigation.ts'
 import { SessionIndexWidget } from '../session-index/SessionIndexWidget.tsx'
@@ -45,10 +48,14 @@ export function RightSidebar({
   compactingSessionIds,
   completedSessionIds,
   currentQuotaProvider,
+  environment,
   onConversationNavigate,
   onResize,
+  sessionCommands,
   sessionMessages,
   sessionMessagesAvailable,
+  sessionState,
+  sessionStats,
   snapshot,
   quotas,
   width,
@@ -56,6 +63,7 @@ export function RightSidebar({
   railActions,
   onCommit,
   onDiscard,
+  onEnvironmentRefresh,
   onFileSelect,
   onPush,
   onQuotaRefresh,
@@ -75,10 +83,14 @@ export function RightSidebar({
   compactingSessionIds: ReadonlySet<string>
   completedSessionIds: ReadonlySet<string>
   currentQuotaProvider: QuotaProvider | undefined
+  environment: SessionEnvironmentSnapshot | null
   onConversationNavigate: (target: ConversationNavigationTarget) => void
   onResize: (width: number) => void
+  sessionCommands: readonly JsonObject[]
   sessionMessages: readonly JsonObject[]
   sessionMessagesAvailable: boolean
+  sessionState: JsonObject | null
+  sessionStats: SessionStats | null
   snapshot: GitSnapshot | null
   quotas: QuotaSnapshot | null
   width: number
@@ -86,6 +98,7 @@ export function RightSidebar({
   railActions: RailAction[]
   onCommit: (message: string) => Promise<void>
   onDiscard: (path?: string) => Promise<void>
+  onEnvironmentRefresh: () => Promise<void>
   onFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
   onPush: () => Promise<GitPushResult>
   onQuotaRefresh: () => Promise<void>
@@ -228,6 +241,15 @@ export function RightSidebar({
             {activeWidget === 'quotas' && (
               <QuotaWidget onRefresh={onQuotaRefresh} quotas={quotas} />
             )}
+            {activeWidget === 'environment' && (
+              <SessionEnvironmentWidget
+                commands={sessionCommands}
+                environment={environment}
+                onRefresh={onEnvironmentRefresh}
+                stats={sessionStats}
+                state={sessionState}
+              />
+            )}
             {activeWidget === 'todo' && (
               <TodoWidget
                 activeSessionId={activeSessionId}
@@ -330,6 +352,27 @@ export function RightSidebar({
             )}
           </button>
         </Tooltip>
+        <Tooltip label='Session environment'>
+          <button
+            aria-controls={activeWidget === 'environment' ? 'environment-panel' : undefined}
+            aria-expanded={activeWidget === 'environment'}
+            aria-label={activeWidget === 'environment'
+              ? 'Collapse session environment'
+              : 'Expand session environment'}
+            className='rail-tab'
+            onClick={() => onWidgetSelect('environment')}
+            type='button'
+          >
+            <span aria-hidden='true'>⚙</span>
+            {environment && environment.tools.length > 0 && (
+              <small aria-label={`${environment.tools.length} tools loaded`}>
+                {environment
+                  .tools
+                  .length}
+              </small>
+            )}
+          </button>
+        </Tooltip>
         {railActions.map((action) => (
           <Tooltip key={action.key} label={action.label}>
             <button
@@ -357,5 +400,7 @@ function panelLabel(activeWidget: RightWidget | null): string {
     ? 'Workspace tasks'
     : activeWidget === 'quotas'
     ? 'Provider quotas'
+    : activeWidget === 'environment'
+    ? 'Session environment'
     : 'Git information'
 }

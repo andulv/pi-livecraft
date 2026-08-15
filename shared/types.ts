@@ -284,3 +284,52 @@ export interface QuotaReport {
   // still validate instead of dropping the OpenAI/Copilot readings.
   glm?: QuotaProviderReport<GlmQuotaWindow>
 }
+
+/**
+ * One parameter from a tool's top-level JSON schema object, summarized so the
+ * payload stays small. Absent fields are omitted, never zero-filled.
+ */
+export interface SessionEnvironmentToolParam {
+  name: string
+  type?: string
+  required?: boolean
+  description?: string
+}
+
+export interface SessionEnvironmentTool {
+  name: string
+  description?: string
+  active: boolean
+  /** 'builtin', 'sdk', or 'extension' for dynamically registered tools. */
+  source: string
+  /** Extension file name for extension-registered tools. */
+  sourceName?: string
+  params?: SessionEnvironmentToolParam[]
+}
+
+/** A context file Pi loaded into the system prompt. Only path and size cross the boundary. */
+export interface SessionEnvironmentContextFile {
+  path: string
+  bytes: number
+}
+
+/**
+ * Versioned status payload published by the session-environment extension. Sections are
+ * optional because session start reports tools before a command context can read the
+ * system-prompt options; the cache keeps the previous value of an absent section.
+ */
+export interface SessionEnvironmentReport {
+  protocol: 'pi-livecraft.environment'
+  version: 1
+  refreshedAt: number
+  tools?: SessionEnvironmentTool[]
+  contextFiles?: SessionEnvironmentContextFile[]
+}
+
+export interface SessionEnvironmentSnapshot {
+  tools: SessionEnvironmentTool[]
+  contextFiles: SessionEnvironmentContextFile[]
+  updatedAt?: number
+  refreshing: boolean
+  sessionRequired: boolean
+}
