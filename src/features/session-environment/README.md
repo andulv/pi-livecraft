@@ -15,6 +15,6 @@ Tools and context files arrive through the versioned `pi-livecraft.environment` 
 
 `App.tsx` owns the shared environment snapshot. `SessionEnvironmentWidget` renders it together with the selected session's snapshot (commands, stats, state).
 
-Requests travel through `src/api.ts` and the [session-environment backend capability](/server/features/session-environment/README.md). The backend restores its cache from an idle session on manager reconnect, so readings normally arrive without a manual refresh.
+Requests travel through `src/api.ts` and the [session-environment backend capability](/server/features/session-environment/README.md). The environment is cached per Pi session, so the widget always shows the selected session's own report and never another project's data. The backend restores its cache from an idle session on manager reconnect, so readings normally arrive without a manual refresh.
 
 Focused coverage: `test/session-environment.test.ts`.

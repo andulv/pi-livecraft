@@ -723,7 +723,7 @@ function LivecraftProjectApp(
         setEnvironment(await refreshEnvironment(sessionId))
       } catch (cause) {
         showToast('error', messageOf(cause))
-        setEnvironment(await getEnvironment().catch(() => environmentRef.current))
+        setEnvironment(await getEnvironment(sessionId).catch(() => environmentRef.current))
       }
     },
     [showToast],
@@ -775,8 +775,13 @@ function LivecraftProjectApp(
   }, [refreshVSCodeTitleBarColor])
   useEffect(() => {
     void getQuotas().then(setQuotas).catch(() => undefined)
-    void getEnvironment().then(setEnvironment).catch(() => undefined)
   }, [])
+
+  // Per-session environment: the selected session's report only.
+  useEffect(() => {
+    setEnvironment(null)
+    if (selectedId) void getEnvironment(selectedId).then(setEnvironment).catch(() => undefined)
+  }, [selectedId])
 
   // Selected session synchronization
   useEffect(() => setConversationNavigation(undefined), [selectedId])
@@ -834,7 +839,8 @@ function LivecraftProjectApp(
         event.type === 'extension_ui_request' && event.method === 'setStatus'
         && event.statusKey === 'pi-livecraft.environment'
       ) {
-        void getEnvironment().then(setEnvironment).catch(() => undefined)
+        if (sessionId === selectedIdRef.current)
+          void getEnvironment(sessionId).then(setEnvironment).catch(() => undefined)
       }
       if (
         event.type === 'extension_ui_request' && isBlockingDialog(event) && !isAgentSelector(event)

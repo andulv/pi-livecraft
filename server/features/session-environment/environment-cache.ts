@@ -3,41 +3,58 @@ import type {
   JsonObject,
   SessionEnvironmentContextFile,
   SessionEnvironmentReport,
-  SessionEnvironmentSkill,
   SessionEnvironmentSnapshot,
+  SessionEnvironmentSkill,
   SessionEnvironmentTool,
   SessionEnvironmentToolParam,
 } from '../../../shared/types.ts'
 
-/** Keeps the last valid value of each section when a newer report omits it. */
-export class EnvironmentCache {
-  #tools: SessionEnvironmentTool[] = []
-  #skills: SessionEnvironmentSkill[] = []
-  #contextFiles: SessionEnvironmentContextFile[] = []
-  #updatedAt: number | undefined
-  #refreshing = false
+interface EnvironmentEntry {
+  tools: SessionEnvironmentTool[]
+  skills: SessionEnvironmentSkill[]
+  contextFiles: SessionEnvironmentContextFile[]
+  updatedAt?: number
+}
 
-  snapshot(sessionRequired: boolean): SessionEnvironmentSnapshot {
+const emptyEntry = (): EnvironmentEntry => ({ tools: [], skills: [], contextFiles: [] })
+
+/**
+ * Caches one environment report per Pi session. Reports from different sessions or
+ * working directories must never mix: an empty section from one project's session
+ * replaces only that session's own previous value.
+ */
+export class EnvironmentCache {
+  readonly #entries = new Map<string, EnvironmentEntry>()
+  readonly #refreshing = new Set<string>()
+
+  snapshot(sessionId: string, sessionRequired: boolean): SessionEnvironmentSnapshot {
+    const entry = this.#entries.get(sessionId) ?? emptyEntry()
     return {
-      tools: this.#tools,
-      skills: this.#skills,
-      contextFiles: this.#contextFiles,
-      ...(this.#updatedAt !== undefined ? { updatedAt: this.#updatedAt } : {}),
-      refreshing: this.#refreshing,
+      tools: entry.tools,
+      skills: entry.skills,
+      contextFiles: entry.contextFiles,
+      ...(entry.updatedAt !== undefined ? { updatedAt: entry.updatedAt } : {}),
+      refreshing: this.#refreshing.has(sessionId),
       sessionRequired,
     }
   }
 
-  setRefreshing(refreshing: boolean): void {
-    this.#refreshing = refreshing
+  setRefreshing(sessionId: string, refreshing: boolean): void {
+    if (refreshing) this.#refreshing.add(sessionId)
+    else this.#refreshing.delete(sessionId)
   }
 
-  /** Accepts only the private, versioned status emitted by the session-environment extension. */
+  /**
+   * Accepts only the private, versioned status emitted by the session-environment
+   * extension, filed under the session that published it.
+   */
   receiveManagerEvent(event: unknown): boolean {
-    const data = object(object(event)?.data)
+    const source = object(event)
+    const data = object(source?.data)
+    const sessionId = typeof source?.sessionId === 'string' ? source.sessionId : ''
     if (
-      object(event)?.event !== 'pi' || data?.type !== 'extension_ui_request' || data
-          .method !== 'setStatus'
+      source?.event !== 'pi' || !sessionId || data?.type !== 'extension_ui_request' || data
+          ?.method !== 'setStatus'
       || data.statusKey !== 'pi-livecraft.environment' || typeof data.statusText !== 'string'
     ) return false
     let parsed: unknown
@@ -48,11 +65,13 @@ export class EnvironmentCache {
     }
     const report = parseEnvironmentReport(parsed)
     if (!report) return false
-    if (report.tools) this.#tools = report.tools
-    if (report.skills) this.#skills = report.skills
-    if (report.contextFiles) this.#contextFiles = report.contextFiles
-    this.#updatedAt = report.refreshedAt
-    this.#refreshing = false
+    const entry = this.#entries.get(sessionId) ?? emptyEntry()
+    if (report.tools) entry.tools = report.tools
+    if (report.skills) entry.skills = report.skills
+    if (report.contextFiles) entry.contextFiles = report.contextFiles
+    entry.updatedAt = report.refreshedAt
+    this.#entries.set(sessionId, entry)
+    this.#refreshing.delete(sessionId)
     return true
   }
 }
@@ -117,7 +136,7 @@ function parseTool(value: unknown): SessionEnvironmentTool | undefined {
 
 function parseSkill(value: unknown): SessionEnvironmentSkill | undefined {
   const skill = object(value)
-  if (!nonEmptyString(skill?.name) || !nonEmptyString(skill.path)) return undefined
+  if (!nonEmptyString(skill?.name) || !nonEmptyString(skill?.path)) return undefined
   const entry: SessionEnvironmentSkill = {
     name: skill.name.slice(0, 120),
     path: skill.path.slice(0, 1000),

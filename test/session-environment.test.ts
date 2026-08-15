@@ -50,7 +50,7 @@ const fullReport = JSON.stringify({
 test('accepts the versioned environment payload', () => {
   const cache = new EnvironmentCache()
   assert.equal(cache.receiveManagerEvent(setStatusEvent(fullReport)), true)
-  const snapshot = cache.snapshot(false)
+  const snapshot = cache.snapshot('session-1', false)
   assert.equal(snapshot.tools.length, 2)
   assert.equal(snapshot.tools[0].name, 'read')
   assert.deepEqual(snapshot.tools[0].params?.[0], { name: 'path', type: 'string', required: true })
@@ -83,7 +83,14 @@ test('ignores payloads with the wrong protocol, version, or shape', () => {
   for (const payload of [wrongProtocol, wrongVersion, invalidTool, '{not json']) {
     assert.equal(cache.receiveManagerEvent(setStatusEvent(payload)), false)
   }
-  assert.equal(cache.snapshot(true).updatedAt, undefined)
+  assert.equal(cache.snapshot('session-1', true).updatedAt, undefined)
+})
+
+test('ignores status events without a session', () => {
+  const cache = new EnvironmentCache()
+  const event = setStatusEvent(fullReport) as { sessionId?: unknown }
+  delete event.sessionId
+  assert.equal(cache.receiveManagerEvent(event), false)
 })
 
 test('ignores status events for other keys', () => {
@@ -104,7 +111,7 @@ test('keeps the previous section when a newer report omits it', () => {
     tools: [{ name: 'bash', active: true, source: 'builtin' }],
   })
   assert.equal(cache.receiveManagerEvent(setStatusEvent(toolsOnly)), true)
-  const snapshot = cache.snapshot(false)
+  const snapshot = cache.snapshot('session-1', false)
   assert.deepEqual(snapshot.tools.map((tool) => tool.name), ['bash'])
   assert.deepEqual(snapshot.skills.map((skill) => skill.path), [
     '/home/user/.pi/agent/skills/ketch/SKILL.md',
@@ -122,14 +129,38 @@ test('rejects a report without any section', () => {
     refreshedAt: 3_000,
   })
   assert.equal(cache.receiveManagerEvent(setStatusEvent(empty)), false)
-  assert.equal(cache.snapshot(false).updatedAt, 1_000)
+  assert.equal(cache.snapshot('session-1', false).updatedAt, 1_000)
+})
+
+test('keeps sessions isolated from each other', () => {
+  const cache = new EnvironmentCache()
+  cache.receiveManagerEvent(setStatusEvent(fullReport))
+  // Another project's session publishes an empty context-file section.
+  const otherSession = JSON.stringify({
+    protocol: 'pi-livecraft.environment',
+    version: 1,
+    refreshedAt: 4_000,
+    tools: [{ name: 'bash', active: true, source: 'builtin' }],
+    contextFiles: [],
+  })
+  const event = setStatusEvent(otherSession) as { sessionId: string; data: { statusText: string } }
+  event.sessionId = 'session-2'
+  assert.equal(cache.receiveManagerEvent(event), true)
+  const first = cache.snapshot('session-1', false)
+  const second = cache.snapshot('session-2', false)
+  assert.deepEqual(first.contextFiles, [{ path: '/repo/AGENTS.md', bytes: 8_400 }])
+  assert.deepEqual(second.contextFiles, [])
+  assert.equal(second.updatedAt, 4_000)
+  // A session with no report yet reads empty, not another session's data.
+  assert.deepEqual(cache.snapshot('session-3', false).tools, [])
 })
 
 test('snapshot reports session requirement and refresh state', () => {
   const cache = new EnvironmentCache()
-  assert.equal(cache.snapshot(true).sessionRequired, true)
-  cache.setRefreshing(true)
-  assert.equal(cache.snapshot(false).refreshing, true)
+  assert.equal(cache.snapshot('session-1', true).sessionRequired, true)
+  cache.setRefreshing('session-1', true)
+  assert.equal(cache.snapshot('session-1', false).refreshing, true)
+  assert.equal(cache.snapshot('session-2', false).refreshing, false)
   cache.receiveManagerEvent(setStatusEvent(fullReport))
-  assert.equal(cache.snapshot(false).refreshing, false)
+  assert.equal(cache.snapshot('session-1', false).refreshing, false)
 })

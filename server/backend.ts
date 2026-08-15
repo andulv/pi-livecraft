@@ -176,7 +176,9 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   }
 
   if (method === 'GET' && url.pathname === '/api/environment') {
-    sendJson(response, 200, await environment.snapshot())
+    const sessionId = url.searchParams.get('sessionId')
+    if (!sessionId) throw new HttpError(400, 'A session identifier is required.')
+    sendJson(response, 200, await environment.snapshot(sessionId))
     return
   }
 

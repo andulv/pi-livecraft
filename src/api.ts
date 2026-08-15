@@ -272,8 +272,10 @@ export async function refreshQuotas(sessionId: string, automatic = false): Promi
   })
 }
 
-export async function getEnvironment(): Promise<SessionEnvironmentSnapshot> {
-  return request<SessionEnvironmentSnapshot>('/api/environment')
+export async function getEnvironment(sessionId: string): Promise<SessionEnvironmentSnapshot> {
+  return request<SessionEnvironmentSnapshot>(
+    `/api/environment?sessionId=${encodeURIComponent(sessionId)}`,
+  )
 }
 
 export async function refreshEnvironment(sessionId: string): Promise<SessionEnvironmentSnapshot> {
