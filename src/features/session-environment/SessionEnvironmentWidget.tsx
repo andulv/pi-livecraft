@@ -315,7 +315,16 @@ function ToolGroup(
           {activeCount} active · {group.tools.length}
         </span>
       </button>
-      {expanded && <div className='environment-tool-group-tools'>{children}</div>}
+      {expanded && (
+        <div className='environment-tool-group-tools'>
+          {group.sourcePath && (
+            <p className='environment-tool-group-path' title={group.sourcePath}>
+              {group.sourcePath}
+            </p>
+          )}
+          {children}
+        </div>
+      )}
     </div>
   )
 }
@@ -371,6 +380,7 @@ function ToolRow(
 interface ToolGroupInfo {
   key: string
   label: string
+  sourcePath?: string
   tools: SessionEnvironmentTool[]
 }
 
@@ -385,7 +395,12 @@ function groupTools(tools: readonly SessionEnvironmentTool[]): ToolGroupInfo[] {
       : tool.source === 'sdk'
       ? 'SDK'
       : `Extension · ${extensionSourceLabel(tool.sourcePath, tool.sourceName)}`
-    const group = groups.get(key) ?? { key, label, tools: [] }
+    const group = groups.get(key) ?? {
+      key,
+      label,
+      ...(tool.source === 'extension' && tool.sourcePath ? { sourcePath: tool.sourcePath } : {}),
+      tools: [],
+    }
     group.tools.push(tool)
     groups.set(key, group)
   }

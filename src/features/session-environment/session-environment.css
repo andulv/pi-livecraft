@@ -234,6 +234,12 @@
 .environment-tool-group-tools {
   padding: 0 8px 4px;
 }
+.environment-tool-group-path {
+  margin: 6px 0 3px;
+  color: var(--subtle);
+  font: 9.5px/1.45 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
 .environment-tool-row {
   min-width: 0;
   padding: 6px 0;
