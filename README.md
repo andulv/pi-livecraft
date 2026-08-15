@@ -2,6 +2,12 @@
 
 #  ⤿ Pi Livecraft ⤾
 
+This is my own personal modification of pi-livecraft. Official repo for original pi-livecraft is here: [sebastienservouze/pi-livecraft](https://github.com/sebastienservouze/pi-livecraft)
+
+List of features added in this fork:
+
+[/docs/ANDULV-FORK-FEATURES.md](/docs/ANDULV-FORK-FEATURES.md)
+
 **Pi does the agentic stuff. Livecraft gives it a live editable React app.**
 
 The repository is set up to be forked and changed while you use it. 
