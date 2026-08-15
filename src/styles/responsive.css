@@ -155,8 +155,15 @@
     flex-direction: row;
     overflow-x: auto;
   }
-  .session-item {
+  .session-list-header {
+    display: none;
+  }
+  .session-list .session-item {
+    grid-template-columns: 16px minmax(0, 1fr);
     min-width: 220px;
+  }
+  .session-time {
+    display: none;
   }
   .workspace {
     flex: 1;

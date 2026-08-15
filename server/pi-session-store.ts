@@ -34,6 +34,10 @@ interface SessionTailScan {
   name: string | undefined
   hasMessage: boolean
   lastMessageAt: number | undefined
+  /** Earliest message timestamp seen; meaningful only when the scan reached the head. */
+  earliestMessageAt: number | undefined
+  /** Whether the scan covered every byte after the head chunk (no early stop). */
+  reachedHead: boolean
 }
 
 /**
@@ -146,6 +150,7 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
 
   let name: string | undefined
   let hasMessage = false
+  let firstMessageAt: number | undefined
   let lastMessageAt: number | undefined
   let prompt: string | undefined
 
@@ -171,8 +176,12 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
       }
       if (typeof value.timestamp === 'string') {
         const timestamp = Date.parse(value.timestamp)
-        if (!Number.isNaN(timestamp) && (lastMessageAt === undefined || timestamp > lastMessageAt))
-          lastMessageAt = timestamp
+        if (!Number.isNaN(timestamp)) {
+          // The head scan starts at the file start, so the first message seen is the
+          // session's first message; the header timestamp is the fallback.
+          if (firstMessageAt === undefined) firstMessageAt = timestamp
+          if (lastMessageAt === undefined || timestamp > lastMessageAt) lastMessageAt = timestamp
+        }
       }
     }
     if (headPartial !== undefined) {
@@ -185,6 +194,11 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
         tail.lastMessageAt !== undefined
         && (lastMessageAt === undefined || tail.lastMessageAt > lastMessageAt)
       ) lastMessageAt = tail.lastMessageAt
+      // When the scan walked to the head boundary it saw every message the head could
+      // not, so its earliest message is the session's first message whenever the head
+      // scan found none (a large early line can push the first message past the head).
+      if (tail.reachedHead && tail.earliestMessageAt !== undefined)
+        firstMessageAt ??= tail.earliestMessageAt
     }
   }
 
@@ -195,6 +209,7 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
     cwd,
     name: name || prompt || 'New session',
     sessionPath: canonicalPath,
+    firstMessageAt: firstMessageAt ?? (Number.isNaN(createdAt) ? undefined : createdAt),
     updatedAt: lastMessageAt ?? (Number.isNaN(createdAt) ? updatedAt : createdAt),
   }
 }
@@ -212,6 +227,8 @@ async function scanSessionTail(
     name: undefined,
     hasMessage: false,
     lastMessageAt: undefined,
+    earliestMessageAt: undefined,
+    reachedHead: false,
   }
   let pending = ''
   let end = size
@@ -239,15 +256,20 @@ async function scanSessionTail(
       scan.hasMessage = true
       if (typeof value.timestamp === 'string') {
         const timestamp = Date.parse(value.timestamp)
-        if (
-          !Number.isNaN(timestamp)
-          && (scan.lastMessageAt === undefined || timestamp > scan.lastMessageAt)
-        ) scan.lastMessageAt = timestamp
+        if (!Number.isNaN(timestamp)) {
+          if (
+            scan.lastMessageAt === undefined || timestamp > scan.lastMessageAt
+          ) scan.lastMessageAt = timestamp
+          if (
+            scan.earliestMessageAt === undefined || timestamp < scan.earliestMessageAt
+          ) scan.earliestMessageAt = timestamp
+        }
       }
       if (scan.nameFound && scan.lastMessageAt !== undefined) break
     }
     end = start
   }
+  scan.reachedHead = end <= HEAD_CHUNK_BYTES
   return scan
 }
 

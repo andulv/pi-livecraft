@@ -22,6 +22,7 @@ import { aggregateSessionIndicator, sessionIndicator } from './session-indicator
 import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
 import { compareWorkspaces, sidebarSessions, type SessionActionTarget } from './sidebar-sessions.ts'
 import { SessionRenameDialog } from './SessionRenameDialog.tsx'
+import { formatSessionTime } from './session-time.ts'
 import { maxWorkspaceSidebarWidth, minWorkspaceSidebarWidth } from './workspace-sidebar.ts'
 
 interface ContextMenuState {
@@ -569,6 +570,17 @@ export function WorkspaceSidebar({
         {isRefreshing && visibleSessions.length === 0 && (
           <p className='session-list-loading' role='status'>Loading sessions…</p>
         )}
+        {visibleSessions.length > 0 && (
+          <div aria-hidden='true' className='session-list-header'>
+            <div className='session-list-header-labels'>
+              <span className='session-header-status' />
+              <span className='session-header-name'>Session</span>
+              <span className='session-header-first'>First</span>
+              <span className='session-header-last'>Last</span>
+            </div>
+            <span className='session-header-actions' />
+          </div>
+        )}
         {visibleSessions.map((recentSession) => {
           const activeSession = sessions.find((session) =>
             session.sessionPath === recentSession.sessionPath && session.status !== 'exited'
@@ -583,6 +595,10 @@ export function WorkspaceSidebar({
           const sessionLabel = openingSessionPath === recentSession.sessionPath
             ? 'Opening…'
             : recentSession.name
+          const firstMessageAt = recentSession.firstMessageAt
+          const tooltipLabel = `${recentSession.name}\nFirst: ${
+            firstMessageAt === undefined ? '—' : new Date(firstMessageAt).toLocaleString('en-US')
+          }\nLast: ${new Date(recentSession.updatedAt).toLocaleString('en-US')}`
           const actionTarget: SessionActionTarget = {
             cwd: recentSession.cwd,
             name: recentSession.name,
@@ -591,11 +607,7 @@ export function WorkspaceSidebar({
           }
           return (
             <div className='session-row' key={recentSession.sessionPath}>
-              <Tooltip
-                label={`${recentSession.name}\n${
-                  new Date(recentSession.updatedAt).toLocaleString('en-US')
-                }`}
-              >
+              <Tooltip label={tooltipLabel}>
                 <button
                   className={`session-item${activeSession?.id === selectedId ? ' selected' : ''}${
                     archived ? ' archived' : ''
@@ -614,10 +626,21 @@ export function WorkspaceSidebar({
                   ref={activeSession?.id === selectedId ? selectedSessionRef : undefined}
                   type='button'
                 >
-                  {indicator && <SessionStatusIndicator status={indicator} />}
-                  {archived && <ArchivedSessionIcon />}
+                  <span className='session-status-slot'>
+                    {indicator
+                      ? <SessionStatusIndicator status={indicator} />
+                      : archived
+                      ? <ArchivedSessionIcon />
+                      : null}
+                  </span>
                   <span className='session-item-copy'>
                     <strong>{sessionLabel}</strong>
+                  </span>
+                  <span className='session-time session-time-first'>
+                    {firstMessageAt === undefined ? '—' : formatSessionTime(firstMessageAt)}
+                  </span>
+                  <span className='session-time session-time-last'>
+                    {formatSessionTime(recentSession.updatedAt)}
                   </span>
                 </button>
               </Tooltip>

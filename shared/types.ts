@@ -15,6 +15,8 @@ export interface RecentSession {
   cwd: string
   name: string
   sessionPath: string
+  /** Timestamp of the session's first message; falls back to the header timestamp. */
+  firstMessageAt?: number
   updatedAt: number
 }
 

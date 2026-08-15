@@ -77,10 +77,31 @@ test('sorts canonical Pi sessions by their last message timestamp', async () => 
     'Renamed session',
   )
   const recent = await listRecentPiSessions(workspace, directory)
-  assert.deepEqual(recent.map(({ id, name, cwd }) => ({ id, name, cwd })), [
-    { id: 'older', name: 'Older session', cwd: workspace },
-    { id: 'newer', name: 'Renamed session', cwd: workspace },
-  ])
+  assert.deepEqual(
+    recent.map(({ id, name, cwd, firstMessageAt, updatedAt }) => ({
+      id,
+      name,
+      cwd,
+      firstMessageAt,
+      updatedAt,
+    })),
+    [
+      {
+        id: 'older',
+        name: 'Older session',
+        cwd: workspace,
+        firstMessageAt: Date.parse('2026-07-19T11:00:00.000Z'),
+        updatedAt: Date.parse('2026-07-19T11:00:00.000Z'),
+      },
+      {
+        id: 'newer',
+        name: 'Renamed session',
+        cwd: workspace,
+        firstMessageAt: Date.parse('2026-07-19T10:00:00.000Z'),
+        updatedAt: Date.parse('2026-07-19T10:00:00.000Z'),
+      },
+    ],
+  )
   assert.deepEqual(recent.map(({ sessionPath }) => sessionPath), [
     await realpath(join(sessions, 'older.jsonl')),
     await realpath(join(sessions, 'newer.jsonl')),
@@ -181,6 +202,7 @@ test('finds a rename buried deep in a large session', async () => {
   const recent = await listRecentPiSessions(workspace, directory)
   assert.equal(recent.length, 1)
   assert.equal(recent[0].name, 'Renamed session')
+  assert.equal(recent[0].firstMessageAt, Date.parse('2026-07-19T09:00:00.000Z'))
   assert.equal(recent[0].updatedAt, Date.parse('2026-07-19T11:00:00.000Z'))
 })
 
@@ -220,6 +242,7 @@ test('reads a session_info line that spans the head boundary', async () => {
   const recent = await listRecentPiSessions(workspace, directory)
   assert.equal(recent.length, 1)
   assert.equal(recent[0].name, 'Boundary name')
+  assert.equal(recent[0].firstMessageAt, Date.parse('2026-07-19T10:00:00.000Z'))
   assert.equal(recent[0].updatedAt, Date.parse('2026-07-19T11:00:00.000Z'))
 })
 

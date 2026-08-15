@@ -564,9 +564,40 @@
   margin-top: -8px;
   margin-right: -10px;
   scrollbar-width: thin;
+  container-type: inline-size;
 }
 .session-list::-webkit-scrollbar {
   width: 6px;
+}
+.session-list-header {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  padding: 0 0 2px;
+}
+.session-list-header-labels {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 92px 92px;
+  column-gap: 8px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  padding: 0 8px 0 7px;
+  border-left: 2px solid transparent;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.session-header-first,
+.session-header-last {
+  text-align: right;
+}
+.session-list-header .session-header-actions {
+  flex: 0 0 auto;
+  width: 30px;
 }
 .session-row {
   display: flex;
@@ -610,6 +641,12 @@
 }
 .session-actions:active:not(:disabled) {
   transform: scale(0.97);
+}
+/* Only the workspace session list gets table columns; pinned rows stay name-only. */
+.session-list .session-item {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 92px 92px;
+  column-gap: 8px;
 }
 .session-item {
   display: flex;
@@ -655,9 +692,26 @@
   border-color: color-mix(in srgb, var(--warning) 40%, transparent);
   background: color-mix(in srgb, var(--warning) 20%, var(--surface));
 }
+.session-status-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  min-width: 0;
+  overflow: hidden;
+}
 .session-item-copy {
   flex: 1;
   min-width: 0;
+}
+.session-time {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .session-item strong, .session-item small {
   display: block;
@@ -696,6 +750,27 @@
 .archived-session-icon {
   flex: 0 0 auto;
   color: var(--subtle);
+}
+/* Narrow sidebars drop the First column before the Last one so the name keeps room. */
+@container (max-width: 359px) {
+  .session-list .session-item,
+  .session-list-header-labels {
+    grid-template-columns: 16px minmax(0, 1fr) 92px;
+  }
+  .session-header-first,
+  .session-time-first {
+    display: none;
+  }
+}
+@container (max-width: 284px) {
+  .session-list .session-item,
+  .session-list-header-labels {
+    grid-template-columns: 16px minmax(0, 1fr);
+  }
+  .session-header-last,
+  .session-time-last {
+    display: none;
+  }
 }
 .session-item small {
   margin-top: 2px;
