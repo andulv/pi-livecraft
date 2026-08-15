@@ -18,7 +18,7 @@ The widget never invents a missing limit or treats absent data as zero. An open 
 
 The refresh button asks Pi for a new provider report and remains disabled while that request is running. The backend deduplicates concurrent refreshes and restores cached readings after its own restart.
 
-For the rail summary, Codex prefers its five-hour window. Copilot uses the first quota category returned by its provider report. The percentage is expressed as used quota. A stale rail value carries an additional warning marker.
+For the rail summary, Codex prefers its five-hour window. GLM shows its five-hour and weekly usage together when both are available. Copilot uses the first quota category returned by its provider report. The percentage is expressed as used quota. A stale rail value carries an additional warning marker.
 
 ## Ownership and data flow
 

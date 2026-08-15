@@ -307,7 +307,8 @@ export function RightSidebar({
             type='button'
           >
             <span aria-hidden='true' className='quota-rail-value'>
-              {quotaSummary?.value ?? '%'}
+              <span>{quotaSummary?.value ?? '%'}</span>
+              {quotaSummary?.secondaryValue && <span>{quotaSummary.secondaryValue}</span>}
             </span>
             {quotaSummary?.stale && <small>!</small>}
           </button>

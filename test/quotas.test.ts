@@ -163,7 +163,13 @@ test('shows the primary quota for the provider selected by the model', () => {
       stale: false,
     },
     copilot: { data: [{ name: 'Premium interactions', used: 75, limit: 300 }], stale: true },
-    glm: { data: [{ kind: 'session' as const, usedPercent: 30 }], stale: false },
+    glm: {
+      data: [
+        { kind: 'session' as const, usedPercent: 30 },
+        { kind: 'weekly' as const, usedPercent: 45 },
+      ],
+      stale: false,
+    },
     refreshing: false,
     sessionRequired: false,
   }
@@ -184,9 +190,12 @@ test('shows the primary quota for the provider selected by the model', () => {
     value: '25%',
   })
   assert.deepEqual(railQuota(quotas, 'glm'), {
-    label: `GLM (Z.AI) quota: ${formattedPercent.format(30)} % used`,
+    label: `GLM (Z.AI) quota: 5-hour ${formattedPercent.format(30)} % used; weekly ${
+      formattedPercent.format(45)
+    } % used`,
+    secondaryValue: '7d 45%',
     stale: false,
-    value: '30%',
+    value: '5h 30%',
   })
 })
 

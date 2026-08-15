@@ -2,8 +2,16 @@
   opacity: 0.45;
 }
 .quota-rail-value {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
   font: 700 10px/1 ui-monospace, monospace;
   letter-spacing: -0.5px;
+  white-space: nowrap;
+}
+.quota-rail-value > span + span {
+  color: var(--subtle);
+  font-size: 9px;
 }
 .quota-content {
   padding: 2px 14px 20px;

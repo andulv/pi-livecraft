@@ -4,6 +4,7 @@ export type QuotaProvider = 'openai' | 'copilot' | 'glm'
 
 export interface RailQuota {
   label: string
+  secondaryValue?: string
   stale: boolean
   value: string
 }
@@ -133,12 +134,28 @@ export function railQuota(
   }
 
   if (provider === 'glm') {
-    const window = quotas.glm.data.find(({ kind }) => kind === 'session') ?? quotas.glm.data[0]
+    const session = quotas.glm.data.find(({ kind }) => kind === 'session')
+    const weekly = quotas.glm.data.find(({ kind }) => kind === 'weekly')
+    const window = session ?? weekly ?? quotas.glm.data[0]
     if (!window || window.usedPercent === undefined) return undefined
+    const sessionValue = session && formatRailPercent(session.usedPercent)
+    const weeklyValue = weekly && formatRailPercent(weekly.usedPercent)
     return {
-      label: `GLM (Z.AI) quota: ${formatPercent(window.usedPercent)} used`,
+      label: `GLM (Z.AI) quota: ${
+        [
+          session && sessionValue && `5-hour ${formatPercent(session.usedPercent ?? 0)} used`,
+          weekly && weeklyValue && `weekly ${formatPercent(weekly.usedPercent ?? 0)} used`,
+        ]
+          .filter(Boolean)
+          .join('; ')
+      }`,
+      secondaryValue: sessionValue && weeklyValue ? `7d ${weeklyValue}` : undefined,
       stale: quotas.glm.stale,
-      value: `${Math.round(Math.max(0, Math.min(100, window.usedPercent)))}%`,
+      value: sessionValue
+        ? `5h ${sessionValue}`
+        : weeklyValue
+        ? `7d ${weeklyValue}`
+        : formatRailPercent(window.usedPercent) ?? '%',
     }
   }
 
@@ -150,6 +167,10 @@ export function railQuota(
     stale: quotas.copilot.stale,
     value: `${Math.round(Math.max(0, Math.min(100, usedPercent)))}%`,
   }
+}
+
+function formatRailPercent(value: number | undefined): string | undefined {
+  return value === undefined ? undefined : `${Math.round(Math.max(0, Math.min(100, value)))}%`
 }
 
 function formatPercent(value: number): string {
