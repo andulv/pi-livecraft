@@ -1405,7 +1405,6 @@ function LivecraftProjectApp(
         workspacePath={workspacePath}
         project={project}
         projectDetails={projectWorkspaces[project.root]}
-        onOpenHome={onOpenHome}
         onOpenPinnedSession={openPinnedSession}
         onNewSession={handleNewSession}
         onRefreshSessions={() => {

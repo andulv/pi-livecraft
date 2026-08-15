@@ -51,7 +51,6 @@ interface WorkspaceSidebarProps {
   workspacePath: string
   project: Project
   projectDetails?: GitProject
-  onOpenHome: () => void
   onOpenPinnedSession: (session: RecentSession) => Promise<void>
   onNewSession: () => Promise<void>
   onRefreshSessions: () => void
@@ -85,7 +84,6 @@ export function WorkspaceSidebar({
   workspacePath,
   project,
   projectDetails,
-  onOpenHome,
   onOpenPinnedSession,
   onNewSession,
   onRefreshSessions,
@@ -398,13 +396,17 @@ export function WorkspaceSidebar({
         role='separator'
         tabIndex={0}
       />
+      <a className='project-home-link' href='/'>
+        ← Projects
+      </a>
       <div className='brand'>
         <span className='brand-signature'>
           <span aria-hidden='true' className='brand-mark'>π</span>
           <small>Livecraft</small>
         </span>
-        <div>
+        <div className='brand-project'>
           <strong title={project.name}>{project.name}</strong>
+          {projectIndicator && <SessionStatusIndicator status={projectIndicator} />}
         </div>
         <Tooltip label='Settings'>
           <button
@@ -429,16 +431,7 @@ export function WorkspaceSidebar({
         </Tooltip>
       </div>
       <section className='project-list' aria-label={`${project.name} workspaces`}>
-        <div className='sidebar-section-heading'>
-          <button className='project-home-link' onClick={onOpenHome} type='button'>
-            ← Projects
-          </button>
-        </div>
         <div className='project-item'>
-          <div className='project-heading'>
-            <strong>{project.name}</strong>
-            {projectIndicator && <SessionStatusIndicator status={projectIndicator} />}
-          </div>
           {resolvedPinnedSessions.length > 0 && (
             <PinnedSessionList
               compactingSessionIds={compactingSessionIds}
