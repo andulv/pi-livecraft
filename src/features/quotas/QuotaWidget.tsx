@@ -413,6 +413,7 @@ function formatRelativeDate(timestamp: number): string {
 
 function formatReset(timestamp: number): string {
   return new Intl.DateTimeFormat(navigator.language, {
+    weekday: 'short',
     day: 'numeric',
     month: 'short',
     hour: '2-digit',
