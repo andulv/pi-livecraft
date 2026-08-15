@@ -88,6 +88,12 @@ function timeForDisplay(
   if (Number.isNaN(date.getTime())) return undefined
   return {
     dateTime: date.toISOString(),
-    label: date.toLocaleTimeString(navigator.language, { hour: '2-digit', minute: '2-digit' }),
+    label: date.toLocaleString(navigator.language, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
   }
 }
