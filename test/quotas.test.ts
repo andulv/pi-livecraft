@@ -139,6 +139,7 @@ test('calculates elapsed Copilot calendar-month periods from reset times', () =>
 })
 
 test('lays out Z.AI peak pricing across the local day', () => {
+  // 2030-01-01 is a Tuesday, so every window below falls on Singapore weekdays.
   const now = Date.UTC(2030, 0, 1, 12)
   const utc = glmPeakDay(now, 0)
   assert.equal(utc.nowFraction, 0.5)
@@ -151,6 +152,18 @@ test('lays out Z.AI peak pricing across the local day', () => {
   // UTC-7 places local midnight inside the UTC block, splitting it across the day edges.
   const split = glmPeakDay(Date.UTC(2030, 0, 1, 15), -420)
   assert.deepEqual(split.peakSegments, [{ start: 0, end: 3 / 24 }, { start: 23 / 24, end: 1 }])
+})
+
+test('omits Z.AI peak pricing on Singapore weekend days', () => {
+  // 2030-01-06 is a Sunday; no block applies in any timezone.
+  const sundayUtc = glmPeakDay(Date.UTC(2030, 0, 6, 12), 0)
+  assert.deepEqual(sundayUtc.peakSegments, [])
+  // Local Saturday in UTC-7 would touch both the Saturday and Sunday blocks.
+  const saturdayUtc7 = glmPeakDay(Date.UTC(2030, 0, 5, 20), -420)
+  assert.deepEqual(saturdayUtc7.peakSegments, [])
+  // Local Sunday evening in UTC-7 reaches Monday's Singapore block.
+  const sundayUtc7 = glmPeakDay(Date.UTC(2030, 0, 6, 20), -420)
+  assert.deepEqual(sundayUtc7.peakSegments, [{ start: 23 / 24, end: 1 }])
 })
 
 test('shows the primary quota for the provider selected by the model', () => {

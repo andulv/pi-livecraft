@@ -300,7 +300,7 @@ function GlmPeakHoursBar({ now }: { now: number }) {
         ))}
       </div>
       <div
-        aria-label={`Z.AI peak pricing ×3 between ${windowLabel} local time; currently ${
+        aria-label={`Z.AI peak pricing ×3 on Singapore weekdays between ${windowLabel} local time; currently ${
           inPeak ? 'in peak hours' : 'off-peak'
         }`}
         className='quota-peak-track'

@@ -51,6 +51,7 @@ export function copilotPeriodProgress(
 const dayMs = 24 * 60 * 60 * 1000
 const glmPeakUtcStartHour = 6
 const glmPeakUtcHours = 4
+const singaporeOffsetMs = 8 * 3_600_000
 
 /** One peak-priced span of the local day, as fractions from 0 to 1. */
 export interface GlmPeakSegment {
@@ -66,10 +67,17 @@ export interface GlmPeakDay {
   peakSegments: GlmPeakSegment[]
 }
 
+/** Peak pricing applies only Monday–Friday in Singapore time (UTC+8). */
+function isSingaporeWeekday(peakStart: number): boolean {
+  const weekday = new Date(peakStart + singaporeOffsetMs).getUTCDay()
+  return weekday >= 1 && weekday <= 5
+}
+
 /**
- * Lays out Z.AI's peak-pricing window (14:00-18:00 UTC+8, i.e. 06:00-10:00 UTC)
- * across the local day. `localOffsetMinutes` is minutes east of UTC (the
- * negated `Date#getTimezoneOffset`), so segments wrap local midnight correctly.
+ * Lays out Z.AI's peak-pricing window (weekdays 14:00-18:00 UTC+8, i.e.
+ * 06:00-10:00 UTC) across the local day. `localOffsetMinutes` is minutes east
+ * of UTC (the negated `Date#getTimezoneOffset`), so segments wrap local
+ * midnight correctly.
  */
 export function glmPeakDay(now: number, localOffsetMinutes: number): GlmPeakDay {
   const offsetMs = localOffsetMinutes * 60_000
@@ -78,6 +86,7 @@ export function glmPeakDay(now: number, localOffsetMinutes: number): GlmPeakDay 
   const peakSegments: GlmPeakSegment[] = []
   for (const dayShift of [-1, 0, 1]) {
     const peakStart = utcDay + dayShift * dayMs + glmPeakUtcStartHour * 3_600_000
+    if (!isSingaporeWeekday(peakStart)) continue
     const peakEnd = peakStart + glmPeakUtcHours * 3_600_000
     const from = Math.max(peakStart, localDayStart)
     const to = Math.min(peakEnd, localDayStart + dayMs)
