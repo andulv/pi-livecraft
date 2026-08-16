@@ -334,8 +334,42 @@ function GlmPeakHoursBar({ now }: { now: number }) {
           </span>
         ))}
       </div>
+      <small className='quota-peak-note'>{peakNote(now, windowLabel)}</small>
     </div>
   )
+}
+
+const singaporeOffsetMs = 8 * 3_600_000
+
+/**
+ * The weekday peak window stated in Z.AI's terms, with its times converted to
+ * the user's zone: "Peak hours: Monday to Friday, 14:00–18:00 Singapore
+ * Standard Time (UTC+8)." becomes e.g. "… 07:00–11:00 (UTC+8 14:00–18:00)".
+ */
+function peakNote(now: number, windowLabel: string): string {
+  const start = new Intl.DateTimeFormat(navigator.language, {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Singapore',
+  })
+    .format(now + singaporeOffsetMs)
+  // Both Singapore times come from the same wall clock: shift by the zone gap.
+  const localStart = shiftSingaporeHour(now, 14)
+  const localEnd = shiftSingaporeHour(now, 18)
+  if (localStart === null || localEnd === null)
+    return `Peak hours: Monday to Friday, ${windowLabel}.`
+  return `Peak hours: Monday to Friday, ${localStart}–${localEnd} local (${start} Singapore, UTC+8).`
+}
+
+/** Formats 14:00/18:00 Singapore time in the user's zone for a nearby `now`. */
+function shiftSingaporeHour(now: number, singaporeHour: number): string | null {
+  const reference = now - (now + singaporeOffsetMs) % dayMs
+  const timestamp = reference + singaporeHour * 3_600_000
+  const formatter = new Intl.DateTimeFormat(navigator.language, {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return formatter.format(timestamp)
 }
 
 const fixedMarkerHours = [0, 4, 8, 12, 16, 20, 24]

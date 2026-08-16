@@ -134,6 +134,12 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+.quota-peak-note {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 10px;
+}
 .quota-peak-track {
   position: relative;
   overflow: hidden;
