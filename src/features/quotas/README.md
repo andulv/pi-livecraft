@@ -1,6 +1,6 @@
 # Provider quotas widget
 
-The quotas widget gives a quick answer to a practical question: how much of the current provider allowance is used? The rail shows the selected model provider's primary usage percentage, while the panel keeps both supported providers available for comparison.
+The quotas widget gives a quick answer to a practical question: how much of the current provider allowance is used? The rail shows the selected model provider's primary usage percentage, while the panel keeps both supported providers available for comparison. Each provider sits in its own bordered card with a small provider icon, so windows, periods, and errors group visually by provider.
 
 ## What it shows
 

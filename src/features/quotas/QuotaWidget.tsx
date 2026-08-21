@@ -58,7 +58,7 @@ export function QuotaWidget(
             {quotas.sessionRequired && (
               <p className='quota-empty'>Open a Pi session to read quotas.</p>
             )}
-            <ProviderSection name='OpenAI Codex' provider={quotas.openai}>
+            <ProviderSection icon={<OpenAiIcon />} name='OpenAI Codex' provider={quotas.openai}>
               {quotas.openai.data.map((window) => {
                 const periodProgress = quotaPeriodProgress(window.period, window.resetsAt, now)
                 const usedPercent = 100 - window.remainingPercent
@@ -96,7 +96,7 @@ export function QuotaWidget(
                 )
               })}
             </ProviderSection>
-            <ProviderSection name='GitHub Copilot' provider={quotas.copilot}>
+            <ProviderSection icon={<CopilotIcon />} name='GitHub Copilot' provider={quotas.copilot}>
               {quotas.copilot.data.map((window) => {
                 const periodProgress = copilotPeriodProgress(window.resetsAt, now)
                 const usedPercent = window.used / window.limit * 100
@@ -132,7 +132,7 @@ export function QuotaWidget(
                 )
               })}
             </ProviderSection>
-            <ProviderSection name='GLM (Z.AI)' provider={quotas.glm}>
+            <ProviderSection icon={<ZaiIcon />} name='GLM (Z.AI)' provider={quotas.glm}>
               {quotas.glm.data.map((window) => {
                 const isPercent = window.kind === 'session' || window.kind === 'weekly'
                 const periodProgress = quotaPeriodProgress(window.kind, window.resetsAt, now)
@@ -194,8 +194,9 @@ export function QuotaWidget(
 }
 
 function ProviderSection(
-  { children, name, provider }: {
+  { children, icon, name, provider }: {
     children: React.ReactNode
+    icon: React.ReactNode
     name: string
     provider: QuotaProviderSnapshot<unknown>
   },
@@ -203,7 +204,10 @@ function ProviderSection(
   return (
     <section className='quota-provider' aria-label={name}>
       <div className='quota-provider-heading'>
-        <h2>{name}</h2>
+        <h2>
+          <span aria-hidden='true' className='quota-provider-icon'>{icon}</span>
+          {name}
+        </h2>
         {provider.stale && <span>Stale reading</span>}
       </div>
       {children}
@@ -212,6 +216,38 @@ function ProviderSection(
       )}
       {provider.error && <p className='quota-error' role='status'>{provider.error}</p>}
     </section>
+  )
+}
+
+/** OpenAI mark: interlocking rings. */
+function OpenAiIcon() {
+  return (
+    <svg aria-hidden='true' fill='none' height='13' viewBox='0 0 16 16' width='13'>
+      <path
+        d='M6.3 2.2a3 3 0 0 1 5.2 2.9m-8.9 3a3 3 0 0 1 1.1-4.1 3 3 0 0 1 1.5-.4m6.5 5.9a3 3 0 0 1-5.2 2.9m8.9-3a3 3 0 0 1-4.1 1.1 3 3 0 0 1-1.1-1.1m5.2-2.9a3 3 0 0 1-4.1 1.1 3 3 0 0 1-.4 1.5m-6.5-.7a3 3 0 0 1 1.1-4.1 3 3 0 0 1 1.5.4'
+        stroke='currentColor'
+        strokeLinecap='round'
+        strokeWidth='1.3'
+      />
+    </svg>
+  )
+}
+
+/** GitHub mark: speech bubble with a dot. */
+function CopilotIcon() {
+  return (
+    <svg aria-hidden='true' fill='currentColor' height='13' viewBox='0 0 16 16' width='13'>
+      <path d='M8 2.5a5 5 0 0 0-5 5v3l-.7 1.6a.6.6 0 0 0 .55.85h3.1a2.6 2.6 0 0 0 4.1 0h3.1a.6.6 0 0 0 .55-.85L13 10.5v-3a5 5 0 0 0-5-5zm-1.8 5a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8zm3.6 0a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8z' />
+    </svg>
+  )
+}
+
+/** Z.AI mark: bolt. */
+function ZaiIcon() {
+  return (
+    <svg aria-hidden='true' fill='currentColor' height='13' viewBox='0 0 16 16' width='13'>
+      <path d='M9.3 1.6 3.4 9h3.3l-1 5.4L11.6 7H8.3l1-5.4z' />
+    </svg>
   )
 }
 
