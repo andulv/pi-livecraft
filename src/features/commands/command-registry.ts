@@ -75,7 +75,6 @@ export const defaultShortcuts: Partial<Record<CommandId, string>> = {
   'open-widget-analysis': 'alt+a',
   'open-widget-git': 'alt+g',
   'open-widget-quotas': 'alt+q',
-  'open-widget-todo': 'alt+y',
 }
 
 /** Gives every sidebar widget a stable command without duplicating its identity. */

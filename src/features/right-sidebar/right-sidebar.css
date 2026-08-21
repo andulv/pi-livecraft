@@ -104,13 +104,14 @@
   align-items: stretch;
   width: 100%;
 }
-/* The global group (quotas) anchors to the rail's bottom edge. */
-.right-sidebar-rail-group:last-child {
-  margin-top: auto;
-}
 .right-sidebar-rail-group + .right-sidebar-rail-group {
   position: relative;
   margin-top: 8px;
+}
+/* The global group (quotas) anchors to the rail's bottom edge; later in source
+   order so its `auto` margin wins over the divider rule's equal specificity. */
+.right-sidebar-rail-group:last-child {
+  margin-top: auto;
 }
 .right-sidebar-rail-group + .right-sidebar-rail-group::before {
   position: absolute;

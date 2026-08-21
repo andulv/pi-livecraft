@@ -1,6 +1,4 @@
 import {
-  useEffect,
-  useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -16,7 +14,6 @@ import type {
   QuotaSnapshot,
   SessionEnvironmentSnapshot,
   SessionStats,
-  SessionSummary,
 } from '../../../shared/types.ts'
 import { GitWidget } from '../git/GitWidget.tsx'
 import { QuotaWidget } from '../quotas/QuotaWidget.tsx'
@@ -26,8 +23,6 @@ import type { ConversationNavigationTarget } from '../conversation/conversation-
 import { SessionIndexWidget } from '../session-index/SessionIndexWidget.tsx'
 import { SessionAnalysisWidget } from '../session-analysis/SessionAnalysisWidget.tsx'
 import type { SessionAnalysis } from '../session-analysis/session-analysis.ts'
-import { TodoWidget } from '../todo/TodoWidget.tsx'
-import { loadTodos } from '../todo/todo-cache.ts'
 import { maxRightSidebarWidth, minRightSidebarWidth, type RightWidget } from './right-sidebar.ts'
 import { WidgetLayout } from './WidgetLayout.tsx'
 
@@ -45,8 +40,6 @@ export function RightSidebar({
   activeWidget,
   analysis,
   analysisAvailable,
-  compactingSessionIds,
-  completedSessionIds,
   currentQuotaProvider,
   environment,
   onConversationNavigate,
@@ -59,7 +52,6 @@ export function RightSidebar({
   snapshot,
   quotas,
   width,
-  workspacePath,
   railActions,
   onCommit,
   onDiscard,
@@ -70,18 +62,12 @@ export function RightSidebar({
   onRefresh,
   onReset,
   onRevert,
-  onTodoNavigateSession,
-  onTodoSendPrompt,
-  onTodoStartSession,
   onWidgetSelect,
-  sessions,
 }: {
   activeSessionId: string
   activeWidget: RightWidget | null
   analysis: SessionAnalysis | null
   analysisAvailable: boolean
-  compactingSessionIds: ReadonlySet<string>
-  completedSessionIds: ReadonlySet<string>
   currentQuotaProvider: QuotaProvider | undefined
   environment: SessionEnvironmentSnapshot | null
   onConversationNavigate: (target: ConversationNavigationTarget) => void
@@ -94,7 +80,6 @@ export function RightSidebar({
   snapshot: GitSnapshot | null
   quotas: QuotaSnapshot | null
   width: number
-  workspacePath: string
   railActions: RailAction[]
   onCommit: (message: string) => Promise<void>
   onDiscard: (path?: string) => Promise<void>
@@ -105,30 +90,10 @@ export function RightSidebar({
   onRefresh: () => Promise<void>
   onReset: (hash: string) => Promise<GitResetResult>
   onRevert: (hash: string) => Promise<GitRevertResult>
-  onTodoNavigateSession: (link: { id: string; sessionPath: string }) => void
-  onTodoSendPrompt: (message: string) => Promise<SessionSummary | null>
-  onTodoStartSession: (message: string) => Promise<SessionSummary | null>
   onWidgetSelect: (widget: RightWidget) => void
-  sessions: SessionSummary[]
 }) {
-  const [todoOpenCount, setTodoOpenCount] = useState<number | null>(null)
   const hasChanges = snapshot ? snapshot.files.length > 0 : false
 
-  useEffect(() => {
-    if (activeWidget === 'todo') return
-    let cancelled = false
-    setTodoOpenCount(null)
-    void loadTodos(workspacePath)
-      .then((todos) => {
-        if (!cancelled) setTodoOpenCount(todos.filter((todo) => !todo.completed).length)
-      })
-      .catch(() => {
-        if (!cancelled) setTodoOpenCount(null)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [activeWidget, workspacePath])
   const collapsed = activeWidget === null || (activeWidget === 'analysis' && !analysis)
     || (activeWidget === 'git' && !snapshot)
   const quotaSummary = railQuota(quotas, currentQuotaProvider)
@@ -250,19 +215,6 @@ export function RightSidebar({
                 state={sessionState}
               />
             )}
-            {activeWidget === 'todo' && (
-              <TodoWidget
-                activeSessionId={activeSessionId}
-                compactingSessionIds={compactingSessionIds}
-                completedSessionIds={completedSessionIds}
-                onNavigateSession={onTodoNavigateSession}
-                onOpenCountChange={setTodoOpenCount}
-                onSendPrompt={onTodoSendPrompt}
-                onStartSession={onTodoStartSession}
-                sessions={sessions}
-                workspacePath={workspacePath}
-              />
-            )}
           </section>
         </div>
       )}
@@ -341,23 +293,6 @@ export function RightSidebar({
               </button>
             </Tooltip>
           )}
-          <Tooltip label='Todo'>
-            <button
-              aria-controls={activeWidget === 'todo' ? 'todo-panel' : undefined}
-              aria-expanded={activeWidget === 'todo'}
-              aria-label={activeWidget === 'todo'
-                ? 'Collapse the task panel'
-                : 'Expand the task panel'}
-              className='rail-tab'
-              onClick={() => onWidgetSelect('todo')}
-              type='button'
-            >
-              <span aria-hidden='true'>☑</span>
-              {todoOpenCount !== null && todoOpenCount > 0 && (
-                <small aria-label={`${todoOpenCount} tasks remaining`}>{todoOpenCount}</small>
-              )}
-            </button>
-          </Tooltip>
           {railActions.map((action) => (
             <Tooltip key={action.key} label={action.label}>
               <button
@@ -402,8 +337,6 @@ function panelLabel(activeWidget: RightWidget | null): string {
     ? 'Session index'
     : activeWidget === 'analysis'
     ? 'Session analysis'
-    : activeWidget === 'todo'
-    ? 'Workspace tasks'
     : activeWidget === 'quotas'
     ? 'Provider quotas'
     : activeWidget === 'environment'

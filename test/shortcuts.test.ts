@@ -19,7 +19,7 @@ test('conserve exactement les touches d’un raccourci', () => {
   assert.equal(shortcutFromEvent({ key: 'Control', ctrlKey: true }), '')
   assert.equal(defaultShortcuts['new-session'], 'alt+n')
   assert.equal(defaultShortcuts['open-palette'], 'alt+k')
-  assert.equal(defaultShortcuts['open-widget-todo'], 'alt+y')
+  assert.equal(defaultShortcuts['open-widget-git'], 'alt+g')
   assert.equal(defaultShortcuts.send, undefined)
   assert.equal(migrateLegacyShortcut('mod+k', 'meta'), 'meta+k')
 })

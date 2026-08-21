@@ -1,7 +1,7 @@
 # Add a widget
 
 This guide covers adding a widget to the right sidebar. Every step is required unless noted
-otherwise. The [`TodoWidget`](/src/features/todo/TodoWidget.tsx) is the reference
+otherwise. The [`GitWidget`](/src/features/git/GitWidget.tsx) is the reference
 implementation — open it alongside and follow its shape.
 
 ## 1. Create the component
@@ -50,7 +50,7 @@ No other registration is needed.
 In `src/features/right-sidebar/RightSidebar.tsx`:
 
 - **Panel:** add a conditional render on `activeWidget`, following the pattern of existing
-  widgets (search for `activeWidget === 'todo'` in the file). Forward the props received
+  widgets (search for `activeWidget === 'git'` in the file). Forward the props received
   by `RightSidebar`.
 - **Rail:** add a button inside `<div className="right-sidebar-rail">`, copying the
   accessibility pattern (`aria-controls`, `aria-expanded`, `aria-label`) and the
@@ -140,5 +140,5 @@ Used by the session analysis widget, but not mandatory.
 
 ## Reference widget
 
-[`TodoWidget`](/src/features/todo/TodoWidget.tsx) illustrates feature-owned state, calls through
+[`GitWidget`](/src/features/git/GitWidget.tsx) illustrates feature-owned state, calls through
 `src/api.ts`, error handling, and backend persistence.

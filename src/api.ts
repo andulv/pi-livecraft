@@ -14,7 +14,6 @@ import type {
   SessionEnvironmentSnapshot,
   SessionSnapshot,
   SessionSummary,
-  TodoItem,
   WorkspaceFile,
 } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
@@ -136,17 +135,6 @@ export async function getWorkspaceFilePath(
   return request<{ absolutePath: string; path: string }>(
     `/api/files/path?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}`,
   )
-}
-
-export async function getTodos(cwd: string): Promise<TodoItem[]> {
-  return request<TodoItem[]>(`/api/todos?cwd=${encodeURIComponent(cwd)}`)
-}
-
-export async function updateTodos(cwd: string, todos: TodoItem[]): Promise<TodoItem[]> {
-  return request<TodoItem[]>('/api/todos', {
-    method: 'PUT',
-    body: JSON.stringify({ cwd, todos }),
-  })
 }
 
 export async function openVSCode(

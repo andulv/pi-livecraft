@@ -26,11 +26,6 @@ import {
   VSCodeSettingsError,
 } from './features/vscode/launcher.ts'
 import {
-  loadWorkspaceTodos,
-  parseTodoItems,
-  saveWorkspaceTodos,
-} from './features/todos/todo-store.ts'
-import {
   readWorkspaceFile,
   resolveWorkspaceFilePath,
   WorkspaceFileError,
@@ -278,27 +273,6 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       if (error instanceof WorkspaceFileError) throw new HttpError(error.status, error.message)
       throw error
     }
-    return
-  }
-
-  if (method === 'GET' && url.pathname === '/api/todos') {
-    const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
-    sendJson(response, 200, await loadWorkspaceTodos(cwd))
-    return
-  }
-
-  if (method === 'PUT' && url.pathname === '/api/todos') {
-    const body = await readJsonBody(request)
-    if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
-    const cwd = await resolveWorkingDirectory(body.cwd)
-    let todos
-    try {
-      todos = parseTodoItems(body.todos)
-    } catch (error) {
-      throw new HttpError(400, errorMessage(error))
-    }
-    await saveWorkspaceTodos(cwd, todos)
-    sendJson(response, 200, todos)
     return
   }
 

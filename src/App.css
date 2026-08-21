@@ -5,7 +5,6 @@
 @import "./features/git/git.css";
 @import "./features/quotas/quotas.css";
 @import "./features/session-environment/session-environment.css";
-@import "./features/todo/todo.css";
 @import "./features/conversation/conversation.css";
 @import "./features/conversation/messages.css";
 @import "./features/conversation/tool-call.css";

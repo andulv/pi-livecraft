@@ -1387,7 +1387,7 @@ function LivecraftProjectApp(
   ])
 
   // Application layout
-  const rightPanelVisible = activeRightWidget === 'index' || activeRightWidget === 'todo'
+  const rightPanelVisible = activeRightWidget === 'index'
     || activeRightWidget === 'quotas' || activeRightWidget === 'environment'
     || (activeRightWidget === 'analysis' && sessionAnalysis !== null)
     || (activeRightWidget === 'git' && gitSnapshot?.repository === true)
@@ -1700,8 +1700,6 @@ function LivecraftProjectApp(
         activeWidget={activeRightWidget}
         analysis={sessionAnalysis}
         analysisAvailable={analysisAvailable}
-        compactingSessionIds={compactingSessionIds}
-        completedSessionIds={completedSessionIds}
         currentQuotaProvider={currentQuotaProvider}
         onConversationNavigate={navigateToConversationTarget}
         onResize={updateRightSidebarWidth}
@@ -1709,14 +1707,12 @@ function LivecraftProjectApp(
         sessionMessagesAvailable={selectedSession !== undefined
           && snapshotSessionId === selectedSession.id}
         snapshot={gitSnapshot?.repository ? gitSnapshot : null}
-        sessions={sessions}
         quotas={quotas}
         environment={environment}
         sessionCommands={snapshot.commands}
         sessionState={snapshot.state}
         sessionStats={snapshot.stats}
         width={rightSidebarWidth}
-        workspacePath={workspacePath}
         railActions={railActions}
         onCommit={async (message) => {
           await commitChanges(workspacePath, message)
@@ -1735,18 +1731,6 @@ function LivecraftProjectApp(
         onRevert={async (hash) => {
           return await revertGitCommit(workspacePath, hash)
         }}
-        onTodoNavigateSession={(link) => {
-          const active = sessions.find((s) => s.id === link.id)
-          if (active) {
-            setSelectedId(link.id)
-          } else {
-            void startAndSelectSession(() => openSession(workspacePath, link.sessionPath))
-          }
-        }}
-        onTodoSendPrompt={async (message) =>
-          startAndSelectSession(() => createSession(workspacePath), message)}
-        onTodoStartSession={async (message) =>
-          startAndSelectSession(() => createSession(workspacePath), undefined, message)}
         onWidgetSelect={(widget) =>
           setActiveRightWidget((current) => {
             const next = current === widget ? null : widget

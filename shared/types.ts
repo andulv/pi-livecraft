@@ -102,19 +102,6 @@ export interface WorkspaceFile {
   content: string
 }
 
-export interface TodoSessionLink {
-  id: string
-  name: string
-  sessionPath: string
-}
-
-export interface TodoItem {
-  id: string
-  text: string
-  completed: boolean
-  session?: TodoSessionLink
-}
-
 export interface ManagerRuntimeIdentity {
   instanceId: string
   startedAt: string

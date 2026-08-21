@@ -95,7 +95,7 @@ For context, the official project is [sebastienservouze/pi-livecraft](https://gi
 The following are standard Pi Livecraft capabilities inherited from the official project and are not presented as Andulv fork additions:
 
 - the basic Pi conversation loop and generic composer;
-- standard Git, todo, terminal, settings, notifications, and command-palette surfaces;
+- standard Git, terminal, settings, notifications, and command-palette surfaces;
 - standard tool-call rendering, conversation actions, forks, and session analysis;
 - the underlying local backend, manager, RPC, and browser architecture.
 
