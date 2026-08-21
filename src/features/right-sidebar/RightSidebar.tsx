@@ -19,6 +19,7 @@ import { GitWidget } from '../git/GitWidget.tsx'
 import { QuotaWidget } from '../quotas/QuotaWidget.tsx'
 import { SessionEnvironmentWidget } from '../session-environment/SessionEnvironmentWidget.tsx'
 import { railQuota, type QuotaProvider } from '../quotas/quota-display.ts'
+import { formatSessionStats } from '../composer/composer-utils.ts'
 import type { ConversationNavigationTarget } from '../conversation/conversation-navigation.ts'
 import { SessionIndexWidget } from '../session-index/SessionIndexWidget.tsx'
 import { SessionAnalysisWidget } from '../session-analysis/SessionAnalysisWidget.tsx'
@@ -97,6 +98,14 @@ export function RightSidebar({
   const collapsed = activeWidget === null || (activeWidget === 'analysis' && !analysis)
     || (activeWidget === 'git' && !snapshot)
   const quotaSummary = railQuota(quotas, currentQuotaProvider)
+  const contextStats = formatSessionStats(sessionStats)
+  const contextHasUsage = contextStats.contextPercentValue !== null
+    && contextStats.contextTokens !== 'Unavailable'
+  const contextTooltip = contextHasUsage
+    ? `Context ${contextStats.contextTokens} (${contextStats.contextPercent})${
+      environment && environment.tools.length > 0 ? ` · ${environment.tools.length} tools` : ''
+    }`
+    : 'Session context'
 
   /** Installs temporary listeners needed for panel pointer resizing. */
   function startResize(event: ReactPointerEvent<HTMLDivElement>): void {
@@ -253,25 +262,32 @@ export function RightSidebar({
               </button>
             </Tooltip>
           )}
-          <Tooltip label='Session environment'>
+          <Tooltip label={contextTooltip}>
             <button
               aria-controls={activeWidget === 'environment' ? 'environment-panel' : undefined}
               aria-expanded={activeWidget === 'environment'}
-              aria-label={activeWidget === 'environment'
-                ? 'Collapse session environment'
-                : 'Expand session environment'}
+              aria-label={`${
+                activeWidget === 'environment' ? 'Collapse' : 'Expand'
+              } context panel. ${contextTooltip}`}
               className='rail-tab'
               onClick={() => onWidgetSelect('environment')}
               type='button'
             >
-              <span aria-hidden='true'>⚙</span>
-              {environment && environment.tools.length > 0 && (
-                <small aria-label={`${environment.tools.length} tools loaded`}>
-                  {environment
-                    .tools
-                    .length}
-                </small>
-              )}
+              <span
+                aria-hidden='true'
+                className={`context-rail-value ${contextStats.contextClass}`}
+              >
+                <ContextRailIcon />
+                {contextHasUsage && (
+                  <>
+                    <span className='context-rail-tokens'>{contextStats.contextTokens}</span>
+                    <span className='context-rail-meter'>
+                      <small>{contextStats.contextPercent}</small>
+                      <progress max={100} value={contextStats.contextPercentValue ?? 0} />
+                    </span>
+                  </>
+                )}
+              </span>
             </button>
           </Tooltip>
         </div>
@@ -329,6 +345,27 @@ export function RightSidebar({
         </div>
       </div>
     </aside>
+  )
+}
+
+/** Layered mark signalling accumulated conversation context. */
+function ContextRailIcon() {
+  return (
+    <svg
+      aria-hidden='true'
+      fill='none'
+      height='12'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='1.8'
+      viewBox='0 0 24 24'
+      width='12'
+    >
+      <path d='M12 3 2.5 8.5 12 14l9.5-5.5L12 3z' />
+      <path d='M4 12.8 12 17.4l8-4.6' />
+      <path d='M4 17 12 21.6 20 17' />
+    </svg>
   )
 }
 

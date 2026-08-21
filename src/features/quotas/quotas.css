@@ -13,6 +13,49 @@
   color: var(--subtle);
   font-size: 9px;
 }
+/* Context rail value: icon, tokens, and a mini meter mirroring the top status bar. */
+.context-rail-value {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+.context-rail-value svg {
+  display: block;
+}
+.context-rail-tokens {
+  font: 700 9px/1 ui-monospace, monospace;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+}
+.context-rail-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.context-rail-meter small {
+  color: var(--muted);
+  font: 650 8px ui-sans-serif, system-ui, sans-serif;
+}
+.context-rail-meter progress {
+  width: 22px;
+  height: 4px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: var(--line);
+}
+.context-rail-meter progress::-webkit-progress-bar {
+  border-radius: inherit;
+  background: var(--line);
+}
+.context-rail-meter progress::-webkit-progress-value {
+  border-radius: inherit;
+  background: currentColor;
+}
+.context-rail-meter progress::-moz-progress-bar {
+  border-radius: inherit;
+  background: currentColor;
+}
 .quota-content {
   display: grid;
   align-content: start;
