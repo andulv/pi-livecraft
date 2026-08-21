@@ -104,6 +104,10 @@
   align-items: stretch;
   width: 100%;
 }
+/* The global group (quotas) anchors to the rail's bottom edge. */
+.right-sidebar-rail-group:last-child {
+  margin-top: auto;
+}
 .right-sidebar-rail-group + .right-sidebar-rail-group {
   position: relative;
   margin-top: 8px;
