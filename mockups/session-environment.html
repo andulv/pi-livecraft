@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Pi Livecraft — Session environment widget mockup</title>
+    <style>
+    /* Tokens copied from src/styles/base.css */
+    :root {
+      --canvas: #fafafc;
+      --surface: #ffffff;
+      --ink: #1d2924;
+      --accent: #23776d;
+      --secondary: #6851a4;
+      --success: #28734b;
+      --warning: #b8860b;
+      --danger: #a13f37;
+
+      --surface-raised: color-mix(in srgb, var(--surface) 92%, var(--canvas));
+      --sidebar: color-mix(in srgb, var(--canvas) 96%, var(--ink));
+      --muted: color-mix(in srgb, var(--ink) 55%, var(--canvas));
+      --subtle: color-mix(in srgb, var(--ink) 42%, var(--canvas));
+      --line: color-mix(in srgb, var(--ink) 12%, var(--canvas));
+      --panel-line: color-mix(in srgb, var(--ink) 4%, var(--canvas));
+      --line-strong: color-mix(in srgb, var(--ink) 20%, var(--canvas));
+      --accent-hover: color-mix(in srgb, var(--accent) 78%, var(--ink));
+      --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+      --secondary-soft: color-mix(
+        in srgb,
+        var(--secondary) 10%,
+        var(--surface)
+      );
+      --warning-soft: color-mix(in srgb, var(--warning) 13%, var(--surface));
+      color-scheme: light;
+    }
+    [data-theme="dark"] {
+      --canvas: #171c1a;
+      --surface: #1e2422;
+      --ink: #dde3e0;
+      --accent: #4fb9ab;
+      --secondary: #9d91d4;
+      --success: #59ba7c;
+      --warning: #d6aa45;
+      --danger: #e26e63;
+      --surface-raised: color-mix(in srgb, var(--surface) 92%, var(--canvas));
+      --sidebar: color-mix(in srgb, var(--canvas) 90%, var(--ink));
+      --muted: color-mix(in srgb, var(--ink) 55%, var(--canvas));
+      --subtle: color-mix(in srgb, var(--ink) 42%, var(--canvas));
+      --line: color-mix(in srgb, var(--ink) 12%, var(--canvas));
+      --panel-line: color-mix(in srgb, var(--ink) 4%, var(--canvas));
+      --line-strong: color-mix(in srgb, var(--ink) 20%, var(--canvas));
+      --accent-hover: color-mix(in srgb, var(--accent) 78%, var(--ink));
+      --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+      --secondary-soft: color-mix(
+        in srgb,
+        var(--secondary) 10%,
+        var(--surface)
+      );
+      --warning-soft: color-mix(in srgb, var(--warning) 13%, var(--surface));
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+    }
+    body {
+      font:
+        13px/1.45 ui-sans-serif,
+        system-ui,
+        -apple-system,
+        "Segoe UI",
+        sans-serif;
+      background: #e7e8ec;
+      color: #1d2924;
+      padding: 28px 28px 40px;
+    }
+    .page-title {
+      font-size: 17px;
+      font-weight: 650;
+      margin-bottom: 2px;
+    }
+    .page-sub {
+      font-size: 12px;
+      color: #5a625e;
+      margin-bottom: 22px;
+      max-width: 900px;
+    }
+    .frames {
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+    }
+    figure {
+      margin: 0;
+    }
+    figcaption {
+      font-size: 11px;
+      color: #5a625e;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    /* ── App shell strip: conversation edge + right sidebar ── */
+    .shell {
+      display: flex;
+      width: 520px;
+      height: 1310px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 12px 30px rgb(0 0 0 / 12%);
+      background: var(--canvas);
+      color: var(--ink);
+    }
+    .convo-edge {
+      width: 118px;
+      flex: 0 0 auto;
+      background: var(--canvas);
+      border-right: 1px solid var(--panel-line);
+      padding: 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .convo-edge .ghost {
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--ink) 6%, var(--canvas));
+    }
+    .convo-edge .g1 {
+      height: 54px;
+    }
+    .convo-edge .g2 {
+      height: 92px;
+    }
+    .convo-edge .g3 {
+      height: 66px;
+    }
+    .convo-edge .g4 {
+      height: 120px;
+    }
+    .convo-edge .label {
+      font-size: 9px;
+      color: var(--subtle);
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+
+    /* ── Right sidebar (panel + rail) — from right-sidebar.css ── */
+    .right-sidebar {
+      display: flex;
+      min-width: 0;
+      background: var(--surface);
+      flex: 1;
+    }
+    .right-sidebar-panel {
+      position: relative;
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      min-width: 0;
+      border-left: 1px solid var(--panel-line);
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--accent) 8%, var(--surface)) 0%,
+        var(--surface) 100%
+      );
+    }
+    .right-sidebar-content {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .widget-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: 0 0 auto;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      padding: 16px 14px 11px;
+    }
+    .widget-header strong {
+      display: block;
+      font-size: 13px;
+    }
+    .widget-header span {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .refresh {
+      flex: 0 0 auto;
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 14px;
+      display: grid;
+      place-items: center;
+    }
+    .widget-content {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 2px 14px 20px;
+    }
+
+    /* Rail */
+    .right-sidebar-rail {
+      display: flex;
+      flex: 0 0 48px;
+      flex-direction: column;
+      align-items: center;
+      border-left: 1px solid var(--line);
+      background: var(--surface-raised);
+    }
+    .rail-tab {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 48px;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      background: transparent;
+      color: var(--muted);
+      font-size: 16px;
+    }
+    .rail-tab.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+      box-shadow: inset 0 -2px 0 var(--accent);
+    }
+    .rail-tab small {
+      position: absolute;
+      top: 5px;
+      right: 4px;
+      display: grid;
+      place-items: center;
+      min-width: 14px;
+      height: 14px;
+      border-radius: 9px;
+      padding: 0 3px;
+      background: var(--accent-soft);
+      color: var(--accent-hover);
+      font: 8px ui-sans-serif, system-ui, sans-serif;
+    }
+    .rail-tab.active small {
+      background: var(--surface);
+      box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+    }
+    .rail-quota {
+      font: 700 10px/1 ui-monospace, monospace;
+      letter-spacing: -0.5px;
+    }
+
+    /* ── Sections (quota-provider pattern) ── */
+    .section {
+      padding: 16px 0 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .section:last-of-type {
+      border-bottom: 0;
+    }
+    .section-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .section-heading h2 {
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .count-chip {
+      flex: 0 0 auto;
+      border-radius: 10px;
+      padding: 3px 7px;
+      background: var(--accent-soft);
+      color: var(--accent-hover);
+      font-size: 9px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .count-chip.plain {
+      background: color-mix(in srgb, var(--ink) 6%, var(--surface));
+      color: var(--muted);
+    }
+
+    /* Context group */
+    .kv-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 11px;
+    }
+    .kv-row + .kv-row {
+      margin-top: 9px;
+    }
+    .kv-row .k {
+      color: var(--muted);
+      flex: 0 0 auto;
+    }
+    .kv-row .v {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .chip {
+      flex: 0 0 auto;
+      border-radius: 10px;
+      padding: 2px 6px;
+      font-size: 9px;
+      font-weight: 700;
+    }
+    .chip.accent {
+      background: var(--accent-soft);
+      color: var(--accent-hover);
+    }
+    .chip.secondary {
+      background: var(--secondary-soft);
+      color: color-mix(in srgb, var(--secondary) 78%, var(--ink));
+    }
+    .chip.warn {
+      background: var(--warning-soft);
+      color: color-mix(in srgb, var(--warning) 65%, var(--ink));
+    }
+    .chip.muted {
+      background: color-mix(in srgb, var(--ink) 6%, var(--surface));
+      color: var(--muted);
+    }
+
+    .usage-bar {
+      height: 6px;
+      border-radius: 3px;
+      background: color-mix(in srgb, var(--ink) 8%, var(--surface));
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .usage-bar i {
+      display: block;
+      height: 100%;
+      width: 48%;
+      border-radius: 3px;
+      background: var(--accent);
+    }
+    .usage-bar i.warn {
+      background: var(--warning);
+    }
+
+    .sub-label {
+      margin: 14px 0 6px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: var(--subtle);
+    }
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 11px;
+      padding: 4px 0;
+      min-width: 0;
+    }
+    .file-row .glyph {
+      flex: 0 0 auto;
+      color: var(--subtle);
+      font-size: 11px;
+    }
+    .file-row .name {
+      flex: 0 0 auto;
+      font-weight: 600;
+    }
+    .file-row .path {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--subtle);
+      font-size: 10px;
+    }
+    .file-row .size {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font: 10px ui-monospace, monospace;
+    }
+
+    /* Filter input (composer-style compact control) */
+    .filter {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 0 9px;
+      margin-bottom: 10px;
+      color: var(--subtle);
+      font-size: 11px;
+    }
+    .filter .q {
+      color: var(--muted);
+    }
+
+    /* Tool rows */
+    .tool-row {
+      padding: 6px 0;
+      min-width: 0;
+    }
+    .tool-row + .tool-row {
+      border-top: 1px solid var(--panel-line);
+    }
+    .tool-line {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+    .tool-name {
+      flex: 0 0 auto;
+      font: 600 11px ui-monospace, "SF Mono", monospace;
+      max-width: 46%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tool-desc {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: 10.5px;
+    }
+    .tool-row.off .tool-name, .tool-row.off .tool-desc {
+      opacity: 0.5;
+    }
+    .tool-detail {
+      margin: 5px 0 2px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--ink) 3%, var(--surface));
+      padding: 8px 10px;
+      font: 10.5px/1.6 ui-monospace, monospace;
+      color: var(--muted);
+    }
+    .tool-detail b {
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .tool-detail .opt {
+      color: var(--subtle);
+    }
+
+    /* Skills + extensions rows */
+    .item-row {
+      padding: 7px 0;
+      min-width: 0;
+    }
+    .item-row + .item-row {
+      border-top: 1px solid var(--panel-line);
+    }
+    .item-top {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+    .item-name {
+      flex: 0 0 auto;
+      font-size: 11px;
+      font-weight: 650;
+    }
+    .item-desc {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 10.5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .item-path {
+      margin-top: 1px;
+      color: var(--subtle);
+      font-size: 9.5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    </style>
+  </head>
+  <body>
+    <div class="page-title">
+      Pi Livecraft — “Session environment” widget (mockup)
+    </div>
+    <div class="page-sub">
+      A new right-sidebar widget showing everything the selected Pi session has
+      loaded: context usage and files, tools (with parameter detail), skills,
+      extensions and prompt templates. Rail tab ⚙, light and dark theme.
+    </div>
+
+    <div class="frames" id="frames"></div>
+
+    <template id="sidebar-tpl">
+      <div class="shell">
+        <div class="convo-edge">
+          <span class="label">Conversation</span>
+          <div class="ghost g2"></div>
+          <div class="ghost g1"></div>
+          <div class="ghost g4"></div>
+          <div class="ghost g3"></div>
+        </div>
+        <div class="right-sidebar">
+          <div class="right-sidebar-panel">
+            <div class="right-sidebar-content">
+              <header class="widget-header">
+                <div style="min-width: 0">
+                  <strong>Environment</strong>
+                  <span>pi 0.49.2 · updated 12s ago</span>
+                </div>
+                <button
+                  class="refresh"
+                  type="button"
+                  aria-label="Refresh environment"
+                >
+                  ↻
+                </button>
+              </header>
+              <div class="widget-content">
+                <!-- Context -->
+                <section class="section">
+                  <div class="section-heading">
+                    <h2>Context</h2>
+                    <span class="count-chip">96.4k / 200k</span>
+                  </div>
+                  <div class="kv-row">
+                    <span class="k">Model</span>
+                    <span class="v">anthropic · claude-opus-4.6 <span
+                        class="chip accent"
+                      >thinking high</span></span>
+                  </div>
+                  <div class="kv-row">
+                    <span class="k">Usage</span>
+                    <span class="v">96,412 / 200,000 · 48%</span>
+                  </div>
+                  <div class="usage-bar"><i></i></div>
+                  <div class="sub-label">Context files · 2</div>
+                  <div class="file-row">
+                    <span class="glyph">▤</span>
+                    <span class="name">AGENTS.md</span>
+                    <span class="path"
+                    >/home/anders/source/agent/pi-livecraft</span>
+                    <span class="chip muted">project</span>
+                    <span class="size">8.4 KB</span>
+                  </div>
+                  <div class="file-row">
+                    <span class="glyph">▤</span>
+                    <span class="name">AGENTS.md</span>
+                    <span class="path">/home/anders/.pi/agent</span>
+                    <span class="chip muted">user</span>
+                    <span class="size">1.1 KB</span>
+                  </div>
+                </section>
+
+                <!-- Tools -->
+                <section class="section">
+                  <div class="section-heading">
+                    <h2>Tools</h2>
+                    <span class="count-chip">12 active · 14 loaded</span>
+                  </div>
+                  <div class="filter">
+                    <span class="q">⌕</span> Filter tools…
+                  </div>
+
+                  <div class="tool-row">
+                    <div class="tool-line">
+                      <span class="tool-name">read</span>
+                      <span class="tool-desc"
+                      >Read the contents of a file. Supports text files and
+                        images.</span>
+                      <span class="chip muted">built-in</span>
+                    </div>
+                  </div>
+                  <div class="tool-row">
+                    <div class="tool-line">
+                      <span class="tool-name">bash</span>
+                      <span class="tool-desc"
+                      >Execute a bash command in the current working
+                        directory.</span>
+                      <span class="chip muted">built-in</span>
+                    </div>
+                    <div class="tool-detail">
+                      <b>command</b>: string — Bash command to execute<br>
+                      <b>timeout</b><span class="opt"
+                      >?: number — Timeout in seconds (optional)</span>
+                    </div>
+                  </div>
+                  <div class="tool-row">
+                    <div class="tool-line">
+                      <span class="tool-name">edit</span>
+                      <span class="tool-desc"
+                      >Edit a single file with exact text replacement.</span>
+                      <span class="chip muted">built-in</span>
+                    </div>
+                  </div>
+                  <div class="tool-row">
+                    <div class="tool-line">
+                      <span class="tool-name">write</span>
+                      <span class="tool-desc"
+                      >Write content to a file. Creates or overwrites.</span>
+                      <span class="chip muted">built-in</span>
+                    </div>
+                  </div>
+                  <div class="tool-row">
+                    <div class="tool-line">
+                      <span class="tool-name">grep</span>
+                      <span class="tool-desc"
+                      >Grep file contents. Smart-case, git-aware,
+                        frecency-ranked.</span>
+                      <span class="chip muted">built-in</span>
+                    </div>
+                  </div>
+                  <div class="tool-row">
+                    <div class="tool-line">
+                      <span class="tool-name">find</span>
+                      <span class="tool-desc"
+                      >Fuzzy path search and glob search over the repo.</span>
+                      <span class="chip muted">built-in</span>
+                    </div>
+                  </div>
+                  <div class="tool-row">
+                    <div class="tool-line">
+                      <span class="tool-name">analyze_image</span>
+                      <span class="tool-desc"
+                      >Analyze an image file using an image-capable
+                        model.</span>
+                      <span class="chip muted">built-in</span>
+                    </div>
+                  </div>
+                  <div class="tool-row">
+                    <div class="tool-line">
+                      <span class="tool-name">ketch_search</span>
+                      <span class="tool-desc"
+                      >Search the live web through Ketch.</span>
+                      <span class="chip secondary">ext · ketch</span>
+                    </div>
+                  </div>
+                  <div class="tool-row">
+                    <div class="tool-line">
+                      <span class="tool-name">ask_user_question</span>
+                      <span class="tool-desc"
+                      >Ask the user structured questions when a decision is
+                        needed.</span>
+                      <span class="chip secondary">ext · livecraft</span>
+                    </div>
+                  </div>
+                  <div class="tool-row off">
+                    <div class="tool-line">
+                      <span class="tool-name">ketch_crawl</span>
+                      <span class="tool-desc"
+                      >Breadth-first crawl one host through Ketch.</span>
+                      <span class="chip warn">off</span>
+                    </div>
+                  </div>
+                  <div class="tool-row off">
+                    <div class="tool-line">
+                      <span class="tool-name">web</span>
+                      <span class="tool-desc"
+                      >Deprecated — use codex-research instead.</span>
+                      <span class="chip warn">off</span>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- Skills -->
+                <section class="section">
+                  <div class="section-heading">
+                    <h2>Skills</h2>
+                    <span class="count-chip">3 loaded</span>
+                  </div>
+                  <div class="item-row">
+                    <div class="item-top">
+                      <span class="item-name">livecraft-ui</span>
+                      <span class="chip accent">project</span>
+                    </div>
+                    <div class="item-desc">
+                      Use for any visual creation, redesign, layout, styling,
+                      theming, or visual fix in Pi Livecraft.
+                    </div>
+                    <div class="item-path">
+                      .pi/skills/livecraft-ui/SKILL.md
+                    </div>
+                  </div>
+                  <div class="item-row">
+                    <div class="item-top">
+                      <span class="item-name">ketch</span>
+                      <span class="chip muted">user</span>
+                    </div>
+                    <div class="item-desc">
+                      Research the live web, public OSS code, library
+                      documentation, or bounded sites.
+                    </div>
+                    <div class="item-path">
+                      ~/.pi/agent/npm/node_modules/pi-ketch/skills/ketch/SKILL.md
+                    </div>
+                  </div>
+                  <div class="item-row">
+                    <div class="item-top">
+                      <span class="item-name">mcp-scripting</span>
+                      <span class="chip muted">user</span>
+                    </div>
+                    <div class="item-desc">
+                      Write mcpScript JavaScript for discovering, inspecting,
+                      and calling MCP tools.
+                    </div>
+                    <div class="item-path">
+                      ~/.pi/agent/npm/node_modules/pi-mcp-adapter/skills/mcp-scripting/SKILL.md
+                    </div>
+                  </div>
+                </section>
+
+                <!-- Extensions & prompts -->
+                <section class="section">
+                  <div class="section-heading">
+                    <h2>Extensions &amp; prompts</h2>
+                    <span class="count-chip">5 loaded</span>
+                  </div>
+                  <div class="item-row">
+                    <div class="item-top">
+                      <span class="item-name">ask-user-question.ts</span>
+                      <span class="chip accent">project</span>
+                      <span class="chip secondary">tool</span>
+                    </div>
+                    <div class="item-desc">
+                      Registers the structured questionnaire tool and bridges
+                      its payload to the browser.
+                    </div>
+                  </div>
+                  <div class="item-row">
+                    <div class="item-top">
+                      <span class="item-name">quotas.ts</span>
+                      <span class="chip accent">project</span>
+                      <span class="chip muted">/livecraft-quotas</span>
+                    </div>
+                    <div class="item-desc">
+                      Publishes normalized provider usage through a versioned
+                      status payload.
+                    </div>
+                  </div>
+                  <div class="item-row">
+                    <div class="item-top">
+                      <span class="item-name">session-environment.ts</span>
+                      <span class="chip accent">project</span>
+                      <span class="chip muted">/livecraft-environment</span>
+                    </div>
+                    <div class="item-desc">
+                      Publishes loaded tools, skills, context files, and
+                      extensions to Livecraft. <b>new</b>
+                    </div>
+                  </div>
+                  <div class="item-row">
+                    <div class="item-top">
+                      <span class="item-name">fix-tests.md</span>
+                      <span class="chip muted">prompt</span>
+                      <span class="chip muted">/fix-tests</span>
+                    </div>
+                    <div class="item-desc">
+                      Fix failing tests — prompt template.
+                    </div>
+                  </div>
+                  <div class="item-row">
+                    <div class="item-top">
+                      <span class="item-name">session-name.ts</span>
+                      <span class="chip muted">user</span>
+                      <span class="chip muted">/session-name</span>
+                    </div>
+                    <div class="item-desc">Set or clear the session name.</div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+          <div class="right-sidebar-rail">
+            <button class="rail-tab" type="button"><span>☷</span></button>
+            <button class="rail-tab" type="button"><span>∑</span></button>
+            <button class="rail-tab" type="button">
+              <span>⎇</span><small>3</small>
+            </button>
+            <button class="rail-tab" type="button">
+              <span class="rail-quota">42%</span>
+            </button>
+            <button class="rail-tab" type="button">
+              <span>☑</span><small>2</small>
+            </button>
+            <button class="rail-tab active" type="button">
+              <span>⚙</span><small>14</small>
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <script>
+    const frames = document.getElementById('frames')
+    const tpl = document.getElementById('sidebar-tpl')
+    for (const theme of ['light', 'dark']) {
+      const fig = document.createElement('figure')
+      const node = tpl.content.firstElementChild.cloneNode(true)
+      if (theme === 'dark') node.setAttribute('data-theme', 'dark')
+      fig.appendChild(node)
+      const cap = document.createElement('figcaption')
+      cap.textContent = theme === 'light' ? 'Default theme' : 'Dark theme'
+      fig.appendChild(cap)
+      frames.appendChild(fig)
+    }
+    </script>
+  </body>
+</html>
