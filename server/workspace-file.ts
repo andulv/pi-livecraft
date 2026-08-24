@@ -1,6 +1,6 @@
-import { readFile, realpath, stat } from 'node:fs/promises'
+import { readdir, readFile, realpath, stat } from 'node:fs/promises'
 import { isAbsolute, relative, resolve } from 'node:path'
-import type { WorkspaceFile } from '../shared/types.ts'
+import type { WorkspaceFile, WorkspaceFileEntry, WorkspaceFileListing } from '../shared/types.ts'
 
 const maxWorkspaceFileSize = 2 * 1024 * 1024
 
@@ -34,6 +34,45 @@ export async function resolveWorkspaceFilePath(
 
   if (!(await stat(path)).isFile()) throw new WorkspaceFileError('Path must be a file', 400)
   return path
+}
+
+/** Lists direct, non-symlink children of a directory within the working directory. */
+export async function listWorkspaceFiles(
+  workspacePath: string,
+  requestedPath: string,
+): Promise<WorkspaceFileListing> {
+  const root = await realpath(workspacePath)
+  let path: string
+  try {
+    path = await realpath(resolve(root, requestedPath || '.'))
+  } catch {
+    throw new WorkspaceFileError('Directory does not exist', 404)
+  }
+  const pathFromRoot = relative(root, path)
+  if (pathFromRoot.startsWith('..') || isAbsolute(pathFromRoot))
+    throw new WorkspaceFileError('Directory must be inside the working directory', 403)
+  if (!(await stat(path)).isDirectory())
+    throw new WorkspaceFileError('Path must be a directory', 400)
+
+  const entries = (await readdir(path, { withFileTypes: true }))
+    .flatMap((entry): WorkspaceFileEntry[] => {
+      const kind: WorkspaceFileEntry['kind'] | null = entry.isDirectory()
+        ? 'directory'
+        : entry.isFile()
+        ? 'file'
+        : null
+      return kind
+        ? [{ kind, name: entry.name, path: relative(root, resolve(path, entry.name)) }]
+        : []
+    })
+    .sort((left, right) =>
+      left.kind === right.kind
+        ? left.name.localeCompare(right.name)
+        : left.kind === 'directory'
+        ? -1
+        : 1
+    )
+  return { path: pathFromRoot, entries }
 }
 
 /** Reads an existing text file within the working directory. */

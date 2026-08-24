@@ -9,6 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
+import { FileExplorer } from '../files/FileExplorer.tsx'
 import type {
   GitProject,
   GitWorkspace,
@@ -67,6 +68,7 @@ interface WorkspaceSidebarProps {
   onToggleProjectPin: (target: SessionActionTarget) => void
   onToggleSessionArchive: (target: SessionActionTarget) => void
   onError: (cause: unknown) => void
+  onOpenFile: (path: string) => void
 }
 
 /** Displays the current workspace and opens or selects its recent Pi sessions. */
@@ -100,6 +102,7 @@ export function WorkspaceSidebar({
   onToggleProjectPin,
   onToggleSessionArchive,
   onError,
+  onOpenFile,
 }: WorkspaceSidebarProps) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
@@ -110,6 +113,7 @@ export function WorkspaceSidebar({
   const [sessionListMenuOpen, setSessionListMenuOpen] = useState(false)
   const [showArchivedSessions, setShowArchivedSessions] = useState(false)
   const [startingNewSession, setStartingNewSession] = useState(false)
+  const [openWorkspacePanel, setOpenWorkspacePanel] = useState<'sessions' | 'files'>('sessions')
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
   const contextMenuTriggerRef = useRef<HTMLButtonElement>(null)
@@ -502,9 +506,19 @@ export function WorkspaceSidebar({
         </div>
       </section>
       <div className='sidebar-section-heading sidebar-list-heading sessions-heading'>
-        <span title={workspacePath}>
-          Sessions – <b>{selectedWorkspaceLabel}</b>
-        </span>
+        <button
+          aria-expanded={openWorkspacePanel === 'sessions'}
+          className='sidebar-panel-toggle'
+          onClick={() =>
+            setOpenWorkspacePanel((current) => current === 'sessions' ? 'files' : 'sessions')}
+          title={workspacePath}
+          type='button'
+        >
+          <span>
+            Sessions – <b>{selectedWorkspaceLabel}</b>
+          </span>
+          <span aria-hidden='true'>{openWorkspacePanel === 'sessions' ? '⌄' : '›'}</span>
+        </button>
         <div className='sessions-heading-actions'>
           <Tooltip label='Session list options'>
             <button
@@ -564,8 +578,9 @@ export function WorkspaceSidebar({
         </div>
       </div>
       <nav
-        className='session-list'
         aria-label={showArchivedSessions ? 'Pi sessions' : 'Recent Pi sessions'}
+        className='session-list'
+        hidden={openWorkspacePanel !== 'sessions'}
       >
         {isRefreshing && visibleSessions.length === 0 && (
           <p className='session-list-loading' role='status'>Loading sessions…</p>
@@ -656,6 +671,21 @@ export function WorkspaceSidebar({
           </p>
         )}
       </nav>
+      <div className='sidebar-section-heading sidebar-list-heading files-heading'>
+        <button
+          aria-expanded={openWorkspacePanel === 'files'}
+          className='sidebar-panel-toggle'
+          onClick={() =>
+            setOpenWorkspacePanel((current) => current === 'files' ? 'sessions' : 'files')}
+          type='button'
+        >
+          <span>Files</span>
+          <span aria-hidden='true'>{openWorkspacePanel === 'files' ? '⌄' : '›'}</span>
+        </button>
+      </div>
+      {openWorkspacePanel === 'files' && (
+        <FileExplorer key={workspacePath} onOpenFile={onOpenFile} workspacePath={workspacePath} />
+      )}
       {workspaceMenu && (
         <div
           aria-label={`Workspace actions for ${

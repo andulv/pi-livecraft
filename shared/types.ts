@@ -102,6 +102,17 @@ export interface WorkspaceFile {
   content: string
 }
 
+export interface WorkspaceFileEntry {
+  kind: 'directory' | 'file'
+  name: string
+  path: string
+}
+
+export interface WorkspaceFileListing {
+  entries: WorkspaceFileEntry[]
+  path: string
+}
+
 export interface ManagerRuntimeIdentity {
   instanceId: string
   startedAt: string

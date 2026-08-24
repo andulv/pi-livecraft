@@ -359,9 +359,42 @@
   position: relative;
   margin-top: -8px;
 }
-.sessions-heading > span {
+.sidebar-panel-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   flex: 1;
   min-width: 0;
+  gap: 6px;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--secondary) 72%, var(--muted));
+  text-align: left;
+}
+.sidebar-panel-toggle > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.sidebar-panel-toggle > span:first-child b {
+  color: var(--ink);
+  text-transform: none;
+}
+.sidebar-panel-toggle > span:last-child {
+  flex: 0 0 auto;
+  color: var(--subtle);
+  font-size: 15px;
+}
+.sidebar-panel-toggle:hover:not(:disabled) > span:last-child,
+.sidebar-panel-toggle:focus-visible > span:last-child {
+  color: var(--accent-hover);
+}
+.sessions-heading .sidebar-panel-toggle {
+  margin-right: auto;
+}
+.files-heading {
+  margin-top: 0;
 }
 .sessions-heading-actions {
   display: flex;

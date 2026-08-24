@@ -15,6 +15,7 @@ import type {
   SessionSnapshot,
   SessionSummary,
   WorkspaceFile,
+  WorkspaceFileListing,
 } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 
@@ -112,6 +113,15 @@ export async function getGitFileDiff(
   const commit = commitHash ? `&commit=${encodeURIComponent(commitHash)}` : ''
   return request<GitFileDiff>(
     `/api/git/diff?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}${commit}`,
+  )
+}
+
+export async function listWorkspaceFiles(
+  cwd: string,
+  path: string,
+): Promise<WorkspaceFileListing> {
+  return request<WorkspaceFileListing>(
+    `/api/files/list?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}`,
   )
 }
 

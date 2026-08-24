@@ -70,6 +70,7 @@ import { useProjects } from './features/workspace/useProjects.ts'
 import { sidebarSessions } from './features/workspace/sidebar-sessions.ts'
 import { useWorkspaceSessions } from './features/workspace/useWorkspaceSessions.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
+import { FileContentPane } from './features/files/FileContentPane.tsx'
 import {
   clampWorkspaceSidebarWidth,
   readWorkspaceSidebarCollapsed,
@@ -295,6 +296,8 @@ function LivecraftProjectApp(
   const [vscodeTitleBarColor, setVSCodeTitleBarColor] = useState<string | null>(null)
   const [quotas, setQuotas] = useState<QuotaSnapshot | null>(null)
   const [environment, setEnvironment] = useState<SessionEnvironmentSnapshot | null>(null)
+  const [openFilePaths, setOpenFilePaths] = useState<string[]>([])
+  const [activeFilePath, setActiveFilePath] = useState<string | null>(null)
   const [activeRightWidget, setActiveRightWidget] = useState<RightWidget | null>(() =>
     readActiveRightWidget(
       window.localStorage.getItem('pi-livecraft.right-sidebar-widget'),
@@ -446,6 +449,8 @@ function LivecraftProjectApp(
   const handleWorkspaceSelected = useCallback((): void => {
     setGitSnapshot(null)
     setActiveRightWidget(null)
+    setOpenFilePaths([])
+    setActiveFilePath(null)
   }, [])
   const handleSessionDraft = useCallback((sessionId: string, message: string): void => {
     setComposerDraftRequest({ id: crypto.randomUUID(), message, sessionId })
@@ -1463,6 +1468,10 @@ function LivecraftProjectApp(
         onSelectSession={setSelectedId}
         onError={(cause) => showToast('error', messageOf(cause))}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenFile={(path) => {
+          setOpenFilePaths((current) => current.includes(path) ? current : [...current, path])
+          setActiveFilePath(path)
+        }}
         onRenameSession={renameManagedSession}
         onResize={updateWorkspaceSidebarWidth}
         onToggleCollapsed={toggleWorkspaceSidebar}
@@ -1693,6 +1702,21 @@ function LivecraftProjectApp(
               <ToastStack onDismiss={dismissToast} toasts={visibleToasts} />
             </>
           )}
+        <FileContentPane
+          activePath={activeFilePath}
+          key={workspacePath}
+          onActivate={setActiveFilePath}
+          onClose={(path) => {
+            setOpenFilePaths((current) => current.filter((candidate) => candidate !== path))
+            setActiveFilePath((current) => {
+              if (current !== path) return current
+              const remaining = openFilePaths.filter((candidate) => candidate !== path)
+              return remaining.at(-1) ?? null
+            })
+          }}
+          openPaths={openFilePaths}
+          workspacePath={workspacePath}
+        />
       </main>
 
       <RightSidebar

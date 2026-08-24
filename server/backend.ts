@@ -26,6 +26,7 @@ import {
   VSCodeSettingsError,
 } from './features/vscode/launcher.ts'
 import {
+  listWorkspaceFiles,
   readWorkspaceFile,
   resolveWorkspaceFilePath,
   WorkspaceFileError,
@@ -237,6 +238,17 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       200,
       await getGitFileDiff(cwd, path, url.searchParams.get('commit') ?? undefined),
     )
+    return
+  }
+
+  if (method === 'GET' && url.pathname === '/api/files/list') {
+    const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
+    try {
+      sendJson(response, 200, await listWorkspaceFiles(cwd, url.searchParams.get('path') ?? ''))
+    } catch (error) {
+      if (error instanceof WorkspaceFileError) throw new HttpError(error.status, error.message)
+      throw error
+    }
     return
   }
 

@@ -167,6 +167,7 @@
   }
   .workspace {
     flex: 1;
+    grid-template-columns: minmax(0, 1fr);
   }
   .right-sidebar {
     max-height: 34dvh;

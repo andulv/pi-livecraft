@@ -3,6 +3,7 @@ import { realpath } from 'node:fs/promises'
 import { relative } from 'node:path'
 import test from 'node:test'
 import {
+  listWorkspaceFiles,
   readWorkspaceFile,
   resolveWorkspaceFilePath,
   WorkspaceFileError,
@@ -15,6 +16,20 @@ test('reads a text file from the workspace and rejects its root', async () => {
   assert.equal(relative(process.cwd(), file.path), 'package.json')
   assert.match(file.content, /"name": "pi-livecraft"/)
   await assert.rejects(readWorkspaceFile(process.cwd(), '.'), (error: unknown) => {
+    assert.equal(error instanceof WorkspaceFileError, true)
+    assert.equal((error as WorkspaceFileError).status, 403)
+    return true
+  })
+})
+
+test('lists direct workspace children without exposing symlinks or parent paths', async () => {
+  const listing = await listWorkspaceFiles(process.cwd(), 'src')
+  assert.equal(listing.path, 'src')
+  assert.ok(listing.entries.some((entry) => entry.name === 'App.tsx' && entry.kind === 'file'))
+  assert.ok(
+    listing.entries.some((entry) => entry.name === 'features' && entry.kind === 'directory'),
+  )
+  await assert.rejects(listWorkspaceFiles(process.cwd(), '..'), (error: unknown) => {
     assert.equal(error instanceof WorkspaceFileError, true)
     assert.equal((error as WorkspaceFileError).status, 403)
     return true
