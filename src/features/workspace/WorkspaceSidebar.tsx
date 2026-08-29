@@ -184,6 +184,15 @@ export function WorkspaceSidebar({
     compactingSessionIds,
     completedSessionIds,
   )
+  const selectedWorkspaceIndicator = aggregateSessionIndicator(
+    sessions.filter(({ cwd }) => cwd === workspacePath),
+    selectedId,
+    compactingSessionIds,
+    completedSessionIds,
+  )
+  const gitDirtyCount = gitSnapshot?.files.length ?? 0
+  const gitUnpushedCount = gitSnapshot?.ahead ?? 0
+  const gitChangeCount = gitDirtyCount + gitUnpushedCount
   const contextSessionPath = contextMenu?.target.sessionPath
   const contextSessionPinned = Boolean(
     contextSessionPath && pinnedSessionPaths.has(contextSessionPath),
@@ -541,6 +550,9 @@ export function WorkspaceSidebar({
             type='button'
           >
             Sessions
+            {visibleSessions.length > 0 && <small>{visibleSessions.length}</small>}
+            {selectedWorkspaceIndicator
+              && <SessionStatusIndicator status={selectedWorkspaceIndicator} />}
           </button>
           <button
             aria-controls='workspace-files-panel'
@@ -558,9 +570,15 @@ export function WorkspaceSidebar({
             id='workspace-git-tab'
             onClick={() => setOpenWorkspacePanel('git')}
             role='tab'
+            title={gitChangeCount > 0
+              ? `${gitDirtyCount} changed file${
+                gitDirtyCount === 1 ? '' : 's'
+              } · ${gitUnpushedCount} to push`
+              : undefined}
             type='button'
           >
             Git
+            {gitChangeCount > 0 && <small>{gitChangeCount}</small>}
           </button>
         </div>
         {openWorkspacePanel === 'sessions' && (

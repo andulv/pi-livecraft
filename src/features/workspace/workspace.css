@@ -358,21 +358,71 @@
 .workspace-view-heading {
   position: relative;
   margin-top: -8px;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--line);
+  container-type: inline-size;
 }
-/* Tabs reuse the section-heading button base; the selected tab takes the sidebar's
-   soft-fill selection treatment used by workspace cards and list rows. */
+/* Folder-style tabs: bordered, top-rounded, and open toward the panel they select. */
 .workspace-view-tabs {
   display: flex;
   gap: 3px;
+  min-width: 0;
 }
 .workspace-view-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 26px;
+  overflow: hidden;
+  border-color: var(--line-strong);
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+  padding: 0 8px;
+  background: var(--surface);
   letter-spacing: 0.04em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 .workspace-view-tabs button[aria-selected="true"] {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
   background: var(--accent-soft);
   color: var(--accent-hover);
+}
+.workspace-view-tabs button small {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  min-width: 15px;
+  height: 15px;
+  border-radius: 8px;
+  padding: 0 4px;
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+  color: var(--muted);
+  font: 650 10px/1 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0;
+}
+.workspace-view-tabs button[aria-selected="true"] small {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent-hover);
+}
+.workspace-view-tabs button .session-status-indicator {
+  flex: 0 0 auto;
+}
+@container (max-width: 259px) {
+  .workspace-view-tabs button {
+    padding: 0 5px;
+    letter-spacing: 0;
+  }
+  .workspace-view-tabs button small {
+    display: none;
+  }
+}
+/* Widgets hosted in the sidebar start closer to the tab band than the right panel's
+   header padding allows. */
+.sidebar .widget-header {
+  padding-top: 9px;
 }
 .workspace-view-panel {
   display: flex;
