@@ -119,6 +119,9 @@ const conversationViewDetails = {
 } as const
 type ConversationView = keyof typeof conversationViewDetails
 
+/** The file pane shows either one open file or the browser tab. */
+type PaneView = { kind: 'browser' } | { kind: 'file'; path: string }
+
 const gitRefreshDelayMs = 250
 const managerUnavailableMessage = 'Pi manager is unavailable'
 const managerUnavailableToastDelayMs = 1_000
@@ -298,7 +301,11 @@ function LivecraftProjectApp(
   const [quotas, setQuotas] = useState<QuotaSnapshot | null>(null)
   const [environment, setEnvironment] = useState<SessionEnvironmentSnapshot | null>(null)
   const [openFilePaths, setOpenFilePaths] = useState<string[]>([])
-  const [activeFilePath, setActiveFilePath] = useState<string | null>(null)
+  const [activePaneView, setActivePaneView] = useState<PaneView | null>(null)
+  const [browserOpen, setBrowserOpen] = useState(false)
+  const [browserUrl, setBrowserUrl] = useState(
+    () => window.localStorage.getItem('pi-livecraft.browser-url') ?? '',
+  )
   const [activeRightWidget, setActiveRightWidget] = useState<RightWidget | null>(() =>
     readActiveRightWidget(
       window.localStorage.getItem('pi-livecraft.right-sidebar-widget'),
@@ -454,7 +461,7 @@ function LivecraftProjectApp(
     setGitSnapshot(null)
     setActiveRightWidget(null)
     setOpenFilePaths([])
-    setActiveFilePath(null)
+    setActivePaneView((current) => current?.kind === 'browser' ? current : null)
   }, [])
   const handleSessionDraft = useCallback((sessionId: string, message: string): void => {
     setComposerDraftRequest({ id: crypto.randomUUID(), message, sessionId })
@@ -1490,7 +1497,7 @@ function LivecraftProjectApp(
         }}
         onOpenFile={(path) => {
           setOpenFilePaths((current) => current.includes(path) ? current : [...current, path])
-          setActiveFilePath(path)
+          setActivePaneView({ kind: 'file', path })
         }}
         onRenameSession={renameManagedSession}
         onResize={updateWorkspaceSidebarWidth}
@@ -1723,17 +1730,39 @@ function LivecraftProjectApp(
             </>
           )}
         <FileContentPane
-          activePath={activeFilePath}
+          activePath={activePaneView?.kind === 'file' ? activePaneView.path : null}
+          browserActive={activePaneView?.kind === 'browser'}
+          browserOpen={browserOpen}
+          browserUrl={browserUrl}
           key={workspacePath}
-          onActivate={setActiveFilePath}
+          onActivate={(path) => setActivePaneView({ kind: 'file', path })}
+          onActivateBrowser={() => setActivePaneView({ kind: 'browser' })}
+          onBrowserUrlCommit={(url) => {
+            window.localStorage.setItem('pi-livecraft.browser-url', url)
+            setBrowserUrl(url)
+          }}
+          onOpenBrowser={() => {
+            setBrowserOpen(true)
+            setActivePaneView({ kind: 'browser' })
+          }}
           onResize={updateFilePaneWidth}
           width={filePaneWidth}
           onClose={(path) => {
             setOpenFilePaths((current) => current.filter((candidate) => candidate !== path))
-            setActiveFilePath((current) => {
-              if (current !== path) return current
+            setActivePaneView((current) => {
+              if (current?.kind !== 'file' || current.path !== path) return current
               const remaining = openFilePaths.filter((candidate) => candidate !== path)
-              return remaining.at(-1) ?? null
+              const last = remaining.at(-1)
+              if (last !== undefined) return { kind: 'file', path: last }
+              return browserOpen ? { kind: 'browser' } : null
+            })
+          }}
+          onCloseBrowser={() => {
+            setBrowserOpen(false)
+            setActivePaneView((current) => {
+              if (current?.kind !== 'browser') return current
+              const last = openFilePaths.at(-1)
+              return last !== undefined ? { kind: 'file', path: last } : null
             })
           }}
           openPaths={openFilePaths}

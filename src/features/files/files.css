@@ -150,6 +150,9 @@
   background: var(--surface-raised);
 }
 .file-tab > button:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   min-width: 0;
   height: 35px;
   border: 0;
@@ -160,6 +163,41 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.file-tab > button:first-child svg {
+  flex: 0 0 auto;
+}
+/* Opens the pane's browser tab; hidden once the tab exists. */
+.file-tab-open-browser {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 27px;
+  height: 27px;
+  margin: 0 6px auto 4px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+.file-tab-open-browser:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  border-style: solid;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.file-tab-open-browser:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.file-tab-open-browser:active:not(:disabled) {
+  transform: scale(0.97);
 }
 .file-tab.active > button:first-child {
   color: var(--ink);

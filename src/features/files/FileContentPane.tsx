@@ -6,6 +6,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { Markdown } from '../conversation/Markdown.tsx'
+import { BrowserView } from '../browser/BrowserView.tsx'
 import { getWorkspaceFile } from '../../api.ts'
 import { maxFilePaneWidth, minFilePaneWidth } from './file-pane-width.ts'
 
@@ -17,16 +18,30 @@ interface FileState {
 
 export function FileContentPane({
   activePath,
+  browserActive,
+  browserOpen,
+  browserUrl,
   onActivate,
+  onActivateBrowser,
+  onBrowserUrlCommit,
   onClose,
+  onCloseBrowser,
+  onOpenBrowser,
   onResize,
   openPaths,
   width,
   workspacePath,
 }: {
   activePath: string | null
+  browserActive: boolean
+  browserOpen: boolean
+  browserUrl: string
   onActivate: (path: string) => void
+  onActivateBrowser: () => void
+  onBrowserUrlCommit: (url: string) => void
   onClose: (path: string) => void
+  onCloseBrowser: () => void
+  onOpenBrowser: () => void
   onResize: (width: number) => void
   openPaths: readonly string[]
   width: number
@@ -156,8 +171,46 @@ export function FileContentPane({
             </button>
           </div>
         ))}
+        {browserOpen && (
+          <div className={`file-tab${browserActive ? ' active' : ''}`}>
+            <button
+              aria-selected={browserActive}
+              onClick={onActivateBrowser}
+              role='tab'
+              type='button'
+            >
+              <GlobeIcon />
+              Browser
+            </button>
+            <button
+              aria-label='Close browser'
+              className='file-tab-close'
+              onClick={onCloseBrowser}
+              type='button'
+            >
+              ×
+            </button>
+          </div>
+        )}
+        {!browserOpen && (
+          <button
+            aria-label='Open browser'
+            className='file-tab-open-browser'
+            onClick={onOpenBrowser}
+            title='Open browser'
+            type='button'
+          >
+            <GlobeIcon />
+          </button>
+        )}
       </div>
-      {activePath
+      {browserActive
+        ? (
+          <div className='file-content'>
+            <BrowserView onUrlCommit={onBrowserUrlCommit} url={browserUrl} />
+          </div>
+        )
+        : activePath
         ? (
           <div className='file-content'>
             <div className='file-content-header'>
@@ -203,7 +256,28 @@ export function FileContentPane({
                 ))}
           </div>
         )
-        : <p className='file-content-empty'>Open a file from the explorer to preview it.</p>}
+        : <p className='file-content-empty'>Open a file from the explorer, or open the browser.</p>}
     </aside>
+  )
+}
+
+/** Compact globe marking browser destinations. */
+function GlobeIcon() {
+  return (
+    <svg
+      aria-hidden='true'
+      fill='none'
+      height='13'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='1.6'
+      viewBox='0 0 24 24'
+      width='13'
+    >
+      <circle cx='12' cy='12' r='9' />
+      <path d='M3 12h18' />
+      <path d='M12 3c2.5 2.5 4 5.6 4 9s-1.5 6.5-4 9c-2.5-2.5-4-5.6-4-9s1.5-6.5 4-9z' />
+    </svg>
   )
 }
