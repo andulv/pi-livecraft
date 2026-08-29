@@ -394,6 +394,12 @@
 .sidebar-workspace-tabs button:active:not(:disabled) {
   transform: scale(0.97);
 }
+.workspace-tab-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
 .sessions-heading-actions {
   display: flex;
   align-items: center;

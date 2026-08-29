@@ -154,6 +154,7 @@ button:disabled, select:disabled {
 }
 .workspace > .chat-topbar {
   grid-column: 1 / -1;
+  grid-row: 1;
 }
 .file-content-pane {
   grid-column: 2;
