@@ -91,15 +91,13 @@ export function FileExplorer({
 
   return (
     <section aria-label='Files' className='file-explorer'>
-      <label className='file-filter'>
-        <span className='sr-only'>Filter files</span>
-        <input
-          onChange={(event) => setFilter(event.target.value)}
-          placeholder='Filter files'
-          type='search'
-          value={filter}
-        />
-      </label>
+      <input
+        aria-label='Filter files'
+        onChange={(event) => setFilter(event.target.value)}
+        placeholder='Filter files'
+        type='search'
+        value={filter}
+      />
       <div aria-live='polite' className='file-tree' role='tree'>
         {root?.loading && <p className='file-tree-status'>Loading files…</p>}
         {root?.error && <p className='file-tree-status error'>Couldn’t load files: {root.error}</p>}

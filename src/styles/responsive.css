@@ -148,9 +148,14 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .session-list {
+  .workspace-view-panel {
+    margin-top: 0;
+  }
+  #workspace-sessions-panel {
     grid-row: 3;
     grid-column: 1 / -1;
+  }
+  #workspace-sessions-panel .session-list {
     display: flex;
     flex-direction: row;
     overflow-x: auto;

@@ -419,10 +419,14 @@
     display: none;
   }
 }
-/* Widgets hosted in the sidebar start closer to the tab band than the right panel's
-   header padding allows. */
+/* Panels start flush under the tab band instead of a gap below the divider. */
+.workspace-view-panel {
+  margin-top: -12px;
+}
+/* Widgets hosted in the sidebar start close to the tab band; the right panel keeps
+   its own calibration. */
 .sidebar .widget-header {
-  padding-top: 9px;
+  padding-top: 2px;
 }
 .workspace-view-panel {
   display: flex;
@@ -628,7 +632,6 @@
   gap: 2px;
   min-height: 0;
   overflow-y: auto;
-  margin-top: -8px;
   margin-right: -10px;
   scrollbar-width: thin;
   container-type: inline-size;
