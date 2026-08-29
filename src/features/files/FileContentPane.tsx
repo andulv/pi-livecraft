@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Markdown } from '../conversation/Markdown.tsx'
 import { getWorkspaceFile } from '../../api.ts'
 
 interface FileState {
@@ -21,6 +22,7 @@ export function FileContentPane({
   workspacePath: string
 }) {
   const [files, setFiles] = useState<Record<string, FileState>>({})
+  const [viewRaw, setViewRaw] = useState(false)
   const filesRef = useRef(files)
   filesRef.current = files
 
@@ -60,6 +62,7 @@ export function FileContentPane({
   }, [activePath, workspacePath])
 
   const activeFile = activePath ? files[activePath] : undefined
+  const isMarkdown = activePath !== null && /\.(md|markdown)$/i.test(activePath)
   return (
     <aside aria-label='File contents' className='file-content-pane'>
       <div className='file-tabs' role='tablist' aria-label='Open files'>
@@ -98,18 +101,45 @@ export function FileContentPane({
           <div className='file-content'>
             <div className='file-content-header'>
               <span title={activePath}>{activePath}</span>
+              {isMarkdown && (
+                <div aria-label='Markdown display' className='file-view-toggle' role='group'>
+                  <button
+                    aria-pressed={!viewRaw}
+                    onClick={() =>
+                      setViewRaw(false)}
+                    type='button'
+                  >
+                    Markdown
+                  </button>
+                  <button
+                    aria-pressed={viewRaw}
+                    onClick={() =>
+                      setViewRaw(true)}
+                    type='button'
+                  >
+                    Raw
+                  </button>
+                </div>
+              )}
               <small>Read-only preview</small>
             </div>
             {activeFile?.loading && <p className='file-content-status'>Loading file…</p>}
             {activeFile?.error && <p className='file-content-status error'>{activeFile.error}</p>}
-            {activeFile && !activeFile.loading && !activeFile.error && (
-              <textarea
-                aria-label={activePath}
-                readOnly
-                spellCheck={false}
-                value={activeFile.content}
-              />
-            )}
+            {activeFile && !activeFile.loading && !activeFile.error
+              && (isMarkdown && !viewRaw
+                ? (
+                  <div className='file-content-markdown'>
+                    <Markdown renderFrontmatter>{activeFile.content}</Markdown>
+                  </div>
+                )
+                : (
+                  <textarea
+                    aria-label={activePath}
+                    readOnly
+                    spellCheck={false}
+                    value={activeFile.content}
+                  />
+                ))}
           </div>
         )
         : <p className='file-content-empty'>Open a file from the explorer to preview it.</p>}

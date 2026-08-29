@@ -179,6 +179,7 @@
   font: 11px ui-monospace, monospace;
 }
 .file-content-header > span {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -202,6 +203,118 @@
   font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   tab-size: 2;
   white-space: pre;
+}
+/* Rendered-vs-raw switch for Markdown files; mirrors the sidebar view tabs'
+   soft-fill selection treatment. */
+.file-view-toggle {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 3px;
+}
+.file-view-toggle button {
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--muted);
+  font: 650 10.5px ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+.file-view-toggle button:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.file-view-toggle button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.file-view-toggle button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.file-view-toggle button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+/* Markdown documents share the conversation's prose rhythm at file-pane scale. */
+.file-content-markdown {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 18px;
+  overflow-wrap: anywhere;
+  font: 14px/1.7 ui-sans-serif, system-ui, sans-serif;
+}
+.file-content-markdown > :first-child {
+  margin-top: 0;
+}
+.file-content-markdown > :last-child {
+  margin-bottom: 0;
+}
+.file-content-markdown p {
+  margin: 0 0 13px;
+}
+.file-content-markdown h1,
+.file-content-markdown h2,
+.file-content-markdown h3,
+.file-content-markdown h4,
+.file-content-markdown h5,
+.file-content-markdown h6 {
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.file-content-markdown h1,
+.file-content-markdown h2 {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--line);
+}
+.file-content-markdown pre {
+  overflow-x: auto;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--canvas) 60%, var(--surface));
+  font: 12px/1.6 ui-monospace, monospace;
+  white-space: pre-wrap;
+}
+.file-content-markdown :not(pre) > code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  color: var(--ink);
+  font: 12px ui-monospace, monospace;
+}
+.file-content-markdown a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+.file-content-markdown table {
+  width: 100%;
+  margin: 0 0 13px;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: fixed;
+}
+.file-content-markdown th,
+.file-content-markdown td {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  text-align: left;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.file-content-markdown th {
+  background: var(--accent-soft);
+  font-weight: 650;
 }
 .file-content-status, .file-content-empty {
   margin: 0;
