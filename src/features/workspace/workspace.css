@@ -355,46 +355,30 @@
 .sidebar-list-heading > span {
   color: color-mix(in srgb, var(--secondary) 72%, var(--muted));
 }
-.sessions-heading {
+.workspace-view-heading {
   position: relative;
   margin-top: -8px;
 }
-.sidebar-panel-toggle {
+/* Tabs reuse the section-heading button base; the selected tab takes the sidebar's
+   soft-fill selection treatment used by workspace cards and list rows. */
+.workspace-view-tabs {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex: 1;
-  min-width: 0;
-  gap: 6px;
-  overflow: hidden;
-  color: color-mix(in srgb, var(--secondary) 72%, var(--muted));
-  text-align: left;
+  gap: 3px;
 }
-.sidebar-panel-toggle > span:first-child {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.workspace-view-tabs button {
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  white-space: nowrap;
 }
-.sidebar-panel-toggle > span:first-child b {
-  color: var(--ink);
-  text-transform: none;
-}
-.sidebar-panel-toggle > span:last-child {
-  flex: 0 0 auto;
-  color: var(--subtle);
-  font-size: 15px;
-}
-.sidebar-panel-toggle:hover:not(:disabled) > span:last-child,
-.sidebar-panel-toggle:focus-visible > span:last-child {
+.workspace-view-tabs button[aria-selected="true"] {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  background: var(--accent-soft);
   color: var(--accent-hover);
 }
-.sessions-heading .sidebar-panel-toggle {
-  margin-right: auto;
-}
-.files-heading {
-  margin-top: 0;
+.workspace-view-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 .sessions-heading-actions {
   display: flex;

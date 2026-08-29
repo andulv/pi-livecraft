@@ -505,186 +505,203 @@ export function WorkspaceSidebar({
           </div>
         </div>
       </section>
-      <div className='sidebar-section-heading sidebar-list-heading sessions-heading'>
-        <button
-          aria-expanded={openWorkspacePanel === 'sessions'}
-          className='sidebar-panel-toggle'
-          onClick={() =>
-            setOpenWorkspacePanel((current) => current === 'sessions' ? 'files' : 'sessions')}
-          title={workspacePath}
-          type='button'
-        >
-          <span>
-            Sessions – <b>{selectedWorkspaceLabel}</b>
-          </span>
-          <span aria-hidden='true'>{openWorkspacePanel === 'sessions' ? '⌄' : '›'}</span>
-        </button>
-        <div className='sessions-heading-actions'>
-          <Tooltip label='Session list options'>
-            <button
-              aria-expanded={sessionListMenuOpen}
-              aria-haspopup='true'
-              aria-label='Session list options'
-              className='session-list-options'
-              onClick={() => {
-                setContextMenu(null)
-                setWorkspaceMenu(null)
-                setSessionListMenuOpen((current) => !current)
-              }}
-              ref={sessionListMenuTriggerRef}
-              type='button'
-            >
-              …
-            </button>
-          </Tooltip>
-          {sessionListMenuOpen && (
-            <div
-              aria-label='Session list options'
-              className='session-list-options-menu'
-              ref={sessionListMenuRef}
-            >
-              <label>
-                <input
-                  checked={showArchivedSessions}
-                  type='checkbox'
-                  onChange={(event) => setShowArchivedSessions(event.target.checked)}
-                />
-                Show archived items
-              </label>
-            </div>
-          )}
-          <Tooltip label='Refresh sessions'>
-            <button
-              aria-label={`Refresh sessions in ${selectedWorkspaceLabel}`}
-              className='new-session refresh-sessions'
-              disabled={isRefreshing}
-              onClick={onRefreshSessions}
-              type='button'
-            >
-              <RefreshIcon />
-            </button>
-          </Tooltip>
-          <Tooltip label='New session'>
-            <button
-              aria-label={`New session in ${selectedWorkspaceLabel}`}
-              className='new-session'
-              disabled={startingNewSession}
-              onClick={() => void startNewSession()}
-              type='button'
-            >
-              ＋
-            </button>
-          </Tooltip>
+      <div className='sidebar-section-heading sidebar-list-heading workspace-view-heading'>
+        <div aria-label='Workspace view' className='workspace-view-tabs' role='tablist'>
+          <button
+            aria-controls='workspace-sessions-panel'
+            aria-selected={openWorkspacePanel === 'sessions'}
+            id='workspace-sessions-tab'
+            onClick={() => setOpenWorkspacePanel('sessions')}
+            role='tab'
+            title={workspacePath}
+            type='button'
+          >
+            Sessions
+          </button>
+          <button
+            aria-controls='workspace-files-panel'
+            aria-selected={openWorkspacePanel === 'files'}
+            id='workspace-files-tab'
+            onClick={() => setOpenWorkspacePanel('files')}
+            role='tab'
+            type='button'
+          >
+            Files
+          </button>
         </div>
-      </div>
-      <nav
-        aria-label={showArchivedSessions ? 'Pi sessions' : 'Recent Pi sessions'}
-        className='session-list'
-        hidden={openWorkspacePanel !== 'sessions'}
-      >
-        {isRefreshing && visibleSessions.length === 0 && (
-          <p className='session-list-loading' role='status'>Loading sessions…</p>
-        )}
-        {visibleSessions.length > 0 && (
-          <div aria-hidden='true' className='session-list-header'>
-            <div className='session-list-header-labels'>
-              <span className='session-header-status' />
-              <span className='session-header-name'>Session</span>
-              <span className='session-header-first'>First</span>
-              <span className='session-header-last'>Last</span>
-            </div>
-            <span className='session-header-actions' />
+        {openWorkspacePanel === 'sessions' && (
+          <div className='sessions-heading-actions'>
+            <Tooltip label='Session list options'>
+              <button
+                aria-expanded={sessionListMenuOpen}
+                aria-haspopup='true'
+                aria-label='Session list options'
+                className='session-list-options'
+                onClick={() => {
+                  setContextMenu(null)
+                  setWorkspaceMenu(null)
+                  setSessionListMenuOpen((current) => !current)
+                }}
+                ref={sessionListMenuTriggerRef}
+                type='button'
+              >
+                …
+              </button>
+            </Tooltip>
+            {sessionListMenuOpen && (
+              <div
+                aria-label='Session list options'
+                className='session-list-options-menu'
+                ref={sessionListMenuRef}
+              >
+                <label>
+                  <input
+                    checked={showArchivedSessions}
+                    type='checkbox'
+                    onChange={(event) => setShowArchivedSessions(event.target.checked)}
+                  />
+                  Show archived items
+                </label>
+              </div>
+            )}
+            <Tooltip label='Refresh sessions'>
+              <button
+                aria-label={`Refresh sessions in ${selectedWorkspaceLabel}`}
+                className='new-session refresh-sessions'
+                disabled={isRefreshing}
+                onClick={onRefreshSessions}
+                type='button'
+              >
+                <RefreshIcon />
+              </button>
+            </Tooltip>
+            <Tooltip label='New session'>
+              <button
+                aria-label={`New session in ${selectedWorkspaceLabel}`}
+                className='new-session'
+                disabled={startingNewSession}
+                onClick={() => void startNewSession()}
+                type='button'
+              >
+                ＋
+              </button>
+            </Tooltip>
           </div>
         )}
-        {visibleSessions.map((recentSession) => {
-          const activeSession = sessions.find((session) =>
-            session.sessionPath === recentSession.sessionPath && session.status !== 'exited'
-          )
-          const indicator = sessionIndicator(
-            activeSession,
-            selectedId,
-            compactingSessionIds,
-            completedSessionIds,
-          )
-          const archived = archivedSessionPathSet.has(recentSession.sessionPath)
-          const sessionLabel = openingSessionPath === recentSession.sessionPath
-            ? 'Opening…'
-            : recentSession.name
-          const firstMessageAt = recentSession.firstMessageAt
-          const tooltipLabel = `${recentSession.name}\nFirst: ${
-            firstMessageAt === undefined ? '—' : new Date(firstMessageAt).toLocaleString('en-US')
-          }\nLast: ${new Date(recentSession.updatedAt).toLocaleString('en-US')}`
-          const actionTarget: SessionActionTarget = {
-            cwd: recentSession.cwd,
-            name: recentSession.name,
-            sessionId: activeSession?.id,
-            sessionPath: recentSession.sessionPath,
-          }
-          return (
-            <div className='session-row' key={recentSession.sessionPath}>
-              <Tooltip label={tooltipLabel}>
-                <button
-                  className={`session-item${activeSession?.id === selectedId ? ' selected' : ''}${
-                    archived ? ' archived' : ''
-                  }${indicator ? ` ${indicator}` : ''}`}
-                  disabled={openingSessionPath === recentSession.sessionPath}
-                  onClick={() => {
-                    if (activeSession) {
-                      onSelectSession(activeSession.id)
-                      return
-                    }
-                    setOpeningSessionPath(recentSession.sessionPath)
-                    void onOpenSession(recentSession).catch(onError).finally(() =>
-                      setOpeningSessionPath('')
-                    )
-                  }}
-                  ref={activeSession?.id === selectedId ? selectedSessionRef : undefined}
-                  type='button'
-                >
-                  <span className='session-status-slot'>
-                    {indicator
-                      ? <SessionStatusIndicator status={indicator} />
-                      : archived
-                      ? <ArchivedSessionIcon />
-                      : null}
-                  </span>
-                  <span className='session-item-copy'>
-                    <strong>{sessionLabel}</strong>
-                  </span>
-                  <span className='session-time session-time-first'>
-                    {firstMessageAt === undefined ? '—' : formatSessionTime(firstMessageAt)}
-                  </span>
-                  <span className='session-time session-time-last'>
-                    {formatSessionTime(recentSession.updatedAt)}
-                  </span>
-                </button>
-              </Tooltip>
-              <SessionActions target={actionTarget} onOpen={openContextMenu} />
-            </div>
-          )
-        })}
-        {visibleSessions.length === 0 && !isRefreshing && (
-          <p className='empty-sidebar'>
-            {showArchivedSessions
-              ? 'No archived sessions in this directory.'
-              : 'No Pi sessions in this directory.'}
-          </p>
-        )}
-      </nav>
-      <div className='sidebar-section-heading sidebar-list-heading files-heading'>
-        <button
-          aria-expanded={openWorkspacePanel === 'files'}
-          className='sidebar-panel-toggle'
-          onClick={() =>
-            setOpenWorkspacePanel((current) => current === 'files' ? 'sessions' : 'files')}
-          type='button'
-        >
-          <span>Files</span>
-          <span aria-hidden='true'>{openWorkspacePanel === 'files' ? '⌄' : '›'}</span>
-        </button>
       </div>
+      {openWorkspacePanel === 'sessions' && (
+        <section
+          aria-labelledby='workspace-sessions-tab'
+          className='workspace-view-panel'
+          id='workspace-sessions-panel'
+          role='tabpanel'
+        >
+          <nav
+            aria-label={showArchivedSessions ? 'Pi sessions' : 'Recent Pi sessions'}
+            className='session-list'
+          >
+            {isRefreshing && visibleSessions.length === 0 && (
+              <p className='session-list-loading' role='status'>Loading sessions…</p>
+            )}
+            {visibleSessions.length > 0 && (
+              <div aria-hidden='true' className='session-list-header'>
+                <div className='session-list-header-labels'>
+                  <span className='session-header-status' />
+                  <span className='session-header-name'>Session</span>
+                  <span className='session-header-first'>First</span>
+                  <span className='session-header-last'>Last</span>
+                </div>
+                <span className='session-header-actions' />
+              </div>
+            )}
+            {visibleSessions.map((recentSession) => {
+              const activeSession = sessions.find((session) =>
+                session.sessionPath === recentSession.sessionPath && session.status !== 'exited'
+              )
+              const indicator = sessionIndicator(
+                activeSession,
+                selectedId,
+                compactingSessionIds,
+                completedSessionIds,
+              )
+              const archived = archivedSessionPathSet.has(recentSession.sessionPath)
+              const sessionLabel = openingSessionPath === recentSession.sessionPath
+                ? 'Opening…'
+                : recentSession.name
+              const firstMessageAt = recentSession.firstMessageAt
+              const tooltipLabel = `${recentSession.name}\nFirst: ${
+                firstMessageAt === undefined
+                  ? '—'
+                  : new Date(firstMessageAt).toLocaleString('en-US')
+              }\nLast: ${new Date(recentSession.updatedAt).toLocaleString('en-US')}`
+              const actionTarget: SessionActionTarget = {
+                cwd: recentSession.cwd,
+                name: recentSession.name,
+                sessionId: activeSession?.id,
+                sessionPath: recentSession.sessionPath,
+              }
+              return (
+                <div className='session-row' key={recentSession.sessionPath}>
+                  <Tooltip label={tooltipLabel}>
+                    <button
+                      className={`session-item${
+                        activeSession?.id === selectedId ? ' selected' : ''
+                      }${archived ? ' archived' : ''}${indicator ? ` ${indicator}` : ''}`}
+                      disabled={openingSessionPath === recentSession.sessionPath}
+                      onClick={() => {
+                        if (activeSession) {
+                          onSelectSession(activeSession.id)
+                          return
+                        }
+                        setOpeningSessionPath(recentSession.sessionPath)
+                        void onOpenSession(recentSession).catch(onError).finally(() =>
+                          setOpeningSessionPath('')
+                        )
+                      }}
+                      ref={activeSession?.id === selectedId ? selectedSessionRef : undefined}
+                      type='button'
+                    >
+                      <span className='session-status-slot'>
+                        {indicator
+                          ? <SessionStatusIndicator status={indicator} />
+                          : archived
+                          ? <ArchivedSessionIcon />
+                          : null}
+                      </span>
+                      <span className='session-item-copy'>
+                        <strong>{sessionLabel}</strong>
+                      </span>
+                      <span className='session-time session-time-first'>
+                        {firstMessageAt === undefined ? '—' : formatSessionTime(firstMessageAt)}
+                      </span>
+                      <span className='session-time session-time-last'>
+                        {formatSessionTime(recentSession.updatedAt)}
+                      </span>
+                    </button>
+                  </Tooltip>
+                  <SessionActions target={actionTarget} onOpen={openContextMenu} />
+                </div>
+              )
+            })}
+            {visibleSessions.length === 0 && !isRefreshing && (
+              <p className='empty-sidebar'>
+                {showArchivedSessions
+                  ? 'No archived sessions in this directory.'
+                  : 'No Pi sessions in this directory.'}
+              </p>
+            )}
+          </nav>
+        </section>
+      )}
       {openWorkspacePanel === 'files' && (
-        <FileExplorer key={workspacePath} onOpenFile={onOpenFile} workspacePath={workspacePath} />
+        <section
+          aria-labelledby='workspace-files-tab'
+          className='workspace-view-panel'
+          id='workspace-files-panel'
+          role='tabpanel'
+        >
+          <FileExplorer key={workspacePath} onOpenFile={onOpenFile} workspacePath={workspacePath} />
+        </section>
       )}
       {workspaceMenu && (
         <div
