@@ -19,7 +19,7 @@ test('borne et restaure la largeur de la sidebar droite', () => {
   assert.equal(readRightSidebarWidth(null), defaultRightSidebarWidth)
   assert.equal(readRightSidebarWidth('invalid'), defaultRightSidebarWidth)
   assert.equal(isRightWidget('index'), true)
-  assert.equal(isRightWidget('git'), true)
+  assert.equal(isRightWidget('git'), false)
   assert.equal(isRightWidget('unknown'), false)
 })
 
@@ -28,6 +28,7 @@ test('restores the session index by default while preserving an explicit collaps
   assert.equal(readActiveRightWidget(null, 'true'), null)
   assert.equal(readActiveRightWidget('analysis', null), 'analysis')
   assert.equal(readActiveRightWidget('none', null), null)
+  assert.equal(readActiveRightWidget('git', null), 'index')
 })
 
 test('parse un diff unifié sans ses métadonnées Git', () => {

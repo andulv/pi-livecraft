@@ -1119,10 +1119,7 @@ function LivecraftProjectApp(
   const executeCommand = useCallback((id: CommandId): void => {
     const rightWidget = rightWidgetFromCommand(id)
     if (rightWidget) {
-      if (
-        (rightWidget === 'analysis' && !analysisAvailable)
-        || (rightWidget === 'git' && !gitSnapshot?.repository)
-      ) return
+      if (rightWidget === 'analysis' && !analysisAvailable) return
       openRightWidget(rightWidget)
       return
     }
@@ -1219,7 +1216,6 @@ function LivecraftProjectApp(
       return
     }
   }, [
-    gitSnapshot?.repository,
     openRightWidget,
     recentSessions,
     recentWorkspacePaths,
@@ -1248,8 +1244,7 @@ function LivecraftProjectApp(
     const selectedIndex = selectedId ? visibleIds.indexOf(selectedId) : -1
     return commandDefinitions.map((definition) => {
       const rightWidget = rightWidgetFromCommand(definition.id)
-      const unavailableWidget = (rightWidget === 'analysis' && !analysisAvailable)
-        || (rightWidget === 'git' && !gitSnapshot?.repository)
+      const unavailableWidget = rightWidget === 'analysis' && !analysisAvailable
       return {
         ...definition,
         shortcut: shortcuts[definition.id],
@@ -1273,7 +1268,6 @@ function LivecraftProjectApp(
     })
   }, [
     executeCommand,
-    gitSnapshot?.repository,
     recentSessions,
     recentWorkspacePaths,
     selectedId,
@@ -1405,7 +1399,6 @@ function LivecraftProjectApp(
   const rightPanelVisible = activeRightWidget === 'index'
     || activeRightWidget === 'quotas' || activeRightWidget === 'environment'
     || (activeRightWidget === 'analysis' && sessionAnalysis !== null)
-    || (activeRightWidget === 'git' && gitSnapshot?.repository === true)
 
   if (projectDiscoveryError) {
     return (
@@ -1479,6 +1472,22 @@ function LivecraftProjectApp(
         onSelectSession={setSelectedId}
         onError={(cause) => showToast('error', messageOf(cause))}
         onOpenSettings={() => setSettingsOpen(true)}
+        gitSnapshot={gitSnapshot?.repository ? gitSnapshot : null}
+        onGitCommit={async (message) => {
+          await commitChanges(workspacePath, message)
+        }}
+        onGitDiscard={async (path) => {
+          await discardChanges(workspacePath, path)
+        }}
+        onGitPush={() => pushCommits(workspacePath)}
+        onGitFileSelect={(path, commitHash) => getGitFileDiff(workspacePath, path, commitHash)}
+        onGitRefresh={() => refreshGit(workspacePath, true)}
+        onGitReset={async (hash) => {
+          return await resetGitCommit(workspacePath, hash)
+        }}
+        onGitRevert={async (hash) => {
+          return await revertGitCommit(workspacePath, hash)
+        }}
         onOpenFile={(path) => {
           setOpenFilePaths((current) => current.includes(path) ? current : [...current, path])
           setActiveFilePath(path)
@@ -1743,7 +1752,6 @@ function LivecraftProjectApp(
         sessionMessages={snapshot.messages}
         sessionMessagesAvailable={selectedSession !== undefined
           && snapshotSessionId === selectedSession.id}
-        snapshot={gitSnapshot?.repository ? gitSnapshot : null}
         quotas={quotas}
         environment={environment}
         sessionCommands={snapshot.commands}
@@ -1751,23 +1759,8 @@ function LivecraftProjectApp(
         sessionStats={snapshot.stats}
         width={rightSidebarWidth}
         railActions={railActions}
-        onCommit={async (message) => {
-          await commitChanges(workspacePath, message)
-        }}
-        onDiscard={async (path) => {
-          await discardChanges(workspacePath, path)
-        }}
-        onPush={() => pushCommits(workspacePath)}
-        onFileSelect={(path, commitHash) => getGitFileDiff(workspacePath, path, commitHash)}
         onEnvironmentRefresh={() => refreshSessionEnvironment(selectedId)}
         onQuotaRefresh={() => refreshSessionQuotas(selectedId, false)}
-        onRefresh={() => refreshGit(workspacePath, true)}
-        onReset={async (hash) => {
-          return await resetGitCommit(workspacePath, hash)
-        }}
-        onRevert={async (hash) => {
-          return await revertGitCommit(workspacePath, hash)
-        }}
         onWidgetSelect={(widget) =>
           setActiveRightWidget((current) => {
             const next = current === widget ? null : widget

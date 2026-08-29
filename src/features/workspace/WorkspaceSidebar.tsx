@@ -10,8 +10,14 @@ import {
 } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import { FileExplorer } from '../files/FileExplorer.tsx'
+import { GitWidget } from '../git/GitWidget.tsx'
 import type {
+  GitFileDiff,
   GitProject,
+  GitPushResult,
+  GitResetResult,
+  GitRevertResult,
+  GitSnapshot,
   GitWorkspace,
   RecentSession,
   SessionSummary,
@@ -37,6 +43,8 @@ interface WorkspaceContextMenuState {
   x: number
   y: number
 }
+
+type WorkspacePanel = 'sessions' | 'files' | 'git'
 
 interface WorkspaceSidebarProps {
   archivedSessionPaths: readonly string[]
@@ -69,6 +77,14 @@ interface WorkspaceSidebarProps {
   onToggleSessionArchive: (target: SessionActionTarget) => void
   onError: (cause: unknown) => void
   onOpenFile: (path: string) => void
+  gitSnapshot: GitSnapshot | null
+  onGitCommit: (message: string) => Promise<void>
+  onGitDiscard: (path?: string) => Promise<void>
+  onGitFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
+  onGitPush: () => Promise<GitPushResult>
+  onGitRefresh: () => Promise<void>
+  onGitReset: (hash: string) => Promise<GitResetResult>
+  onGitRevert: (hash: string) => Promise<GitRevertResult>
 }
 
 /** Displays the current workspace and opens or selects its recent Pi sessions. */
@@ -103,6 +119,14 @@ export function WorkspaceSidebar({
   onToggleSessionArchive,
   onError,
   onOpenFile,
+  gitSnapshot,
+  onGitCommit,
+  onGitDiscard,
+  onGitFileSelect,
+  onGitPush,
+  onGitRefresh,
+  onGitReset,
+  onGitRevert,
 }: WorkspaceSidebarProps) {
   const [openingSessionPath, setOpeningSessionPath] = useState('')
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
@@ -113,7 +137,7 @@ export function WorkspaceSidebar({
   const [sessionListMenuOpen, setSessionListMenuOpen] = useState(false)
   const [showArchivedSessions, setShowArchivedSessions] = useState(false)
   const [startingNewSession, setStartingNewSession] = useState(false)
-  const [openWorkspacePanel, setOpenWorkspacePanel] = useState<'sessions' | 'files'>('sessions')
+  const [openWorkspacePanel, setOpenWorkspacePanel] = useState<WorkspacePanel>('sessions')
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
   const contextMenuTriggerRef = useRef<HTMLButtonElement>(null)
@@ -528,6 +552,16 @@ export function WorkspaceSidebar({
           >
             Files
           </button>
+          <button
+            aria-controls='workspace-git-panel'
+            aria-selected={openWorkspacePanel === 'git'}
+            id='workspace-git-tab'
+            onClick={() => setOpenWorkspacePanel('git')}
+            role='tab'
+            type='button'
+          >
+            Git
+          </button>
         </div>
         {openWorkspacePanel === 'sessions' && (
           <div className='sessions-heading-actions'>
@@ -701,6 +735,29 @@ export function WorkspaceSidebar({
           role='tabpanel'
         >
           <FileExplorer key={workspacePath} onOpenFile={onOpenFile} workspacePath={workspacePath} />
+        </section>
+      )}
+      {openWorkspacePanel === 'git' && (
+        <section
+          aria-labelledby='workspace-git-tab'
+          className='workspace-view-panel'
+          id='workspace-git-panel'
+          role='tabpanel'
+        >
+          {gitSnapshot
+            ? (
+              <GitWidget
+                onCommit={onGitCommit}
+                onDiscard={onGitDiscard}
+                onFileSelect={onGitFileSelect}
+                onPush={onGitPush}
+                onRefresh={onGitRefresh}
+                onReset={onGitReset}
+                onRevert={onGitRevert}
+                snapshot={gitSnapshot}
+              />
+            )
+            : <p className='empty-sidebar'>No Git repository in this workspace.</p>}
         </section>
       )}
       {workspaceMenu && (

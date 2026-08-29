@@ -5,17 +5,11 @@ import {
 } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type {
-  GitFileDiff,
-  GitPushResult,
-  GitResetResult,
-  GitRevertResult,
-  GitSnapshot,
   JsonObject,
   QuotaSnapshot,
   SessionEnvironmentSnapshot,
   SessionStats,
 } from '../../../shared/types.ts'
-import { GitWidget } from '../git/GitWidget.tsx'
 import { QuotaWidget } from '../quotas/QuotaWidget.tsx'
 import { SessionEnvironmentWidget } from '../session-environment/SessionEnvironmentWidget.tsx'
 import { railQuota, type QuotaProvider } from '../quotas/quota-display.ts'
@@ -50,19 +44,11 @@ export function RightSidebar({
   sessionMessagesAvailable,
   sessionState,
   sessionStats,
-  snapshot,
   quotas,
   width,
   railActions,
-  onCommit,
-  onDiscard,
   onEnvironmentRefresh,
-  onFileSelect,
-  onPush,
   onQuotaRefresh,
-  onRefresh,
-  onReset,
-  onRevert,
   onWidgetSelect,
 }: {
   activeSessionId: string
@@ -78,25 +64,14 @@ export function RightSidebar({
   sessionMessagesAvailable: boolean
   sessionState: JsonObject | null
   sessionStats: SessionStats | null
-  snapshot: GitSnapshot | null
   quotas: QuotaSnapshot | null
   width: number
   railActions: RailAction[]
-  onCommit: (message: string) => Promise<void>
-  onDiscard: (path?: string) => Promise<void>
   onEnvironmentRefresh: () => Promise<void>
-  onFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
-  onPush: () => Promise<GitPushResult>
   onQuotaRefresh: () => Promise<void>
-  onRefresh: () => Promise<void>
-  onReset: (hash: string) => Promise<GitResetResult>
-  onRevert: (hash: string) => Promise<GitRevertResult>
   onWidgetSelect: (widget: RightWidget) => void
 }) {
-  const hasChanges = snapshot ? snapshot.files.length > 0 : false
-
   const collapsed = activeWidget === null || (activeWidget === 'analysis' && !analysis)
-    || (activeWidget === 'git' && !snapshot)
   const quotaSummary = railQuota(quotas, currentQuotaProvider)
   const contextStats = formatSessionStats(sessionStats)
   const contextHasUsage = contextStats.contextPercentValue !== null
@@ -200,18 +175,6 @@ export function RightSidebar({
                 />
               </WidgetLayout>
             )}
-            {activeWidget === 'git' && snapshot && (
-              <GitWidget
-                onCommit={onCommit}
-                onDiscard={onDiscard}
-                onFileSelect={onFileSelect}
-                onPush={onPush}
-                onRefresh={onRefresh}
-                onReset={onReset}
-                onRevert={onRevert}
-                snapshot={snapshot}
-              />
-            )}
             {activeWidget === 'quotas' && (
               <QuotaWidget onRefresh={onQuotaRefresh} quotas={quotas} />
             )}
@@ -292,23 +255,6 @@ export function RightSidebar({
           </Tooltip>
         </div>
         <div aria-label='Current workspace' className='right-sidebar-rail-group' role='group'>
-          {snapshot && (
-            <Tooltip label='Git'>
-              <button
-                aria-controls={activeWidget === 'git' ? 'git-panel' : undefined}
-                aria-expanded={activeWidget === 'git'}
-                aria-label={activeWidget === 'git' ? 'Collapse Git panel' : 'Expand Git panel'}
-                className='rail-tab'
-                onClick={() => onWidgetSelect('git')}
-                type='button'
-              >
-                <span aria-hidden='true'>⎇</span>
-                {(hasChanges || snapshot.ahead > 0) && (
-                  <small>{snapshot.files.length + snapshot.ahead}</small>
-                )}
-              </button>
-            </Tooltip>
-          )}
           {railActions.map((action) => (
             <Tooltip key={action.key} label={action.label}>
               <button
@@ -376,7 +322,5 @@ function panelLabel(activeWidget: RightWidget | null): string {
     ? 'Session analysis'
     : activeWidget === 'quotas'
     ? 'Provider quotas'
-    : activeWidget === 'environment'
-    ? 'Session environment'
-    : 'Git information'
+    : 'Session environment'
 }

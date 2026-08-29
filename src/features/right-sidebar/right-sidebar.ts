@@ -1,7 +1,6 @@
 export const rightWidgetDefinitions = [
   { id: 'index', label: 'Session index' },
   { id: 'analysis', label: 'Session analysis' },
-  { id: 'git', label: 'Git' },
   { id: 'quotas', label: 'Quotas' },
   { id: 'environment', label: 'Session environment' },
 ] as const

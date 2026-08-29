@@ -1,6 +1,6 @@
 # Git widget
 
-The Git widget keeps the state of the current repository beside the conversation. It appears when the selected workspace is a Git repository, and its rail badge counts modified files plus commits waiting to be pushed.
+The Git widget keeps the state of the current repository beside the conversation. It renders as the Git tab of the workspace sidebar (alongside Sessions and Files) and appears whenever the selected workspace provides repository state; workspaces without one show an empty state instead.
 
 ## What it shows
 

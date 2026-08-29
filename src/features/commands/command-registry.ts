@@ -73,7 +73,6 @@ export const defaultShortcuts: Partial<Record<CommandId, string>> = {
   'previous-session': 'alt+arrowleft',
   'open-explorer': 'alt+o',
   'open-widget-analysis': 'alt+a',
-  'open-widget-git': 'alt+g',
   'open-widget-quotas': 'alt+q',
 }
 
