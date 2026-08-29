@@ -169,6 +169,9 @@
     flex: 1;
     grid-template-columns: minmax(0, 1fr);
   }
+  .file-pane-resize-handle {
+    display: none;
+  }
   .right-sidebar {
     max-height: 34dvh;
     border-top: 1px solid var(--panel-line);

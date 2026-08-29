@@ -71,6 +71,7 @@ import { sidebarSessions } from './features/workspace/sidebar-sessions.ts'
 import { useWorkspaceSessions } from './features/workspace/useWorkspaceSessions.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
 import { FileContentPane } from './features/files/FileContentPane.tsx'
+import { clampFilePaneWidth, readFilePaneWidth } from './features/files/file-pane-width.ts'
 import {
   clampWorkspaceSidebarWidth,
   readWorkspaceSidebarCollapsed,
@@ -310,6 +311,9 @@ function LivecraftProjectApp(
         .localStorage
         .getItem('pi-livecraft.git-sidebar-width'),
     )
+  )
+  const [filePaneWidth, setFilePaneWidth] = useState(() =>
+    readFilePaneWidth(window.localStorage.getItem('pi-livecraft.file-pane-width'))
   )
 
   // Preferences and commands
@@ -584,6 +588,12 @@ function LivecraftProjectApp(
     const nextWidth = clampWorkspaceSidebarWidth(width)
     window.localStorage.setItem('pi-livecraft.workspace-sidebar-width', String(nextWidth))
     setWorkspaceSidebarWidth(nextWidth)
+  }, [])
+
+  const updateFilePaneWidth = useCallback((width: number) => {
+    const nextWidth = clampFilePaneWidth(width)
+    window.localStorage.setItem('pi-livecraft.file-pane-width', String(nextWidth))
+    setFilePaneWidth(nextWidth)
   }, [])
 
   const toggleWorkspaceSidebar = useCallback(() => {
@@ -1427,6 +1437,7 @@ function LivecraftProjectApp(
         '--project-color': project.color,
         '--right-sidebar-width': `${rightSidebarWidth}px`,
         '--workspace-sidebar-width': `${workspaceSidebarWidth}px`,
+        '--file-pane-width': `${filePaneWidth}px`,
       } as CSSProperties}
     >
       <WorkspaceSidebar
@@ -1706,6 +1717,8 @@ function LivecraftProjectApp(
           activePath={activeFilePath}
           key={workspacePath}
           onActivate={setActiveFilePath}
+          onResize={updateFilePaneWidth}
+          width={filePaneWidth}
           onClose={(path) => {
             setOpenFilePaths((current) => current.filter((candidate) => candidate !== path))
             setActiveFilePath((current) => {

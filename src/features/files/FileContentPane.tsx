@@ -1,6 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { Markdown } from '../conversation/Markdown.tsx'
 import { getWorkspaceFile } from '../../api.ts'
+import { maxFilePaneWidth, minFilePaneWidth } from './file-pane-width.ts'
 
 interface FileState {
   content: string
@@ -12,13 +19,17 @@ export function FileContentPane({
   activePath,
   onActivate,
   onClose,
+  onResize,
   openPaths,
+  width,
   workspacePath,
 }: {
   activePath: string | null
   onActivate: (path: string) => void
   onClose: (path: string) => void
+  onResize: (width: number) => void
   openPaths: readonly string[]
+  width: number
   workspacePath: string
 }) {
   const [files, setFiles] = useState<Record<string, FileState>>({})
@@ -63,8 +74,58 @@ export function FileContentPane({
 
   const activeFile = activePath ? files[activePath] : undefined
   const isMarkdown = activePath !== null && /\.(md|markdown)$/i.test(activePath)
+
+  /** Installs temporary listeners needed for pane pointer resizing. */
+  function startResize(event: ReactPointerEvent<HTMLDivElement>): void {
+    const handle = event.currentTarget
+    const initialX = event.clientX
+    const initialWidth = width
+    handle.setPointerCapture(event.pointerId)
+
+    const resize = (moveEvent: PointerEvent): void =>
+      onResize(initialWidth + initialX - moveEvent.clientX)
+    const stop = (): void => {
+      handle.removeEventListener('pointermove', resize)
+      handle.removeEventListener('pointerup', stop)
+      handle.removeEventListener('pointercancel', stop)
+      handle.removeEventListener('lostpointercapture', stop)
+    }
+
+    handle.addEventListener('pointermove', resize)
+    handle.addEventListener('pointerup', stop)
+    handle.addEventListener('pointercancel', stop)
+    handle.addEventListener('lostpointercapture', stop)
+  }
+
+  function resizeWithKeyboard(event: ReactKeyboardEvent<HTMLDivElement>): void {
+    const adjustment = event.key === 'ArrowLeft' ? 16 : event.key === 'ArrowRight' ? -16 : 0
+    if (adjustment) {
+      event.preventDefault()
+      onResize(width + adjustment)
+    }
+    if (event.key === 'Home') {
+      event.preventDefault()
+      onResize(minFilePaneWidth)
+    }
+    if (event.key === 'End') {
+      event.preventDefault()
+      onResize(maxFilePaneWidth)
+    }
+  }
   return (
     <aside aria-label='File contents' className='file-content-pane'>
+      <div
+        aria-label='Resize file preview pane'
+        aria-orientation='vertical'
+        aria-valuemax={maxFilePaneWidth}
+        aria-valuemin={minFilePaneWidth}
+        aria-valuenow={width}
+        className='file-pane-resize-handle'
+        onKeyDown={resizeWithKeyboard}
+        onPointerDown={startResize}
+        role='separator'
+        tabIndex={0}
+      />
       <div className='file-tabs' role='tablist' aria-label='Open files'>
         {openPaths.map((path) => (
           <div className={`file-tab${path === activePath ? ' active' : ''}`} key={path}>
