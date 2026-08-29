@@ -152,9 +152,12 @@ button:disabled, select:disabled {
 .workspace > :not(.file-content-pane) {
   grid-column: 1;
 }
+.workspace > .chat-topbar {
+  grid-column: 1 / -1;
+}
 .file-content-pane {
   grid-column: 2;
-  grid-row: 1 / -1;
+  grid-row: 2 / -1;
 }
 
 /* ── Dark mode overrides (colour values derived from palette variables) ── */
