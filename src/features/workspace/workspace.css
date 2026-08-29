@@ -355,60 +355,51 @@
 .sidebar-list-heading > span {
   color: color-mix(in srgb, var(--secondary) 72%, var(--muted));
 }
-.sidebar-workspace-tabs {
+.sessions-heading {
+  position: relative;
+  margin-top: -8px;
+}
+.sidebar-panel-toggle {
   display: flex;
-  gap: 3px;
-  border-bottom: 1px solid var(--line);
-  padding: 2px 0 0;
-}
-.sidebar-workspace-tabs button {
-  min-width: 0;
-  height: 29px;
-  border: 1px solid transparent;
-  border-bottom: 0;
-  border-radius: 7px 7px 0 0;
-  padding: 0 10px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  transition:
-    background 180ms ease,
-    border-color 180ms ease,
-    color 180ms ease,
-    transform 180ms ease;
-}
-.sidebar-workspace-tabs button:hover:not(:disabled) {
-  background: var(--accent-soft);
-  color: var(--accent-hover);
-}
-.sidebar-workspace-tabs button[aria-selected="true"] {
-  border-color: var(--line-strong);
-  background: var(--surface);
-  color: var(--accent-hover);
-}
-.sidebar-workspace-tabs button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-.sidebar-workspace-tabs button:active:not(:disabled) {
-  transform: scale(0.97);
-}
-.workspace-tab-panel {
-  display: flex;
+  align-items: center;
+  justify-content: space-between;
   flex: 1;
-  flex-direction: column;
-  min-height: 0;
+  min-width: 0;
+  gap: 6px;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--secondary) 72%, var(--muted));
+  text-align: left;
+}
+.sidebar-panel-toggle > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.sidebar-panel-toggle > span:first-child b {
+  color: var(--ink);
+  text-transform: none;
+}
+.sidebar-panel-toggle > span:last-child {
+  flex: 0 0 auto;
+  color: var(--subtle);
+  font-size: 15px;
+}
+.sidebar-panel-toggle:hover:not(:disabled) > span:last-child,
+.sidebar-panel-toggle:focus-visible > span:last-child {
+  color: var(--accent-hover);
+}
+.sessions-heading .sidebar-panel-toggle {
+  margin-right: auto;
+}
+.files-heading {
+  margin-top: 0;
 }
 .sessions-heading-actions {
   display: flex;
   align-items: center;
   gap: 2px;
-}
-.sessions-toolbar {
-  position: relative;
-  justify-content: flex-end;
-  min-height: 28px;
 }
 .session-list-options {
   width: 24px;
