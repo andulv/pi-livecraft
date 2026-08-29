@@ -3,6 +3,7 @@
 Pi Livecraft is documented in layers: begin with the system you want to build on, then follow a deeper link only when the change crosses a boundary. Implementation guides describe the project's supported composition points; feature README files record their local contracts.
 
 - **[Andulv fork feature overview](/docs/ANDULV-FORK-FEATURES.md)** — additions and improvements made by `andulv/pi-livecraft`, with screenshots from the running fork.
+- **[Browser bridge specification](/docs/BROWSER-BRIDGE.md)** — planned CDP livecast browser for the viewer pane. Not yet implemented; a specification and task plan, not a guide.
 
 ## Find the right place
 
