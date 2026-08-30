@@ -54,6 +54,24 @@ pane view  ◄──SSE /api/browser/frames── server/browser-session.ts ◄�
 - Frontend: `src/features/browser/` owns the livecast surface behind the existing
   tab/address bar/URL state. `src/api.ts` remains the only browser-to-backend path.
 
+### Agent automation options
+
+CDP is the bridge's browser connection boundary, not a required agent-facing API.
+Agent tooling may add a higher-level automation layer as long as it can attach to the
+existing Chrome instance rather than launching a separate browser.
+
+| Option | Strengths | Trade-offs |
+| --- | --- | --- |
+| Chrome DevTools MCP | Ready-made agent tools for Chrome inspection, debugging, and automation | MCP-specific configuration; not required by the bridge |
+| Playwright or Playwright MCP | High-level pages, locators, waits, and input APIs | Attaching to shared Chrome uses `connectOverCDP`, which is Chromium-only and lower fidelity than Playwright's native protocol connection; it does not replace the bridge's CDP screencast/input work |
+| Puppeteer | Mature Chromium automation API with straightforward CDP attachment | Chrome-focused and not an agent protocol by itself |
+| Raw CDP | Minimal, tool-neutral, and exposes screencast, input, and target control directly | Low-level; callers must implement target selection, waits, reconnects, and protocol error handling |
+
+**Decision:** pi-livecraft uses CDP directly for display and human input, and exposes
+the same CDP endpoint to the agent. The agent may use Chrome DevTools MCP, Playwright,
+Puppeteer, or another compatible tool. A tool that insists on owning a separate
+browser does not satisfy the shared-browser contract.
+
 ### Security posture
 
 - Chrome debug port binds 127.0.0.1 only; any local process can reach it — accepted
