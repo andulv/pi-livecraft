@@ -1,4 +1,6 @@
 import type {
+  BrowserInputEvent,
+  BrowserSessionStatus,
   DirectoryListing,
   GitFileDiff,
   GitProject,
@@ -274,6 +276,65 @@ export async function getEnvironment(sessionId: string): Promise<SessionEnvironm
   return request<SessionEnvironmentSnapshot>(
     `/api/environment?sessionId=${encodeURIComponent(sessionId)}`,
   )
+}
+
+export async function startBrowserSession(): Promise<BrowserSessionStatus> {
+  return request<BrowserSessionStatus>('/api/browser/start', { method: 'POST', body: '{}' })
+}
+
+export async function stopBrowserSession(): Promise<void> {
+  await request<void>('/api/browser/stop', { method: 'POST', body: '{}' })
+}
+
+export async function getBrowserStatus(): Promise<BrowserSessionStatus> {
+  return request<BrowserSessionStatus>('/api/browser/status')
+}
+
+export async function navigateBrowser(url: string): Promise<void> {
+  await request<void>('/api/browser/navigate', { method: 'POST', body: JSON.stringify({ url }) })
+}
+
+/** Fire-and-forget input forwarding; pane status errors surface via the stream. */
+export function sendBrowserInput(event: BrowserInputEvent): void {
+  void request<void>('/api/browser/input', {
+    method: 'POST',
+    body: JSON.stringify(event),
+  })
+    .catch(() => {})
+}
+
+export interface BrowserEventHandlers {
+  onFrame?: (data: string) => void
+  onUrl?: (url: string) => void
+  onStatus?: (status: BrowserSessionStatus) => void
+}
+
+/** Subscribes to the livecast frame, url, and status streams. */
+export function subscribeBrowserEvents(handlers: BrowserEventHandlers): () => void {
+  const source = new EventSource('/api/browser/frames')
+  const onNamedEvent = (name: string, handle: (data: unknown) => void): void => {
+    source.addEventListener(name, (event) => {
+      const data = (event as { data?: unknown }).data
+      if (typeof data !== 'string') return
+      try {
+        handle(JSON.parse(data))
+      } catch {
+        // Ignore malformed stream payloads.
+      }
+    })
+  }
+  onNamedEvent('frame', (value) => {
+    if (isObject(value) && typeof value.data === 'string') handlers.onFrame?.(value.data)
+  })
+  onNamedEvent('url', (value) => {
+    if (isObject(value) && typeof value.url === 'string') handlers.onUrl?.(value.url)
+  })
+  onNamedEvent('status', (value) => {
+    if (isObject(value) && typeof value.state === 'string') {
+      handlers.onStatus?.(value as unknown as BrowserSessionStatus)
+    }
+  })
+  return () => source.close()
 }
 
 export async function refreshEnvironment(sessionId: string): Promise<SessionEnvironmentSnapshot> {

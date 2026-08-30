@@ -109,7 +109,7 @@ export function parseBrowserInputEvent(value: unknown): BrowserInputEvent | null
       x: value.x,
       y: value.y,
       button: value.button as MouseButtonType,
-      clickCount: Math.max(1, Math.min(3, Math.round(value.clickCount))),
+      clickCount: Math.max(0, Math.min(3, Math.round(value.clickCount))),
       modifiers,
     }
   }
