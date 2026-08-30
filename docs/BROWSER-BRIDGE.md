@@ -7,31 +7,34 @@ banner when the core (milestones 1–2) ships.
 ## Goal
 
 Let human and agent share one browser that renders inside the viewer pane's Browser
-tab. The agent keeps using its standard browser tools (an existing
-`chrome-devtools` MCP server attached via `--browserUrl`); the human watches and
-interacts with the same pages in the pane. No browser tools are implemented in
-pi-livecraft — we only own the browser process, the display stream, and input
-forwarding.
+tab. The agent keeps using its standard browser automation tooling, attached to the
+shared Chrome instance over CDP; this may be Chrome DevTools MCP, Playwright,
+Puppeteer, or another CDP-compatible integration. No particular agent tool is a
+requirement. The human watches and interacts with the same pages in the pane. No
+browser tools are implemented in pi-livecraft — we only own the browser process, the
+display stream, input forwarding, and the CDP endpoint used for attachment.
 
 ## Non-goals (decided)
 
-- No custom browser tools, no MCP protocol implementation, no puppeteer-in-iframe
-  bridge (cross-origin iframes cannot be scripted; reimplementing CDP in-page is
-  reinventing the wheel).
+- No custom browser tools, no MCP protocol implementation, and no dependency on a
+  particular agent browser tool. Integration-specific configuration is documentation,
+  not part of the bridge contract.
+- No puppeteer-in-iframe bridge (cross-origin iframes cannot be scripted;
+  reimplementing CDP in-page is reinventing the wheel).
 - No reverse proxy for third-party sites (maintenance tar pit; MITM liability).
 - No custom browser extension for now. The daily-browser-with-logins case is served
   by existing modes (Playwright MCP `--extension`, chrome-devtools `--autoConnect`)
   outside this pane; a thin mirroring extension is a possible later addition.
 - The plain iframe stays as the zero-infra human fallback when no live browser runs.
 - The earlier "phase 1" navigate-only extension idea is superseded: with a live
-  browser, agent navigations (via MCP) appear in the pane automatically.
+  browser, navigations from attached agent tooling appear in the pane automatically.
 
 ## Architecture
 
 ```
-Pi agent ──(existing chrome-devtools MCP, --browserUrl http://127.0.0.1:<port>)──┐
-                                                                                 ▼
-            Chrome (headless, --remote-debugging-port, temp user-data-dir, 127.0.0.1)
+Pi agent ──(CDP-capable browser tooling, attached to http://127.0.0.1:<port>)──┐
+                                                                               ▼
+          Chrome (headless, --remote-debugging-port, temp user-data-dir, 127.0.0.1)
                                                                                  ▲
 pane input ──POST /api/browser/input──► server/browser-session.ts ──CDP Input.*──┘
 pane view  ◄──SSE /api/browser/frames── server/browser-session.ts ◄──Page.startScreencast
@@ -40,6 +43,9 @@ pane view  ◄──SSE /api/browser/frames── server/browser-session.ts ◄�
 - `server/browser-session.ts` (new) owns the Chrome process and one CDP connection.
   It is a backend capability like Git/quotas, not a manager concern (`server/manager.ts`
   stays the sole owner of `pi --mode rpc` processes).
+- Chrome's CDP endpoint is the tool-neutral agent integration boundary. Agent tooling
+  runs outside pi-livecraft and must support attaching to an existing Chrome instance;
+  Chrome DevTools MCP is one supported example, not an architectural requirement.
 - CDP speaks over Node's built-in `WebSocket` — **zero new dependencies**. Raw JSON
   protocol only: command/response with ids, event subscriptions, flat session for the
   page target.
@@ -112,7 +118,7 @@ Tasks are ordered; each lists acceptance criteria and its validation.
    frame meta, renders a local cursor, and hosts a hidden input committing composed
    text via `insertText` (IME mitigation). States: starting/live/stopped/crashed with
    a start/stop toggle. Accept: a human can load a localhost dev server in the pane
-   and click/type/scroll; agent MCP sessions attached to the same Chrome are visible
+   and click/type/scroll; agent browser tooling attached to the same Chrome is visible
    live. Validate: typecheck, lint, visual checklist in both themes at pane min/max
    width; manual IME check if available.
 9. **Mode switch.** Livecast when a session is live; iframe fallback otherwise.
@@ -120,12 +126,15 @@ Tasks are ordered; each lists acceptance criteria and its validation.
    the live session returns to iframe without losing the tab. Validate: visual
    checklist; no console errors across switches.
 
-## Milestone 3 — agent attach and documentation
+## Milestone 3 — agent attachment and documentation
 
-10. **Attach UX.** While live, the pane shows the debug endpoint and a copyable
-    config snippet for the chrome-devtools MCP server (`--browserUrl
-    http://127.0.0.1:<port>`). Accept: snippet matches the user's configured server
-    name/style; copy works. Validate: visual checklist.
+10. **Attach UX.** While live, the pane shows the CDP endpoint and generic guidance
+    for attaching browser automation tooling to the existing Chrome instance.
+    Integration-specific examples may be provided for Chrome DevTools MCP,
+    Playwright, Puppeteer, or other supported tools, but remain documentation rather
+    than bridge dependencies. Accept: the endpoint is copyable and at least one
+    documented integration can attach to it. Validate: visual checklist and a manual
+    attachment smoke test.
 11. **Documentation.** Rewrite `src/features/browser/README.md` for the live contract;
     add the browser session to `docs/ARCHITECTURE.md` (new module + SSE channel) and
     `server/features/README.md` (backend capability); flip this spec's status banner.
