@@ -20,6 +20,7 @@ import {
 import { QuotaService } from './features/quotas/quota-service.ts'
 import { EnvironmentService } from './features/session-environment/environment-service.ts'
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
+import { BrowserSession, parseBrowserInputEvent } from './features/browser/browser-session.ts'
 import {
   openVSCodeApplication,
   readWorkspaceTitleBarColor,
@@ -53,6 +54,8 @@ let piEventSequence = 0
 const distDirectory = fileURLToPath(new URL('../dist/', import.meta.url))
 const quotas = new QuotaService(manager)
 const environment = new EnvironmentService(manager)
+const browserSession = new BrowserSession()
+process.once('exit', () => browserSession.killSync())
 const managerRuntime = new ManagerRuntimeMonitor(manager, (status) => {
   broadcast({ kind: 'event', event: 'manager_status', sessionId: '', data: status })
 })
@@ -553,6 +556,75 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       10 * 60_000,
     )
     sendJson(response, 200, data)
+    return
+  }
+
+  if (method === 'GET' && url.pathname === '/api/browser/status') {
+    sendJson(response, 200, browserSession.status())
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/browser/start') {
+    await readJsonBody(request)
+    try {
+      sendJson(response, 200, await browserSession.start())
+    } catch (error) {
+      throw new HttpError(400, errorMessage(error))
+    }
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/browser/stop') {
+    await readJsonBody(request)
+    await browserSession.stop()
+    sendJson(response, 200, { ok: true })
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/browser/navigate') {
+    const body = await readJsonBody(request)
+    if (typeof body.url !== 'string' || !body.url) throw new HttpError(400, 'A URL is required')
+    try {
+      await browserSession.navigate(body.url)
+    } catch {
+      throw new HttpError(409, 'The browser session is not live')
+    }
+    sendJson(response, 200, { ok: true })
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/browser/input') {
+    const body = await readJsonBody(request)
+    const input = parseBrowserInputEvent(body)
+    if (!input) throw new HttpError(400, 'Invalid browser input event')
+    try {
+      await browserSession.dispatchInput(input)
+    } catch {
+      throw new HttpError(409, 'The browser session is not live')
+    }
+    sendJson(response, 200, { ok: true })
+    return
+  }
+
+  if (method === 'GET' && url.pathname === '/api/browser/frames') {
+    response.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    })
+    const writeEvent = (event: string, data: unknown): void => {
+      if (event === 'frame' && response.writableLength > 512 * 1024) return
+      response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+    }
+    writeEvent('status', browserSession.status())
+    const currentUrl = browserSession.status().url
+    if (currentUrl) writeEvent('url', { url: currentUrl })
+    const unsubscribe = browserSession.subscribe((event) => {
+      if (event.type === 'frame') writeEvent('frame', { data: event.data })
+      else if (event.type === 'url') writeEvent('url', { url: event.url })
+      else writeEvent('status', event.status)
+    })
+    request.on('close', unsubscribe)
     return
   }
 

@@ -369,3 +369,47 @@ export interface SessionEnvironmentSnapshot {
   refreshing: boolean
   sessionRequired: boolean
 }
+
+/** Lifecycle of the shared livecast browser session owned by the backend. */
+export type BrowserSessionState = 'off' | 'starting' | 'live' | 'stopped' | 'crashed'
+
+/** Status payload for the shared browser session (see docs/BROWSER-BRIDGE.md). */
+export interface BrowserSessionStatus {
+  state: BrowserSessionState
+  /** Current page URL while a session is live. */
+  url?: string
+  /** CDP HTTP endpoint that agent tooling attaches to while a session is live. */
+  endpoint?: string
+  error?: string
+}
+
+export type BrowserMouseButton = 'none' | 'left' | 'middle' | 'right' | 'back' | 'forward'
+
+/** Input events forwarded from the livecast pane into the shared browser. */
+export type BrowserInputEvent =
+  | {
+    type: 'mouseMoved' | 'mousePressed' | 'mouseReleased'
+    x: number
+    y: number
+    button: BrowserMouseButton
+    clickCount: number
+    modifiers: number
+  }
+  | {
+    type: 'mouseWheel'
+    x: number
+    y: number
+    deltaX: number
+    deltaY: number
+    modifiers: number
+  }
+  | {
+    type: 'keyDown' | 'keyUp'
+    key: string
+    code: string
+    keyCode: number
+    modifiers: number
+    /** Character produced by the key press; absent for non-text keys. */
+    text?: string
+  }
+  | { type: 'insertText'; text: string }
