@@ -115,7 +115,10 @@ Tasks are ordered; each lists acceptance criteria and its validation.
    base64 frames coalesced to at most one in-flight frame per subscriber; SSE route
    `/api/browser/frames` emitting `frame`, `url`, `status` events. Accept: a headless
    smoke renders `about:blank` then a data URL and receives both frames. Validate:
-   opt-in integration smoke; route wiring reviewed against the existing SSE route.
+   opt-in integration smoke; route wiring reviewed against the existing SSE route;
+   a multi-client smoke where a second raw CDP WebSocket attaches and issues
+   `Page.navigate` while the screencast runs — frames and url events must keep flowing
+   (proves the tool-neutral attachment contract).
 5. **Input forwarding.** `POST /api/browser/input` mapping `BrowserInputEvent` to
    `Input.dispatchMouseEvent/dispatchKeyEvent/insertText`, with a pure
    `mapPaneToPageCoordinates` helper (scale + clamping). Accept: click on a data-URL
@@ -148,10 +151,10 @@ Tasks are ordered; each lists acceptance criteria and its validation.
 
 10. **Attach UX.** While live, the pane shows the CDP endpoint and generic guidance
     for attaching browser automation tooling to the existing Chrome instance.
-    Integration-specific examples may be provided for Chrome DevTools MCP,
-    Playwright, Puppeteer, or other supported tools, but remain documentation rather
-    than bridge dependencies. Accept: the endpoint is copyable and at least one
-    documented integration can attach to it. Validate: visual checklist and a manual
+    Chrome DevTools MCP is the canonical documented example (copyable snippet);
+    further integrations (Playwright, Puppeteer, raw CDP) are added on demand, not
+    documented speculatively. Accept: the endpoint and snippet are copyable and the
+    canonical integration can attach to it. Validate: visual checklist and a manual
     attachment smoke test.
 11. **Documentation.** Rewrite `src/features/browser/README.md` for the live contract;
     add the browser session to `docs/ARCHITECTURE.md` (new module + SSE channel) and
@@ -173,3 +176,6 @@ browser via a custom extension.
 - CDP surface drift is minimal — we use stable domains (`Page`, `Input`, `Target`).
 - Temp profile means no user logins in the live browser; intentional (agent
   isolation), documented, with extension modes as the future answer.
+- Multiple attached clients can issue conflicting `Emulation.*` overrides or
+  interleaved input; acceptable for a local dev tool, with the input-lock backlog
+  item as the mitigation if it bites.
