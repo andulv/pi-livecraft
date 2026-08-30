@@ -2,6 +2,7 @@
 
 This directory contains local product capabilities used by `server/backend.ts`. The backend remains the sole HTTP routing and validation boundary; feature modules implement behavior and persistence without defining routes.
 
+- [`browser/`](/server/features/browser/README.md) owns the shared livecast Chrome and its CDP endpoint for agent tooling.
 - [`git/`](/server/features/git/README.md) reads and mutates the selected repository.
 - [`quotas/`](/server/features/quotas/README.md) caches provider reports and coordinates refreshes through the manager.
 - [`session-environment/`](/server/features/session-environment/README.md) caches loaded tools and context files and coordinates refreshes through the manager.

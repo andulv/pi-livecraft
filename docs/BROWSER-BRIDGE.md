@@ -1,8 +1,11 @@
 # Browser bridge specification
 
-Status: **planned — not yet implemented.** This document is a specification and task
-plan, not a description of shipped behavior. Update it as tasks land, and flip this
-banner when the core (milestones 1–2) ships.
+Status: **implemented (core)** — milestones 1–3 shipped. Two deviations from the
+original plan: the backend module lives at `server/features/browser/` (following the
+established capability layout) and the pane-to-page coordinate mapping lives in
+`src/features/browser/coordinates.ts` (only the pane knows its rendered frame size).
+This document now records the shipped contract; the task list is retained below as
+implementation history.
 
 ## Goal
 
