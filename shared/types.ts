@@ -70,7 +70,7 @@ export interface GitSnapshot {
   files: GitFileChange[]
   /** Commits not yet pushed to this branch's upstream. */
   ahead: number
-  /** Commits fetched from the tracked remote but not present locally; null when unavailable. */
+  /** Commits in the local tracked remote ref but not present locally; null when unavailable. */
   behind: number | null
   /** Main-workspace branch used as the comparison base for linked worktrees. */
   baseBranch: string | null

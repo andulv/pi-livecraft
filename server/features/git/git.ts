@@ -19,8 +19,8 @@ interface GitCommandResult {
   stdout: string
 }
 
-/** Aggregates Git state; `refreshRemote` fetches the tracked upstream before counting incoming commits. */
-export async function getGitSnapshot(cwd: string, refreshRemote = false): Promise<GitSnapshot> {
+/** Aggregates Git state, including divergence from locally known tracked refs. */
+export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
   const repository = await runGit(cwd, ['rev-parse', '--is-inside-work-tree'], [0, 128])
   if (repository.exitCode !== 0 || repository.stdout.trim() !== 'true')
     return {
@@ -71,20 +71,17 @@ export async function getGitSnapshot(cwd: string, refreshRemote = false): Promis
     ),
   )
 
-  // Refresh the tracked remote before computing its divergence. A failed fetch must not hide
-  // local state, so `behind` remains unavailable instead of reporting a stale count.
+  // Compare the branch to its local tracking ref. Snapshot reads never contact the remote,
+  // avoiding credential prompts while users browse the workspace.
   let behind: number | null = null
-  if (refreshRemote && upstream.exitCode === 0) {
-    const fetch = await runGit(cwd, ['fetch', '--quiet'], [0, 1, 128])
-    if (fetch.exitCode === 0) {
-      const divergence = await runGit(cwd, [
-        'rev-list',
-        '--left-right',
-        '--count',
-        '@{upstream}...HEAD',
-      ], [0, 128])
-      if (divergence.exitCode === 0) behind = parseBranchDivergence(divergence.stdout).behind
-    }
+  if (upstream.exitCode === 0) {
+    const divergence = await runGit(cwd, [
+      'rev-list',
+      '--left-right',
+      '--count',
+      '@{upstream}...HEAD',
+    ], [0, 128])
+    if (divergence.exitCode === 0) behind = parseBranchDivergence(divergence.stdout).behind
   }
 
   // With an upstream, list commits ahead of it. Without one (a worktree or branch with no

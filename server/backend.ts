@@ -221,7 +221,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
 
   if (method === 'GET' && url.pathname === '/api/git') {
     const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
-    sendJson(response, 200, await getGitSnapshot(cwd, true))
+    sendJson(response, 200, await getGitSnapshot(cwd))
     return
   }
 
