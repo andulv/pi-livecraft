@@ -12,6 +12,11 @@ address bar:
 - **Iframe fallback** (when no live session runs): the plain sandboxed iframe for
   frameable pages.
 
+`BrowserDebugWidget.tsx` adds the right-sidebar **Browser system** panel. It polls
+`GET /api/browser/debug` only while mounted and shows the backend-owned Chrome process
+list, session/stream counters, endpoint, profile path, and lifecycle controls without
+joining the screencast as a viewer.
+
 ## Contracts
 
 - Address input is normalized by `normalizeBrowserUrl` (`browser-url.ts`): explicit
@@ -20,7 +25,8 @@ address bar:
   rejected. `coordinates.ts` maps pane pointer positions into the captured frame
   (pure; both are unit-tested).
 - The backend session (`server/features/browser/`) owns Chrome, the screencast
-  stream (`/api/browser/frames` SSE with `frame`/`url`/`status` events), input
+  stream (`/api/browser/frames` SSE with `frame`/`url`/`status` events), diagnostics
+  snapshot (`GET /api/browser/debug`), input
   forwarding, and the emulated viewport (`POST /api/browser/viewport` →
   `Emulation.setDeviceMetricsOverride` with screencast caps matching the viewport,
   preserving the 1:1 frame-to-viewport coordinate mapping); `src/api.ts` is the

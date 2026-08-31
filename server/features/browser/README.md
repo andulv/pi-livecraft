@@ -20,10 +20,15 @@ contract.
   crashed`), subscribes to `Page.startScreencast` frames (acking with the frame's
   session id — Chrome may report it as a number, and un-acked casts are throttled to
   a stop), forwards validated input events to `Input.*`, and emits frame/url/status
-  events to SSE subscribers.
+  events to SSE subscribers. Its diagnostics snapshot opens a short-lived connection
+  to the browser-level CDP target for `SystemInfo.getProcessInfo`; it also reports the
+  root PID, temporary profile, viewer count, and capture counters without starting a
+  screencast viewer.
 
-Routes live in `server/backend.ts` (`/api/browser/*`). The debug port binds
+Routes live in `server/backend.ts` (`/api/browser/*`, including
+`GET /api/browser/debug`). The debug port binds
 127.0.0.1 only and uses a fresh profile per session; any local process can reach it,
 which matches the app's local trust model. Focused coverage: `test/browser-launcher.test.ts`,
-`test/browser-cdp-client.test.ts`, `test/browser-input.test.ts`, and the gated
+`test/browser-cdp-client.test.ts`, `test/browser-debug.test.ts`,
+`test/browser-input.test.ts`, and the gated
 `test/browser-smoke.test.ts` (runs when a browser binary is found, skipped otherwise).

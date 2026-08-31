@@ -1,4 +1,5 @@
 import type {
+  BrowserDebugSnapshot,
   BrowserInputEvent,
   BrowserSessionStatus,
   BrowserViewport,
@@ -296,6 +297,10 @@ export async function stopBrowserSession(): Promise<void> {
 
 export async function getBrowserStatus(): Promise<BrowserSessionStatus> {
   return request<BrowserSessionStatus>('/api/browser/status')
+}
+
+export async function getBrowserDebugSnapshot(): Promise<BrowserDebugSnapshot> {
+  return request<BrowserDebugSnapshot>('/api/browser/debug')
 }
 
 export async function navigateBrowser(url: string): Promise<void> {

@@ -1406,6 +1406,7 @@ function LivecraftProjectApp(
   // Application layout
   const rightPanelVisible = activeRightWidget === 'index'
     || activeRightWidget === 'quotas' || activeRightWidget === 'environment'
+    || activeRightWidget === 'browser'
     || (activeRightWidget === 'analysis' && sessionAnalysis !== null)
 
   if (projectDiscoveryError) {
@@ -1781,6 +1782,10 @@ function LivecraftProjectApp(
         analysisAvailable={analysisAvailable}
         currentQuotaProvider={currentQuotaProvider}
         onConversationNavigate={navigateToConversationTarget}
+        onOpenBrowser={() => {
+          setBrowserOpen(true)
+          setActivePaneView({ kind: 'browser' })
+        }}
         onResize={updateRightSidebarWidth}
         sessionMessages={snapshot.messages}
         sessionMessagesAvailable={selectedSession !== undefined

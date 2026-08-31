@@ -18,6 +18,7 @@ import type { ConversationNavigationTarget } from '../conversation/conversation-
 import { SessionIndexWidget } from '../session-index/SessionIndexWidget.tsx'
 import { SessionAnalysisWidget } from '../session-analysis/SessionAnalysisWidget.tsx'
 import type { SessionAnalysis } from '../session-analysis/session-analysis.ts'
+import { BrowserDebugWidget } from '../browser/BrowserDebugWidget.tsx'
 import { maxRightSidebarWidth, minRightSidebarWidth, type RightWidget } from './right-sidebar.ts'
 import { WidgetLayout } from './WidgetLayout.tsx'
 
@@ -38,6 +39,7 @@ export function RightSidebar({
   currentQuotaProvider,
   environment,
   onConversationNavigate,
+  onOpenBrowser,
   onResize,
   sessionCommands,
   sessionMessages,
@@ -58,6 +60,7 @@ export function RightSidebar({
   currentQuotaProvider: QuotaProvider | undefined
   environment: SessionEnvironmentSnapshot | null
   onConversationNavigate: (target: ConversationNavigationTarget) => void
+  onOpenBrowser: () => void
   onResize: (width: number) => void
   sessionCommands: readonly JsonObject[]
   sessionMessages: readonly JsonObject[]
@@ -187,6 +190,7 @@ export function RightSidebar({
                 state={sessionState}
               />
             )}
+            {activeWidget === 'browser' && <BrowserDebugWidget onOpenBrowser={onOpenBrowser} />}
           </section>
         </div>
       )}
@@ -270,6 +274,18 @@ export function RightSidebar({
           ))}
         </div>
         <div aria-label='Global' className='right-sidebar-rail-group' role='group'>
+          <Tooltip label='Browser system'>
+            <button
+              aria-controls={activeWidget === 'browser' ? 'browser-panel' : undefined}
+              aria-expanded={activeWidget === 'browser'}
+              aria-label={`${activeWidget === 'browser' ? 'Collapse' : 'Expand'} browser system`}
+              className='rail-tab'
+              onClick={() => onWidgetSelect('browser')}
+              type='button'
+            >
+              <BrowserSystemIcon />
+            </button>
+          </Tooltip>
           <Tooltip label={quotaSummary?.label ?? 'Quotas'}>
             <button
               aria-controls={activeWidget === 'quotas' ? 'quotas-panel' : undefined}
@@ -315,6 +331,26 @@ function ContextRailIcon() {
   )
 }
 
+function BrowserSystemIcon() {
+  return (
+    <svg
+      aria-hidden='true'
+      fill='none'
+      height='18'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='1.7'
+      viewBox='0 0 24 24'
+      width='18'
+    >
+      <rect height='15' rx='2' width='19' x='2.5' y='4.5' />
+      <path d='M2.5 8.5h19M6 6.5h.01M9 6.5h.01' />
+      <path d='M9 16h6M12 13v6' />
+    </svg>
+  )
+}
+
 function panelLabel(activeWidget: RightWidget | null): string {
   return activeWidget === 'index'
     ? 'Session index'
@@ -322,5 +358,7 @@ function panelLabel(activeWidget: RightWidget | null): string {
     ? 'Session analysis'
     : activeWidget === 'quotas'
     ? 'Provider quotas'
+    : activeWidget === 'browser'
+    ? 'Browser system'
     : 'Session environment'
 }

@@ -577,6 +577,11 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     return
   }
 
+  if (method === 'GET' && url.pathname === '/api/browser/debug') {
+    sendJson(response, 200, await browserSession.debugSnapshot())
+    return
+  }
+
   if (method === 'POST' && url.pathname === '/api/browser/start') {
     await readJsonBody(request)
     try {

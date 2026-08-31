@@ -1,0 +1,350 @@
+/* Browser process diagnostics in the right sidebar. */
+.browser-debug-content {
+  min-width: 0;
+  padding: 2px 14px 20px;
+}
+.browser-debug-refresh {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 15px;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+.browser-debug-refresh:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.browser-debug-refresh:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.browser-debug-refresh:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.browser-debug-refresh:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  transform: none;
+}
+.browser-debug-section {
+  min-width: 0;
+  padding: 16px 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+.browser-debug-section:last-child {
+  border-bottom: 0;
+}
+.browser-debug-state-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin-bottom: 14px;
+}
+.browser-debug-state-row strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browser-debug-state-row > span:last-child:not(.browser-debug-state-dot) {
+  margin-left: auto;
+  color: var(--muted);
+  font: 10px ui-monospace, monospace;
+  white-space: nowrap;
+}
+.browser-debug-state-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--subtle);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--subtle) 12%, transparent);
+}
+.browser-debug-state-dot.live {
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 14%, transparent);
+}
+.browser-debug-state-dot.starting {
+  background: var(--warning);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 14%, transparent);
+}
+.browser-debug-state-dot.crashed {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 14%, transparent);
+}
+.browser-debug-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 18px;
+  margin: 0;
+}
+.browser-debug-metrics > div {
+  min-width: 0;
+}
+.browser-debug-metrics dt {
+  margin-bottom: 3px;
+  color: var(--subtle);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+.browser-debug-metrics dd {
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font: 600 11px ui-monospace, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browser-debug-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 10px;
+}
+.browser-debug-heading h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browser-debug-heading > span {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 18px;
+  border-radius: 9px;
+  padding: 0 6px;
+  background: color-mix(in srgb, var(--ink) 6%, var(--surface));
+  color: var(--muted);
+  font: 700 9px ui-monospace, monospace;
+}
+.browser-debug-processes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.browser-debug-processes li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 5px 0;
+}
+.browser-debug-processes li + li {
+  border-top: 1px solid var(--panel-line);
+}
+.browser-debug-process-mark {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--line-strong));
+  border-radius: 2px;
+  background: var(--accent-soft);
+}
+.browser-debug-process-name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.browser-debug-process-name strong,
+.browser-debug-process-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browser-debug-process-name strong {
+  color: var(--ink);
+  font: 600 11px ui-monospace, monospace;
+}
+.browser-debug-process-name small {
+  color: var(--subtle);
+  font: 9.5px ui-monospace, monospace;
+}
+.browser-debug-process-cpu {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font: 10px ui-monospace, monospace;
+  white-space: nowrap;
+}
+.browser-debug-value {
+  min-width: 0;
+}
+.browser-debug-value + .browser-debug-value {
+  margin-top: 11px;
+}
+.browser-debug-value > span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--subtle);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+.browser-debug-value > code {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font: 10px/1.45 ui-monospace, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browser-debug-value > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.browser-debug-value > div code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font: 10px ui-monospace, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browser-debug-value button {
+  flex: 0 0 auto;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 0 9px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 700;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+.browser-debug-value button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.browser-debug-value button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.browser-debug-value button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.browser-debug-value button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  transform: none;
+}
+.browser-debug-empty,
+.browser-debug-error,
+.browser-debug-warning {
+  margin: 6px 0;
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.browser-debug-empty {
+  color: var(--subtle);
+}
+.browser-debug-error {
+  border-left: 2px solid var(--danger);
+  padding-left: 8px;
+  color: var(--danger);
+}
+.browser-debug-warning {
+  border-left: 2px solid var(--warning);
+  padding-left: 8px;
+  color: color-mix(in srgb, var(--warning) 65%, var(--ink));
+}
+.browser-debug-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  padding: 10px 14px;
+}
+.browser-debug-actions button {
+  min-width: 0;
+  height: 30px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 0 9px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+.browser-debug-actions button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.browser-debug-actions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.browser-debug-actions button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.browser-debug-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  transform: none;
+}
+.browser-debug-actions button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--surface);
+}
+.browser-debug-actions button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  color: var(--surface);
+}
+.browser-debug-actions button.danger {
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--line-strong));
+  color: var(--danger);
+}
+.browser-debug-actions button.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  color: var(--danger);
+}
+@media (prefers-reduced-motion: reduce) {
+  .browser-debug-refresh,
+  .browser-debug-value button,
+  .browser-debug-actions button {
+    transition: none;
+  }
+}

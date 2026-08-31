@@ -1,5 +1,7 @@
 import type {
+  BrowserDebugSnapshot,
   BrowserInputEvent,
+  BrowserProcessInfo,
   BrowserSessionState,
   BrowserSessionStatus,
   BrowserViewport,
@@ -179,6 +181,29 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
+/** Normalizes Chrome's browser-level process report for the diagnostics API. */
+export function parseBrowserProcessInfo(value: unknown): BrowserProcessInfo[] {
+  if (!Array.isArray(value)) return []
+  const processes: BrowserProcessInfo[] = []
+  for (const item of value) {
+    if (!isObject(item)) continue
+    const pid = item.id
+    const type = item.type
+    const cpuTimeSeconds = item.cpuTime
+    if (
+      typeof pid !== 'number' || !Number.isInteger(pid) || pid <= 0
+      || typeof type !== 'string' || !type
+      || !isFiniteNumber(cpuTimeSeconds) || cpuTimeSeconds < 0
+    ) continue
+    processes.push({ pid, type, cpuTimeSeconds })
+  }
+  return processes.sort((left, right) => {
+    if (left.type === 'browser' && right.type !== 'browser') return -1
+    if (right.type === 'browser' && left.type !== 'browser') return 1
+    return left.pid - right.pid
+  })
+}
+
 /** Owns the shared Chrome instance, its CDP connection, and pane event fan-out. */
 export class BrowserSession {
   #state: BrowserSessionState = 'off'
@@ -190,6 +215,9 @@ export class BrowserSession {
   #subscribers = new Set<(event: BrowserSessionEvent) => void>()
   #startPromise: Promise<BrowserSessionStatus> | null = null
   #viewers = 0
+  #startedAt: number | undefined
+  #capturedFrames = 0
+  #capturedBytes = 0
   #lastAckAt = 0
   #ackTimer: ReturnType<typeof setTimeout> | null = null
   #pendingAckSession: number | string | null = null
@@ -202,6 +230,42 @@ export class BrowserSession {
       endpoint: this.#endpoint,
       error: this.#error,
       viewport: { ...this.#viewport },
+    }
+  }
+
+  /** Samples process and stream diagnostics without changing the browser session. */
+  async debugSnapshot(): Promise<BrowserDebugSnapshot> {
+    const browser = this.#browser
+    let processes: BrowserProcessInfo[] = []
+    let processError: string | undefined
+    const browserRunning = browser && browser.child.exitCode === null && !browser.child.killed
+    if (browserRunning) {
+      const diagnostics = new CdpConnection()
+      try {
+        await diagnostics.connect(browser.wsEndpoint, 2_000)
+        const result = await diagnostics.send('SystemInfo.getProcessInfo', {}, 2_000)
+        processes = parseBrowserProcessInfo(result.processInfo)
+      } catch (error) {
+        processError = error instanceof Error ? error.message : String(error)
+      } finally {
+        diagnostics.close()
+      }
+    }
+    const currentBrowser = this.#browser === browser
+        && browser?.child.exitCode === null && !browser.child.killed
+      ? browser
+      : null
+    return {
+      status: this.status(),
+      sampledAt: Date.now(),
+      rootPid: currentBrowser?.child.pid,
+      startedAt: currentBrowser ? this.#startedAt : undefined,
+      viewerCount: this.#viewers,
+      capturedFrames: this.#capturedFrames,
+      capturedBytes: this.#capturedBytes,
+      profilePath: currentBrowser?.userDataDir,
+      processes: currentBrowser ? processes : [],
+      processError: currentBrowser ? processError : undefined,
     }
   }
 
@@ -284,10 +348,14 @@ export class BrowserSession {
   }
 
   async #start(): Promise<BrowserSessionStatus> {
+    this.#capturedFrames = 0
+    this.#capturedBytes = 0
+    this.#startedAt = undefined
     this.#setState({ state: 'starting' })
     try {
       const browser = await launchHeadlessChrome({})
       this.#browser = browser
+      this.#startedAt = Date.now()
       this.#endpoint = browser.httpEndpoint
       const pageTarget = await findOrCreatePage(browser.httpEndpoint)
       const cdp = new CdpConnection()
@@ -304,7 +372,11 @@ export class BrowserSession {
         }
       })
       cdp.on('Page.screencastFrame', (params) => {
-        if (typeof params.data === 'string') this.#emit({ type: 'frame', data: params.data })
+        if (typeof params.data === 'string') {
+          this.#capturedFrames++
+          this.#capturedBytes += Buffer.byteLength(params.data, 'base64')
+          this.#emit({ type: 'frame', data: params.data })
+        }
         // Chrome reports the screencast session id as a number or a string
         // depending on version; un-acked casts are throttled to a stop, while
         // instantly acking every frame lets Chrome encode at full compositor
@@ -378,6 +450,7 @@ export class BrowserSession {
     const browser = this.#browser
     this.#browser = null
     await browser?.cleanup()
+    this.#startedAt = undefined
   }
 
   #setState(partial: { state: BrowserSessionState; error?: string }): void {

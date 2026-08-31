@@ -402,6 +402,28 @@ export interface BrowserViewport {
   mobile: boolean
 }
 
+/** One Chrome process reported by the browser-level CDP target. */
+export interface BrowserProcessInfo {
+  pid: number
+  type: string
+  /** Cumulative CPU time reported by Chrome, in seconds. */
+  cpuTimeSeconds: number
+}
+
+/** Runtime diagnostics for the backend-owned browser session. */
+export interface BrowserDebugSnapshot {
+  status: BrowserSessionStatus
+  sampledAt: number
+  rootPid?: number
+  startedAt?: number
+  viewerCount: number
+  capturedFrames: number
+  capturedBytes: number
+  profilePath?: string
+  processes: BrowserProcessInfo[]
+  processError?: string
+}
+
 export type BrowserMouseButton = 'none' | 'left' | 'middle' | 'right' | 'back' | 'forward'
 
 /** Input events forwarded from the livecast pane into the shared browser. */

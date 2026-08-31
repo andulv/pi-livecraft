@@ -40,10 +40,12 @@ Pi agent ──(CDP-capable browser tooling, attached to http://127.0.0.1:<port>
           Chrome (headless, --remote-debugging-port, temp user-data-dir, 127.0.0.1)
                                                                                  ▲
 pane input ──POST /api/browser/input──► server/browser-session.ts ──CDP Input.*──┘
-pane view  ◄──SSE /api/browser/frames── server/browser-session.ts ◄──Page.startScreencast
+pane view  ◄──SSE /api/browser/frames── server/features/browser/browser-session.ts ◄──Page.startScreencast
+debug UI  ◄──GET /api/browser/debug─── server/features/browser/browser-session.ts ──SystemInfo.getProcessInfo
 ```
 
-- `server/browser-session.ts` (new) owns the Chrome process and one CDP connection.
+- `server/features/browser/browser-session.ts` owns the Chrome process and its CDP
+  connections.
   It is a backend capability like Git/quotas, not a manager concern (`server/manager.ts`
   stays the sole owner of `pi --mode rpc` processes).
 - Chrome's CDP endpoint is the tool-neutral agent integration boundary. Agent tooling
@@ -53,7 +55,9 @@ pane view  ◄──SSE /api/browser/frames── server/browser-session.ts ◄�
   protocol only: command/response with ids, event subscriptions, flat session for the
   page target.
 - Transport shape: SSE downstream (frames + url/status events), plain HTTP POST
-  upstream (input). Same pattern as the existing event stream in `server/backend.ts`.
+  upstream (input), and a polled diagnostics snapshot (`GET /api/browser/debug`) for
+  the Browser system widget. Same pattern as the existing event stream in
+  `server/backend.ts`.
 - Frontend: `src/features/browser/` owns the livecast surface behind the existing
   tab/address bar/URL state. `src/api.ts` remains the only browser-to-backend path.
 

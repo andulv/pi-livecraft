@@ -41,6 +41,13 @@ test(
     await waitFor(() => urls.some((url) => url.startsWith('data:text/html')))
     await waitFor(() => frames.length > 0)
 
+    const diagnostics = await session.debugSnapshot()
+    assert.equal(diagnostics.status.state, 'live')
+    assert.ok(diagnostics.rootPid && diagnostics.rootPid > 0)
+    assert.ok(diagnostics.processes.some((process) => process.type === 'browser'))
+    assert.ok(diagnostics.capturedFrames > 0)
+    assert.ok(diagnostics.capturedBytes > 0)
+
     // A second, independent CDP client — the tool-neutral agent attachment path.
     const pages = await fetch(`${status.endpoint}/json/list`).then((response) => response.json())
     const page = (pages as Array<Record<string, unknown>>).find(
