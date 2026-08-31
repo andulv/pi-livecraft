@@ -48,6 +48,7 @@ export function RightSidebar({
   sessionStats,
   quotas,
   width,
+  workspacePath,
   railActions,
   onEnvironmentRefresh,
   onQuotaRefresh,
@@ -69,6 +70,7 @@ export function RightSidebar({
   sessionStats: SessionStats | null
   quotas: QuotaSnapshot | null
   width: number
+  workspacePath: string
   railActions: RailAction[]
   onEnvironmentRefresh: () => Promise<void>
   onQuotaRefresh: () => Promise<void>
@@ -190,7 +192,9 @@ export function RightSidebar({
                 state={sessionState}
               />
             )}
-            {activeWidget === 'browser' && <BrowserDebugWidget onOpenBrowser={onOpenBrowser} />}
+            {activeWidget === 'browser' && (
+              <BrowserDebugWidget onOpenBrowser={onOpenBrowser} workspacePath={workspacePath} />
+            )}
           </section>
         </div>
       )}

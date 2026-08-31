@@ -381,10 +381,16 @@ export interface SessionEnvironmentSnapshot {
   sessionRequired: boolean
 }
 
-/** Lifecycle of the shared livecast browser session owned by the backend. */
+/** Lifecycle of one livecast browser instance owned by the backend. */
 export type BrowserSessionState = 'off' | 'starting' | 'live' | 'stopped' | 'crashed'
 
-/** Status payload for the shared browser session (see docs/BROWSER-BRIDGE.md). */
+/** Identifies one browser instance inside one canonical workspace. */
+export interface BrowserInstanceTarget {
+  workspacePath: string
+  browserId: string
+}
+
+/** Status payload for one browser instance (see docs/BROWSER-BRIDGE.md). */
 export interface BrowserSessionStatus {
   state: BrowserSessionState
   /** Current page URL while a session is live. */
@@ -424,9 +430,28 @@ export interface BrowserDebugSnapshot {
   processError?: string
 }
 
+/** Diagnostics for one browser instance in a workspace. */
+export interface BrowserInstanceDebugSnapshot extends BrowserDebugSnapshot {
+  browserId: string
+}
+
+/** Browser instances registered for one canonical workspace. */
+export interface BrowserWorkspaceDebugSnapshot {
+  workspacePath: string
+  instances: BrowserInstanceDebugSnapshot[]
+}
+
+/** Installation-wide browser diagnostics, grouped by workspace and instance. */
+export interface BrowserSystemDebugSnapshot {
+  sampledAt: number
+  /** Canonical form of the optional workspace requested by the debug client. */
+  currentWorkspacePath?: string
+  workspaces: BrowserWorkspaceDebugSnapshot[]
+}
+
 export type BrowserMouseButton = 'none' | 'left' | 'middle' | 'right' | 'back' | 'forward'
 
-/** Input events forwarded from the livecast pane into the shared browser. */
+/** Input events forwarded from the livecast pane into one browser instance. */
 export type BrowserInputEvent =
   | {
     type: 'mouseMoved' | 'mousePressed' | 'mouseReleased'

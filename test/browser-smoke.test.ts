@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BrowserSession } from '../server/features/browser/browser-session.ts'
+import { BrowserService } from '../server/features/browser/browser-service.ts'
 import { CdpConnection } from '../server/features/browser/cdp-client.ts'
 import { resolveBrowserBinary } from '../server/features/browser/chrome-launcher.ts'
 
@@ -24,7 +25,10 @@ test(
   },
   async () => {
     const session = new BrowserSession()
-    test.after(() => void session.stop())
+    test.after(async () => {
+      session.releaseViewer()
+      await session.stop()
+    })
 
     const frames: string[] = []
     const urls: string[] = []
@@ -32,6 +36,7 @@ test(
       if (event.type === 'frame') frames.push(event.data)
       else if (event.type === 'url') urls.push(event.url)
     })
+    session.addViewer()
 
     const status = await session.start()
     assert.equal(status.state, 'live')
@@ -99,6 +104,47 @@ test(
     agent.close()
     await session.stop()
     assert.equal(session.status().state, 'stopped')
+  },
+)
+
+test(
+  'isolates live browser instances across workspaces',
+  {
+    timeout: 30_000,
+    skip: hasBrowser ? false : 'No Chrome/Chromium binary found; set PI_LIVECRAFT_BROWSER_BIN',
+  },
+  async () => {
+    const service = new BrowserService()
+    test.after(() => void service.stopAll())
+    const first = service.session('/workspace/a', 'main')
+    const second = service.session('/workspace/b', 'main')
+
+    const [firstStatus, secondStatus] = await Promise.all([first.start(), second.start()])
+    assert.notEqual(firstStatus.endpoint, secondStatus.endpoint)
+
+    await Promise.all([
+      first.navigate('data:text/html,workspace-a'),
+      second.navigate('data:text/html,workspace-b'),
+    ])
+    await waitFor(() => first.status().url?.includes('workspace-a') === true)
+    await waitFor(() => second.status().url?.includes('workspace-b') === true)
+
+    const snapshot = await service.debugSnapshot()
+    assert.deepEqual(snapshot.workspaces.map(({ workspacePath }) => workspacePath), [
+      '/workspace/a',
+      '/workspace/b',
+    ])
+    const firstDebug = snapshot.workspaces[0].instances[0]
+    const secondDebug = snapshot.workspaces[1].instances[0]
+    assert.notEqual(firstDebug.rootPid, secondDebug.rootPid)
+    assert.notEqual(firstDebug.profilePath, secondDebug.profilePath)
+    assert.equal(firstDebug.capturedFrames, 0)
+    assert.equal(secondDebug.capturedFrames, 0)
+
+    await first.stop()
+    assert.equal(first.status().state, 'stopped')
+    assert.equal(second.status().state, 'live')
+    await second.stop()
   },
 )
 

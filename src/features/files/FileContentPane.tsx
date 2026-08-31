@@ -19,6 +19,7 @@ interface FileState {
 export function FileContentPane({
   activePath,
   browserActive,
+  browserId,
   browserOpen,
   browserUrl,
   onActivate,
@@ -34,6 +35,7 @@ export function FileContentPane({
 }: {
   activePath: string | null
   browserActive: boolean
+  browserId: string
   browserOpen: boolean
   browserUrl: string
   onActivate: (path: string) => void
@@ -207,7 +209,12 @@ export function FileContentPane({
       {browserActive
         ? (
           <div className='file-content'>
-            <BrowserView onUrlCommit={onBrowserUrlCommit} url={browserUrl} />
+            <BrowserView
+              browserId={browserId}
+              onUrlCommit={onBrowserUrlCommit}
+              url={browserUrl}
+              workspacePath={workspacePath}
+            />
           </div>
         )
         : activePath

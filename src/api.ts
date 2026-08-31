@@ -1,7 +1,8 @@
 import type {
-  BrowserDebugSnapshot,
   BrowserInputEvent,
+  BrowserInstanceTarget,
   BrowserSessionStatus,
+  BrowserSystemDebugSnapshot,
   BrowserViewport,
   DirectoryListing,
   GitFileDiff,
@@ -287,38 +288,76 @@ export async function getEnvironment(sessionId: string): Promise<SessionEnvironm
   )
 }
 
-export async function startBrowserSession(): Promise<BrowserSessionStatus> {
-  return request<BrowserSessionStatus>('/api/browser/start', { method: 'POST', body: '{}' })
+function browserInstanceUrl(target: BrowserInstanceTarget, action?: string): string {
+  const base = `/api/browser/instances/${encodeURIComponent(target.browserId)}`
+  return action ? `${base}/${action}` : base
 }
 
-export async function stopBrowserSession(): Promise<void> {
-  await request<void>('/api/browser/stop', { method: 'POST', body: '{}' })
+function browserWorkspaceQuery(target: BrowserInstanceTarget): string {
+  return `workspacePath=${encodeURIComponent(target.workspacePath)}`
 }
 
-export async function getBrowserStatus(): Promise<BrowserSessionStatus> {
-  return request<BrowserSessionStatus>('/api/browser/status')
-}
-
-export async function getBrowserDebugSnapshot(): Promise<BrowserDebugSnapshot> {
-  return request<BrowserDebugSnapshot>('/api/browser/debug')
-}
-
-export async function navigateBrowser(url: string): Promise<void> {
-  await request<void>('/api/browser/navigate', { method: 'POST', body: JSON.stringify({ url }) })
-}
-
-export async function setBrowserViewport(viewport: BrowserViewport): Promise<void> {
-  await request<void>('/api/browser/viewport', {
+export async function startBrowserSession(
+  target: BrowserInstanceTarget,
+): Promise<BrowserSessionStatus> {
+  return request<BrowserSessionStatus>(browserInstanceUrl(target, 'start'), {
     method: 'POST',
-    body: JSON.stringify(viewport),
+    body: JSON.stringify({ workspacePath: target.workspacePath }),
+  })
+}
+
+export async function stopBrowserSession(target: BrowserInstanceTarget): Promise<void> {
+  await request<void>(browserInstanceUrl(target, 'stop'), {
+    method: 'POST',
+    body: JSON.stringify({ workspacePath: target.workspacePath }),
+  })
+}
+
+export async function removeBrowserInstance(target: BrowserInstanceTarget): Promise<void> {
+  await request<void>(`${browserInstanceUrl(target)}?${browserWorkspaceQuery(target)}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function getBrowserStatus(
+  target: BrowserInstanceTarget,
+): Promise<BrowserSessionStatus> {
+  return request<BrowserSessionStatus>(
+    `${browserInstanceUrl(target, 'status')}?${browserWorkspaceQuery(target)}`,
+  )
+}
+
+export async function getBrowserDebugSnapshot(
+  workspacePath?: string,
+): Promise<BrowserSystemDebugSnapshot> {
+  const query = workspacePath
+    ? `?workspacePath=${encodeURIComponent(workspacePath)}`
+    : ''
+  return request<BrowserSystemDebugSnapshot>(`/api/browser/debug${query}`)
+}
+
+export async function navigateBrowser(target: BrowserInstanceTarget, url: string): Promise<void> {
+  await request<void>(browserInstanceUrl(target, 'navigate'), {
+    method: 'POST',
+    body: JSON.stringify({ workspacePath: target.workspacePath, url }),
+  })
+}
+
+export async function setBrowserViewport(
+  target: BrowserInstanceTarget,
+  viewport: BrowserViewport,
+): Promise<void> {
+  await request<void>(browserInstanceUrl(target, 'viewport'), {
+    method: 'POST',
+    body: JSON.stringify({ workspacePath: target.workspacePath, ...viewport }),
   })
 }
 
 /** Fire-and-forget input forwarding; pane status errors surface via the stream. */
-export function sendBrowserInput(event: BrowserInputEvent): void {
-  void request<void>('/api/browser/input', {
+export function sendBrowserInput(target: BrowserInstanceTarget, event: BrowserInputEvent): void {
+  void request<void>(browserInstanceUrl(target, 'input'), {
     method: 'POST',
-    body: JSON.stringify(event),
+    body: JSON.stringify({ workspacePath: target.workspacePath, ...event }),
   })
     .catch(() => {})
 }
@@ -329,9 +368,14 @@ export interface BrowserEventHandlers {
   onStatus?: (status: BrowserSessionStatus) => void
 }
 
-/** Subscribes to the livecast frame, url, and status streams. */
-export function subscribeBrowserEvents(handlers: BrowserEventHandlers): () => void {
-  const source = new EventSource('/api/browser/frames')
+/** Subscribes to one browser instance's livecast frame, url, and status streams. */
+export function subscribeBrowserEvents(
+  target: BrowserInstanceTarget,
+  handlers: BrowserEventHandlers,
+): () => void {
+  const source = new EventSource(
+    `${browserInstanceUrl(target, 'frames')}?${browserWorkspaceQuery(target)}`,
+  )
   const onNamedEvent = (name: string, handle: (data: unknown) => void): void => {
     source.addEventListener(name, (event) => {
       const data = (event as { data?: unknown }).data

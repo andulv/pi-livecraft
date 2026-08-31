@@ -9,13 +9,14 @@ implementation history.
 
 ## Goal
 
-Let human and agent share one browser that renders inside the viewer pane's Browser
-tab. The agent keeps using its standard browser automation tooling, attached to the
-shared Chrome instance over CDP; this may be Chrome DevTools MCP, Playwright,
+Let human and agent share one identified browser instance that renders inside a
+workspace's Browser tab. The agent keeps using its standard browser automation tooling,
+attached to that Chrome instance over CDP; this may be Chrome DevTools MCP, Playwright,
 Puppeteer, or another CDP-compatible integration. No particular agent tool is a
 requirement. The human watches and interacts with the same pages in the pane. No
-browser tools are implemented in pi-livecraft — we only own the browser process, the
-display stream, input forwarding, and the CDP endpoint used for attachment.
+browser tools are implemented in pi-livecraft — we only own the browser processes,
+display streams, input forwarding, and CDP endpoints used for attachment. The backend
+supports multiple browser IDs per workspace; the first pane uses ID `main`.
 
 ## Non-goals (decided)
 
@@ -39,14 +40,14 @@ Pi agent ──(CDP-capable browser tooling, attached to http://127.0.0.1:<port>
                                                                                ▼
           Chrome (headless, --remote-debugging-port, temp user-data-dir, 127.0.0.1)
                                                                                  ▲
-pane input ──POST /api/browser/input──► server/browser-session.ts ──CDP Input.*──┘
-pane view  ◄──SSE /api/browser/frames── server/features/browser/browser-session.ts ◄──Page.startScreencast
-debug UI  ◄──GET /api/browser/debug─── server/features/browser/browser-session.ts ──SystemInfo.getProcessInfo
+pane input ──POST /api/browser/instances/:id/input──► BrowserSession ──CDP Input.*──┘
+pane view  ◄──SSE /api/browser/instances/:id/frames── BrowserSession ◄──Page.startScreencast
+debug UI  ◄──GET /api/browser/debug─────────────── BrowserService ──SystemInfo.getProcessInfo
 ```
 
-- `server/features/browser/browser-session.ts` owns the Chrome process and its CDP
-  connections.
-  It is a backend capability like Git/quotas, not a manager concern (`server/manager.ts`
+- `server/features/browser/browser-service.ts` owns a two-level registry keyed by
+  canonical workspace path and browser ID. `browser-session.ts` owns one Chrome process
+  and its CDP connections. This is a backend capability like Git/quotas, not a manager concern (`server/manager.ts`
   stays the sole owner of `pi --mode rpc` processes).
 - Chrome's CDP endpoint is the tool-neutral agent integration boundary. Agent tooling
   runs outside pi-livecraft and must support attaching to an existing Chrome instance;
@@ -54,8 +55,8 @@ debug UI  ◄──GET /api/browser/debug─── server/features/browser/brows
 - CDP speaks over Node's built-in `WebSocket` — **zero new dependencies**. Raw JSON
   protocol only: command/response with ids, event subscriptions, flat session for the
   page target.
-- Transport shape: SSE downstream (frames + url/status events), plain HTTP POST
-  upstream (input), and a polled diagnostics snapshot (`GET /api/browser/debug`) for
+- Transport shape: instance-scoped SSE downstream (frames + url/status events), plain
+  HTTP POST upstream (input), and a polled installation-wide diagnostics snapshot (`GET /api/browser/debug`) for
   the Browser system widget. Same pattern as the existing event stream in
   `server/backend.ts`.
 - Frontend: `src/features/browser/` owns the livecast surface behind the existing
@@ -74,8 +75,8 @@ existing Chrome instance rather than launching a separate browser.
 | Puppeteer | Mature Chromium automation API with straightforward CDP attachment | Chrome-focused and not an agent protocol by itself |
 | Raw CDP | Minimal, tool-neutral, and exposes screencast, input, and target control directly | Low-level; callers must implement target selection, waits, reconnects, and protocol error handling |
 
-**Decision:** pi-livecraft uses CDP directly for display and human input, and exposes
-the same CDP endpoint to the agent. The agent may use Chrome DevTools MCP, Playwright,
+**Decision:** pi-livecraft uses CDP directly for display and human input. It exposes
+each instance's CDP endpoint to the agent. The agent may use Chrome DevTools MCP, Playwright,
 Puppeteer, or another compatible tool. A tool that insists on owning a separate
 browser does not satisfy the shared-browser contract.
 
@@ -83,7 +84,7 @@ browser does not satisfy the shared-browser contract.
 
 - Chrome debug port binds 127.0.0.1 only; any local process can reach it — accepted
   threat model (same as the app itself), documented in the browser README.
-- Fresh temp `--user-data-dir` per session: no logins by design (isolation for agent
+- Fresh temp `--user-data-dir` per browser instance: no logins by design (isolation for agent
   driving); the profile is deleted when the session stops.
 - Input endpoint performs the same origin checks as other POST APIs.
 

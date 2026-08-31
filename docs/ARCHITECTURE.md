@@ -16,7 +16,7 @@ server/backend.ts ─── JSON Lines over local TCP ──▶ server/manager.t
 
 `src/App.tsx` remains the cross-cutting orchestrator: it receives the SSE stream, applies effects that span features (dialogs, Git, quotas, notifications, and manager state), and connects the panels. Workspace/session lifecycle belongs to `useWorkspaceSessions`; selected-conversation snapshots, replay, streaming, and tool execution state belong to `useConversationRuntime`. Area-specific logic and rendering live in `src/features/`:
 
-- `browser/` — the viewer pane's browser tab: shared live browser stream plus input forwarding, with a sandboxed iframe fallback;
+- `browser/` — the viewer pane's workspace-scoped browser instance: live stream plus input forwarding, with a sandboxed iframe fallback;
 - `composer/` — input, commands, and image preparation;
 - `conversation/` — history, activity, usage, and tool calls;
 - `dialogs/` — extension questionnaires and dialogs;
@@ -34,7 +34,7 @@ Use the [`src/features/` map](/src/features/README.md) to locate frontend owners
 
 ## Backend and manager
 
-`server/backend.ts` exposes the web API, validates HTTP requests, serves the build, and broadcasts SSE events. Domain behavior for Git, quotas, terminal launching, and the shared livecast browser lives in `server/features/`; route definitions remain in the backend. Other neighboring modules provide workspace files, recent sessions, and system integrations.
+`server/backend.ts` exposes the web API, validates HTTP requests, serves the build, and broadcasts SSE events. Domain behavior for Git, quotas, terminal launching, and livecast browsers lives in `server/features/`; route definitions remain in the backend. `BrowserService` groups browser sessions by canonical workspace path and browser ID. Each `BrowserSession` owns one Chrome process. Other neighboring modules provide workspace files, recent sessions, and system integrations.
 
 `server/manager.ts` is the sole owner of `pi --mode rpc` processes. `server/pi-process.ts` starts them with the extensions from `pi-extensions/`, while `server/manager-client.ts` carries backend requests over local JSON Lines. Keeping this ownership outside the backend preserves Pi sessions across backend restarts.
 

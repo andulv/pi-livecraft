@@ -74,6 +74,11 @@ import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
 import { FileContentPane } from './features/files/FileContentPane.tsx'
 import { clampFilePaneWidth, readFilePaneWidth } from './features/files/file-pane-width.ts'
 import {
+  primaryBrowserId,
+  readBrowserUrl,
+  writeBrowserUrl,
+} from './features/browser/browser-url.ts'
+import {
   clampWorkspaceSidebarWidth,
   readWorkspaceSidebarCollapsed,
   readWorkspaceSidebarWidth,
@@ -120,8 +125,8 @@ const conversationViewDetails = {
 } as const
 type ConversationView = keyof typeof conversationViewDetails
 
-/** The file pane shows either one open file or the browser tab. */
-type PaneView = { kind: 'browser' } | { kind: 'file'; path: string }
+/** The file pane shows either one open file or one identified browser tab. */
+type PaneView = { kind: 'browser'; browserId: string } | { kind: 'file'; path: string }
 
 const gitRefreshDelayMs = 250
 const managerUnavailableMessage = 'Pi manager is unavailable'
@@ -257,6 +262,9 @@ function LivecraftProjectApp(
     onOpenHome: () => void
   },
 ) {
+  const browserId = primaryBrowserId
+  const initialBrowserWorkspacePath = initialWorkspacePath ?? project.root
+
   // Workspace and sessions
   const [compactingSessionIds, setCompactingSessionIds] = useState<ReadonlySet<string>>(new Set())
 
@@ -305,7 +313,7 @@ function LivecraftProjectApp(
   const [activePaneView, setActivePaneView] = useState<PaneView | null>(null)
   const [browserOpen, setBrowserOpen] = useState(false)
   const [browserUrl, setBrowserUrl] = useState(
-    () => window.localStorage.getItem('pi-livecraft.browser-url') ?? '',
+    () => readBrowserUrl(initialBrowserWorkspacePath, browserId),
   )
   const [activeRightWidget, setActiveRightWidget] = useState<RightWidget | null>(() =>
     readActiveRightWidget(
@@ -519,6 +527,10 @@ function LivecraftProjectApp(
     onWorkspaceSelected: handleWorkspaceSelected,
   })
   selectedIdRef.current = selectedId
+
+  useEffect(() => {
+    setBrowserUrl(readBrowserUrl(workspacePath, browserId))
+  }, [browserId, workspacePath])
 
   // Keep the project page URL carrying the current workspace and selected session
   // so reloads and duplicated tabs restore the same view. Never removes the last
@@ -1736,19 +1748,21 @@ function LivecraftProjectApp(
           )}
         <FileContentPane
           activePath={activePaneView?.kind === 'file' ? activePaneView.path : null}
-          browserActive={activePaneView?.kind === 'browser'}
+          browserActive={activePaneView?.kind === 'browser'
+            && activePaneView.browserId === browserId}
+          browserId={browserId}
           browserOpen={browserOpen}
           browserUrl={browserUrl}
           key={workspacePath}
           onActivate={(path) => setActivePaneView({ kind: 'file', path })}
-          onActivateBrowser={() => setActivePaneView({ kind: 'browser' })}
+          onActivateBrowser={() => setActivePaneView({ kind: 'browser', browserId })}
           onBrowserUrlCommit={(url) => {
-            window.localStorage.setItem('pi-livecraft.browser-url', url)
+            writeBrowserUrl(workspacePath, browserId, url)
             setBrowserUrl(url)
           }}
           onOpenBrowser={() => {
             setBrowserOpen(true)
-            setActivePaneView({ kind: 'browser' })
+            setActivePaneView({ kind: 'browser', browserId })
           }}
           onResize={updateFilePaneWidth}
           width={filePaneWidth}
@@ -1759,7 +1773,7 @@ function LivecraftProjectApp(
               const remaining = openFilePaths.filter((candidate) => candidate !== path)
               const last = remaining.at(-1)
               if (last !== undefined) return { kind: 'file', path: last }
-              return browserOpen ? { kind: 'browser' } : null
+              return browserOpen ? { kind: 'browser', browserId } : null
             })
           }}
           onCloseBrowser={() => {
@@ -1784,7 +1798,7 @@ function LivecraftProjectApp(
         onConversationNavigate={navigateToConversationTarget}
         onOpenBrowser={() => {
           setBrowserOpen(true)
-          setActivePaneView({ kind: 'browser' })
+          setActivePaneView({ kind: 'browser', browserId })
         }}
         onResize={updateRightSidebarWidth}
         sessionMessages={snapshot.messages}
@@ -1796,6 +1810,7 @@ function LivecraftProjectApp(
         sessionState={snapshot.state}
         sessionStats={snapshot.stats}
         width={rightSidebarWidth}
+        workspacePath={workspacePath}
         railActions={railActions}
         onEnvironmentRefresh={() => refreshSessionEnvironment(selectedId)}
         onQuotaRefresh={() => refreshSessionQuotas(selectedId, false)}

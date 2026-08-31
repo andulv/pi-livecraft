@@ -46,26 +46,6 @@
 .browser-debug-section:last-child {
   border-bottom: 0;
 }
-.browser-debug-state-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-  margin-bottom: 14px;
-}
-.browser-debug-state-row strong {
-  overflow: hidden;
-  color: var(--ink);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.browser-debug-state-row > span:last-child:not(.browser-debug-state-dot) {
-  margin-left: auto;
-  color: var(--muted);
-  font: 10px ui-monospace, monospace;
-  white-space: nowrap;
-}
 .browser-debug-state-dot {
   flex: 0 0 auto;
   width: 8px;
@@ -119,7 +99,8 @@
   min-width: 0;
   margin-bottom: 10px;
 }
-.browser-debug-heading h2 {
+.browser-debug-heading h2,
+.browser-debug-heading h3 {
   min-width: 0;
   margin: 0;
   overflow: hidden;
@@ -137,6 +118,145 @@
   background: color-mix(in srgb, var(--ink) 6%, var(--surface));
   color: var(--muted);
   font: 700 9px ui-monospace, monospace;
+}
+.browser-debug-workspace-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin-bottom: 10px;
+}
+.browser-debug-workspace-heading > div {
+  flex: 1;
+  min-width: 0;
+}
+.browser-debug-workspace-heading h2,
+.browser-debug-workspace-heading code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browser-debug-workspace-heading h2 {
+  margin: 0 0 3px;
+  font-size: 12px;
+}
+.browser-debug-workspace-heading code {
+  color: var(--subtle);
+  font: 9.5px ui-monospace, monospace;
+}
+.browser-debug-workspace-heading > small {
+  flex: 0 0 auto;
+  border-radius: 9px;
+  padding: 3px 6px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.browser-debug-workspace-heading > span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  min-width: 20px;
+  height: 18px;
+  border-radius: 9px;
+  padding: 0 6px;
+  background: color-mix(in srgb, var(--ink) 6%, var(--surface));
+  color: var(--muted);
+  font: 700 9px ui-monospace, monospace;
+}
+.browser-debug-instances {
+  display: grid;
+  gap: 7px;
+}
+.browser-debug-instance {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ink) 2%, var(--surface));
+}
+.browser-debug-instance.current {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+}
+.browser-debug-instance summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 6px 8px;
+  cursor: pointer;
+  list-style: none;
+  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+}
+.browser-debug-instance summary::-webkit-details-marker {
+  display: none;
+}
+.browser-debug-instance summary:hover {
+  background: var(--accent-soft);
+}
+.browser-debug-instance summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.browser-debug-instance summary:active {
+  transform: scale(0.99);
+}
+.browser-debug-instance[open] summary {
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-raised);
+}
+.browser-debug-instance-name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.browser-debug-instance-name strong,
+.browser-debug-instance-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browser-debug-instance-name strong {
+  color: var(--ink);
+  font: 650 11px ui-monospace, monospace;
+}
+.browser-debug-instance-name small {
+  color: var(--subtle);
+  font: 9px ui-monospace, monospace;
+}
+.browser-debug-instance-cpu {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font: 9.5px ui-monospace, monospace;
+  white-space: nowrap;
+}
+.browser-debug-instance-chevron {
+  flex: 0 0 auto;
+  color: var(--subtle);
+  font-size: 15px;
+  transition: transform 180ms ease;
+}
+.browser-debug-instance[open] .browser-debug-instance-chevron {
+  transform: rotate(90deg);
+}
+.browser-debug-instance-body {
+  min-width: 0;
+  padding: 12px 8px 10px;
+}
+.browser-debug-process-heading {
+  margin-top: 16px;
+}
+.browser-debug-runtime {
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
 }
 .browser-debug-processes {
   margin: 0;
@@ -343,6 +463,8 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .browser-debug-refresh,
+  .browser-debug-instance summary,
+  .browser-debug-instance-chevron,
   .browser-debug-value button,
   .browser-debug-actions button {
     transition: none;

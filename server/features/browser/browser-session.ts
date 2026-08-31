@@ -204,7 +204,7 @@ export function parseBrowserProcessInfo(value: unknown): BrowserProcessInfo[] {
   })
 }
 
-/** Owns the shared Chrome instance, its CDP connection, and pane event fan-out. */
+/** Owns one Chrome instance, its CDP connection, and pane event fan-out. */
 export class BrowserSession {
   #state: BrowserSessionState = 'off'
   #error: string | undefined
@@ -337,7 +337,7 @@ export class BrowserSession {
     }
   }
 
-  /** Starts (or returns) the shared browser; safe to call concurrently. */
+  /** Starts (or returns) this browser instance; safe to call concurrently. */
   start(): Promise<BrowserSessionStatus> {
     if (this.#state === 'live') return Promise.resolve(this.status())
     if (this.#startPromise) return this.#startPromise
@@ -403,7 +403,9 @@ export class BrowserSession {
         mobile: this.#viewport.mobile,
       })
       this.#url = await currentPageUrl(cdp)
-      await cdp.send('Page.startScreencast', screencastParamsFor(this.#viewport))
+      if (this.#viewers > 0) {
+        await cdp.send('Page.startScreencast', screencastParamsFor(this.#viewport))
+      }
       this.#setState({ state: 'live' })
       return this.status()
     } catch (error) {

@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CompositionEvent,
@@ -20,8 +21,6 @@ import { normalizeBrowserUrl } from './browser-url.ts'
 import { cdpModifiers, mapPointerToPage } from './coordinates.ts'
 
 const wheelFlushIntervalMs = 50
-const pendingWheel = { x: 0, y: 0, deltaX: 0, deltaY: 0 }
-let wheelFlushTimer: number | null = null
 
 const viewportStorageKey = 'pi-livecraft.browser-viewport'
 const defaultViewportChoice = '1280x900'
@@ -70,9 +69,11 @@ function viewportKey(viewport: BrowserViewport): string {
 }
 
 /** Human-driven browser surface: an address bar, a livecast view, and an iframe fallback. */
-export function BrowserView({ onUrlCommit, url }: {
+export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
+  browserId: string
   onUrlCommit: (url: string) => void
   url: string
+  workspacePath: string
 }) {
   const [address, setAddress] = useState(url)
   const [reloadNonce, setReloadNonce] = useState(0)
@@ -81,12 +82,16 @@ export function BrowserView({ onUrlCommit, url }: {
   const [zoomMode, setZoomMode] = useState<'auto' | 'natural'>('auto')
   const [zoomPercent, setZoomPercent] = useState(100)
   const [viewportChoice, setViewportChoice] = useState(readStoredViewportChoice)
+  const target = useMemo(() => ({ browserId, workspacePath }), [browserId, workspacePath])
   const frameImageRef = useRef<HTMLImageElement>(null)
   const composeInputRef = useRef<HTMLInputElement>(null)
+  const liveSurfaceRef = useRef<HTMLDivElement>(null)
   const liveRef = useRef(false)
+  const onUrlCommitRef = useRef(onUrlCommit)
   const lastMoveSentRef = useRef(0)
   const live = status.state === 'live'
   liveRef.current = live
+  onUrlCommitRef.current = onUrlCommit
 
   useEffect(() => setAddress(url), [url])
 
@@ -108,7 +113,7 @@ export function BrowserView({ onUrlCommit, url }: {
     window.localStorage.setItem(viewportStorageKey, choice)
     const preset = viewportChoiceEntries.find(({ viewport }) => viewportKey(viewport) === choice)
     if (preset && status.state === 'live') {
-      void setBrowserViewport(preset.viewport).catch(() => {})
+      void setBrowserViewport(target, preset.viewport).catch(() => {})
     }
   }
 
@@ -117,32 +122,75 @@ export function BrowserView({ onUrlCommit, url }: {
   useEffect(() => {
     const wasLive = wasLiveRef.current
     wasLiveRef.current = status.state === 'live'
-    if (!wasLive || status.state !== 'live' || !status.viewport) return
+    if (wasLive || status.state !== 'live' || !status.viewport) return
     if (viewportKey(status.viewport) === viewportChoice) return
     const preset = viewportChoiceEntries.find(
       ({ viewport }) => viewportKey(viewport) === viewportChoice,
     )
-    if (preset) void setBrowserViewport(preset.viewport).catch(() => {})
-  }, [status, viewportChoice])
+    if (preset) void setBrowserViewport(target, preset.viewport).catch(() => {})
+  }, [status, target, viewportChoice])
 
-  useEffect(
-    () =>
-      subscribeBrowserEvents({
-        // Frames bypass React state: writing the data URL straight to the image
-        // avoids a full component re-render at frame rate.
-        onFrame: (data) => {
-          const image = frameImageRef.current
-          if (image) image.src = `data:image/jpeg;base64,${data}`
-          setHasFrame((current) => current || true)
-        },
-        onUrl: onUrlCommit,
-        onStatus: (next) => {
-          setStatus(next)
-          if (next.state !== 'live') setHasFrame(false)
-        },
-      }),
-    [onUrlCommit],
-  )
+  useEffect(() => {
+    setStatus({ state: 'off' })
+    setHasFrame(false)
+    return subscribeBrowserEvents(target, {
+      // Frames bypass React state: writing the data URL straight to the image
+      // avoids a full component re-render at frame rate.
+      onFrame: (data) => {
+        const image = frameImageRef.current
+        if (image) image.src = `data:image/jpeg;base64,${data}`
+        setHasFrame((current) => current || true)
+      },
+      onUrl: (nextUrl) => onUrlCommitRef.current(nextUrl),
+      onStatus: (next) => {
+        setStatus(next)
+        if (next.state !== 'live') setHasFrame(false)
+      },
+    })
+  }, [target])
+
+  useEffect(() => {
+    const element = liveSurfaceRef.current
+    if (!live || !element) return
+    const pending = { x: 0, y: 0, deltaX: 0, deltaY: 0 }
+    let wheelFlushTimer: number | null = null
+    const handleWheel = (nativeEvent: WheelEvent): void => {
+      if (!liveRef.current) return
+      nativeEvent.preventDefault()
+      const image = frameImageRef.current
+      if (!image) return
+      const { x, y } = mapPointerToPage(nativeEvent, {
+        rect: image.getBoundingClientRect(),
+        naturalWidth: image.naturalWidth,
+        naturalHeight: image.naturalHeight,
+      })
+      pending.x = x
+      pending.y = y
+      pending.deltaX += nativeEvent.deltaX
+      pending.deltaY += nativeEvent.deltaY
+      if (wheelFlushTimer !== null) return
+      wheelFlushTimer = window.setTimeout(() => {
+        wheelFlushTimer = null
+        sendBrowserInput(target, {
+          type: 'mouseWheel',
+          x: pending.x,
+          y: pending.y,
+          deltaX: pending.deltaX,
+          deltaY: pending.deltaY,
+          modifiers: 0,
+        })
+        pending.deltaX = 0
+        pending.deltaY = 0
+      }, wheelFlushIntervalMs)
+    }
+    element.addEventListener('wheel', handleWheel, { passive: false })
+    return () => {
+      element.removeEventListener('wheel', handleWheel)
+      if (wheelFlushTimer !== null) window.clearTimeout(wheelFlushTimer)
+      pending.deltaX = 0
+      pending.deltaY = 0
+    }
+  }, [live, target])
 
   function navigate(event: FormEvent): void {
     event.preventDefault()
@@ -153,12 +201,12 @@ export function BrowserView({ onUrlCommit, url }: {
     }
     if (next === url) setReloadNonce((current) => current + 1)
     onUrlCommit(next)
-    if (live) void navigateBrowser(next).catch(() => {})
+    if (live) void navigateBrowser(target, next).catch(() => {})
   }
 
   function reload(): void {
     if (!url) return
-    if (live) void navigateBrowser(url).catch(() => {})
+    if (live) void navigateBrowser(target, url).catch(() => {})
     else setReloadNonce((current) => current + 1)
   }
 
@@ -182,7 +230,7 @@ export function BrowserView({ onUrlCommit, url }: {
   ): void {
     if (!live) return
     const { x, y } = pageCoordinates(event)
-    sendBrowserInput({
+    sendBrowserInput(target, {
       type,
       x,
       y,
@@ -217,45 +265,6 @@ export function BrowserView({ onUrlCommit, url }: {
     dispatchMouse(event, 'mouseReleased')
   }
 
-  function handleWheelEvent(element: HTMLDivElement | null): void {
-    if (!element) return
-    element.addEventListener(
-      'wheel',
-      (nativeEvent) => {
-        if (!liveRef.current) return
-        nativeEvent.preventDefault()
-        const image = frameImageRef.current
-        if (!image) return
-        const { x, y } = mapPointerToPage(nativeEvent, {
-          rect: image.getBoundingClientRect(),
-          naturalWidth: image.naturalWidth,
-          naturalHeight: image.naturalHeight,
-        })
-        // Coalesce bursts: one dispatch per tick instead of one per DOM event,
-        // so fast scrolling does not queue a wall of wheel commands.
-        pendingWheel.x = x
-        pendingWheel.y = y
-        pendingWheel.deltaX += nativeEvent.deltaX
-        pendingWheel.deltaY += nativeEvent.deltaY
-        if (wheelFlushTimer !== null) return
-        wheelFlushTimer = window.setTimeout(() => {
-          wheelFlushTimer = null
-          sendBrowserInput({
-            type: 'mouseWheel',
-            x: pendingWheel.x,
-            y: pendingWheel.y,
-            deltaX: pendingWheel.deltaX,
-            deltaY: pendingWheel.deltaY,
-            modifiers: 0,
-          })
-          pendingWheel.deltaX = 0
-          pendingWheel.deltaY = 0
-        }, wheelFlushIntervalMs)
-      },
-      { passive: false },
-    )
-  }
-
   function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
     if (!live) return
     if (event.ctrlKey || event.metaKey) {
@@ -273,24 +282,24 @@ export function BrowserView({ onUrlCommit, url }: {
       modifiers: cdpModifiers(event),
     }
     if (event.key.length === 1) {
-      sendBrowserInput({ ...common, type: 'keyDown', text: event.key })
-      sendBrowserInput({ ...common, type: 'keyUp' })
+      sendBrowserInput(target, { ...common, type: 'keyDown', text: event.key })
+      sendBrowserInput(target, { ...common, type: 'keyUp' })
       return
     }
-    sendBrowserInput({ ...common, type: 'keyDown' })
-    sendBrowserInput({ ...common, type: 'keyUp' })
+    sendBrowserInput(target, { ...common, type: 'keyDown' })
+    sendBrowserInput(target, { ...common, type: 'keyUp' })
   }
 
   function handleCompositionEnd(event: CompositionEvent<HTMLDivElement>): void {
     if (!live || !event.data) return
-    sendBrowserInput({ type: 'insertText', text: event.data })
+    sendBrowserInput(target, { type: 'insertText', text: event.data })
   }
 
   function handlePaste(event: React.ClipboardEvent<HTMLDivElement>): void {
     if (!live) return
     event.preventDefault()
     const text = event.clipboardData.getData('text')
-    if (text) sendBrowserInput({ type: 'insertText', text: text.slice(0, 10_000) })
+    if (text) sendBrowserInput(target, { type: 'insertText', text: text.slice(0, 10_000) })
   }
 
   return (
@@ -352,8 +361,8 @@ export function BrowserView({ onUrlCommit, url }: {
         <button
           className={`browser-live-toggle${live ? ' active' : ''}`}
           onClick={() => {
-            if (live) void stopBrowserSession().catch(() => {})
-            else void startBrowserSession().catch(() => {})
+            if (live) void stopBrowserSession(target).catch(() => {})
+            else void startBrowserSession(target).catch(() => {})
           }}
           type='button'
         >
@@ -380,7 +389,7 @@ export function BrowserView({ onUrlCommit, url }: {
               }}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              ref={handleWheelEvent}
+              ref={liveSurfaceRef}
               tabIndex={0}
             >
               {hasFrame

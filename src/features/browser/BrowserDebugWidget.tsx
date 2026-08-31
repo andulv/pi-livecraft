@@ -1,25 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { BrowserDebugSnapshot, BrowserSessionState } from '../../../shared/types.ts'
+import type {
+  BrowserInstanceDebugSnapshot,
+  BrowserSessionState,
+  BrowserSystemDebugSnapshot,
+} from '../../../shared/types.ts'
 import { getBrowserDebugSnapshot, startBrowserSession, stopBrowserSession } from '../../api.ts'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import { WidgetLayout } from '../right-sidebar/WidgetLayout.tsx'
+import { primaryBrowserId } from './browser-url.ts'
 
 const pollIntervalMs = 2_000
 
-/** Observes and controls the backend-owned Chrome session without joining its frame stream. */
-export function BrowserDebugWidget({ onOpenBrowser }: { onOpenBrowser: () => void }) {
-  const [snapshot, setSnapshot] = useState<BrowserDebugSnapshot | null>(null)
+/** Lists all backend-owned browser instances without joining their frame streams. */
+export function BrowserDebugWidget({ onOpenBrowser, workspacePath }: {
+  onOpenBrowser: () => void
+  workspacePath: string
+}) {
+  const [snapshot, setSnapshot] = useState<BrowserSystemDebugSnapshot | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [action, setAction] = useState<'start' | 'stop' | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [copiedInstance, setCopiedInstance] = useState<string | null>(null)
   const requestSequenceRef = useRef(0)
+  const target = { browserId: primaryBrowserId, workspacePath }
 
   const refresh = useCallback(async (showProgress = false): Promise<void> => {
     const sequence = ++requestSequenceRef.current
     if (showProgress) setRefreshing(true)
     try {
-      const next = await getBrowserDebugSnapshot()
+      const next = await getBrowserDebugSnapshot(workspacePath)
       if (sequence !== requestSequenceRef.current) return
       setSnapshot(next)
       setError(null)
@@ -29,7 +38,7 @@ export function BrowserDebugWidget({ onOpenBrowser }: { onOpenBrowser: () => voi
     } finally {
       if (showProgress) setRefreshing(false)
     }
-  }, [])
+  }, [workspacePath])
 
   useEffect(() => {
     void refresh(true)
@@ -38,17 +47,38 @@ export function BrowserDebugWidget({ onOpenBrowser }: { onOpenBrowser: () => voi
   }, [refresh])
 
   useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 1_500)
+    if (!copiedInstance) return
+    const timer = setTimeout(() => setCopiedInstance(null), 1_500)
     return () => clearTimeout(timer)
-  }, [copied])
+  }, [copiedInstance])
 
-  async function changeSession(nextAction: 'start' | 'stop'): Promise<void> {
+  const currentWorkspacePath = snapshot?.currentWorkspacePath ?? workspacePath
+  const currentInstance = snapshot
+    ?.workspaces
+    .find((workspace) => workspace.workspacePath === currentWorkspacePath)
+    ?.instances
+    .find((instance) => instance.browserId === primaryBrowserId)
+  const currentState = currentInstance?.status.state ?? 'off'
+  const live = currentState === 'live'
+  const starting = currentState === 'starting'
+  const unavailable = action !== null || starting
+  const instanceCount = snapshot?.workspaces.reduce(
+    (total, workspace) => total + workspace.instances.length,
+    0,
+  ) ?? 0
+  const workspaceCount = snapshot?.workspaces.length ?? 0
+  const subtitle = snapshot
+    ? `${instanceCount} browser${instanceCount === 1 ? '' : 's'} · ${workspaceCount} workspace${
+      workspaceCount === 1 ? '' : 's'
+    }`
+    : 'Reading runtime state…'
+
+  async function changeCurrentSession(nextAction: 'start' | 'stop'): Promise<void> {
     setAction(nextAction)
     setError(null)
     try {
-      if (nextAction === 'start') await startBrowserSession()
-      else await stopBrowserSession()
+      if (nextAction === 'start') await startBrowserSession(target)
+      else await stopBrowserSession(target)
       await refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : `Could not ${nextAction} the browser.`)
@@ -57,27 +87,19 @@ export function BrowserDebugWidget({ onOpenBrowser }: { onOpenBrowser: () => voi
     }
   }
 
-  async function copyEndpoint(): Promise<void> {
-    const endpoint = snapshot?.status.endpoint
+  async function copyEndpoint(
+    instance: BrowserInstanceDebugSnapshot,
+    instanceWorkspacePath: string,
+  ): Promise<void> {
+    const endpoint = instance.status.endpoint
     if (!endpoint) return
     try {
       await navigator.clipboard.writeText(endpoint)
-      setCopied(true)
+      setCopiedInstance(instanceKey(instanceWorkspacePath, instance.browserId))
     } catch {
       setError('Could not copy the CDP endpoint.')
     }
   }
-
-  const status = snapshot?.status
-  const live = status?.state === 'live'
-  const starting = status?.state === 'starting'
-  const unavailable = action !== null || starting
-  const processCount = snapshot?.processes.length ?? 0
-  const subtitle = snapshot
-    ? `${stateLabel(snapshot.status.state)} · ${processCount} process${
-      processCount === 1 ? '' : 'es'
-    }`
-    : 'Reading runtime state…'
 
   return (
     <WidgetLayout
@@ -86,7 +108,7 @@ export function BrowserDebugWidget({ onOpenBrowser }: { onOpenBrowser: () => voi
           <button
             className={live ? 'danger' : 'primary'}
             disabled={unavailable}
-            onClick={() => void changeSession(live ? 'stop' : 'start')}
+            onClick={() => void changeCurrentSession(live ? 'stop' : 'start')}
             type='button'
           >
             {action === 'start'
@@ -96,14 +118,10 @@ export function BrowserDebugWidget({ onOpenBrowser }: { onOpenBrowser: () => voi
               : starting
               ? 'Starting…'
               : live
-              ? 'Stop browser'
-              : 'Start browser'}
+              ? 'Stop current'
+              : 'Start current'}
           </button>
-          <button
-            className={live ? 'primary' : undefined}
-            onClick={onOpenBrowser}
-            type='button'
-          >
+          <button className={live ? 'primary' : undefined} onClick={onOpenBrowser} type='button'>
             Open pane
           </button>
         </div>
@@ -132,101 +150,136 @@ export function BrowserDebugWidget({ onOpenBrowser }: { onOpenBrowser: () => voi
         {error && <p className='browser-debug-error' role='alert'>{error}</p>}
         {!snapshot
           ? !error && <p className='browser-debug-empty'>Reading browser diagnostics…</p>
-          : (
-            <>
-              <section className='browser-debug-section'>
-                <div className='browser-debug-state-row'>
-                  <span
-                    aria-hidden='true'
-                    className={`browser-debug-state-dot ${snapshot.status.state}`}
+          : snapshot.workspaces.length === 0
+          ? <p className='browser-debug-empty'>No browser instances are registered.</p>
+          : snapshot.workspaces.map((workspace) => (
+            <section
+              className='browser-debug-section browser-debug-workspace'
+              key={workspace.workspacePath}
+            >
+              <div className='browser-debug-workspace-heading'>
+                <div>
+                  <h2>{workspaceName(workspace.workspacePath)}</h2>
+                  <code title={workspace.workspacePath}>{workspace.workspacePath}</code>
+                </div>
+                {workspace.workspacePath === currentWorkspacePath && <small>Current</small>}
+                <span>{workspace.instances.length}</span>
+              </div>
+              <div className='browser-debug-instances'>
+                {workspace.instances.map((instance) => (
+                  <BrowserInstanceDetails
+                    copied={copiedInstance
+                      === instanceKey(workspace.workspacePath, instance.browserId)}
+                    current={workspace.workspacePath === currentWorkspacePath
+                      && instance.browserId === primaryBrowserId}
+                    instance={instance}
+                    key={instance.browserId}
+                    onCopy={() => void copyEndpoint(instance, workspace.workspacePath)}
                   />
-                  <strong>{stateLabel(snapshot.status.state)}</strong>
-                  {snapshot.startedAt && (
-                    <span>{formatDuration(snapshot.sampledAt - snapshot.startedAt)}</span>
-                  )}
-                </div>
-                {snapshot.status.error && (
-                  <p className='browser-debug-error' role='status'>{snapshot.status.error}</p>
-                )}
-                <dl className='browser-debug-metrics'>
-                  <Metric label='Root PID' value={snapshot.rootPid?.toString() ?? '—'} />
-                  <Metric label='Viewers' value={snapshot.viewerCount.toString()} />
-                  <Metric label='Frames' value={formatCount(snapshot.capturedFrames)} />
-                  <Metric label='Captured' value={formatBytes(snapshot.capturedBytes)} />
-                  <Metric
-                    label='Viewport'
-                    value={snapshot.status.viewport
-                      ? `${snapshot.status.viewport.width}×${snapshot.status.viewport.height}`
-                      : '—'}
-                  />
-                  <Metric label='Processes' value={processCount.toString()} />
-                </dl>
-              </section>
-
-              <section className='browser-debug-section'>
-                <div className='browser-debug-heading'>
-                  <h2>Chrome processes</h2>
-                  <span>{processCount}</span>
-                </div>
-                {snapshot.processError && (
-                  <p className='browser-debug-warning'>{snapshot.processError}</p>
-                )}
-                {snapshot.processes.length > 0
-                  ? (
-                    <ul className='browser-debug-processes'>
-                      {snapshot.processes.map((process) => (
-                        <li key={process.pid}>
-                          <span aria-hidden='true' className='browser-debug-process-mark' />
-                          <span className='browser-debug-process-name'>
-                            <strong>{processTypeLabel(process.type)}</strong>
-                            <small>
-                              PID {process.pid}
-                              {process.pid === snapshot.rootPid ? ' · root' : ''}
-                            </small>
-                          </span>
-                          <span
-                            className='browser-debug-process-cpu'
-                            title='Cumulative CPU time reported by Chrome'
-                          >
-                            {formatCpuTime(process.cpuTimeSeconds)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )
-                  : (
-                    <p className='browser-debug-empty'>
-                      {live
-                        ? 'Chrome reported no process details.'
-                        : 'No Chrome process is running.'}
-                    </p>
-                  )}
-              </section>
-
-              <section className='browser-debug-section'>
-                <div className='browser-debug-heading'>
-                  <h2>Runtime</h2>
-                </div>
-                <DebugValue label='URL' value={snapshot.status.url} />
-                <DebugValue label='Profile' value={snapshot.profilePath} />
-                <div className='browser-debug-value'>
-                  <span>CDP endpoint</span>
-                  <div>
-                    <code title={snapshot.status.endpoint}>{snapshot.status.endpoint ?? '—'}</code>
-                    <button
-                      disabled={!snapshot.status.endpoint}
-                      onClick={() => void copyEndpoint()}
-                      type='button'
-                    >
-                      {copied ? 'Copied' : 'Copy'}
-                    </button>
-                  </div>
-                </div>
-              </section>
-            </>
-          )}
+                ))}
+              </div>
+            </section>
+          ))}
       </div>
     </WidgetLayout>
+  )
+}
+
+function BrowserInstanceDetails({ copied, current, instance, onCopy }: {
+  copied: boolean
+  current: boolean
+  instance: BrowserInstanceDebugSnapshot
+  onCopy: () => void
+}) {
+  const processCount = instance.processes.length
+  const totalCpuTime = instance.processes.reduce(
+    (total, process) => total + process.cpuTimeSeconds,
+    0,
+  )
+  return (
+    <details className={`browser-debug-instance${current ? ' current' : ''}`}>
+      <summary>
+        <span
+          aria-hidden='true'
+          className={`browser-debug-state-dot ${instance.status.state}`}
+        />
+        <span className='browser-debug-instance-name'>
+          <strong>
+            {instance.browserId === primaryBrowserId ? 'Main browser' : instance.browserId}
+          </strong>
+          <small>
+            {stateLabel(instance.status.state)} · PID {instance.rootPid ?? '—'} · {processCount}
+            {' '}
+            process{processCount === 1 ? '' : 'es'}
+          </small>
+        </span>
+        <span
+          className='browser-debug-instance-cpu'
+          title='Total cumulative CPU time reported by Chrome'
+        >
+          {formatCpuTime(totalCpuTime)}
+        </span>
+        <span aria-hidden='true' className='browser-debug-instance-chevron'>›</span>
+      </summary>
+      <div className='browser-debug-instance-body'>
+        {instance.status.error && (
+          <p className='browser-debug-error' role='status'>{instance.status.error}</p>
+        )}
+        <dl className='browser-debug-metrics'>
+          <Metric label='Viewers' value={instance.viewerCount.toString()} />
+          <Metric label='Frames' value={formatCount(instance.capturedFrames)} />
+          <Metric label='Captured' value={formatBytes(instance.capturedBytes)} />
+          <Metric
+            label='Viewport'
+            value={instance.status.viewport
+              ? `${instance.status.viewport.width}×${instance.status.viewport.height}`
+              : '—'}
+          />
+        </dl>
+        <div className='browser-debug-heading browser-debug-process-heading'>
+          <h3>Processes</h3>
+          <span>{processCount}</span>
+        </div>
+        {instance.processError && <p className='browser-debug-warning'>{instance.processError}</p>}
+        {instance.processes.length > 0
+          ? (
+            <ul className='browser-debug-processes'>
+              {instance.processes.map((process) => (
+                <li key={process.pid}>
+                  <span aria-hidden='true' className='browser-debug-process-mark' />
+                  <span className='browser-debug-process-name'>
+                    <strong>{processTypeLabel(process.type)}</strong>
+                    <small>
+                      PID {process.pid}
+                      {process.pid === instance.rootPid ? ' · root' : ''}
+                    </small>
+                  </span>
+                  <span
+                    className='browser-debug-process-cpu'
+                    title='Cumulative CPU time reported by Chrome'
+                  >
+                    {formatCpuTime(process.cpuTimeSeconds)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )
+          : <p className='browser-debug-empty'>No Chrome processes are running.</p>}
+        <div className='browser-debug-runtime'>
+          <DebugValue label='URL' value={instance.status.url} />
+          <DebugValue label='Profile' value={instance.profilePath} />
+          <div className='browser-debug-value'>
+            <span>CDP endpoint</span>
+            <div>
+              <code title={instance.status.endpoint}>{instance.status.endpoint ?? '—'}</code>
+              <button disabled={!instance.status.endpoint} onClick={onCopy} type='button'>
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
   )
 }
 
@@ -248,6 +301,14 @@ function DebugValue({ label, value }: { label: string; value?: string }) {
   )
 }
 
+function instanceKey(workspacePath: string, browserId: string): string {
+  return `${workspacePath}\u0000${browserId}`
+}
+
+function workspaceName(workspacePath: string): string {
+  return workspacePath.split(/[\\/]/).filter(Boolean).at(-1) ?? workspacePath
+}
+
 function stateLabel(state: BrowserSessionState): string {
   return {
     off: 'Off',
@@ -264,16 +325,6 @@ function processTypeLabel(type: string): string {
     .filter(Boolean)
     .map((part) => `${part[0]?.toUpperCase() ?? ''}${part.slice(1)}`)
     .join(' ')
-}
-
-function formatDuration(milliseconds: number): string {
-  const seconds = Math.max(0, Math.floor(milliseconds / 1_000))
-  const hours = Math.floor(seconds / 3_600)
-  const minutes = Math.floor((seconds % 3_600) / 60)
-  const remainder = seconds % 60
-  if (hours > 0) return `${hours}h ${minutes}m`
-  if (minutes > 0) return `${minutes}m ${remainder}s`
-  return `${remainder}s`
 }
 
 function formatCpuTime(seconds: number): string {

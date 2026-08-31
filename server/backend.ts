@@ -21,11 +21,8 @@ import {
 import { QuotaService } from './features/quotas/quota-service.ts'
 import { EnvironmentService } from './features/session-environment/environment-service.ts'
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
-import {
-  BrowserSession,
-  parseBrowserInputEvent,
-  parseBrowserViewport,
-} from './features/browser/browser-session.ts'
+import { parseBrowserInputEvent, parseBrowserViewport } from './features/browser/browser-session.ts'
+import { BrowserService, parseBrowserId } from './features/browser/browser-service.ts'
 import {
   openVSCodeApplication,
   readWorkspaceTitleBarColor,
@@ -59,8 +56,8 @@ let piEventSequence = 0
 const distDirectory = fileURLToPath(new URL('../dist/', import.meta.url))
 const quotas = new QuotaService(manager)
 const environment = new EnvironmentService(manager)
-const browserSession = new BrowserSession()
-process.once('exit', () => browserSession.killSync())
+const browsers = new BrowserService()
+process.once('exit', () => browsers.killSync())
 const managerRuntime = new ManagerRuntimeMonitor(manager, (status) => {
   broadcast({ kind: 'event', event: 'manager_status', sessionId: '', data: status })
 })
@@ -572,90 +569,114 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     return
   }
 
-  if (method === 'GET' && url.pathname === '/api/browser/status') {
-    sendJson(response, 200, browserSession.status())
-    return
-  }
-
   if (method === 'GET' && url.pathname === '/api/browser/debug') {
-    sendJson(response, 200, await browserSession.debugSnapshot())
+    const snapshot = await browsers.debugSnapshot()
+    const requestedWorkspace = url.searchParams.get('workspacePath')
+    const currentWorkspacePath = requestedWorkspace === null
+      ? undefined
+      : await resolveBrowserWorkspace(requestedWorkspace)
+    sendJson(response, 200, { ...snapshot, currentWorkspacePath })
     return
   }
 
-  if (method === 'POST' && url.pathname === '/api/browser/start') {
-    await readJsonBody(request)
-    try {
-      sendJson(response, 200, await browserSession.start())
-    } catch (error) {
-      throw new HttpError(400, errorMessage(error))
+  const browserInstanceMatch = url.pathname.match(
+    /^\/api\/browser\/instances\/([^/]+)\/(status|start|stop|navigate|viewport|input|frames)$/,
+  )
+  if (browserInstanceMatch) {
+    const browserId = parseBrowserId(decodeURIComponent(browserInstanceMatch[1]))
+    if (!browserId) throw new HttpError(400, 'A valid browser ID is required')
+    const action = browserInstanceMatch[2]
+
+    if (method === 'GET' && (action === 'status' || action === 'frames')) {
+      const workspacePath = await resolveBrowserWorkspace(
+        url.searchParams.get('workspacePath'),
+      )
+      const browserSession = browsers.session(workspacePath, browserId)
+      if (action === 'status') {
+        sendJson(response, 200, browserSession.status())
+        return
+      }
+      response.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      })
+      const writeEvent = (event: string, data: unknown): void => {
+        if (event === 'frame' && response.writableLength > 512 * 1024) return
+        response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+      }
+      writeEvent('status', browserSession.status())
+      const currentUrl = browserSession.status().url
+      if (currentUrl) writeEvent('url', { url: currentUrl })
+      const unsubscribe = browserSession.subscribe((event) => {
+        if (event.type === 'frame') writeEvent('frame', { data: event.data })
+        else if (event.type === 'url') writeEvent('url', { url: event.url })
+        else writeEvent('status', event.status)
+      })
+      browserSession.addViewer()
+      request.on('close', () => {
+        unsubscribe()
+        browserSession.releaseViewer()
+      })
+      return
     }
-    return
+
+    if (method === 'POST') {
+      const body = await readJsonBody(request)
+      const workspacePath = await resolveBrowserWorkspace(body.workspacePath)
+      const browserSession = browsers.session(workspacePath, browserId)
+      if (action === 'start') {
+        try {
+          sendJson(response, 200, await browserSession.start())
+        } catch (error) {
+          throw new HttpError(400, errorMessage(error))
+        }
+        return
+      }
+      if (action === 'stop') {
+        await browserSession.stop()
+        sendJson(response, 200, { ok: true })
+        return
+      }
+      if (action === 'navigate') {
+        if (typeof body.url !== 'string' || !body.url)
+          throw new HttpError(400, 'A URL is required')
+        try {
+          await browserSession.navigate(body.url)
+        } catch {
+          throw new HttpError(409, 'The browser session is not live')
+        }
+        sendJson(response, 200, { ok: true })
+        return
+      }
+      if (action === 'viewport') {
+        const viewport = parseBrowserViewport(body)
+        if (!viewport) throw new HttpError(400, 'A valid viewport is required')
+        await browserSession.setViewport(viewport)
+        sendJson(response, 200, browserSession.status())
+        return
+      }
+      if (action === 'input') {
+        const input = parseBrowserInputEvent(body)
+        if (!input) throw new HttpError(400, 'Invalid browser input event')
+        try {
+          await browserSession.dispatchInput(input)
+        } catch {
+          throw new HttpError(409, 'The browser session is not live')
+        }
+        sendJson(response, 200, { ok: true })
+        return
+      }
+    }
   }
 
-  if (method === 'POST' && url.pathname === '/api/browser/stop') {
-    await readJsonBody(request)
-    await browserSession.stop()
+  const browserInstanceRootMatch = url.pathname.match(/^\/api\/browser\/instances\/([^/]+)$/)
+  if (method === 'DELETE' && browserInstanceRootMatch) {
+    const browserId = parseBrowserId(decodeURIComponent(browserInstanceRootMatch[1]))
+    if (!browserId) throw new HttpError(400, 'A valid browser ID is required')
+    const workspacePath = await resolveBrowserWorkspace(url.searchParams.get('workspacePath'))
+    await browsers.remove(workspacePath, browserId)
     sendJson(response, 200, { ok: true })
-    return
-  }
-
-  if (method === 'POST' && url.pathname === '/api/browser/navigate') {
-    const body = await readJsonBody(request)
-    if (typeof body.url !== 'string' || !body.url) throw new HttpError(400, 'A URL is required')
-    try {
-      await browserSession.navigate(body.url)
-    } catch {
-      throw new HttpError(409, 'The browser session is not live')
-    }
-    sendJson(response, 200, { ok: true })
-    return
-  }
-
-  if (method === 'POST' && url.pathname === '/api/browser/viewport') {
-    const body = await readJsonBody(request)
-    const viewport = parseBrowserViewport(body)
-    if (!viewport) throw new HttpError(400, 'A valid viewport is required')
-    await browserSession.setViewport(viewport)
-    sendJson(response, 200, browserSession.status())
-    return
-  }
-
-  if (method === 'POST' && url.pathname === '/api/browser/input') {
-    const body = await readJsonBody(request)
-    const input = parseBrowserInputEvent(body)
-    if (!input) throw new HttpError(400, 'Invalid browser input event')
-    try {
-      await browserSession.dispatchInput(input)
-    } catch {
-      throw new HttpError(409, 'The browser session is not live')
-    }
-    sendJson(response, 200, { ok: true })
-    return
-  }
-
-  if (method === 'GET' && url.pathname === '/api/browser/frames') {
-    response.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-    })
-    const writeEvent = (event: string, data: unknown): void => {
-      if (event === 'frame' && response.writableLength > 512 * 1024) return
-      response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-    }
-    writeEvent('status', browserSession.status())
-    const currentUrl = browserSession.status().url
-    if (currentUrl) writeEvent('url', { url: currentUrl })
-    const unsubscribe = browserSession.subscribe((event) => {
-      if (event.type === 'frame') writeEvent('frame', { data: event.data })
-      else if (event.type === 'url') writeEvent('url', { url: event.url })
-      else writeEvent('status', event.status)
-    })
-    browserSession.addViewer()
-    request.on('close', () => {
-      unsubscribe()
-      browserSession.releaseViewer()
-    })
     return
   }
 
@@ -680,6 +701,12 @@ function objectData(response: JsonObject): JsonObject | null {
 function arrayData(response: JsonObject, key: string): JsonObject[] {
   if (!isObject(response.data) || !Array.isArray(response.data[key])) return []
   return response.data[key].filter(isObject)
+}
+
+/** Reads and canonicalizes the workspace key used by browser instance routes. */
+async function resolveBrowserWorkspace(value: unknown): Promise<string> {
+  if (typeof value !== 'string') throw new HttpError(400, 'Browser workspace is required')
+  return resolveWorkingDirectory(value)
 }
 
 /** Canonicalizes a client-provided path and rejects missing paths or non-directories. */

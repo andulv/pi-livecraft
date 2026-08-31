@@ -3,8 +3,9 @@
 `BrowserView.tsx` renders the viewer pane's Browser tab in two modes behind one
 address bar:
 
-- **Live browser** (default offer): a shared, backend-owned headless Chrome streamed
-  into the pane as screencast frames. The pane forwards pointer, wheel, and key
+- **Live browser** (default offer): a workspace-scoped, backend-owned headless Chrome
+  streamed into the pane as screencast frames. The current tab uses browser ID `main`;
+  the API already accepts other IDs for later multi-browser tabs. The pane forwards pointer, wheel, and key
   input back through the backend; the address bar drives real CDP navigation; an
   attach strip shows the CDP endpoint (copyable) that agent browser tooling —
   Chrome DevTools MCP as the canonical example, via `--browserUrl` — attaches to.
@@ -13,9 +14,10 @@ address bar:
   frameable pages.
 
 `BrowserDebugWidget.tsx` adds the right-sidebar **Browser system** panel. It polls
-`GET /api/browser/debug` only while mounted and shows the backend-owned Chrome process
-list, session/stream counters, endpoint, profile path, and lifecycle controls without
-joining the screencast as a viewer.
+`GET /api/browser/debug` only while mounted and groups every registered browser instance
+by canonical workspace path. Each collapsed instance contains its Chrome subprocesses,
+session/stream counters, endpoint, and profile path. The widget does not join a
+screencast as a viewer.
 
 ## Contracts
 
@@ -24,10 +26,10 @@ joining the screencast as a viewer.
   hosts and `https://` otherwise, and any other scheme (`javascript:`, `data:`) is
   rejected. `coordinates.ts` maps pane pointer positions into the captured frame
   (pure; both are unit-tested).
-- The backend session (`server/features/browser/`) owns Chrome, the screencast
-  stream (`/api/browser/frames` SSE with `frame`/`url`/`status` events), diagnostics
-  snapshot (`GET /api/browser/debug`), input
-  forwarding, and the emulated viewport (`POST /api/browser/viewport` →
+- `BrowserService` (`server/features/browser/`) groups sessions by canonical workspace
+  path and opaque browser ID. Each `BrowserSession` owns one Chrome, its scoped
+  `/api/browser/instances/:browserId/*` frame/input/navigation routes, and the emulated
+  viewport (`POST .../viewport` →
   `Emulation.setDeviceMetricsOverride` with screencast caps matching the viewport,
   preserving the 1:1 frame-to-viewport coordinate mapping); `src/api.ts` is the
   only frontend boundary. The session lifecycle
@@ -38,8 +40,8 @@ joining the screencast as a viewer.
   session becomes live and on explicit selection, but never fights external
   viewport changes while live. The zoom control picks `Auto` (frames scale to the
   pane, with a live percentage readout) or `100%` (natural frame size, scrollable).
-- URL state (`App.tsx`, persisted in `pi-livecraft.browser-url`) stays in sync with
-  the live browser through `url` stream events, so switching between live and
+- URL state (`App.tsx`, persisted by workspace path and browser ID) stays in sync
+  with the live browser through `url` stream events, so switching between live and
   iframe modes keeps the current page.
 - Framing limits apply only to the iframe mode: sites sending
   `X-Frame-Options`/`frame-ancestors` refuse to render there — the live browser
