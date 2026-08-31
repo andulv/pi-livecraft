@@ -11,7 +11,8 @@ contract.
   `--remote-debugging-port` and a temporary user-data-dir, and parses the DevTools
   endpoint from stderr. The HTTP endpoint for attachment is derived from the printed
   WebSocket URL; note that `new URL(ws).origin` keeps the `ws:` scheme and must not
-  be used.
+  be used. The window size must equal the screencast capture cap — input coordinates
+  map 1:1 between the captured frame and the viewport.
 - `cdp-client.ts` is a minimal CDP JSON-RPC client over Node's built-in `WebSocket`
   (no new dependencies) with injectable transports for tests. Commands correlate by
   id with timeouts; events fan out to subscribers.
