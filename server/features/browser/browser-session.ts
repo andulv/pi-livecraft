@@ -163,7 +163,7 @@ export function parseBrowserInputEvent(value: unknown): BrowserInputEvent | null
     }
   }
   if (type === 'insertText') {
-    if (typeof value.text !== 'string' || value.text.length === 0 || value.text.length > 1_000) {
+    if (typeof value.text !== 'string' || value.text.length === 0 || value.text.length > 10_000) {
       return null
     }
     return { type, text: value.text }

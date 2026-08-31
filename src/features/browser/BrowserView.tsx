@@ -256,9 +256,15 @@ export function BrowserView({ onUrlCommit, url }: {
     )
   }
 
-  function handleKeyDown(event: ReactKeyboardEvent<HTMLInputElement>): void {
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
     if (!live) return
-    if (event.ctrlKey || event.metaKey) return
+    if (event.ctrlKey || event.metaKey) {
+      // Swallow host shortcuts inside the live surface so they neither hit the
+      // hidden compose input nor leak to app-level handlers; paste is forwarded
+      // through the dedicated paste handler.
+      event.preventDefault()
+      return
+    }
     event.preventDefault()
     const common = {
       key: event.key,
@@ -275,9 +281,16 @@ export function BrowserView({ onUrlCommit, url }: {
     sendBrowserInput({ ...common, type: 'keyUp' })
   }
 
-  function handleCompositionEnd(event: CompositionEvent<HTMLInputElement>): void {
+  function handleCompositionEnd(event: CompositionEvent<HTMLDivElement>): void {
     if (!live || !event.data) return
     sendBrowserInput({ type: 'insertText', text: event.data })
+  }
+
+  function handlePaste(event: React.ClipboardEvent<HTMLDivElement>): void {
+    if (!live) return
+    event.preventDefault()
+    const text = event.clipboardData.getData('text')
+    if (text) sendBrowserInput({ type: 'insertText', text: text.slice(0, 10_000) })
   }
 
   return (
@@ -360,6 +373,7 @@ export function BrowserView({ onUrlCommit, url }: {
               className={`browser-live${zoomMode === 'natural' ? ' natural' : ''}`}
               onCompositionEnd={handleCompositionEnd}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               ref={handleWheelEvent}
               tabIndex={0}
             >

@@ -119,5 +119,6 @@ test('validates untrusted input payloads', () => {
   assert.equal(parseBrowserInputEvent({ type: 'mouseWheel', x: 1, deltaY: 'a' }), null)
   assert.equal(parseBrowserInputEvent({ type: 'keyDown', key: 'a' }), null)
   assert.equal(parseBrowserInputEvent({ type: 'insertText', text: '' }), null)
+  assert.equal(parseBrowserInputEvent({ type: 'insertText', text: 'x'.repeat(10_001) }), null)
   assert.equal(parseBrowserInputEvent('nonsense'), null)
 })

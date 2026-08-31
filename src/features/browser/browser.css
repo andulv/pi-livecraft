@@ -164,6 +164,9 @@
   border: 0;
   user-select: none;
 }
+.browser-live.natural {
+  align-items: flex-start;
+}
 .browser-live.natural .browser-frame {
   width: auto;
   max-width: none;
