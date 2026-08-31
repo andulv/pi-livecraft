@@ -111,7 +111,12 @@ export async function launchHeadlessChrome(options: {
       '--no-first-run',
       '--no-default-browser-check',
       '--disable-background-timer-throttling',
-      '--window-size=1440,1000',
+      // Wheel bursts otherwise queue long smooth-scroll animations in the page.
+      '--disable-smooth-scrolling',
+      '--hide-scrollbars',
+      // Must match the screencast capture cap: input coordinates map 1:1 between
+      // the captured frame and this viewport.
+      '--window-size=1280,900',
     ],
     { stdio: ['ignore', 'ignore', 'pipe'], env: process.env },
   )

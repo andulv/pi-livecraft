@@ -18,6 +18,10 @@ import type { BrowserSessionStatus } from '../../../shared/types.ts'
 import { normalizeBrowserUrl } from './browser-url.ts'
 import { cdpModifiers, mapPointerToPage } from './coordinates.ts'
 
+const wheelFlushIntervalMs = 50
+const pendingWheel = { x: 0, y: 0, deltaX: 0, deltaY: 0 }
+let wheelFlushTimer: number | null = null
+
 /** Human-driven browser surface: an address bar, a livecast view, and an iframe fallback. */
 export function BrowserView({ onUrlCommit, url }: {
   onUrlCommit: (url: string) => void
@@ -110,6 +114,8 @@ export function BrowserView({ onUrlCommit, url }: {
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
     composeInputRef.current?.focus()
+    // Hover before pressing so hover-gated controls (menus, banners) react.
+    dispatchMouse(event, 'mouseMoved')
     dispatchMouse(event, 'mousePressed')
   }
 
@@ -140,14 +146,26 @@ export function BrowserView({ onUrlCommit, url }: {
           naturalWidth: image.naturalWidth,
           naturalHeight: image.naturalHeight,
         })
-        sendBrowserInput({
-          type: 'mouseWheel',
-          x,
-          y,
-          deltaX: nativeEvent.deltaX,
-          deltaY: nativeEvent.deltaY,
-          modifiers: cdpModifiers(nativeEvent),
-        })
+        // Coalesce bursts: one dispatch per tick instead of one per DOM event,
+        // so fast scrolling does not queue a wall of wheel commands.
+        pendingWheel.x = x
+        pendingWheel.y = y
+        pendingWheel.deltaX += nativeEvent.deltaX
+        pendingWheel.deltaY += nativeEvent.deltaY
+        if (wheelFlushTimer !== null) return
+        wheelFlushTimer = window.setTimeout(() => {
+          wheelFlushTimer = null
+          sendBrowserInput({
+            type: 'mouseWheel',
+            x: pendingWheel.x,
+            y: pendingWheel.y,
+            deltaX: pendingWheel.deltaX,
+            deltaY: pendingWheel.deltaY,
+            modifiers: 0,
+          })
+          pendingWheel.deltaX = 0
+          pendingWheel.deltaY = 0
+        }, wheelFlushIntervalMs)
       },
       { passive: false },
     )
