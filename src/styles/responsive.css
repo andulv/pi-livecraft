@@ -114,11 +114,6 @@
   .sidebar.collapsed .sidebar-rail {
     width: auto;
   }
-  .project-home-link {
-    grid-row: 1;
-    grid-column: 1 / -1;
-    justify-self: start;
-  }
   .brand {
     grid-row: 2;
     grid-column: 1;

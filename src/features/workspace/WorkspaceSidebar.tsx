@@ -136,6 +136,7 @@ export function WorkspaceSidebar({
   const [workspaceMenu, setWorkspaceMenu] = useState<WorkspaceContextMenuState | null>(null)
   const [workspaceMenuPosition, setWorkspaceMenuPosition] = useState({ left: 0, top: 0 })
   const [renameTarget, setRenameTarget] = useState<SessionActionTarget | null>(null)
+  const [brandMenuOpen, setBrandMenuOpen] = useState(false)
   const [sessionListMenuOpen, setSessionListMenuOpen] = useState(false)
   const [showArchivedSessions, setShowArchivedSessions] = useState(false)
   const [startingNewSession, setStartingNewSession] = useState(false)
@@ -145,6 +146,8 @@ export function WorkspaceSidebar({
   const contextMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const workspaceMenuRef = useRef<HTMLDivElement>(null)
   const workspaceMenuTriggerRef = useRef<HTMLButtonElement>(null)
+  const brandMenuRef = useRef<HTMLDivElement>(null)
+  const brandMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const sessionListMenuRef = useRef<HTMLDivElement>(null)
   const sessionListMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const archivedSessionPathSet = useMemo(
@@ -256,6 +259,26 @@ export function WorkspaceSidebar({
       top: Math.min(Math.max(8, workspaceMenu.y), Math.max(8, window.innerHeight - menuHeight - 8)),
     })
   }, [workspaceMenu])
+
+  useEffect(() => {
+    if (!brandMenuOpen) return
+    const dismissOnPointerDown = (event: PointerEvent): void => {
+      if (!(event.target instanceof Node) || !brandMenuRef.current?.contains(event.target))
+        setBrandMenuOpen(false)
+    }
+    const dismissOnKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setBrandMenuOpen(false)
+      brandMenuTriggerRef.current?.focus()
+    }
+    document.addEventListener('pointerdown', dismissOnPointerDown)
+    document.addEventListener('keydown', dismissOnKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', dismissOnPointerDown)
+      document.removeEventListener('keydown', dismissOnKeyDown)
+    }
+  }, [brandMenuOpen])
 
   useEffect(() => {
     if (!sessionListMenuOpen) return
@@ -436,14 +459,35 @@ export function WorkspaceSidebar({
         role='separator'
         tabIndex={0}
       />
-      <a className='project-home-link' href='/'>
-        ← Projects
-      </a>
       <div className='brand'>
-        <span className='brand-signature'>
-          <span aria-hidden='true' className='brand-mark'>π</span>
-          <small>Livecraft</small>
-        </span>
+        <div className='brand-menu'>
+          <Tooltip label='Projects overview'>
+            <button
+              aria-expanded={brandMenuOpen}
+              aria-haspopup='menu'
+              aria-label='Projects overview menu'
+              className='brand-signature brand-menu-trigger'
+              onClick={() => setBrandMenuOpen((open) => !open)}
+              ref={brandMenuTriggerRef}
+              type='button'
+            >
+              <span aria-hidden='true' className='brand-mark'>π</span>
+              <small>Livecraft</small>
+            </button>
+          </Tooltip>
+          {brandMenuOpen && (
+            <div
+              aria-label='Projects overview'
+              className='brand-menu-list'
+              ref={brandMenuRef}
+              role='menu'
+            >
+              <a href='/' role='menuitem'>
+                Back to projects overview
+              </a>
+            </div>
+          )}
+        </div>
         <div className='brand-project'>
           <strong title={project.name}>{project.name}</strong>
           {projectIndicator && <SessionStatusIndicator status={projectIndicator} />}
