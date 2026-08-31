@@ -26,7 +26,7 @@ export function BrowserView({ onUrlCommit, url }: {
   const [address, setAddress] = useState(url)
   const [reloadNonce, setReloadNonce] = useState(0)
   const [status, setStatus] = useState<BrowserSessionStatus>({ state: 'off' })
-  const [frame, setFrame] = useState<string | null>(null)
+  const [hasFrame, setHasFrame] = useState(false)
   const frameImageRef = useRef<HTMLImageElement>(null)
   const composeInputRef = useRef<HTMLInputElement>(null)
   const liveRef = useRef(false)
@@ -39,11 +39,17 @@ export function BrowserView({ onUrlCommit, url }: {
   useEffect(
     () =>
       subscribeBrowserEvents({
-        onFrame: setFrame,
+        // Frames bypass React state: writing the data URL straight to the image
+        // avoids a full component re-render at frame rate.
+        onFrame: (data) => {
+          const image = frameImageRef.current
+          if (image) image.src = `data:image/jpeg;base64,${data}`
+          setHasFrame((current) => current || true)
+        },
         onUrl: onUrlCommit,
         onStatus: (next) => {
           setStatus(next)
-          if (next.state !== 'live') setFrame(null)
+          if (next.state !== 'live') setHasFrame(false)
         },
       }),
     [onUrlCommit],
@@ -99,6 +105,9 @@ export function BrowserView({ onUrlCommit, url }: {
 
   function handlePointerDown(event: ReactPointerEvent<HTMLImageElement>): void {
     if (!live) return
+    // Prevent the browser's default focus shift to the container so the compose
+    // input keeps focus and receives typing for IME composition.
+    event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
     composeInputRef.current?.focus()
     dispatchMouse(event, 'mousePressed')
@@ -107,7 +116,7 @@ export function BrowserView({ onUrlCommit, url }: {
   function handlePointerMove(event: ReactPointerEvent<HTMLImageElement>): void {
     if (!live) return
     const now = performance.now()
-    if (now - lastMoveSentRef.current < 16) return
+    if (now - lastMoveSentRef.current < 32) return
     lastMoveSentRef.current = now
     dispatchMouse(event, 'mouseMoved')
   }
@@ -220,29 +229,30 @@ export function BrowserView({ onUrlCommit, url }: {
           <>
             <div
               className='browser-live'
+              onCompositionEnd={handleCompositionEnd}
+              onKeyDown={handleKeyDown}
               ref={handleWheelEvent}
               tabIndex={0}
             >
-              {frame
+              {hasFrame
                 ? (
                   <img
                     alt='Live browser view'
                     className='browser-frame'
+                    decoding='async'
                     draggable={false}
                     onContextMenu={(event) => event.preventDefault()}
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
                     ref={frameImageRef}
-                    src={`data:image/jpeg;base64,${frame}`}
+                    src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
                   />
                 )
                 : <p className='browser-hint'>Waiting for the live browser…</p>}
               <input
                 aria-hidden='true'
                 className='browser-compose'
-                onCompositionEnd={handleCompositionEnd}
-                onKeyDown={handleKeyDown}
                 ref={composeInputRef}
                 tabIndex={-1}
                 type='text'

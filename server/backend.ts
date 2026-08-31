@@ -633,7 +633,11 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       else if (event.type === 'url') writeEvent('url', { url: event.url })
       else writeEvent('status', event.status)
     })
-    request.on('close', unsubscribe)
+    browserSession.addViewer()
+    request.on('close', () => {
+      unsubscribe()
+      browserSession.releaseViewer()
+    })
     return
   }
 

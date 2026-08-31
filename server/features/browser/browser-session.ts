@@ -14,11 +14,15 @@ import {
 
 const screencastParams: JsonObject = {
   format: 'jpeg',
-  quality: 70,
-  maxWidth: 1600,
-  maxHeight: 1100,
+  quality: 60,
+  maxWidth: 1280,
+  maxHeight: 900,
   everyNthFrame: 1,
+  maxFrameRate: 12,
 }
+
+/** Minimum spacing between screencast acks; pacing acks caps Chrome's encode rate. */
+const minAckIntervalMs = 80
 
 export type BrowserSessionEvent =
   | { type: 'frame'; data: string }
@@ -167,6 +171,10 @@ export class BrowserSession {
   #cdp: CdpConnection | null = null
   #subscribers = new Set<(event: BrowserSessionEvent) => void>()
   #startPromise: Promise<BrowserSessionStatus> | null = null
+  #viewers = 0
+  #lastAckAt = 0
+  #ackTimer: ReturnType<typeof setTimeout> | null = null
+  #pendingAckSession: number | string | null = null
 
   status(): BrowserSessionStatus {
     return { state: this.#state, url: this.#url, endpoint: this.#endpoint, error: this.#error }
@@ -175,6 +183,46 @@ export class BrowserSession {
   subscribe(listener: (event: BrowserSessionEvent) => void): () => void {
     this.#subscribers.add(listener)
     return () => this.#subscribers.delete(listener)
+  }
+
+  /** Registers an active frame consumer; the screencast pauses while none remain. */
+  addViewer(): void {
+    this.#viewers++
+    if (this.#viewers === 1 && this.#state === 'live') {
+      void this.#cdp?.send('Page.startScreencast', screencastParams).catch(() => {})
+    }
+  }
+
+  releaseViewer(): void {
+    if (this.#viewers > 0) this.#viewers--
+    if (this.#viewers === 0 && this.#state === 'live') {
+      void this.#cdp?.send('Page.stopScreencast').catch(() => {})
+    }
+  }
+
+  #paceScreencastAck(sessionId: number | string): void {
+    this.#pendingAckSession = sessionId
+    const elapsed = Date.now() - this.#lastAckAt
+    if (elapsed >= minAckIntervalMs) {
+      if (this.#ackTimer) clearTimeout(this.#ackTimer)
+      this.#ackTimer = null
+      this.#sendPendingAck()
+      return
+    }
+    if (this.#ackTimer) return
+    this.#ackTimer = setTimeout(() => {
+      this.#ackTimer = null
+      this.#sendPendingAck()
+    }, minAckIntervalMs - elapsed)
+  }
+
+  #sendPendingAck(): void {
+    this.#lastAckAt = Date.now()
+    const pending = this.#pendingAckSession
+    this.#pendingAckSession = null
+    if (pending !== null) {
+      void this.#cdp?.send('Page.screencastFrameAck', { sessionId: pending }).catch(() => {})
+    }
   }
 
   /** Starts (or returns) the shared browser; safe to call concurrently. */
@@ -210,14 +258,14 @@ export class BrowserSession {
       cdp.on('Page.screencastFrame', (params) => {
         if (typeof params.data === 'string') this.#emit({ type: 'frame', data: params.data })
         // Chrome reports the screencast session id as a number or a string
-        // depending on version; un-acked casts are throttled to a stop.
+        // depending on version; un-acked casts are throttled to a stop, while
+        // instantly acking every frame lets Chrome encode at full compositor
+        // speed — so acks are paced and always reference the latest frame.
         const screencastSession = params.sessionId
         if (
           typeof screencastSession === 'string' || typeof screencastSession === 'number'
         ) {
-          void cdp
-            .send('Page.screencastFrameAck', { sessionId: screencastSession })
-            .catch(() => {})
+          this.#paceScreencastAck(screencastSession)
         }
       })
       cdp.on('Page.frameNavigated', (params) => {
@@ -268,6 +316,9 @@ export class BrowserSession {
   }
 
   async #teardown(): Promise<void> {
+    if (this.#ackTimer) clearTimeout(this.#ackTimer)
+    this.#ackTimer = null
+    this.#pendingAckSession = null
     this.#cdp?.close()
     this.#cdp = null
     const browser = this.#browser
