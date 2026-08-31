@@ -674,7 +674,6 @@
   gap: 1px;
   min-height: 0;
   overflow-y: auto;
-  margin-right: -10px;
   scrollbar-width: thin;
   container-type: inline-size;
 }
@@ -689,12 +688,12 @@
 }
 .session-list-header-labels {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) 92px 92px;
-  column-gap: 6px;
+  grid-template-columns: 14px minmax(0, 1fr) 78px 78px;
+  column-gap: 4px;
   align-items: center;
   flex: 1;
   min-width: 0;
-  padding: 0 6px 0 5px;
+  padding: 0 4px;
   border-left: 2px solid transparent;
   color: var(--muted);
   font-size: 10.5px;
@@ -709,7 +708,7 @@
 }
 .session-list-header .session-header-actions {
   flex: 0 0 auto;
-  width: 26px;
+  width: 24px;
 }
 .session-row {
   display: flex;
@@ -727,7 +726,7 @@
 }
 .session-actions {
   flex: 0 0 auto;
-  width: 26px;
+  width: 24px;
   min-height: 26px;
   border: 1px solid transparent;
   border-radius: 7px;
@@ -754,11 +753,12 @@
 .session-actions:active:not(:disabled) {
   transform: scale(0.97);
 }
-/* Only the workspace session list gets table columns; pinned rows stay name-only. */
+/* Only the workspace session list gets table columns; pinned rows stay name-only.
+   Time columns hug their widest value so the freed width goes to the title. */
 .session-list .session-item {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) 92px 92px;
-  column-gap: 6px;
+  grid-template-columns: 14px minmax(0, 1fr) 78px 78px;
+  column-gap: 4px;
 }
 /* Rows rest flat and quiet: no fill, no rounding, no left accent until hover or
    selection distinguishes them. */
@@ -770,7 +770,7 @@
   min-height: 26px;
   border: 0;
   border-left: 2px solid transparent;
-  padding: 1px 6px 1px 5px;
+  padding: 1px 4px;
   background: transparent;
   color: inherit;
   text-align: left;
@@ -808,7 +808,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
+  width: 14px;
   min-width: 0;
   overflow: hidden;
 }
@@ -865,7 +865,7 @@
 @container (max-width: 359px) {
   .session-list .session-item,
   .session-list-header-labels {
-    grid-template-columns: 16px minmax(0, 1fr) 92px;
+    grid-template-columns: 14px minmax(0, 1fr) 78px;
   }
   .session-header-first,
   .session-time-first {
@@ -875,7 +875,7 @@
 @container (max-width: 284px) {
   .session-list .session-item,
   .session-list-header-labels {
-    grid-template-columns: 16px minmax(0, 1fr);
+    grid-template-columns: 14px minmax(0, 1fr);
   }
   .session-header-last,
   .session-time-last {
@@ -938,16 +938,16 @@
   box-shadow: none;
 }
 .session-status-indicator.compacting {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 0;
   background: none;
   box-shadow: none;
   color: var(--warning-strong);
 }
 .session-status-indicator.compacting svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   display: block;
   animation: compact-gear-spin 2s linear infinite;
 }
