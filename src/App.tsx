@@ -14,6 +14,7 @@ import {
   openSession,
   openTerminal,
   openVSCode,
+  pullCommits,
   pushCommits,
   refreshEnvironment,
   refreshQuotas,
@@ -1486,6 +1487,7 @@ function LivecraftProjectApp(
         onGitDiscard={async (path) => {
           await discardChanges(workspacePath, path)
         }}
+        onGitPull={() => pullCommits(workspacePath)}
         onGitPush={() => pushCommits(workspacePath)}
         onGitFileSelect={(path, commitHash) => getGitFileDiff(workspacePath, path, commitHash)}
         onGitRefresh={() => refreshGit(workspacePath, true)}

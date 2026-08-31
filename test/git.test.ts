@@ -18,6 +18,7 @@ import {
   parseBranchDivergence,
   parseGitStatus,
   parseGitWorktrees,
+  pullCommits,
   pushCommits,
   resetGitCommit,
   revertGitCommit,
@@ -153,6 +154,11 @@ test('reports, resets, and reverts unpushed commits', async () => {
       },
     ])
     assert.match(snapshot.commits[0]?.hash ?? '', /^[0-9a-f]{40}$/)
+    assert.deepEqual(snapshot.history.map(({ subject }) => subject), [
+      'Second local commit',
+      'Local commit',
+      'Initial commit',
+    ])
 
     const commit = snapshot.commits.find(({ subject }) => subject === 'Local commit')
     const diff = await getGitFileDiff(directory, 'tracked.ts', commit?.hash)
@@ -185,6 +191,51 @@ test('reports, resets, and reverts unpushed commits', async () => {
   } finally {
     await rm(directory, { force: true, recursive: true })
     await rm(remote, { force: true, recursive: true })
+  }
+})
+
+test('pulls fast-forward updates and rejects divergent history', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-livecraft-git-'))
+  const remote = await mkdtemp(join(tmpdir(), 'pi-livecraft-git-remote-'))
+  const other = await mkdtemp(join(tmpdir(), 'pi-livecraft-git-other-'))
+  try {
+    await execFile('git', ['init', '--bare', '--quiet'], { cwd: remote })
+    await execFile('git', ['init', '--quiet'], { cwd: directory })
+    await execFile('git', ['config', 'user.email', 'test@example.com'], { cwd: directory })
+    await execFile('git', ['config', 'user.name', 'Test User'], { cwd: directory })
+    await writeFile(join(directory, 'initial.ts'), 'initial\n')
+    await execFile('git', ['add', 'initial.ts'], { cwd: directory })
+    await execFile('git', ['commit', '--quiet', '-m', 'Initial'], { cwd: directory })
+    await execFile('git', ['branch', '-M', 'main'], { cwd: directory })
+    await execFile('git', ['remote', 'add', 'origin', remote], { cwd: directory })
+    await execFile('git', ['push', '--quiet', '--set-upstream', 'origin', 'main'], {
+      cwd: directory,
+    })
+    await execFile('git', ['clone', '--quiet', '--branch', 'main', remote, other])
+    await execFile('git', ['config', 'user.email', 'test@example.com'], { cwd: other })
+    await execFile('git', ['config', 'user.name', 'Test User'], { cwd: other })
+    await writeFile(join(other, 'remote.ts'), 'remote\n')
+    await execFile('git', ['add', 'remote.ts'], { cwd: other })
+    await execFile('git', ['commit', '--quiet', '-m', 'Remote update'], { cwd: other })
+    await execFile('git', ['push', '--quiet'], { cwd: other })
+
+    await pullCommits(directory)
+    assert.equal(await readFile(join(directory, 'remote.ts'), 'utf8'), 'remote\n')
+    assert.equal((await getGitSnapshot(directory)).history[0]?.subject, 'Remote update')
+
+    await writeFile(join(directory, 'local.ts'), 'local\n')
+    await execFile('git', ['add', 'local.ts'], { cwd: directory })
+    await execFile('git', ['commit', '--quiet', '-m', 'Local update'], { cwd: directory })
+    await writeFile(join(other, 'remote-next.ts'), 'next\n')
+    await execFile('git', ['add', 'remote-next.ts'], { cwd: other })
+    await execFile('git', ['commit', '--quiet', '-m', 'Second remote update'], { cwd: other })
+    await execFile('git', ['push', '--quiet'], { cwd: other })
+
+    await assert.rejects(pullCommits(directory), /Not possible to fast-forward/)
+  } finally {
+    await rm(directory, { force: true, recursive: true })
+    await rm(remote, { force: true, recursive: true })
+    await rm(other, { force: true, recursive: true })
   }
 })
 

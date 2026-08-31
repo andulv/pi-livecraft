@@ -184,6 +184,13 @@ export async function commitChanges(cwd: string, message: string): Promise<void>
   })
 }
 
+export async function pullCommits(cwd: string): Promise<void> {
+  await request<void>('/api/git/pull', {
+    method: 'POST',
+    body: JSON.stringify({ cwd }),
+  })
+}
+
 export async function pushCommits(cwd: string): Promise<GitPushResult> {
   return request<GitPushResult>('/api/git/push', {
     method: 'POST',

@@ -13,6 +13,7 @@ import {
   getGitFileDiff,
   getGitProject,
   getGitSnapshot,
+  pullCommits,
   pushCommits,
   resetGitCommit,
   revertGitCommit,
@@ -343,6 +344,14 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     const cwd = await resolveWorkingDirectory(body.cwd)
     const message = typeof body.message === 'string' ? body.message : ''
     await commitChanges(cwd, message)
+    sendJson(response, 200, { ok: true })
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/git/pull') {
+    const body = await readJsonBody(request)
+    if (typeof body.cwd !== 'string') throw new HttpError(400, 'Working directory is required')
+    await pullCommits(await resolveWorkingDirectory(body.cwd))
     sendJson(response, 200, { ok: true })
     return
   }

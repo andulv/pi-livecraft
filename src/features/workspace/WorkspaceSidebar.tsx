@@ -81,6 +81,7 @@ interface WorkspaceSidebarProps {
   onGitCommit: (message: string) => Promise<void>
   onGitDiscard: (path?: string) => Promise<void>
   onGitFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
+  onGitPull: () => Promise<void>
   onGitPush: () => Promise<GitPushResult>
   onGitRefresh: () => Promise<void>
   onGitReset: (hash: string) => Promise<GitResetResult>
@@ -123,6 +124,7 @@ export function WorkspaceSidebar({
   onGitCommit,
   onGitDiscard,
   onGitFileSelect,
+  onGitPull,
   onGitPush,
   onGitRefresh,
   onGitReset,
@@ -768,6 +770,7 @@ export function WorkspaceSidebar({
                 onCommit={onGitCommit}
                 onDiscard={onGitDiscard}
                 onFileSelect={onGitFileSelect}
+                onPull={onGitPull}
                 onPush={onGitPush}
                 onRefresh={onGitRefresh}
                 onReset={onGitReset}

@@ -5,6 +5,7 @@ import type {
   GitCommit,
   GitFileChange,
   GitFileDiff,
+  GitHistoryCommit,
   GitProject,
   GitResetResult,
   GitRevertResult,
@@ -33,6 +34,7 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
       baseAhead: 0,
       baseBehind: 0,
       commits: [],
+      history: [],
     }
 
   const [root, status, unstaged, staged, branch, upstream] = await Promise.all([
@@ -72,12 +74,15 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
   // remote tracking), fall back to commits on HEAD that are not on any remote, so local work in a
   // remote-less checkout is still listed instead of appearing empty.
   const head = await runGit(cwd, ['rev-parse', '--verify', '--quiet', 'HEAD'], [0, 1])
-  const commits = head.exitCode === 0
-    ? await unpushedCommits(
-      cwd,
-      upstream.exitCode === 0 ? ['@{upstream}..HEAD'] : ['HEAD', '--not', '--remotes'],
-    )
-    : []
+  const [commits, history] = head.exitCode === 0
+    ? await Promise.all([
+      unpushedCommits(
+        cwd,
+        upstream.exitCode === 0 ? ['@{upstream}..HEAD'] : ['HEAD', '--not', '--remotes'],
+      ),
+      recentCommits(cwd),
+    ])
+    : [[], []]
 
   let worktree = false
   try {
@@ -125,6 +130,7 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
     baseAhead,
     baseBehind,
     commits,
+    history,
   }
 }
 
@@ -281,6 +287,27 @@ async function unpushedCommits(cwd: string, revisions: string[]): Promise<GitCom
   }))
 
   return commits
+}
+
+/** Lists the 20 most recent commits reachable from HEAD without loading their file details. */
+async function recentCommits(cwd: string): Promise<GitHistoryCommit[]> {
+  const result = await runGit(cwd, ['log', '-n', '20', '--format=%H%x00%s%x00', 'HEAD'])
+  const fields = result.stdout.split('\0')
+  const commits: GitHistoryCommit[] = []
+
+  for (let index = 0; index < fields.length - 1; index += 2) {
+    const hash = fields[index].trim()
+    const subject = fields[index + 1]
+    if (hash) commits.push({ hash, subject })
+  }
+  return commits
+}
+
+/** Fast-forwards the tracked branch from its remote without creating a merge commit. */
+export async function pullCommits(cwd: string): Promise<void> {
+  const snapshot = await getGitSnapshot(cwd)
+  if (!snapshot.repository) throw new Error('The current directory is not a Git repository.')
+  await runGit(cwd, ['pull', '--ff-only'])
 }
 
 /** Resets only the latest local commit while preserving its changes. */

@@ -434,8 +434,9 @@ button:disabled, select:disabled {
     background: color-mix(in srgb, var(--accent) 10%, var(--canvas));
     color: var(--accent-hover);
   }
-  .git-commits h2 small {
-    color: var(--accent-hover);
+  .git-tabs button:hover:not(:disabled),
+  .git-history li:hover {
+    background: var(--surface-raised);
   }
   .git-commits summary:hover {
     background: var(--surface-raised);
@@ -446,8 +447,8 @@ button:disabled, select:disabled {
   .git-reset:hover:not(:disabled) {
     background: var(--danger-soft);
   }
-  .git-actions button:hover {
-    background: var(--accent-hover);
+  .git-commit-submit:hover:not(:disabled) {
+    background: var(--accent-hover) !important;
   }
   .rail-tab:hover:not(:disabled) {
     background: var(--accent-soft);

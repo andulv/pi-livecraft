@@ -8,6 +8,7 @@ The Git widget keeps the state of the current repository beside the conversation
 - added, modified, deleted, and renamed files, with line counts when Git provides them;
 - a line-numbered textual diff for added and modified files;
 - commits ahead of the tracked remote branch, including their subject and changed files;
+- the 20 most recent commits reachable from `HEAD`, shown as compact summaries;
 - action errors without closing the panel or losing the current selection.
 
 Deleted and renamed files remain visible but are not selectable because the widget does not request a textual diff for them.
@@ -16,6 +17,7 @@ Deleted and renamed files remain visible but are not selectable because the widg
 
 - refresh repository state manually;
 - commit all current changes with a message;
+- pull the tracked branch with `--ff-only`, which never creates a merge commit;
 - push every commit ahead of the tracked branch;
 - discard one file or all uncommitted changes;
 - reset the latest unpushed commit while keeping its changes in the working tree;

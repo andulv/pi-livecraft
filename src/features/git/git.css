@@ -16,6 +16,64 @@
   border-radius: 7px;
   font-size: 18px;
 }
+.git-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 8px 7px;
+}
+.git-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 0 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+.git-tabs button:hover:not(:disabled) {
+  background: var(--surface-raised);
+  color: var(--ink);
+}
+.git-tabs button.active {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--line-strong));
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.git-tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.git-tabs button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.git-tabs small {
+  display: grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  padding: 0 4px;
+  background: color-mix(in srgb, var(--ink) 8%, var(--surface));
+  color: inherit;
+  font: 700 9px ui-monospace, monospace;
+}
+.git-tabs button.active small {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
 .git-file-list {
   display: grid;
   margin: 0;
@@ -232,26 +290,47 @@
   font-weight: 700;
 }
 .git-commits {
-  border-top: 1px solid var(--line);
-  padding: 10px 8px 12px;
+  padding: 4px 8px 12px;
 }
-.git-commits h2 {
+.git-history {
+  padding: 8px 8px 12px;
+}
+.git-history > p {
+  margin: 0 6px 6px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.git-history ul {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.git-history li {
+  min-width: 0;
+  border-radius: 6px;
+}
+.git-history li > * {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin: 0 6px 7px;
-  font-size: 11px;
+  min-width: 0;
+  padding: 7px 6px;
 }
-.git-commits h2 small {
-  display: grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 9px;
-  padding: 0 5px;
-  background: var(--accent-soft);
-  color: var(--accent-hover);
-  font-size: 10px;
+.git-history li:hover {
+  background: color-mix(in srgb, var(--surface) 50%, var(--canvas));
+}
+.git-history code {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font: 700 10px ui-monospace, monospace;
+}
+.git-history span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
 }
 .git-commit {
   position: relative;
@@ -359,9 +438,10 @@
 .git-actions input {
   width: 100%;
   min-width: 0;
+  height: 32px;
   border: 1px solid var(--line-strong);
   border-radius: 7px;
-  padding: 8px 9px;
+  padding: 0 9px;
   background: var(--surface);
   color: var(--ink);
   font-size: 12px;
@@ -372,33 +452,57 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent);
 }
 .git-actions button {
-  border: 1px solid var(--accent);
+  min-width: 0;
+  height: 30px;
+  border: 1px solid var(--line-strong);
   border-radius: 7px;
-  padding: 8px 10px;
-  background: var(--accent);
-  color: var(--surface);
-  font-size: 12px;
-  font-weight: 750;
+  padding: 0 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
 }
 .git-actions button:hover:not(:disabled) {
-  background: var(--accent-hover);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--line-strong));
+  background: var(--surface-raised);
+}
+.git-actions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.git-actions button:active:not(:disabled) {
+  transform: scale(0.97);
 }
 .git-actions button:disabled {
+  cursor: not-allowed;
   opacity: 0.5;
+  transform: none;
+}
+.git-commit-submit {
+  border-color: var(--accent) !important;
+  background: var(--accent) !important;
+  color: var(--on-accent) !important;
+}
+.git-commit-submit:hover:not(:disabled) {
+  background: var(--accent-hover) !important;
 }
 .git-action-buttons {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
-}
-.git-action-buttons button {
-  flex: 1;
 }
 .git-discard {
   border-color: var(--danger) !important;
-  background: var(--danger) !important;
+  color: var(--danger) !important;
 }
 .git-discard:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--danger) 80%, var(--ink)) !important;
+  border-color: var(--danger) !important;
+  background: var(--danger-soft) !important;
 }
 
 /* Commit entry animation — plays on mount for every new commit line. */

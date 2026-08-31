@@ -55,6 +55,12 @@ export interface GitCommit {
   files: GitFileChange[]
 }
 
+/** A recent commit summary shown without its changed-file details. */
+export interface GitHistoryCommit {
+  hash: string
+  subject: string
+}
+
 export interface GitSnapshot {
   repository: boolean
   root: string | null
@@ -70,7 +76,10 @@ export interface GitSnapshot {
   baseAhead: number
   /** Commits on the base branch that are not on this worktree branch. */
   baseBehind: number
+  /** Commits not yet pushed to the tracked remote branch. */
   commits: GitCommit[]
+  /** The 20 most recent commits reachable from HEAD. */
+  history: GitHistoryCommit[]
 }
 
 export interface GitActionResult {
