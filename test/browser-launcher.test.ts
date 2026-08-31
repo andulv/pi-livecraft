@@ -3,9 +3,20 @@ import test from 'node:test'
 import {
   browserBinaryCandidates,
   BrowserLaunchError,
+  chromeLaunchArgs,
   parseDevToolsEndpoint,
   resolveBrowserBinary,
 } from '../server/features/browser/chrome-launcher.ts'
+
+test('launches with a normal-Chrome fingerprint', () => {
+  const args = chromeLaunchArgs('/tmp/profile')
+  assert.ok(args.includes('--disable-blink-features=AutomationControlled'))
+  assert.ok(args.includes('--window-size=1280,900'))
+  assert.ok(args.includes('--user-data-dir=/tmp/profile'))
+  // Hidden scrollbars are a headless tell; visible ones also match what a
+  // normal visitor's viewport looks like in the captured frames.
+  assert.ok(!args.includes('--hide-scrollbars'))
+})
 
 test('parses the DevTools endpoint Chrome prints on startup', () => {
   const output = [

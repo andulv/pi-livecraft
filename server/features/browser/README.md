@@ -11,7 +11,11 @@ tooling (Chrome DevTools MCP, Playwright, Puppeteer, or raw CDP). See the
   endpoint from stderr. The HTTP endpoint for attachment is derived from the printed
   WebSocket URL; note that `new URL(ws).origin` keeps the `ws:` scheme and must not
   be used. The window size must equal the screencast capture cap — input coordinates
-  map 1:1 between the captured frame and the viewport.
+  map 1:1 between the captured frame and the viewport. Launch flags come from the
+  pure `chromeLaunchArgs()`: they keep scrollbars visible and disable
+  `AutomationControlled`, and `browser-session.ts` additionally strips the
+  `Headless` token from the user agent and hides `navigator.webdriver`, so casual
+  bot filters do not lock the browser out (determined ones still may).
 - `cdp-client.ts` is a minimal CDP JSON-RPC client over Node's built-in `WebSocket`
   (no new dependencies) with injectable transports for tests. Commands correlate by
   id with timeouts; events fan out to subscribers.

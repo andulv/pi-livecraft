@@ -396,6 +396,7 @@ export class BrowserSession {
         }
       })
       await cdp.send('Page.enable')
+      await this.#appearAsNormalChrome(cdp)
       await cdp.send('Emulation.setDeviceMetricsOverride', {
         width: this.#viewport.width,
         height: this.#viewport.height,
@@ -420,10 +421,36 @@ export class BrowserSession {
     }
   }
 
+  /** Stops the shared browser; existing viewers reconnect to a stopped state. */
   async stop(): Promise<void> {
     if (this.#state === 'off') return
     await this.#teardown()
     this.#setState({ state: 'stopped' })
+  }
+
+  /**
+   * Strips the cheap headless tells from the page fingerprint: the UA token,
+   * which is read from the live page so the real version number is kept, and
+   * navigator.webdriver. Best effort — a session must still start if Chrome
+   * rejects one of the overrides.
+   */
+  async #appearAsNormalChrome(cdp: CdpConnection): Promise<void> {
+    const evaluated = await cdp.send('Runtime.evaluate', {
+      expression: 'navigator.userAgent',
+      returnByValue: true,
+    })
+    const reported = isObject(evaluated.result) ? evaluated.result.value : undefined
+    const userAgent = typeof reported === 'string' && reported.includes('HeadlessChrome')
+      ? reported.replace('HeadlessChrome', 'Chrome')
+      : undefined
+    if (userAgent) {
+      await cdp.send('Emulation.setUserAgentOverride', { userAgent }).catch(() => {})
+    }
+    await cdp
+      .send('Page.addScriptToEvaluateOnNewDocument', {
+        source: 'Object.defineProperty(navigator, "webdriver", { get: () => false })',
+      })
+      .catch(() => {})
   }
 
   /** Synchronous last-resort cleanup for process exit. */

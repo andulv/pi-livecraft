@@ -63,6 +63,10 @@ test(
     await agent.connect(page.webSocketDebuggerUrl as string)
     await agent.send('Runtime.enable')
 
+    // The page must not advertise the headless fingerprint to bot filters.
+    assert.ok(await evaluateBoolean(agent, '!navigator.userAgent.includes("Headless")'))
+    assert.ok(await evaluateBoolean(agent, 'navigator.webdriver === false'))
+
     // The agent navigates while the pane screencast keeps flowing (coexistence).
     await agent.send('Page.navigate', { url: 'about:blank' })
     await waitFor(() => urls.includes('about:blank'))

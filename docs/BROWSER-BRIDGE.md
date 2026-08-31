@@ -84,6 +84,10 @@ browser does not satisfy the shared-browser contract.
 
 - Chrome debug port binds 127.0.0.1 only; any local process can reach it — accepted
   threat model (same as the app itself), documented in the browser README.
+- The instance presents Chrome's normal fingerprint (visible scrollbars, no
+  `Headless` user-agent token, `navigator.webdriver` hidden) to reduce casual
+  bot-wall lockouts; this is cosmetic de-fingerprinting of our own test browser,
+  not an anonymization feature, and determined bot filters may still challenge it.
 - Fresh temp `--user-data-dir` per browser instance: no logins by design (isolation for agent
   driving); the profile is deleted when the session stops.
 - Input endpoint performs the same origin checks as other POST APIs.

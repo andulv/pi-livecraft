@@ -89,6 +89,26 @@ export interface LaunchedBrowser {
   cleanup: () => Promise<void>
 }
 
+/** Chrome flags for every launch. Kept pure for unit-testing the fingerprint. */
+export function chromeLaunchArgs(userDataDir: string): readonly string[] {
+  return [
+    '--headless=new',
+    '--remote-debugging-port=0',
+    `--user-data-dir=${userDataDir}`,
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-background-timer-throttling',
+    // Wheel bursts otherwise queue long smooth-scroll animations in the page.
+    '--disable-smooth-scrolling',
+    // Visible scrollbars and no automation chrome keep casual bot filters from
+    // reading the headless fingerprint straight off the flags.
+    '--disable-blink-features=AutomationControlled',
+    // Must match the screencast capture cap: input coordinates map 1:1 between
+    // the captured frame and this viewport.
+    '--window-size=1280,900',
+  ]
+}
+
 /** Launches an isolated headless Chrome with a dynamic remote-debugging port. */
 export async function launchHeadlessChrome(options: {
   env?: NodeJS.ProcessEnv
@@ -104,20 +124,7 @@ export async function launchHeadlessChrome(options: {
   const userDataDir = await mkdtemp(join(tmpdir(), 'pi-livecraft-browser-'))
   const child = spawnProcess(
     binary,
-    [
-      '--headless=new',
-      '--remote-debugging-port=0',
-      `--user-data-dir=${userDataDir}`,
-      '--no-first-run',
-      '--no-default-browser-check',
-      '--disable-background-timer-throttling',
-      // Wheel bursts otherwise queue long smooth-scroll animations in the page.
-      '--disable-smooth-scrolling',
-      '--hide-scrollbars',
-      // Must match the screencast capture cap: input coordinates map 1:1 between
-      // the captured frame and this viewport.
-      '--window-size=1280,900',
-    ],
+    [...chromeLaunchArgs(userDataDir)],
     { stdio: ['ignore', 'ignore', 'pipe'], env: process.env },
   )
 
