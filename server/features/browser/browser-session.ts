@@ -2,6 +2,7 @@ import type {
   BrowserInputEvent,
   BrowserSessionState,
   BrowserSessionStatus,
+  BrowserViewport,
   JsonObject,
 } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
@@ -12,13 +13,30 @@ import {
   type LaunchedBrowser,
 } from './chrome-launcher.ts'
 
-const screencastParams: JsonObject = {
-  format: 'jpeg',
-  quality: 60,
-  maxWidth: 1280,
-  maxHeight: 900,
-  everyNthFrame: 1,
-  maxFrameRate: 12,
+const defaultViewport: BrowserViewport = { width: 1280, height: 900, mobile: false }
+
+/** Validated bounds for an emulated viewport. */
+export function parseBrowserViewport(value: unknown): BrowserViewport | null {
+  if (!isObject(value)) return null
+  const width = value.width
+  const height = value.height
+  if (
+    !isFiniteNumber(width) || !isFiniteNumber(height)
+    || !Number.isInteger(width) || !Number.isInteger(height)
+    || width < 200 || width > 3840 || height < 320 || height > 4320
+  ) return null
+  return { width, height, mobile: value.mobile === true }
+}
+
+function screencastParamsFor(viewport: BrowserViewport): JsonObject {
+  return {
+    format: 'jpeg',
+    quality: 60,
+    maxWidth: viewport.width,
+    maxHeight: viewport.height,
+    everyNthFrame: 1,
+    maxFrameRate: 12,
+  }
 }
 
 /** Minimum spacing between screencast acks; pacing acks caps Chrome's encode rate. */
@@ -175,9 +193,37 @@ export class BrowserSession {
   #lastAckAt = 0
   #ackTimer: ReturnType<typeof setTimeout> | null = null
   #pendingAckSession: number | string | null = null
+  #viewport: BrowserViewport = { ...defaultViewport }
 
   status(): BrowserSessionStatus {
-    return { state: this.#state, url: this.#url, endpoint: this.#endpoint, error: this.#error }
+    return {
+      state: this.#state,
+      url: this.#url,
+      endpoint: this.#endpoint,
+      error: this.#error,
+      viewport: { ...this.#viewport },
+    }
+  }
+
+  /** Emulates a device viewport and recaptures at the matching size. */
+  async setViewport(viewport: BrowserViewport): Promise<void> {
+    this.#viewport = { ...viewport }
+    const cdp = this.#cdp
+    if (this.#state !== 'live' || !cdp) {
+      this.#emit({ type: 'status', status: this.status() })
+      return
+    }
+    await cdp.send('Emulation.setDeviceMetricsOverride', {
+      width: viewport.width,
+      height: viewport.height,
+      deviceScaleFactor: 1,
+      mobile: viewport.mobile,
+    })
+    await cdp.send('Page.stopScreencast').catch(() => {})
+    if (this.#viewers > 0) {
+      await cdp.send('Page.startScreencast', screencastParamsFor(this.#viewport))
+    }
+    this.#emit({ type: 'status', status: this.status() })
   }
 
   subscribe(listener: (event: BrowserSessionEvent) => void): () => void {
@@ -189,7 +235,9 @@ export class BrowserSession {
   addViewer(): void {
     this.#viewers++
     if (this.#viewers === 1 && this.#state === 'live') {
-      void this.#cdp?.send('Page.startScreencast', screencastParams).catch(() => {})
+      void this.#cdp?.send('Page.startScreencast', screencastParamsFor(this.#viewport)).catch(
+        () => {},
+      )
     }
   }
 
@@ -276,8 +324,14 @@ export class BrowserSession {
         }
       })
       await cdp.send('Page.enable')
+      await cdp.send('Emulation.setDeviceMetricsOverride', {
+        width: this.#viewport.width,
+        height: this.#viewport.height,
+        deviceScaleFactor: 1,
+        mobile: this.#viewport.mobile,
+      })
       this.#url = await currentPageUrl(cdp)
-      await cdp.send('Page.startScreencast', screencastParams)
+      await cdp.send('Page.startScreencast', screencastParamsFor(this.#viewport))
       this.#setState({ state: 'live' })
       return this.status()
     } catch (error) {

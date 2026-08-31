@@ -1,6 +1,7 @@
 import type {
   BrowserInputEvent,
   BrowserSessionStatus,
+  BrowserViewport,
   DirectoryListing,
   GitFileDiff,
   GitProject,
@@ -299,6 +300,13 @@ export async function getBrowserStatus(): Promise<BrowserSessionStatus> {
 
 export async function navigateBrowser(url: string): Promise<void> {
   await request<void>('/api/browser/navigate', { method: 'POST', body: JSON.stringify({ url }) })
+}
+
+export async function setBrowserViewport(viewport: BrowserViewport): Promise<void> {
+  await request<void>('/api/browser/viewport', {
+    method: 'POST',
+    body: JSON.stringify(viewport),
+  })
 }
 
 /** Fire-and-forget input forwarding; pane status errors surface via the stream. */

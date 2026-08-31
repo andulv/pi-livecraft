@@ -10,17 +10,64 @@ import {
 import {
   navigateBrowser,
   sendBrowserInput,
+  setBrowserViewport,
   startBrowserSession,
   stopBrowserSession,
   subscribeBrowserEvents,
 } from '../../api.ts'
-import type { BrowserSessionStatus } from '../../../shared/types.ts'
+import type { BrowserSessionStatus, BrowserViewport } from '../../../shared/types.ts'
 import { normalizeBrowserUrl } from './browser-url.ts'
 import { cdpModifiers, mapPointerToPage } from './coordinates.ts'
 
 const wheelFlushIntervalMs = 50
 const pendingWheel = { x: 0, y: 0, deltaX: 0, deltaY: 0 }
 let wheelFlushTimer: number | null = null
+
+const viewportStorageKey = 'pi-livecraft.browser-viewport'
+const defaultViewportChoice = '1280x900'
+
+/** Predefined device viewports; capture and input coordinates follow the choice. */
+const viewportPresets: Array<
+  { group: string; entries: Array<{ label: string; viewport: BrowserViewport }> }
+> = [
+  {
+    group: 'Desktop',
+    entries: [
+      { label: '1920 × 1080', viewport: { width: 1920, height: 1080, mobile: false } },
+      { label: '1440 × 900', viewport: { width: 1440, height: 900, mobile: false } },
+      { label: '1280 × 900', viewport: { width: 1280, height: 900, mobile: false } },
+      { label: '1024 × 768', viewport: { width: 1024, height: 768, mobile: false } },
+    ],
+  },
+  {
+    group: 'Tablet',
+    entries: [
+      { label: '820 × 1180', viewport: { width: 820, height: 1180, mobile: true } },
+      { label: '768 × 1024', viewport: { width: 768, height: 1024, mobile: true } },
+    ],
+  },
+  {
+    group: 'Mobile',
+    entries: [
+      { label: '390 × 844', viewport: { width: 390, height: 844, mobile: true } },
+      { label: '375 × 812', viewport: { width: 375, height: 812, mobile: true } },
+      { label: '360 × 800', viewport: { width: 360, height: 800, mobile: true } },
+    ],
+  },
+]
+
+const viewportChoiceEntries = viewportPresets.flatMap(({ entries }) => entries)
+
+function readStoredViewportChoice(): string {
+  const stored = window.localStorage.getItem(viewportStorageKey)
+  return stored && viewportChoiceEntries.some(({ viewport }) => viewportKey(viewport) === stored)
+    ? stored
+    : defaultViewportChoice
+}
+
+function viewportKey(viewport: BrowserViewport): string {
+  return `${viewport.width}x${viewport.height}`
+}
 
 /** Human-driven browser surface: an address bar, a livecast view, and an iframe fallback. */
 export function BrowserView({ onUrlCommit, url }: {
@@ -31,6 +78,9 @@ export function BrowserView({ onUrlCommit, url }: {
   const [reloadNonce, setReloadNonce] = useState(0)
   const [status, setStatus] = useState<BrowserSessionStatus>({ state: 'off' })
   const [hasFrame, setHasFrame] = useState(false)
+  const [zoomMode, setZoomMode] = useState<'auto' | 'natural'>('auto')
+  const [zoomPercent, setZoomPercent] = useState(100)
+  const [viewportChoice, setViewportChoice] = useState(readStoredViewportChoice)
   const frameImageRef = useRef<HTMLImageElement>(null)
   const composeInputRef = useRef<HTMLInputElement>(null)
   const liveRef = useRef(false)
@@ -39,6 +89,41 @@ export function BrowserView({ onUrlCommit, url }: {
   liveRef.current = live
 
   useEffect(() => setAddress(url), [url])
+
+  // Report the effective zoom whenever the rendered frame size changes.
+  useEffect(() => {
+    const image = frameImageRef.current
+    if (!hasFrame || !image || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => {
+      if (image.naturalWidth > 0) {
+        setZoomPercent(Math.round((image.clientWidth / image.naturalWidth) * 100))
+      }
+    })
+    observer.observe(image)
+    return () => observer.disconnect()
+  }, [hasFrame, zoomMode])
+
+  function selectViewport(choice: string): void {
+    setViewportChoice(choice)
+    window.localStorage.setItem(viewportStorageKey, choice)
+    const preset = viewportChoiceEntries.find(({ viewport }) => viewportKey(viewport) === choice)
+    if (preset && status.state === 'live') {
+      void setBrowserViewport(preset.viewport).catch(() => {})
+    }
+  }
+
+  // Apply the stored device choice once, when a session becomes live.
+  const wasLiveRef = useRef(false)
+  useEffect(() => {
+    const wasLive = wasLiveRef.current
+    wasLiveRef.current = status.state === 'live'
+    if (!wasLive || status.state !== 'live' || !status.viewport) return
+    if (viewportKey(status.viewport) === viewportChoice) return
+    const preset = viewportChoiceEntries.find(
+      ({ viewport }) => viewportKey(viewport) === viewportChoice,
+    )
+    if (preset) void setBrowserViewport(preset.viewport).catch(() => {})
+  }, [status, viewportChoice])
 
   useEffect(
     () =>
@@ -198,6 +283,32 @@ export function BrowserView({ onUrlCommit, url }: {
   return (
     <div aria-label='Browser' className='browser-view'>
       <form className='browser-bar' onSubmit={navigate}>
+        <select
+          aria-label='Browser viewport size'
+          className='browser-bar-select'
+          onChange={(event) => selectViewport(event.target.value)}
+          title='Viewport size'
+          value={viewportChoice}
+        >
+          {viewportPresets.map(({ group, entries }) => (
+            <optgroup key={group} label={group}>
+              {entries.map(({ label, viewport }) => (
+                <option key={label} value={viewportKey(viewport)}>{label}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <select
+          aria-label='Frame zoom mode'
+          className='browser-bar-select'
+          onChange={(event) => setZoomMode(event.target.value === 'natural' ? 'natural' : 'auto')}
+          title='Frame zoom'
+          value={zoomMode}
+        >
+          <option value='auto'>Auto</option>
+          <option value='natural'>100%</option>
+        </select>
+        {zoomMode === 'auto' && <span className='browser-zoom-value'>{zoomPercent}%</span>}
         <input
           onChange={(event) => setAddress(event.target.value)}
           placeholder='Enter address — e.g. localhost:3000'
@@ -246,7 +357,7 @@ export function BrowserView({ onUrlCommit, url }: {
         ? (
           <>
             <div
-              className='browser-live'
+              className={`browser-live${zoomMode === 'natural' ? ' natural' : ''}`}
               onCompositionEnd={handleCompositionEnd}
               onKeyDown={handleKeyDown}
               ref={handleWheelEvent}

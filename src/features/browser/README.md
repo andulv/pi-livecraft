@@ -20,10 +20,18 @@ address bar:
   rejected. `coordinates.ts` maps pane pointer positions into the captured frame
   (pure; both are unit-tested).
 - The backend session (`server/features/browser/`) owns Chrome, the screencast
-  stream (`/api/browser/frames` SSE with `frame`/`url`/`status` events), and input
-  forwarding; `src/api.ts` is the only frontend boundary. The session lifecycle
+  stream (`/api/browser/frames` SSE with `frame`/`url`/`status` events), input
+  forwarding, and the emulated viewport (`POST /api/browser/viewport` →
+  `Emulation.setDeviceMetricsOverride` with screencast caps matching the viewport,
+  preserving the 1:1 frame-to-viewport coordinate mapping); `src/api.ts` is the
+  only frontend boundary. The session lifecycle
   (`off/starting/live/stopped/crashed`) is backend-owned state — the pane only
   renders it.
+- The pane's size dropdown (desktop/tablet/mobile presets, persisted in
+  `pi-livecraft.browser-viewport`) is the user's choice: it is applied when a
+  session becomes live and on explicit selection, but never fights external
+  viewport changes while live. The zoom control picks `Auto` (frames scale to the
+  pane, with a live percentage readout) or `100%` (natural frame size, scrollable).
 - URL state (`App.tsx`, persisted in `pi-livecraft.browser-url`) stays in sync with
   the live browser through `url` stream events, so switching between live and
   iframe modes keeps the current page.

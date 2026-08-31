@@ -7,10 +7,39 @@
 .browser-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
   border-bottom: 1px solid var(--line);
   padding: 7px 10px;
+}
+.browser-bar-select {
+  flex: 0 0 auto;
+  height: 28px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 0 4px;
+  background: var(--surface);
+  color: var(--muted);
+  font: 650 10.5px ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+.browser-bar-select:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.browser-bar-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.browser-zoom-value {
+  flex: 0 0 auto;
+  min-width: 32px;
+  color: var(--subtle);
+  font: 650 10.5px ui-monospace, monospace;
+  text-align: right;
 }
 .browser-bar input {
   flex: 1;
@@ -134,6 +163,10 @@
   height: auto;
   border: 0;
   user-select: none;
+}
+.browser-live.natural .browser-frame {
+  width: auto;
+  max-width: none;
 }
 .browser-live .browser-frame:active {
   cursor: default;

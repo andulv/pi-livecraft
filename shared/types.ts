@@ -392,6 +392,14 @@ export interface BrowserSessionStatus {
   /** CDP HTTP endpoint that agent tooling attaches to while a session is live. */
   endpoint?: string
   error?: string
+  /** Emulated viewport; frame captures and input coordinates match it 1:1. */
+  viewport?: BrowserViewport
+}
+
+export interface BrowserViewport {
+  width: number
+  height: number
+  mobile: boolean
 }
 
 export type BrowserMouseButton = 'none' | 'left' | 'middle' | 'right' | 'back' | 'forward'

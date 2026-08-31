@@ -21,7 +21,11 @@ import {
 import { QuotaService } from './features/quotas/quota-service.ts'
 import { EnvironmentService } from './features/session-environment/environment-service.ts'
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
-import { BrowserSession, parseBrowserInputEvent } from './features/browser/browser-session.ts'
+import {
+  BrowserSession,
+  parseBrowserInputEvent,
+  parseBrowserViewport,
+} from './features/browser/browser-session.ts'
 import {
   openVSCodeApplication,
   readWorkspaceTitleBarColor,
@@ -599,6 +603,15 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       throw new HttpError(409, 'The browser session is not live')
     }
     sendJson(response, 200, { ok: true })
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/browser/viewport') {
+    const body = await readJsonBody(request)
+    const viewport = parseBrowserViewport(body)
+    if (!viewport) throw new HttpError(400, 'A valid viewport is required')
+    await browserSession.setViewport(viewport)
+    sendJson(response, 200, browserSession.status())
     return
   }
 
