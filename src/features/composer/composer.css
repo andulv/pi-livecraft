@@ -289,6 +289,10 @@
   position: sticky;
   top: 0;
   z-index: 5;
+  /* The bar's contents must never spill over the adjacent file pane: a squeezed
+     bar otherwise paints (and hit-tests) across the pane's tab strip and address
+     bar, stealing clicks and focus from them. */
+  overflow: hidden;
 }
 .chat-topbar-context, .chat-topbar-session {
   display: flex;
