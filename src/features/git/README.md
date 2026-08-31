@@ -5,6 +5,7 @@ The Git widget keeps the state of the current repository beside the conversation
 ## What it shows
 
 - the current branch and whether the working tree is clean;
+- a count on Pull when fetched remote commits are waiting;
 - added, modified, deleted, and renamed files, with line counts when Git provides them;
 - a line-numbered textual diff for added and modified files;
 - commits ahead of the tracked remote branch, including their subject and changed files;
@@ -15,7 +16,7 @@ Deleted and renamed files remain visible but are not selectable because the widg
 
 ## What you can do
 
-- refresh repository state manually;
+- refresh repository state manually, including the tracked remote when one is configured;
 - commit all current changes with a message;
 - pull the tracked branch with `--ff-only`, which never creates a merge commit;
 - push every commit ahead of the tracked branch;

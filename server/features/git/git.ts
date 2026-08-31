@@ -19,8 +19,8 @@ interface GitCommandResult {
   stdout: string
 }
 
-/** Aggregates Git state, file statistics, and the number of commits waiting to be pushed. */
-export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
+/** Aggregates Git state; `refreshRemote` fetches the tracked upstream before counting incoming commits. */
+export async function getGitSnapshot(cwd: string, refreshRemote = false): Promise<GitSnapshot> {
   const repository = await runGit(cwd, ['rev-parse', '--is-inside-work-tree'], [0, 128])
   if (repository.exitCode !== 0 || repository.stdout.trim() !== 'true')
     return {
@@ -30,6 +30,7 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
       worktree: false,
       files: [],
       ahead: 0,
+      behind: null,
       baseBranch: null,
       baseAhead: 0,
       baseBehind: 0,
@@ -69,6 +70,22 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
       },
     ),
   )
+
+  // Refresh the tracked remote before computing its divergence. A failed fetch must not hide
+  // local state, so `behind` remains unavailable instead of reporting a stale count.
+  let behind: number | null = null
+  if (refreshRemote && upstream.exitCode === 0) {
+    const fetch = await runGit(cwd, ['fetch', '--quiet'], [0, 1, 128])
+    if (fetch.exitCode === 0) {
+      const divergence = await runGit(cwd, [
+        'rev-list',
+        '--left-right',
+        '--count',
+        '@{upstream}...HEAD',
+      ], [0, 128])
+      if (divergence.exitCode === 0) behind = parseBranchDivergence(divergence.stdout).behind
+    }
+  }
 
   // With an upstream, list commits ahead of it. Without one (a worktree or branch with no
   // remote tracking), fall back to commits on HEAD that are not on any remote, so local work in a
@@ -126,6 +143,7 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
       return { ...change, additions: count?.additions ?? null, deletions: count?.deletions ?? null }
     }),
     ahead: commits.length,
+    behind,
     baseBranch,
     baseAhead,
     baseBehind,
@@ -305,8 +323,9 @@ async function recentCommits(cwd: string): Promise<GitHistoryCommit[]> {
 
 /** Fast-forwards the tracked branch from its remote without creating a merge commit. */
 export async function pullCommits(cwd: string): Promise<void> {
-  const snapshot = await getGitSnapshot(cwd)
-  if (!snapshot.repository) throw new Error('The current directory is not a Git repository.')
+  const repository = await runGit(cwd, ['rev-parse', '--is-inside-work-tree'], [0, 128])
+  if (repository.exitCode !== 0 || repository.stdout.trim() !== 'true')
+    throw new Error('The current directory is not a Git repository.')
   await runGit(cwd, ['pull', '--ff-only'])
 }
 

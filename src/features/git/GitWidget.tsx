@@ -217,12 +217,15 @@ export function GitWidget(
           </button>
           <div className='git-action-buttons'>
             <button
+              aria-label={snapshot.behind && snapshot.behind > 0
+                ? `Pull ${snapshot.behind} remote commit${snapshot.behind === 1 ? '' : 's'}`
+                : 'Pull from remote'}
               className={errorTarget === 'pull' ? 'shake' : ''}
               disabled={busy}
               onClick={() => void pull()}
               type='button'
             >
-              Pull
+              Pull{snapshot.behind && snapshot.behind > 0 ? ` ${snapshot.behind}` : ''}
             </button>
             <button
               className={errorTarget === 'push' ? 'shake' : ''}

@@ -219,6 +219,7 @@ test('pulls fast-forward updates and rejects divergent history', async () => {
     await execFile('git', ['commit', '--quiet', '-m', 'Remote update'], { cwd: other })
     await execFile('git', ['push', '--quiet'], { cwd: other })
 
+    assert.equal((await getGitSnapshot(directory, true)).behind, 1)
     await pullCommits(directory)
     assert.equal(await readFile(join(directory, 'remote.ts'), 'utf8'), 'remote\n')
     assert.equal((await getGitSnapshot(directory)).history[0]?.subject, 'Remote update')
