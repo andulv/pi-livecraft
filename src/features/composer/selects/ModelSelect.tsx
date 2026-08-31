@@ -276,12 +276,10 @@ export const ModelSelect = memo(function ModelSelect(
             </label>
           </div>
           <div className='model-menu-list'>
-            {flat.length === 0
-              ? (
-                <p className='model-menu-empty'>
-                  {filtering ? `No models match “${query.trim()}”.` : 'No models available.'}
-                </p>
-              )
+            {options.length === 0
+              ? <p className='model-menu-empty'>No models available.</p>
+              : filtering && visibleGroups.length === 0
+              ? <p className='model-menu-empty'>No models match “{query.trim()}”.</p>
               : visibleGroups.map((group) => {
                 const isOpen = filtering || expandedGroups.has(group.key)
                 return (
