@@ -259,10 +259,10 @@ export function BrowserView({ onUrlCommit, url }: {
   function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
     if (!live) return
     if (event.ctrlKey || event.metaKey) {
-      // Swallow host shortcuts inside the live surface so they neither hit the
-      // hidden compose input nor leak to app-level handlers; paste is forwarded
-      // through the dedicated paste handler.
-      event.preventDefault()
+      // Let Ctrl+V through untouched: canceling its keydown would cancel the
+      // paste event the forwarding handler depends on. Swallow other host
+      // shortcuts (reload, focus bar) so they do not act on the app instead.
+      if (event.key.toLowerCase() !== 'v') event.preventDefault()
       return
     }
     event.preventDefault()
@@ -372,6 +372,12 @@ export function BrowserView({ onUrlCommit, url }: {
             <div
               className={`browser-live${zoomMode === 'natural' ? ' natural' : ''}`}
               onCompositionEnd={handleCompositionEnd}
+              onFocus={(event) => {
+                // Paste and typing need an editable focus target; the hidden
+                // compose input provides it whenever the surface itself gains
+                // focus (for example after clicking the letterboxed area).
+                if (event.target === event.currentTarget) composeInputRef.current?.focus()
+              }}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               ref={handleWheelEvent}
