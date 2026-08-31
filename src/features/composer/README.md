@@ -23,7 +23,7 @@ All data arrives through props. The Composer never calls the backend directly.
 | `prompt-title.ts` | Immediate session title, replaced later by Pi's extension title |
 | `selects/ComposerSelect.tsx` | Generic Radix Select wrapper with tone-based icons |
 | `selects/AgentSelect.tsx` | Agent picker — derives label from options, calls `onAgentChange` |
-| `selects/ModelSelect.tsx` | Model picker — builds RPC `set_model` command from selection |
+| `selects/ModelSelect.tsx` | Model picker — searchable popover with collapsible provider groups, issues RPC `set_model` from selection |
 | `selects/ThinkingSelect.tsx` | Thinking level — maps level to `set_thinking_level` RPC |
 | `selects/PromptSelect.tsx` | Prompt templates — previews, inserts, and saves Pi-discovered templates |
 | `selects/BehaviorSelect.tsx` | Steer / Follow-up toggle, only rendered while Pi is running |
@@ -46,11 +46,17 @@ All data arrives through props. The Composer never calls the backend directly.
 ## Selects
 
 The agent, model, thinking, and prompt dropdowns each live in `selects/` as standalone
-components. `ComposerSelect` is the generic Radix Select wrapper they all use.
-Each select encapsulates its own option derivation and `onValueChange` logic.
-`onCommand()` sends the corresponding RPC command (`set_model`,
+custom components. `ComposerSelect` is the generic Radix Select wrapper the agent,
+thinking, and behavior dropdowns use. Each select encapsulates its own option derivation and
+`onValueChange` logic. `onCommand()` sends the corresponding RPC command (`set_model`,
 `set_thinking_level`) to Pi. `PromptSelect` previews and inserts templates, and saves the
 current draft through `onSavePrompt()`.
+
+`ModelSelect` owns a custom portal popover for its large list: a filter input narrows every
+group (matched groups render expanded), provider group headers expand and collapse with only
+Favorites (pinned models) expanded by default, and the filter resets when the menu closes.
+Keyboard navigation moves through visible rows only; the highlight follows model keys so it
+survives re-filtering and pin-driven regrouping.
 
 ## Draft persistence
 

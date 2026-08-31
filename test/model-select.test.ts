@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   baseModelKey,
   buildListPriceIndex,
+  filterModelGroups,
   groupModelOptions,
   modelCostLabel,
   providerDisplayName,
@@ -170,6 +171,41 @@ test('favorites keep pin order and ignore keys for unavailable models', () => {
   assert.deepEqual(favorites.models.map((model) => model.key), ['openai/b', 'anthropic/a'])
   // The stale pin left no empty provider group behind.
   assert.equal(rest.length, 0)
+})
+
+test('filterModelGroups matches name, id, and provider tokens and drops empty groups', () => {
+  const models = [
+    toModelOption({
+      id: 'gpt-5.2',
+      name: 'GPT-5.2',
+      provider: 'openai',
+      cost: { input: 1, output: 2 },
+    })!,
+    toModelOption({
+      id: 'claude',
+      name: 'Claude',
+      provider: 'anthropic',
+      cost: { input: 3, output: 15 },
+    })!,
+    toModelOption({ id: 'gpt-5-mini', name: 'GPT-5 mini', provider: 'openai' })!,
+  ]
+  const groups = groupModelOptions(models, new Set())
+
+  // Empty and whitespace-only queries return the groups untouched.
+  assert.equal(filterModelGroups(groups, ''), groups)
+  assert.equal(filterModelGroups(groups, '   '), groups)
+
+  // Token matching spans name, id, and the friendly provider label.
+  const byName = filterModelGroups(groups, 'gpt')
+  assert.deepEqual(byName.map((group) => group.label), ['OpenAI'])
+  assert.deepEqual(byName[0].models.map((model) => model.id), ['gpt-5.2', 'gpt-5-mini'])
+
+  const byProviderAndId = filterModelGroups(groups, 'anthropic claude')
+  assert.deepEqual(byProviderAndId.map((group) => group.label), ['Anthropic'])
+  assert.deepEqual(byProviderAndId[0].models.map((model) => model.id), ['claude'])
+
+  // Groups without matches disappear; an unmatched query leaves nothing behind.
+  assert.deepEqual(filterModelGroups(groups, 'openai llama'), [])
 })
 
 test('readPinnedModels tolerates missing, malformed, and non-string entries', () => {

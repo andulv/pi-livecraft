@@ -18,6 +18,9 @@ export interface ModelGroup {
   models: ModelOption[]
 }
 
+/** Group key of the pinned-favorites pseudo group; it starts expanded in the picker. */
+export const FAVORITES_GROUP_KEY = '__favorites'
+
 export type ModelCostLabel =
   | { kind: 'paid'; text: string }
   | { kind: 'covered'; text: string }
@@ -102,7 +105,7 @@ export function groupModelOptions(
     return match ? [match] : []
   })
   if (favorites.length > 0)
-    groups.push({ key: '__favorites', label: 'Favorites', models: favorites })
+    groups.push({ key: FAVORITES_GROUP_KEY, label: 'Favorites', models: favorites })
 
   for (const model of models) {
     if (pinned.has(model.key)) continue
@@ -116,6 +119,26 @@ export function groupModelOptions(
   }
 
   return groups
+}
+
+/**
+ * Narrows groups to models matching every whitespace-separated query token,
+ * case-insensitively against name, id, and friendly provider label. An empty or
+ * whitespace query returns the input unchanged; emptied groups are dropped.
+ */
+export function filterModelGroups(groups: ModelGroup[], query: string): ModelGroup[] {
+  const tokens = query.toLowerCase().split(/\s+/).filter((token) => token.length > 0)
+  if (tokens.length === 0) return groups
+  const filtered: ModelGroup[] = []
+  for (const group of groups) {
+    const models = group.models.filter((model) => {
+      const haystack = `${model.name} ${model.id} ${providerDisplayName(model.provider)}`
+        .toLowerCase()
+      return tokens.every((token) => haystack.includes(token))
+    })
+    if (models.length > 0) filtered.push({ ...group, models })
+  }
+  return filtered
 }
 
 /** Providers whose models are billed through a coding-plan subscription rather than per token. */
