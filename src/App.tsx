@@ -1302,6 +1302,7 @@ function LivecraftProjectApp(
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.defaultPrevented) return
       const target = event.target
+      if (target instanceof HTMLElement && target.closest('.browser-view')) return
       if (
         target instanceof HTMLElement && (target
           .isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))

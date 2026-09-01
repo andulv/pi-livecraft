@@ -42,7 +42,9 @@ screencast as a viewer.
   pane, with a live percentage readout) or `100%` (natural frame size, scrollable).
 - URL state (`App.tsx`, persisted by workspace path and browser ID) stays in sync
   with the live browser through `url` stream events, so switching between live and
-  iframe modes keeps the current page.
+  iframe modes keeps the current page. While focus is inside the browser pane,
+  application-level command shortcuts are disabled so native address-bar editing and
+  browser input take precedence.
 - Framing limits apply only to the iframe mode: sites sending
   `X-Frame-Options`/`frame-ancestors` refuse to render there — the live browser
   shows any site, and ↗ opens the current URL in a real window. No search engine;
