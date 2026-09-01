@@ -36,9 +36,9 @@ supports multiple browser IDs per workspace; the first pane uses ID `main`.
 ## Architecture
 
 ```
-Pi agent ──(CDP-capable browser tooling, attached to http://127.0.0.1:<port>)──┐
-                                                                               ▼
-          Chrome (headless, --remote-debugging-port, temp user-data-dir, 127.0.0.1)
+Pi agent ──(playwright-cli attach --cdp=$LIVECRAFT_BROWSER_URL, or any CDP client)──┐
+                                                                                    ▼
+          Chrome (headless, deterministic --remote-debugging-port, temp user-data-dir, 127.0.0.1)
                                                                                  ▲
 pane input ──POST /api/browser/instances/:id/input──► BrowserSession ──CDP Input.*──┘
 pane view  ◄──SSE /api/browser/instances/:id/frames── BrowserSession ◄──Page.startScreencast
@@ -61,8 +61,26 @@ debug UI  ◄──GET /api/browser/debug─────────────
   `server/backend.ts`.
 - Frontend: `src/features/browser/` owns the livecast surface behind the existing
   tab/address bar/URL state. `src/api.ts` remains the only browser-to-backend path.
+- Determinism: each instance's debug port is derived from the canonical workspace
+  path and browser ID (`shared/browser-port.ts`), so the endpoint a workspace's
+  agent tooling learns stays valid across browser restarts. A rare port collision
+  shifts it; the backend status API reports the actual endpoint.
 
-### Agent automation options
+### Built-in agent attach (playwright-cli)
+
+Livecraft spawns every persistent Pi session with the `livecraft-browser` skill
+(`pi-skills/`, passed via `--skill`) and environment describing that workspace's
+browser: `LIVECRAFT_BROWSER_URL` and a per-workspace `PLAYWRIGHT_CLI_SESSION`.
+The skill teaches the agent to ensure the browser is live through the backend
+API, attach Microsoft's `@playwright/cli` to the endpoint, drive pages with
+snapshot refs, and `detach` without closing the shared browser. The human
+watches the same instance live in the pane.
+
+Prerequisite on the host: `npm i -g @playwright/cli` (plus the Chrome
+installation Livecraft already requires). No MCP server, no custom browser
+tools, no per-workspace configuration.
+
+### Other agent automation options
 
 CDP is the bridge's browser connection boundary, not a required agent-facing API.
 Agent tooling may add a higher-level automation layer as long as it can attach to the
@@ -70,7 +88,8 @@ existing Chrome instance rather than launching a separate browser.
 
 | Option | Strengths | Trade-offs |
 | --- | --- | --- |
-| Chrome DevTools MCP | Ready-made agent tools for Chrome inspection, debugging, and automation | MCP-specific configuration; not required by the bridge |
+| `@playwright/cli` (built-in skill) | Official, token-efficient, agent-first CLI; native input events over CDP; snapshot refs for reliable targeting | Requires the CLI on the host; Chromium-only attachment |
+| Chrome DevTools MCP | Ready-made agent tools for Chrome inspection, debugging, and automation | MCP-specific configuration with a static browser URL; not required by the bridge |
 | Playwright or Playwright MCP | High-level pages, locators, waits, and input APIs | Attaching to shared Chrome uses `connectOverCDP`, which is Chromium-only and lower fidelity than Playwright's native protocol connection; it does not replace the bridge's CDP screencast/input work |
 | Puppeteer | Mature Chromium automation API with straightforward CDP attachment | Chrome-focused and not an agent protocol by itself |
 | Raw CDP | Minimal, tool-neutral, and exposes screencast, input, and target control directly | Low-level; callers must implement target selection, waits, reconnects, and protocol error handling |

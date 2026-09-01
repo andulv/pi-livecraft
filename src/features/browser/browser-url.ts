@@ -1,4 +1,6 @@
-export const primaryBrowserId = 'main'
+export { primaryBrowserId } from '../../../shared/browser-port.ts'
+import { primaryBrowserId } from '../../../shared/browser-port.ts'
+
 const legacyBrowserUrlStorageKey = 'pi-livecraft.browser-url'
 
 interface BrowserUrlStorage {

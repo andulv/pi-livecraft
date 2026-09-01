@@ -1,14 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { BrowserService, parseBrowserId } from '../server/features/browser/browser-service.ts'
 import {
   browserDebugPortBase,
   browserDebugPortFor,
   browserDebugPortSpan,
-  BrowserService,
-  parseBrowserId,
-} from '../server/features/browser/browser-service.ts'
-
-const primaryBrowserId = 'main'
+  primaryBrowserId,
+} from '../shared/browser-port.ts'
 
 test('validates browser instance IDs', () => {
   assert.equal(parseBrowserId(primaryBrowserId), 'main')

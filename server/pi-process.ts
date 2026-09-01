@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { JsonLineDecoder, MAX_SESSION_RECORD_SIZE, encodeJsonLine } from './jsonl.ts'
 import { resolvePiLauncher } from './pi-launcher.ts'
+import { browserDebugPortFor, primaryBrowserId } from '../shared/browser-port.ts'
 import type { JsonObject } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 
@@ -13,6 +14,25 @@ const activeChildren = new Set<ChildProcessWithoutNullStreams>()
 
 /** Dedicated Pi profile directory for isolated prompts so model/thinking defaults never leak into the user's main config. */
 export const ISOLATED_AGENT_DIR = join(homedir(), '.pi', 'livecraft-isolated')
+
+/** Skill files every persistent session loads; keep in sync with pi-skills/. */
+const persistentSkillPaths = [
+  fileURLToPath(new URL('../pi-skills/livecraft-browser/SKILL.md', import.meta.url)),
+] as const
+
+/**
+ * Environment describing this workspace's shared browser for agent tooling: the
+ * CDP endpoint derived from the deterministic debug port and a per-workspace
+ * playwright-cli session name. The backend's status API remains authoritative
+ * when a port collision shifted the actual endpoint.
+ */
+export function livecraftBrowserEnv(cwd: string): NodeJS.ProcessEnv {
+  const port = browserDebugPortFor(cwd, primaryBrowserId)
+  return {
+    LIVECRAFT_BROWSER_URL: `http://127.0.0.1:${port}`,
+    PLAYWRIGHT_CLI_SESSION: `livecraft-${port}`,
+  }
+}
 
 interface PendingRequest {
   resolve: (value: JsonObject) => void
@@ -74,12 +94,13 @@ export class PiProcess extends EventEmitter {
         fileURLToPath(new URL('../pi-extensions/quotas.ts', import.meta.url)),
         '--extension',
         fileURLToPath(new URL('../pi-extensions/session-environment.ts', import.meta.url)),
+        ...persistentSkillPaths.flatMap((path) => ['--skill', path]),
         ...(sessionPath ? ['--session', sessionPath] : ['--session-id', sessionId]),
       ]
 
     const env = options.isolated
       ? { ...process.env, PI_CODING_AGENT_DIR: ISOLATED_AGENT_DIR }
-      : process.env
+      : { ...process.env, ...livecraftBrowserEnv(cwd) }
     this.child = spawn(launcher.command, [...launcher.argsPrefix, ...args], {
       cwd,
       env,

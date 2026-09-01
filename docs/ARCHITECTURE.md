@@ -36,7 +36,7 @@ Use the [`src/features/` map](/src/features/README.md) to locate frontend owners
 
 `server/backend.ts` exposes the web API, validates HTTP requests, serves the build, and broadcasts SSE events. Domain behavior for Git, quotas, terminal launching, and livecast browsers lives in `server/features/`; route definitions remain in the backend. `BrowserService` groups browser sessions by canonical workspace path and browser ID. Each `BrowserSession` owns one Chrome process. Other neighboring modules provide workspace files, recent sessions, and system integrations.
 
-`server/manager.ts` is the sole owner of `pi --mode rpc` processes. `server/pi-process.ts` starts them with the extensions from `pi-extensions/`, while `server/manager-client.ts` carries backend requests over local JSON Lines. Keeping this ownership outside the backend preserves Pi sessions across backend restarts.
+`server/manager.ts` is the sole owner of `pi --mode rpc` processes. `server/pi-process.ts` starts them with the extensions from `pi-extensions/` and the shared-browser skill from `pi-skills/`, while `server/manager-client.ts` carries backend requests over local JSON Lines. Keeping this ownership outside the backend preserves Pi sessions across backend restarts.
 
 `server/manager-supervisor.ts` starts the manager with the SHA-256 revision of the files declared in `server/manager-runtime-files.json`. It never replaces the manager because files changed or because it crashed: replacement happens only when the manager accepts a restart request and exits with the reserved code. After a crash, the supervisor stays alive and the backend reports the outage.
 

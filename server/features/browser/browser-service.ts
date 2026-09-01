@@ -2,26 +2,10 @@ import type {
   BrowserInstanceDebugSnapshot,
   BrowserSystemDebugSnapshot,
 } from '../../../shared/types.ts'
+import { browserDebugPortFor } from '../../../shared/browser-port.ts'
 import { BrowserSession } from './browser-session.ts'
 
 const browserIdPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/
-
-/** Local port range reserved for deterministic per-instance debug endpoints. */
-export const browserDebugPortBase = 45_000
-export const browserDebugPortSpan = 1_000
-
-/**
- * Deterministic debug port for one browser instance (djb2 hash of the canonical
- * workspace path and browser ID). Stable across restarts, so a documented MCP
- * `--browserUrl` for one workspace keeps pointing at that workspace's browser.
- */
-export function browserDebugPortFor(workspacePath: string, browserId: string): number {
-  let hash = 5381
-  for (const char of `${workspacePath}\u0000${browserId}`) {
-    hash = ((hash * 33) ^ char.charCodeAt(0)) >>> 0
-  }
-  return browserDebugPortBase + (hash % browserDebugPortSpan)
-}
 
 /** Validates the opaque browser ID used in scoped API routes. */
 export function parseBrowserId(value: unknown): string | null {
