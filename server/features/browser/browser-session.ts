@@ -11,6 +11,7 @@ import { isObject } from '../../../shared/is-object.ts'
 import { CdpConnection, CdpError } from './cdp-client.ts'
 import {
   BrowserLaunchError,
+  acquireDebugPort,
   launchHeadlessChrome,
   type LaunchedBrowser,
 } from './chrome-launcher.ts'
@@ -222,6 +223,11 @@ export class BrowserSession {
   #ackTimer: ReturnType<typeof setTimeout> | null = null
   #pendingAckSession: number | string | null = null
   #viewport: BrowserViewport = { ...defaultViewport }
+  readonly #debugPortBase: number | undefined
+
+  constructor(options: { debugPortBase?: number } = {}) {
+    this.#debugPortBase = options.debugPortBase
+  }
 
   status(): BrowserSessionStatus {
     return {
@@ -353,7 +359,12 @@ export class BrowserSession {
     this.#startedAt = undefined
     this.#setState({ state: 'starting' })
     try {
-      const browser = await launchHeadlessChrome({})
+      // The deterministic base keeps a workspace's endpoint stable across
+      // restarts; the bounded scan only drifts it under a port collision.
+      const debugPort = this.#debugPortBase === undefined
+        ? undefined
+        : await acquireDebugPort(this.#debugPortBase)
+      const browser = await launchHeadlessChrome({ debugPort })
       this.#browser = browser
       this.#startedAt = Date.now()
       this.#endpoint = browser.httpEndpoint

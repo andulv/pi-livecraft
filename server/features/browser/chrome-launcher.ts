@@ -1,3 +1,4 @@
+import { createServer } from 'node:net'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { access, constants, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -90,10 +91,10 @@ export interface LaunchedBrowser {
 }
 
 /** Chrome flags for every launch. Kept pure for unit-testing the fingerprint. */
-export function chromeLaunchArgs(userDataDir: string): readonly string[] {
+export function chromeLaunchArgs(userDataDir: string, debugPort: number): readonly string[] {
   return [
     '--headless=new',
-    '--remote-debugging-port=0',
+    `--remote-debugging-port=${debugPort}`,
     `--user-data-dir=${userDataDir}`,
     '--no-first-run',
     '--no-default-browser-check',
@@ -116,6 +117,8 @@ export async function launchHeadlessChrome(options: {
   spawnProcess?: typeof spawn
   binaryExists?: (path: string) => Promise<boolean>
   stderr?: (chunk: string) => void
+  /** Fixed debug port; 0 lets Chrome pick a dynamic one. */
+  debugPort?: number
 }): Promise<LaunchedBrowser> {
   const env = options.env ?? process.env
   const platform = options.platform ?? process.platform
@@ -124,7 +127,7 @@ export async function launchHeadlessChrome(options: {
   const userDataDir = await mkdtemp(join(tmpdir(), 'pi-livecraft-browser-'))
   const child = spawnProcess(
     binary,
-    [...chromeLaunchArgs(userDataDir)],
+    [...chromeLaunchArgs(userDataDir, options.debugPort ?? 0)],
     { stdio: ['ignore', 'ignore', 'pipe'], env: process.env },
   )
 
@@ -143,6 +146,33 @@ export async function launchHeadlessChrome(options: {
   })
 
   return { child, wsEndpoint, httpEndpoint, userDataDir, cleanup }
+}
+
+/** Reports whether a local TCP port can be bound right now. */
+export async function debugPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = createServer()
+    server.once('error', () => resolve(false))
+    server.once('listening', () => server.close(() => resolve(true)))
+    server.listen(port, '127.0.0.1')
+  })
+}
+
+/**
+ * Finds the first free port from `base` upward (bounded scan) so a deterministic
+ * base stays right almost always and drifts only under collision. Returns
+ * undefined when the whole scan window is occupied, falling back to a dynamic port.
+ */
+export async function acquireDebugPort(
+  base: number,
+  attempts = 50,
+): Promise<number | undefined> {
+  for (let offset = 0; offset < attempts; offset++) {
+    const port = base + offset
+    if (port > 65535) return undefined
+    if (await debugPortAvailable(port)) return port
+  }
+  return undefined
 }
 
 /** Waits for Chrome to print its DevTools endpoint on stderr. */

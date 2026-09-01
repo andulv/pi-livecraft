@@ -125,6 +125,12 @@ test(
 
     const [firstStatus, secondStatus] = await Promise.all([first.start(), second.start()])
     assert.notEqual(firstStatus.endpoint, secondStatus.endpoint)
+    // Service-created instances expose deterministic endpoints in the reserved
+    // local range, so documented MCP attach URLs stay valid across restarts.
+    for (const status of [firstStatus, secondStatus]) {
+      const port = Number(new URL(status.endpoint!).port)
+      assert.ok(port >= 45_000 && port < 46_000, `port ${port} outside the reserved range`)
+    }
 
     await Promise.all([
       first.navigate('data:text/html,workspace-a'),

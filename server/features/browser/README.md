@@ -6,9 +6,11 @@ tooling (Chrome DevTools MCP, Playwright, Puppeteer, or raw CDP). See the
 [bridge specification](/docs/BROWSER-BRIDGE.md) for the full contract.
 
 - `chrome-launcher.ts` resolves the browser binary (`PI_LIVECRAFT_BROWSER_BIN`
-  overrides, then platform candidates), spawns it with a dynamic
-  `--remote-debugging-port` and a temporary user-data-dir, and parses the DevTools
-  endpoint from stderr. The HTTP endpoint for attachment is derived from the printed
+  overrides, then platform candidates), spawns it with a deterministic
+  `--remote-debugging-port` derived from the workspace and browser ID (bounded
+  upward scan on collision) and a temporary user-data-dir, and parses the DevTools
+  endpoint from stderr. A workspace's endpoint is therefore stable across
+  restarts. The HTTP endpoint for attachment is derived from the printed
   WebSocket URL; note that `new URL(ws).origin` keeps the `ws:` scheme and must not
   be used. The window size must equal the screencast capture cap — input coordinates
   map 1:1 between the captured frame and the viewport. Launch flags come from the

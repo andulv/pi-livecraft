@@ -6,6 +6,23 @@ import { BrowserSession } from './browser-session.ts'
 
 const browserIdPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/
 
+/** Local port range reserved for deterministic per-instance debug endpoints. */
+export const browserDebugPortBase = 45_000
+export const browserDebugPortSpan = 1_000
+
+/**
+ * Deterministic debug port for one browser instance (djb2 hash of the canonical
+ * workspace path and browser ID). Stable across restarts, so a documented MCP
+ * `--browserUrl` for one workspace keeps pointing at that workspace's browser.
+ */
+export function browserDebugPortFor(workspacePath: string, browserId: string): number {
+  let hash = 5381
+  for (const char of `${workspacePath}\u0000${browserId}`) {
+    hash = ((hash * 33) ^ char.charCodeAt(0)) >>> 0
+  }
+  return browserDebugPortBase + (hash % browserDebugPortSpan)
+}
+
 /** Validates the opaque browser ID used in scoped API routes. */
 export function parseBrowserId(value: unknown): string | null {
   return typeof value === 'string' && browserIdPattern.test(value) ? value : null
@@ -14,9 +31,12 @@ export function parseBrowserId(value: unknown): string | null {
 /** Owns browser instances grouped by canonical workspace path. */
 export class BrowserService {
   readonly #workspaces = new Map<string, Map<string, BrowserSession>>()
-  readonly #createSession: () => BrowserSession
+  readonly #createSession: (debugPortBase: number) => BrowserSession
 
-  constructor(createSession: () => BrowserSession = () => new BrowserSession()) {
+  constructor(
+    createSession: (debugPortBase: number) => BrowserSession = (debugPortBase) =>
+      new BrowserSession({ debugPortBase }),
+  ) {
     this.#createSession = createSession
   }
 
@@ -29,7 +49,7 @@ export class BrowserService {
     }
     let session = workspace.get(browserId)
     if (!session) {
-      session = this.#createSession()
+      session = this.#createSession(browserDebugPortFor(workspacePath, browserId))
       workspace.set(browserId, session)
     }
     return session
