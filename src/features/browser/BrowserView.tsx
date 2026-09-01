@@ -13,7 +13,6 @@ import {
   sendBrowserInput,
   setBrowserViewport,
   startBrowserSession,
-  stopBrowserSession,
   subscribeBrowserEvents,
 } from '../../api.ts'
 import type { BrowserSessionStatus, BrowserViewport } from '../../../shared/types.ts'
@@ -68,7 +67,7 @@ function viewportKey(viewport: BrowserViewport): string {
   return `${viewport.width}x${viewport.height}`
 }
 
-/** Human-driven browser surface: an address bar, a livecast view, and an iframe fallback. */
+/** Human-driven browser surface backed by an automatically started live browser. */
 export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   browserId: string
   onUrlCommit: (url: string) => void
@@ -76,7 +75,6 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   workspacePath: string
 }) {
   const [address, setAddress] = useState(url)
-  const [reloadNonce, setReloadNonce] = useState(0)
   const [status, setStatus] = useState<BrowserSessionStatus>({ state: 'off' })
   const [hasFrame, setHasFrame] = useState(false)
   const [zoomMode, setZoomMode] = useState<'auto' | 'natural'>('auto')
@@ -88,10 +86,12 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   const liveSurfaceRef = useRef<HTMLDivElement>(null)
   const liveRef = useRef(false)
   const onUrlCommitRef = useRef(onUrlCommit)
+  const requestedUrlRef = useRef(url)
   const lastMoveSentRef = useRef(0)
   const live = status.state === 'live'
   liveRef.current = live
   onUrlCommitRef.current = onUrlCommit
+  requestedUrlRef.current = url
 
   useEffect(() => setAddress(url), [url])
 
@@ -133,7 +133,9 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   useEffect(() => {
     setStatus({ state: 'off' })
     setHasFrame(false)
-    return subscribeBrowserEvents(target, {
+    const initialUrl = requestedUrlRef.current
+    let active = true
+    const unsubscribe = subscribeBrowserEvents(target, {
       // Frames bypass React state: writing the data URL straight to the image
       // avoids a full component re-render at frame rate.
       onFrame: (data) => {
@@ -147,6 +149,17 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
         if (next.state !== 'live') setHasFrame(false)
       },
     })
+    void startBrowserSession(target)
+      .then((next) => {
+        if (!active) return
+        setStatus(next)
+        if (initialUrl && initialUrl !== next.url) return navigateBrowser(target, initialUrl)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+      unsubscribe()
+    }
   }, [target])
 
   useEffect(() => {
@@ -192,6 +205,14 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
     }
   }, [live, target])
 
+  function navigateWhenReady(next: string): void {
+    if (live) {
+      void navigateBrowser(target, next).catch(() => {})
+      return
+    }
+    void startBrowserSession(target).then(() => navigateBrowser(target, next)).catch(() => {})
+  }
+
   function navigate(event: FormEvent): void {
     event.preventDefault()
     const next = normalizeBrowserUrl(address)
@@ -199,15 +220,12 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
       setAddress(url)
       return
     }
-    if (next === url) setReloadNonce((current) => current + 1)
     onUrlCommit(next)
-    if (live) void navigateBrowser(target, next).catch(() => {})
+    navigateWhenReady(next)
   }
 
   function reload(): void {
-    if (!url) return
-    if (live) void navigateBrowser(target, url).catch(() => {})
-    else setReloadNonce((current) => current + 1)
+    if (url) navigateWhenReady(url)
   }
 
   function pageCoordinates(event: { clientX: number; clientY: number }): { x: number; y: number } {
@@ -358,16 +376,6 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
             ↗
           </a>
         )}
-        <button
-          className={`browser-live-toggle${live ? ' active' : ''}`}
-          onClick={() => {
-            if (live) void stopBrowserSession(target).catch(() => {})
-            else void startBrowserSession(target).catch(() => {})
-          }}
-          type='button'
-        >
-          {live ? 'Stop' : status.state === 'starting' ? 'Starting…' : 'Go live'}
-        </button>
       </form>
       {status.state === 'crashed' && status.error && (
         <p className='browser-session-error' role='alert'>
@@ -375,78 +383,61 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
             .error}
         </p>
       )}
-      {live
-        ? (
-          <>
-            <div
-              className={`browser-live${zoomMode === 'natural' ? ' natural' : ''}`}
-              onCompositionEnd={handleCompositionEnd}
-              onFocus={(event) => {
-                // Paste and typing need an editable focus target; the hidden
-                // compose input provides it whenever the surface itself gains
-                // focus (for example after clicking the letterboxed area).
-                if (event.target === event.currentTarget) composeInputRef.current?.focus()
-              }}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              ref={liveSurfaceRef}
-              tabIndex={0}
-            >
-              {hasFrame
-                ? (
-                  <img
-                    alt='Live browser view'
-                    className='browser-frame'
-                    decoding='async'
-                    draggable={false}
-                    onContextMenu={(event) => event.preventDefault()}
-                    onPointerDown={handlePointerDown}
-                    onPointerMove={handlePointerMove}
-                    onPointerUp={handlePointerUp}
-                    ref={frameImageRef}
-                    src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
-                  />
-                )
-                : <p className='browser-hint'>Waiting for the live browser…</p>}
-              <input
-                aria-hidden='true'
-                className='browser-compose'
-                ref={composeInputRef}
-                tabIndex={-1}
-                type='text'
-              />
-            </div>
-            <div className='browser-attach'>
-              <span>Attach browser tooling</span>
-              <code>{status.endpoint}</code>
-              <button
-                onClick={() =>
-                  void navigator.clipboard?.writeText(status.endpoint ?? '').catch(() => {})}
-                type='button'
-              >
-                Copy
-              </button>
-            </div>
-          </>
-        )
-        : url
-        ? (
-          <iframe
-            className='browser-frame browser-frame-iframe'
-            key={`${url}#${reloadNonce}`}
-            sandbox='allow-forms allow-same-origin allow-scripts'
-            src={url}
-            title={`Browser view of ${url}`}
-          />
-        )
-        : (
-          <p className='browser-hint'>
-            Enter an address above to browse, or press “Go live” to share a real browser with your
-            agent. Local development servers (for example{' '}
-            <code>localhost:3000</code>) work in both modes; frame-refusing sites need the live
-            browser.
-          </p>
-        )}
+      <div
+        className={`browser-live${zoomMode === 'natural' ? ' natural' : ''}`}
+        onCompositionEnd={handleCompositionEnd}
+        onFocus={(event) => {
+          // Paste and typing need an editable focus target; the hidden
+          // compose input provides it whenever the surface itself gains
+          // focus (for example after clicking the letterboxed area).
+          if (event.target === event.currentTarget) composeInputRef.current?.focus()
+        }}
+        onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
+        ref={liveSurfaceRef}
+        tabIndex={0}
+      >
+        {hasFrame
+          ? (
+            <img
+              alt='Live browser view'
+              className='browser-frame'
+              decoding='async'
+              draggable={false}
+              onContextMenu={(event) => event.preventDefault()}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              ref={frameImageRef}
+              src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+            />
+          )
+          : (
+            <p className='browser-hint'>
+              {status.state === 'crashed' ? 'Browser unavailable.' : 'Starting browser…'}
+            </p>
+          )}
+        <input
+          aria-hidden='true'
+          className='browser-compose'
+          ref={composeInputRef}
+          tabIndex={-1}
+          type='text'
+        />
+      </div>
+      {live && status.endpoint && (
+        <div className='browser-attach'>
+          <span>Attach browser tooling</span>
+          <code>{status.endpoint}</code>
+          <button
+            onClick={() =>
+              void navigator.clipboard?.writeText(status.endpoint ?? '').catch(() => {})}
+            type='button'
+          >
+            Copy
+          </button>
+        </div>
+      )}
     </div>
   )
 }

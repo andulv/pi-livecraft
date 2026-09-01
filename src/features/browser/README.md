@@ -1,17 +1,13 @@
 # Browser
 
-`BrowserView.tsx` renders the viewer pane's Browser tab in two modes behind one
-address bar:
-
-- **Live browser** (default offer): a workspace-scoped, backend-owned headless Chrome
-  streamed into the pane as screencast frames. The current tab uses browser ID `main`;
-  the API already accepts other IDs for later multi-browser tabs. The pane forwards pointer, wheel, and key
-  input back through the backend; the address bar drives real CDP navigation; an
-  attach strip shows the CDP endpoint (copyable) that agent browser tooling —
-  Chrome DevTools MCP as the canonical example, via `--browserUrl` — attaches to.
-  Humans and agents watch and drive the same browser.
-- **Iframe fallback** (when no live session runs): the plain sandboxed iframe for
-  frameable pages.
+`BrowserView.tsx` renders the viewer pane's Browser tab as a workspace-scoped,
+backend-owned headless Chrome streamed into the pane as screencast frames. Opening the
+pane starts the browser automatically; there is no iframe mode or manual live toggle.
+The current tab uses browser ID `main`; the API already accepts other IDs for later
+multi-browser tabs. The pane forwards pointer, wheel, and key input back through the
+backend; the address bar drives real CDP navigation; an attach strip shows the copyable
+CDP endpoint that agent browser tooling — Chrome DevTools MCP as the canonical example,
+via `--browserUrl` — attaches to. Humans and agents watch and drive the same browser.
 
 `BrowserDebugWidget.tsx` adds the right-sidebar **Browser system** panel. It polls
 `GET /api/browser/debug` only while mounted and groups every registered browser instance
@@ -41,11 +37,9 @@ screencast as a viewer.
   viewport changes while live. The zoom control picks `Auto` (frames scale to the
   pane, with a live percentage readout) or `100%` (natural frame size, scrollable).
 - URL state (`App.tsx`, persisted by workspace path and browser ID) stays in sync
-  with the live browser through `url` stream events, so switching between live and
-  iframe modes keeps the current page. While focus is inside the browser pane,
-  application-level command shortcuts are disabled so native address-bar editing and
-  browser input take precedence.
-- Framing limits apply only to the iframe mode: sites sending
-  `X-Frame-Options`/`frame-ancestors` refuse to render there — the live browser
-  shows any site, and ↗ opens the current URL in a real window. No search engine;
+  with the live browser through `url` stream events. While focus is inside the browser
+  pane, application-level command shortcuts are disabled so native address-bar editing
+  and browser input take precedence.
+- The live browser can show sites that reject framing through `X-Frame-Options` or
+  `frame-ancestors`; ↗ opens the current URL in a separate window. No search engine;
   IME composition commits through `insertText`.

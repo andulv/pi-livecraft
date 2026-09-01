@@ -6,7 +6,7 @@ Start with the area that owns the behavior. Read `App.tsx` only when state coord
 
 - `workspace/` selects directories and creates, reopens, or switches sessions. See [workspace and sessions](/src/features/workspace/README.md).
 - `files/` browses the selected workspace's files and previews them beside the conversation, rendering Markdown through the shared conversation renderer. See [workspace files](/src/features/files/README.md).
-- `browser/` renders workspace-scoped browser instances in the viewer pane, with a CDP livecast and sandboxed iframe fallback. See [browser](/src/features/browser/README.md).
+- `browser/` renders automatically started, workspace-scoped CDP browser livecasts in the viewer pane. See [browser](/src/features/browser/README.md).
 - `composer/` prepares prompts, images, slash commands, and per-session drafts. See [composer](/src/features/composer/README.md).
 - `conversation/` owns the selected session's snapshot, live-event replay, streaming state, activity, usage, tool calls, file previews, and contextual message/tool actions. See [conversation](/src/features/conversation/README.md), [conversation actions](/docs/HOW-TO-CONVERSATION-ACTION.md), and [tool presentations](/docs/HOW-TO-TOOL-PRESENTATION.md).
 - `dialogs/` handles generic Pi UI requests and versioned specialized requests sent by Pi extensions. See [extension dialogs](/src/features/dialogs/README.md).
