@@ -1,17 +1,17 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  clampFilePaneWidth,
-  defaultFilePaneWidth,
-  maxFilePaneWidth,
-  minFilePaneWidth,
-  readFilePaneWidth,
+  clampFilePaneShare,
+  defaultFilePaneShare,
+  maxFilePaneShare,
+  minFilePaneShare,
+  readFilePaneShare,
 } from '../src/features/files/file-pane-width.ts'
 
-test('bounds and restores the file pane width', () => {
-  assert.equal(clampFilePaneWidth(100), minFilePaneWidth)
-  assert.equal(clampFilePaneWidth(9999), maxFilePaneWidth)
-  assert.equal(clampFilePaneWidth(320.6), 321)
-  assert.equal(readFilePaneWidth(null), defaultFilePaneWidth)
-  assert.equal(readFilePaneWidth('invalid'), defaultFilePaneWidth)
+test('bounds and restores the file pane share', () => {
+  assert.equal(clampFilePaneShare(0.1), minFilePaneShare)
+  assert.equal(clampFilePaneShare(0.9), maxFilePaneShare)
+  assert.equal(clampFilePaneShare(0.4264), 0.426)
+  assert.equal(readFilePaneShare(null), defaultFilePaneShare)
+  assert.equal(readFilePaneShare('invalid'), defaultFilePaneShare)
 })

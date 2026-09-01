@@ -1,12 +1,13 @@
-export const defaultFilePaneWidth = 480
-export const minFilePaneWidth = 280
-export const maxFilePaneWidth = 960
+export const defaultFilePaneShare = 0.5
+export const minFilePaneShare = 0.25
+export const maxFilePaneShare = 0.75
 
-export function clampFilePaneWidth(width: number): number {
-  if (!Number.isFinite(width)) return defaultFilePaneWidth
-  return Math.min(maxFilePaneWidth, Math.max(minFilePaneWidth, Math.round(width)))
+export function clampFilePaneShare(share: number): number {
+  if (!Number.isFinite(share)) return defaultFilePaneShare
+  const bounded = Math.min(maxFilePaneShare, Math.max(minFilePaneShare, share))
+  return Math.round(bounded * 1_000) / 1_000
 }
 
-export function readFilePaneWidth(value: string | null): number {
-  return value === null ? defaultFilePaneWidth : clampFilePaneWidth(Number(value))
+export function readFilePaneShare(value: string | null): number {
+  return value === null ? defaultFilePaneShare : clampFilePaneShare(Number(value))
 }

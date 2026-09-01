@@ -8,7 +8,7 @@ import {
 import { Markdown } from '../conversation/Markdown.tsx'
 import { BrowserView } from '../browser/BrowserView.tsx'
 import { getWorkspaceFile } from '../../api.ts'
-import { maxFilePaneWidth, minFilePaneWidth } from './file-pane-width.ts'
+import { maxFilePaneShare, minFilePaneShare } from './file-pane-width.ts'
 
 interface FileState {
   content: string
@@ -30,7 +30,7 @@ export function FileContentPane({
   onOpenBrowser,
   onResize,
   openPaths,
-  width,
+  share,
   workspacePath,
 }: {
   activePath: string | null
@@ -44,9 +44,9 @@ export function FileContentPane({
   onClose: (path: string) => void
   onCloseBrowser: () => void
   onOpenBrowser: () => void
-  onResize: (width: number) => void
+  onResize: (share: number) => void
   openPaths: readonly string[]
-  width: number
+  share: number
   workspacePath: string
 }) {
   const [files, setFiles] = useState<Record<string, FileState>>({})
@@ -95,12 +95,19 @@ export function FileContentPane({
   /** Installs temporary listeners needed for pane pointer resizing. */
   function startResize(event: ReactPointerEvent<HTMLDivElement>): void {
     const handle = event.currentTarget
+    const workspace = handle.closest<HTMLElement>('.workspace')
+    const pane = handle.parentElement
+    if (!workspace || !pane) return
+
+    const workspaceWidth = workspace.getBoundingClientRect().width
+    const initialPaneWidth = pane.getBoundingClientRect().width
     const initialX = event.clientX
-    const initialWidth = width
+    if (workspaceWidth <= 0) return
+
     handle.setPointerCapture(event.pointerId)
 
     const resize = (moveEvent: PointerEvent): void =>
-      onResize(initialWidth + initialX - moveEvent.clientX)
+      onResize((initialPaneWidth + initialX - moveEvent.clientX) / workspaceWidth)
     const stop = (): void => {
       handle.removeEventListener('pointermove', resize)
       handle.removeEventListener('pointerup', stop)
@@ -115,18 +122,18 @@ export function FileContentPane({
   }
 
   function resizeWithKeyboard(event: ReactKeyboardEvent<HTMLDivElement>): void {
-    const adjustment = event.key === 'ArrowLeft' ? 16 : event.key === 'ArrowRight' ? -16 : 0
+    const adjustment = event.key === 'ArrowLeft' ? 0.02 : event.key === 'ArrowRight' ? -0.02 : 0
     if (adjustment) {
       event.preventDefault()
-      onResize(width + adjustment)
+      onResize(share + adjustment)
     }
     if (event.key === 'Home') {
       event.preventDefault()
-      onResize(minFilePaneWidth)
+      onResize(minFilePaneShare)
     }
     if (event.key === 'End') {
       event.preventDefault()
-      onResize(maxFilePaneWidth)
+      onResize(maxFilePaneShare)
     }
   }
   return (
@@ -134,9 +141,10 @@ export function FileContentPane({
       <div
         aria-label='Resize file preview pane'
         aria-orientation='vertical'
-        aria-valuemax={maxFilePaneWidth}
-        aria-valuemin={minFilePaneWidth}
-        aria-valuenow={width}
+        aria-valuemax={maxFilePaneShare * 100}
+        aria-valuemin={minFilePaneShare * 100}
+        aria-valuenow={Math.round(share * 100)}
+        aria-valuetext={`${Math.round(share * 100)}% of workspace`}
         className='file-pane-resize-handle'
         onKeyDown={resizeWithKeyboard}
         onPointerDown={startResize}

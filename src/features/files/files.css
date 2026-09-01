@@ -396,12 +396,6 @@
   text-align: center;
 }
 
-@media (max-width: 1200px) {
-  .file-content-pane {
-    flex-basis: 38%;
-    min-width: 250px;
-  }
-}
 @media (max-width: 900px) {
   .file-content-pane {
     display: none;

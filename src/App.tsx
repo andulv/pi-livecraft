@@ -72,7 +72,7 @@ import { sidebarSessions } from './features/workspace/sidebar-sessions.ts'
 import { useWorkspaceSessions } from './features/workspace/useWorkspaceSessions.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
 import { FileContentPane } from './features/files/FileContentPane.tsx'
-import { clampFilePaneWidth, readFilePaneWidth } from './features/files/file-pane-width.ts'
+import { clampFilePaneShare, readFilePaneShare } from './features/files/file-pane-width.ts'
 import {
   primaryBrowserId,
   readBrowserUrl,
@@ -328,8 +328,8 @@ function LivecraftProjectApp(
         .getItem('pi-livecraft.git-sidebar-width'),
     )
   )
-  const [filePaneWidth, setFilePaneWidth] = useState(() =>
-    readFilePaneWidth(window.localStorage.getItem('pi-livecraft.file-pane-width'))
+  const [filePaneShare, setFilePaneShare] = useState(() =>
+    readFilePaneShare(window.localStorage.getItem('pi-livecraft.file-pane-share'))
   )
 
   // Preferences and commands
@@ -610,10 +610,10 @@ function LivecraftProjectApp(
     setWorkspaceSidebarWidth(nextWidth)
   }, [])
 
-  const updateFilePaneWidth = useCallback((width: number) => {
-    const nextWidth = clampFilePaneWidth(width)
-    window.localStorage.setItem('pi-livecraft.file-pane-width', String(nextWidth))
-    setFilePaneWidth(nextWidth)
+  const updateFilePaneShare = useCallback((share: number) => {
+    const nextShare = clampFilePaneShare(share)
+    window.localStorage.setItem('pi-livecraft.file-pane-share', String(nextShare))
+    setFilePaneShare(nextShare)
   }, [])
 
   const toggleWorkspaceSidebar = useCallback(() => {
@@ -1452,7 +1452,7 @@ function LivecraftProjectApp(
         '--project-color': project.color,
         '--right-sidebar-width': `${rightSidebarWidth}px`,
         '--workspace-sidebar-width': `${workspaceSidebarWidth}px`,
-        '--file-pane-width': `${filePaneWidth}px`,
+        '--file-pane-share': `${filePaneShare * 100}%`,
       } as CSSProperties}
     >
       <WorkspaceSidebar
@@ -1765,8 +1765,8 @@ function LivecraftProjectApp(
             setBrowserOpen(true)
             setActivePaneView({ kind: 'browser', browserId })
           }}
-          onResize={updateFilePaneWidth}
-          width={filePaneWidth}
+          onResize={updateFilePaneShare}
+          share={filePaneShare}
           onClose={(path) => {
             setOpenFilePaths((current) => current.filter((candidate) => candidate !== path))
             setActivePaneView((current) => {
