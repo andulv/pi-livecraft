@@ -169,12 +169,6 @@ button:disabled, select:disabled {
   .sidebar-action:focus-visible {
     background: color-mix(in srgb, var(--ink) 6%, transparent);
   }
-  .session-item:hover {
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
-  }
-  .session-item.selected {
-    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  }
   .new-session:not(:disabled) {
     box-shadow:
       0 2px 0 color-mix(in srgb, var(--accent-hover) 35%, black),

@@ -4,12 +4,6 @@
   .activity-signal.compacting svg {
     animation: none;
   }
-  .session-item.working strong,
-  .session-item.compacting strong,
-  .session-item.waiting strong,
-  .session-item.complete:not(.selected) {
-    animation: none;
-  }
   .rail-tab {
     transition: none;
   }

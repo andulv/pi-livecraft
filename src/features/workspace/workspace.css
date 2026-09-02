@@ -780,7 +780,7 @@
     box-shadow 180ms ease,
     transform 180ms ease;
 }
-.session-item:hover:not(:disabled) {
+.session-item:not(.selected):hover:not(:disabled) {
   border-left-color: color-mix(in srgb, var(--secondary) 44%, transparent);
   background: color-mix(in srgb, var(--secondary) 9%, transparent);
 }
@@ -796,13 +796,15 @@
   cursor: not-allowed;
   transform: none;
 }
+/* Selection is a stronger shade of the same hover treatment so the chosen row
+   stays unmistakable, including while hovered. */
 .session-item.selected {
   border-left-color: color-mix(in srgb, var(--secondary) 62%, transparent);
-  background: var(--secondary-soft);
+  background: color-mix(in srgb, var(--secondary) 16%, transparent);
 }
-.session-item.selected.compacting {
-  border-left-color: color-mix(in srgb, var(--warning) 55%, transparent);
-  background: color-mix(in srgb, var(--warning) 20%, var(--surface));
+/* The dark palette needs a slightly stronger tint for the same clarity. */
+[data-theme="dark"] .session-item.selected {
+  background: color-mix(in srgb, var(--secondary) 22%, transparent);
 }
 .session-status-slot {
   display: inline-flex;
@@ -837,11 +839,7 @@
   letter-spacing: -0.01em;
 }
 .session-item.selected strong {
-  color: var(--accent-hover);
   font-weight: 700;
-}
-.session-item.selected:not(.working):not(.waiting):not(.compacting) strong {
-  color: color-mix(in srgb, var(--secondary) 76%, var(--ink));
 }
 .session-item.archived {
   background: transparent;
@@ -893,26 +891,10 @@
   font: 10px/1.3 ui-monospace, monospace;
 }
 
-/* Activity is communicated by colour and a static dot; selection carries text weight. */
-.session-item.working strong {
-  color: var(--accent);
-}
-.session-item.compacting strong {
-  color: var(--warning-strong);
-}
-.session-item.waiting strong {
-  color: var(--secondary);
-}
-.session-item.archived.working strong,
-.session-item.archived.compacting strong,
-.session-item.archived.waiting strong {
-  color: var(--muted);
-}
+/* Activity lives in the status indicator alone; the row keeps its normal colours,
+   and selection is carried by the row background and text weight. */
 
 /* completion — keep the normal row surface and emphasize the result */
-.session-item.complete:not(.selected) strong {
-  color: var(--success);
-}
 .session-item.complete:not(.selected) .session-status-indicator.complete {
   color: var(--success);
 }

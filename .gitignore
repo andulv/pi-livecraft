@@ -8,3 +8,4 @@ dist/
 .idea/
 .vscode/settings.json
 .DS_Store
+.playwright-cli/
