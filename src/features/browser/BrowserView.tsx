@@ -88,6 +88,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   const liveRef = useRef(false)
   const onUrlCommitRef = useRef(onUrlCommit)
   const requestedUrlRef = useRef(url)
+  const didInitialNavigateRef = useRef(false)
   const lastMoveSentRef = useRef(0)
   const documentVisible = useDocumentVisible()
   const live = status.state === 'live'
@@ -132,14 +133,28 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
     if (preset) void setBrowserViewport(target, preset.viewport).catch(() => {})
   }, [status, target, viewportChoice])
 
+  // Reset the pane only when the target instance changes; returning from a
+  // hidden document keeps the last frame and status until fresh events arrive.
+  const previousTargetRef = useRef(target)
   useEffect(() => {
-    // Hidden documents cannot watch frames: closing the stream releases the
-    // backend viewer so the screencast stops, and returning re-subscribes (the
-    // start call is idempotent) for a fresh status and frame.
-    if (!documentVisible) return
+    if (previousTargetRef.current === target) return
+    previousTargetRef.current = target
     setStatus({ state: 'off' })
     setHasFrame(false)
+    didInitialNavigateRef.current = false
+  }, [target])
+
+  useEffect(() => {
+    // Hidden documents cannot watch frames: closing the stream releases the
+    // backend viewer so the screencast stops. Returning re-subscribes silently —
+    // the last frame stays visible (Firefox reconnects event streams lazily) —
+    // and the idempotent start call revives a browser that stopped while
+    // nobody watched. The remembered URL is applied once per instance, so a
+    // page moved by attached tooling while hidden is never navigated back.
+    if (!documentVisible) return
     const initialUrl = requestedUrlRef.current
+    const shouldNavigateInitial = !didInitialNavigateRef.current
+    didInitialNavigateRef.current = true
     let active = true
     const unsubscribe = subscribeBrowserEvents(target, {
       // Frames bypass React state: writing the data URL straight to the image
@@ -159,7 +174,9 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
       .then((next) => {
         if (!active) return
         setStatus(next)
-        if (initialUrl && initialUrl !== next.url) return navigateBrowser(target, initialUrl)
+        if (shouldNavigateInitial && initialUrl && initialUrl !== next.url) {
+          return navigateBrowser(target, initialUrl)
+        }
       })
       .catch(() => {})
     return () => {
