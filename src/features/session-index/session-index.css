@@ -79,7 +79,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.session-index-copy time {
+.session-index-when {
+  display: flex;
+  gap: 4px;
   overflow: hidden;
   color: var(--muted);
   font: 9px ui-monospace, monospace;

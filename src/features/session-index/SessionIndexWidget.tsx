@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { JsonObject } from '../../../shared/types.ts'
 import type { ConversationNavigationTarget } from '../conversation/conversation-navigation.ts'
-import { formatDuration, formatTokens } from '../conversation/message-usage.ts'
+import { formatTokens } from '../conversation/message-usage.ts'
 import { WidgetLayout } from '../right-sidebar/WidgetLayout.tsx'
 import { sessionIndexEntries, type SessionIndexMetrics } from './session-index.ts'
 
@@ -78,7 +78,20 @@ export function SessionIndexWidget(
                             {formatTurnMetrics(entry.metrics)}
                           </span>
                         )}
-                        {time && <time dateTime={time.dateTime}>{time.label}</time>}
+                        {(time || entry.metrics?.durationMs !== undefined) && (
+                          <span className='session-index-when'>
+                            {time && <time dateTime={time.dateTime}>{time.label}</time>}
+                            {entry.metrics?.durationMs !== undefined && (
+                              <span aria-hidden='true'>
+                                ({formatDurationLabel(
+                                  entry
+                                    .metrics
+                                    .durationMs,
+                                )})
+                              </span>
+                            )}
+                          </span>
+                        )}
                       </span>
                     </button>
                   </li>
@@ -102,7 +115,6 @@ function formatTurnMetrics(metrics: SessionIndexMetrics): string {
       : ''
     parts.push(`${count(metrics.toolCalls, 'tool call')}${failed}`)
   }
-  if (metrics.durationMs !== undefined) parts.push(formatDuration(metrics.durationMs))
   const totalIn = metrics.cacheMiss + metrics.cacheRead + metrics.cacheWrite
   if (totalIn > 0) {
     const cachedPercent = metrics.cacheRead > 0
@@ -112,6 +124,18 @@ function formatTurnMetrics(metrics: SessionIndexMetrics): string {
   }
   if (metrics.output > 0) parts.push(`out ${formatTokens(metrics.output)}`)
   return parts.join(' · ')
+}
+
+/** Formats a duration in minutes and seconds, keeping index rows readable. */
+function formatDurationLabel(durationMs: number): string {
+  if (durationMs < 1_000) return `${Math.round(durationMs)} ms`
+  const totalSeconds = Math.round(durationMs / 1_000)
+  if (totalSeconds < 60) return `${totalSeconds}s`
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  if (minutes < 60) return `${minutes}m ${String(seconds).padStart(2, '0')}s`
+  const hours = Math.floor(minutes / 60)
+  return `${hours}h ${String(minutes % 60).padStart(2, '0')}m`
 }
 
 function timeForDisplay(
