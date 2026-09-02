@@ -838,7 +838,7 @@
 }
 .session-item.selected strong {
   color: var(--accent-hover);
-  font-weight: 400;
+  font-weight: 700;
 }
 .session-item.selected:not(.working):not(.waiting):not(.compacting) strong {
   color: color-mix(in srgb, var(--secondary) 76%, var(--ink));
@@ -853,9 +853,14 @@
 .session-item.archived strong,
 .session-item.archived.selected strong {
   color: var(--muted);
-  font-weight: 400;
   text-decoration: line-through;
   text-decoration-thickness: 1px;
+}
+.session-item.archived strong {
+  font-weight: 400;
+}
+.session-item.archived.selected strong {
+  font-weight: 700;
 }
 .archived-session-icon {
   flex: 0 0 auto;
@@ -888,13 +893,7 @@
   font: 10px/1.3 ui-monospace, monospace;
 }
 
-/* working / compacting text pulse */
-.session-item.working strong,
-.session-item.compacting strong,
-.session-item.waiting strong {
-  font-weight: 650;
-  animation: activity-text-breathe 1.8s ease-in-out infinite;
-}
+/* Activity is communicated by colour and a static dot; selection carries text weight. */
 .session-item.working strong {
   color: var(--accent);
 }
@@ -908,14 +907,11 @@
 .session-item.archived.compacting strong,
 .session-item.archived.waiting strong {
   color: var(--muted);
-  font-weight: 400;
-  animation: none;
 }
 
 /* completion — keep the normal row surface and emphasize the result */
 .session-item.complete:not(.selected) strong {
   color: var(--success);
-  font-weight: 650;
 }
 .session-item.complete:not(.selected) .session-status-indicator.complete {
   color: var(--success);
@@ -927,9 +923,7 @@
   flex: 0 0 auto;
 }
 .session-status-indicator.working {
-  background: var(--accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
-  animation: session-status-pulse 1.8s ease-out infinite;
+  background: var(--danger);
 }
 .session-status-indicator.idle {
   width: 8px;
@@ -949,7 +943,6 @@
   width: 14px;
   height: 14px;
   display: block;
-  animation: compact-gear-spin 2s linear infinite;
 }
 .session-status-indicator.waiting {
   width: 14px;
@@ -958,7 +951,6 @@
   background: none;
   box-shadow: none;
   color: var(--secondary);
-  animation: activity-text-breathe 1.8s ease-in-out infinite;
 }
 .session-status-indicator.waiting svg {
   width: 14px;
@@ -978,12 +970,6 @@
   height: 14px;
   display: block;
 }
-@keyframes session-status-pulse {
-  50% {
-    box-shadow: 0 0 0 7px transparent;
-    transform: scale(1.08);
-  }
-}
 .empty-sidebar {
   padding: 14px;
   color: var(--muted);
@@ -996,12 +982,6 @@
   padding: 6px 10px;
   color: var(--muted);
   font-size: 12px;
-  animation: activity-text-breathe 1.8s ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .session-list-loading {
-    animation: none;
-  }
 }
 
 .directory-picker {
