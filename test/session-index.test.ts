@@ -76,6 +76,66 @@ test('keeps the final assistant response of each turn as a muted preview', () =>
   assert.equal(entries[2]?.assistant, undefined)
 })
 
+test('aggregates per-turn activity metrics for each user message', () => {
+  const usage = (input: number, cacheRead: number, output: number) => ({
+    usage: { input, cacheRead, output, cost: { total: 0.01 } },
+  })
+  const entries = sessionIndexEntries(
+    [
+      { role: 'user', timestamp: 100, content: 'Fix the bug.' },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'toolCall', id: 'call_ok', name: 'read', arguments: {} },
+          { type: 'toolCall', id: 'call_bad', name: 'bash', arguments: {} },
+        ],
+        ...usage(100, 1_000, 10),
+      },
+      {
+        role: 'toolResult',
+        toolCallId: 'call_ok',
+        toolName: 'read',
+        content: 'ok',
+        ...usage(50, 500, 5),
+      },
+      {
+        role: 'toolResult',
+        toolCallId: 'call_bad',
+        toolName: 'bash',
+        content: 'failed',
+        isError: true,
+        ...usage(20, 200, 2),
+      },
+      { role: 'assistant', content: [{ type: 'text', text: 'Done.' }], ...usage(200, 2_000, 20) },
+      { role: 'user', timestamp: 200, content: 'Thanks.' },
+      { role: 'assistant', content: [{ type: 'text', text: 'Sure.' }], ...usage(10, 0, 5) },
+      { role: 'user', timestamp: 300, content: 'Pending.' },
+    ],
+    { requestDurations: new Map([[100, 1_500]]) },
+  )
+
+  assert.deepEqual(entries[0]?.metrics, {
+    turns: 2,
+    toolCalls: 2,
+    failedToolCalls: 1,
+    cacheMiss: 370,
+    cacheRead: 3_700,
+    cacheWrite: 0,
+    output: 37,
+    durationMs: 1_500,
+  })
+  assert.deepEqual(entries[1]?.metrics, {
+    turns: 1,
+    toolCalls: 0,
+    failedToolCalls: 0,
+    cacheMiss: 10,
+    cacheRead: 0,
+    cacheWrite: 0,
+    output: 5,
+  })
+  assert.equal(entries[2]?.metrics, undefined)
+})
+
 test('prefers the first Markdown heading of the final response and strips markup', () => {
   const entries = sessionIndexEntries([
     { role: 'user', content: 'Plan it.' },

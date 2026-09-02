@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import type { JsonObject } from '../../../shared/types.ts'
 import type { ConversationNavigationTarget } from '../conversation/conversation-navigation.ts'
+import { formatDuration, formatTokens } from '../conversation/message-usage.ts'
 import { WidgetLayout } from '../right-sidebar/WidgetLayout.tsx'
-import { sessionIndexEntries } from './session-index.ts'
+import { sessionIndexEntries, type SessionIndexMetrics } from './session-index.ts'
 
 /** Lists the current session's user messages as navigable conversation anchors. */
 export function SessionIndexWidget(
@@ -10,15 +11,20 @@ export function SessionIndexWidget(
     activeSessionId,
     messages,
     onNavigate,
+    requestDurations,
     sessionMessagesAvailable,
   }: {
     activeSessionId: string
     messages: readonly JsonObject[]
     onNavigate: (target: ConversationNavigationTarget) => void
+    requestDurations: ReadonlyMap<number, number>
     sessionMessagesAvailable: boolean
   },
 ) {
-  const entries = useMemo(() => sessionIndexEntries(messages), [messages])
+  const entries = useMemo(
+    () => sessionIndexEntries(messages, { requestDurations }),
+    [messages, requestDurations],
+  )
   const subtitle = !activeSessionId
     ? 'No session selected'
     : !sessionMessagesAvailable
@@ -67,6 +73,11 @@ export function SessionIndexWidget(
                               .preview}
                           </span>
                         )}
+                        {entry.metrics && (
+                          <span aria-hidden='true' className='session-index-meta'>
+                            {formatTurnMetrics(entry.metrics)}
+                          </span>
+                        )}
                         {time && <time dateTime={time.dateTime}>{time.label}</time>}
                       </span>
                     </button>
@@ -78,6 +89,24 @@ export function SessionIndexWidget(
       </div>
     </WidgetLayout>
   )
+}
+
+/** Builds a compact, monospace summary of what the agent did during one turn. */
+function formatTurnMetrics(metrics: SessionIndexMetrics): string {
+  const count = (value: number, word: string) => `${value} ${word}${value === 1 ? '' : 's'}`
+  const parts: string[] = []
+  if (metrics.turns > 0) parts.push(count(metrics.turns, 'turn'))
+  if (metrics.toolCalls > 0) parts.push(count(metrics.toolCalls, 'tool call'))
+  if (metrics.durationMs !== undefined) parts.push(formatDuration(metrics.durationMs))
+  if (metrics.cacheMiss > 0 || metrics.cacheRead > 0 || metrics.cacheWrite > 0) {
+    const cached = metrics.cacheRead > 0
+      ? `, ${formatTokens(metrics.cacheRead)} cached`
+      : ''
+    parts.push(`in ${formatTokens(metrics.cacheMiss + metrics.cacheWrite)}${cached}`)
+  }
+  if (metrics.output > 0) parts.push(`out ${formatTokens(metrics.output)}`)
+  if (metrics.failedToolCalls > 0) parts.push(count(metrics.failedToolCalls, 'failure'))
+  return parts.join(' · ')
 }
 
 function timeForDisplay(

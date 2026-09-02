@@ -1,5 +1,7 @@
 import type { JsonObject } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
+import { messageUsage } from '../conversation/message-usage.ts'
+import { toolCallsInMessage, toolResultInMessage } from '../conversation/tool-protocol.ts'
 
 const maxSessionIndexPreviewLength = 180
 const maxAssistantPreviewLength = 120
@@ -9,24 +11,52 @@ export interface SessionIndexAssistant {
   preview: string
 }
 
+export interface SessionIndexMetrics {
+  turns: number
+  toolCalls: number
+  failedToolCalls: number
+  cacheMiss: number
+  cacheRead: number
+  cacheWrite: number
+  output: number
+  durationMs?: number
+}
+
 export interface SessionIndexEntry {
   messageIndex: number
   number: number
   preview: string
   timestamp?: number
   assistant?: SessionIndexAssistant
+  metrics?: SessionIndexMetrics
+}
+
+interface SessionIndexTelemetry {
+  requestDurations?: ReadonlyMap<number, number>
 }
 
 /** Derives chronological turn anchors from a selected session snapshot.
  *
  * Each user message opens a turn. The entry keeps the final assistant response
- * of that turn as a muted preview so turns stay recognizable without reproducing
- * every assistant message, tool call, or tool result. */
-export function sessionIndexEntries(messages: readonly JsonObject[]): SessionIndexEntry[] {
+ * of that turn as a muted preview and accumulates what the agent did in that
+ * turn — assistant turns, tool calls and failures, billed tokens, and the
+ * observed duration when it was measured during this run. */
+export function sessionIndexEntries(
+  messages: readonly JsonObject[],
+  telemetry: SessionIndexTelemetry = {},
+): SessionIndexEntry[] {
   const entries: SessionIndexEntry[] = []
   let current: SessionIndexEntry | undefined
+  let metrics: SessionIndexMetrics | undefined
+
+  const closeTurn = () => {
+    if (current && metrics && hasTurnActivity(metrics)) current.metrics = { ...metrics }
+    metrics = undefined
+  }
+
   for (const [messageIndex, message] of messages.entries()) {
     if (message.role === 'user') {
+      closeTurn()
       const timestamp = messageTimestamp(message)
       current = {
         messageIndex,
@@ -35,16 +65,66 @@ export function sessionIndexEntries(messages: readonly JsonObject[]): SessionInd
         ...(timestamp === undefined ? {} : { timestamp }),
       }
       entries.push(current)
+      const durationMs = timestamp === undefined
+        ? undefined
+        : telemetry.requestDurations?.get(timestamp)
+      metrics = emptyMetrics(durationMs)
       continue
     }
-    if (message.role === 'assistant' && current) {
+    if (!current) continue
+    metrics ??= emptyMetrics()
+
+    if (message.role === 'assistant') {
+      const usage = messageUsage(message)
+      if (usage) {
+        metrics.turns += 1
+        addUsage(metrics, usage)
+      }
+      metrics.toolCalls += toolCallsInMessage(message).length
       const text = assistantMessageText(message)
-      if (!text.trim()) continue
-      const preview = firstResponseLine(text)
-      if (preview) current.assistant = { messageIndex, preview }
+      if (text.trim()) {
+        const preview = firstResponseLine(text)
+        if (preview) current.assistant = { messageIndex, preview }
+      }
+      continue
+    }
+
+    if (message.role === 'toolResult') {
+      const usage = messageUsage(message)
+      if (usage) addUsage(metrics, usage)
+      if (toolResultInMessage(message)?.isError) metrics.failedToolCalls += 1
     }
   }
+  closeTurn()
   return entries
+}
+
+function emptyMetrics(durationMs?: number): SessionIndexMetrics {
+  return {
+    turns: 0,
+    toolCalls: 0,
+    failedToolCalls: 0,
+    cacheMiss: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    output: 0,
+    ...(durationMs === undefined ? {} : { durationMs }),
+  }
+}
+
+function hasTurnActivity(metrics: SessionIndexMetrics): boolean {
+  return metrics.turns > 0 || metrics.toolCalls > 0 || metrics.cacheMiss > 0
+    || metrics.cacheRead > 0 || metrics.cacheWrite > 0 || metrics.output > 0
+}
+
+function addUsage(
+  metrics: SessionIndexMetrics,
+  usage: { cacheMiss: number; cacheRead: number; cacheWrite: number; output: number },
+): void {
+  metrics.cacheMiss += usage.cacheMiss
+  metrics.cacheRead += usage.cacheRead
+  metrics.cacheWrite += usage.cacheWrite
+  metrics.output += usage.output
 }
 
 function userMessagePreview(message: JsonObject): string {

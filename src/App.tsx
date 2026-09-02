@@ -1823,6 +1823,7 @@ function LivecraftProjectApp(
         sessionMessages={snapshot.messages}
         sessionMessagesAvailable={selectedSession !== undefined
           && snapshotSessionId === selectedSession.id}
+        sessionRequestDurations={observedRequestDurations}
         quotas={quotas}
         environment={environment}
         sessionCommands={snapshot.commands}

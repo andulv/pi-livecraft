@@ -72,6 +72,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.session-index-meta {
+  overflow: hidden;
+  color: var(--subtle);
+  font: 9px ui-monospace, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .session-index-copy time {
   overflow: hidden;
   color: var(--muted);

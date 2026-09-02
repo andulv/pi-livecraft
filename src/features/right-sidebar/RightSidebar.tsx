@@ -45,6 +45,7 @@ export function RightSidebar({
   sessionCommands,
   sessionMessages,
   sessionMessagesAvailable,
+  sessionRequestDurations,
   sessionState,
   sessionStats,
   quotas,
@@ -68,6 +69,7 @@ export function RightSidebar({
   sessionCommands: readonly JsonObject[]
   sessionMessages: readonly JsonObject[]
   sessionMessagesAvailable: boolean
+  sessionRequestDurations: ReadonlyMap<number, number>
   sessionState: JsonObject | null
   sessionStats: SessionStats | null
   quotas: QuotaSnapshot | null
@@ -156,6 +158,7 @@ export function RightSidebar({
                 activeSessionId={activeSessionId}
                 messages={sessionMessages}
                 onNavigate={onConversationNavigate}
+                requestDurations={sessionRequestDurations}
                 sessionMessagesAvailable={sessionMessagesAvailable}
               />
             )}
