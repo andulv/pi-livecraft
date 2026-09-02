@@ -82,9 +82,10 @@ test('aggregates per-turn activity metrics for each user message', () => {
   })
   const entries = sessionIndexEntries(
     [
-      { role: 'user', timestamp: 100, content: 'Fix the bug.' },
+      { role: 'user', timestamp: 1_000, content: 'Fix the bug.' },
       {
         role: 'assistant',
+        timestamp: 5_000,
         content: [
           { type: 'toolCall', id: 'call_ok', name: 'read', arguments: {} },
           { type: 'toolCall', id: 'call_bad', name: 'bash', arguments: {} },
@@ -93,6 +94,7 @@ test('aggregates per-turn activity metrics for each user message', () => {
       },
       {
         role: 'toolResult',
+        timestamp: 6_000,
         toolCallId: 'call_ok',
         toolName: 'read',
         content: 'ok',
@@ -100,20 +102,33 @@ test('aggregates per-turn activity metrics for each user message', () => {
       },
       {
         role: 'toolResult',
+        timestamp: 6_500,
         toolCallId: 'call_bad',
         toolName: 'bash',
         content: 'failed',
         isError: true,
         ...usage(20, 200, 2),
       },
-      { role: 'assistant', content: [{ type: 'text', text: 'Done.' }], ...usage(200, 2_000, 20) },
-      { role: 'user', timestamp: 200, content: 'Thanks.' },
-      { role: 'assistant', content: [{ type: 'text', text: 'Sure.' }], ...usage(10, 0, 5) },
-      { role: 'user', timestamp: 300, content: 'Pending.' },
+      {
+        role: 'assistant',
+        timestamp: 8_000,
+        content: [{ type: 'text', text: 'Done.' }],
+        ...usage(200, 2_000, 20),
+      },
+      { role: 'user', timestamp: 20_000, content: 'Thanks.' },
+      {
+        role: 'assistant',
+        timestamp: 23_000,
+        content: [{ type: 'text', text: 'Sure.' }],
+        ...usage(10, 0, 5),
+      },
+      { role: 'user', timestamp: 30_000, content: 'Pending.' },
     ],
-    { requestDurations: new Map([[100, 1_500]]) },
+    { requestDurations: new Map([[1_000, 1_500]]) },
   )
 
+  // The first turn keeps the live 1 500 ms measurement over its 7 000 ms timestamp span;
+  // the second has no live measurement and falls back to its 3 000 ms span.
   assert.deepEqual(entries[0]?.metrics, {
     turns: 2,
     toolCalls: 2,
@@ -132,6 +147,7 @@ test('aggregates per-turn activity metrics for each user message', () => {
     cacheRead: 0,
     cacheWrite: 0,
     output: 5,
+    durationMs: 3_000,
   })
   assert.equal(entries[2]?.metrics, undefined)
 })

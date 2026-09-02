@@ -96,16 +96,21 @@ function formatTurnMetrics(metrics: SessionIndexMetrics): string {
   const count = (value: number, word: string) => `${value} ${word}${value === 1 ? '' : 's'}`
   const parts: string[] = []
   if (metrics.turns > 0) parts.push(count(metrics.turns, 'turn'))
-  if (metrics.toolCalls > 0) parts.push(count(metrics.toolCalls, 'tool call'))
-  if (metrics.durationMs !== undefined) parts.push(formatDuration(metrics.durationMs))
-  if (metrics.cacheMiss > 0 || metrics.cacheRead > 0 || metrics.cacheWrite > 0) {
-    const cached = metrics.cacheRead > 0
-      ? `, ${formatTokens(metrics.cacheRead)} cached`
+  if (metrics.toolCalls > 0) {
+    const failed = metrics.failedToolCalls > 0
+      ? ` (${count(metrics.failedToolCalls, 'failed')})`
       : ''
-    parts.push(`in ${formatTokens(metrics.cacheMiss + metrics.cacheWrite)}${cached}`)
+    parts.push(`${count(metrics.toolCalls, 'tool call')}${failed}`)
+  }
+  if (metrics.durationMs !== undefined) parts.push(formatDuration(metrics.durationMs))
+  const totalIn = metrics.cacheMiss + metrics.cacheRead + metrics.cacheWrite
+  if (totalIn > 0) {
+    const cachedPercent = metrics.cacheRead > 0
+      ? ` (${Math.round(metrics.cacheRead / totalIn * 100)}% cached)`
+      : ''
+    parts.push(`in ${formatTokens(totalIn)}${cachedPercent}`)
   }
   if (metrics.output > 0) parts.push(`out ${formatTokens(metrics.output)}`)
-  if (metrics.failedToolCalls > 0) parts.push(count(metrics.failedToolCalls, 'failure'))
   return parts.join(' · ')
 }
 

@@ -40,7 +40,8 @@ interface SessionIndexTelemetry {
  * Each user message opens a turn. The entry keeps the final assistant response
  * of that turn as a muted preview and accumulates what the agent did in that
  * turn — assistant turns, tool calls and failures, billed tokens, and the
- * observed duration when it was measured during this run. */
+ * observed duration: the live measurement when the run was watched, otherwise
+ * the span from the user message to the turn's last recorded activity. */
 export function sessionIndexEntries(
   messages: readonly JsonObject[],
   telemetry: SessionIndexTelemetry = {},
@@ -48,10 +49,20 @@ export function sessionIndexEntries(
   const entries: SessionIndexEntry[] = []
   let current: SessionIndexEntry | undefined
   let metrics: SessionIndexMetrics | undefined
+  let lastActivityAt: number | undefined
 
   const closeTurn = () => {
-    if (current && metrics && hasTurnActivity(metrics)) current.metrics = { ...metrics }
+    if (current && metrics) {
+      // Prefer the live measurement; fall back to message timestamps for reopened history.
+      if (
+        metrics.durationMs === undefined && lastActivityAt !== undefined
+        && current.timestamp !== undefined && lastActivityAt > current.timestamp
+      )
+        metrics.durationMs = lastActivityAt - current.timestamp
+      if (hasTurnActivity(metrics)) current.metrics = { ...metrics }
+    }
     metrics = undefined
+    lastActivityAt = undefined
   }
 
   for (const [messageIndex, message] of messages.entries()) {
@@ -73,6 +84,8 @@ export function sessionIndexEntries(
     }
     if (!current) continue
     metrics ??= emptyMetrics()
+    const timestamp = messageTimestamp(message)
+    if (timestamp !== undefined) lastActivityAt = timestamp
 
     if (message.role === 'assistant') {
       const usage = messageUsage(message)
