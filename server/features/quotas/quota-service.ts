@@ -58,4 +58,30 @@ export class QuotaService {
       // A manual refresh remains possible once the manager is available.
     }
   }
+
+  /**
+   * Redeems one banked Codex reset through the extension command. The command
+   * refreshes the published report itself, so the manager response carries only
+   * the redemption outcome string defined by the extension.
+   */
+  async resetCodex(sessionId: string): Promise<{ ok: boolean; error?: string }> {
+    const response = await this.#manager.request({
+      action: 'command',
+      sessionId,
+      command: { type: 'prompt', message: '/livecraft-quotas-reset' },
+    }, 60_000)
+    const result = isObject(response) && typeof response.data === 'string'
+      ? response.data
+      : undefined
+    if (result === 'ok') return { ok: true }
+    if (result === 'no_credit') return { ok: false, error: 'No banked reset is available.' }
+    if (result === 'nothing_to_reset') {
+      return {
+        ok: false,
+        error: 'Nothing to reset yet — the reset stays banked. Try again when a window is in use.',
+      }
+    }
+    if (result?.startsWith('error: ')) return { ok: false, error: result.slice(7, 307) }
+    return { ok: false, error: 'The reset command returned an unexpected response.' }
+  }
 }

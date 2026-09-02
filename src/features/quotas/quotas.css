@@ -158,6 +158,49 @@
   font-size: 10px;
   text-align: right;
 }
+.quota-resets {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.quota-resets span {
+  min-width: 0;
+}
+.quota-reset-button {
+  flex: 0 0 auto;
+  height: 24px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  border-radius: 7px;
+  padding: 0 9px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: 10px;
+  font-weight: 700;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
+}
+.quota-reset-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+}
+.quota-reset-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.quota-reset-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.quota-reset-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
 .quota-peak {
   margin-top: 8px;
 }

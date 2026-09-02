@@ -18,6 +18,7 @@ import {
   pushCommits,
   refreshEnvironment,
   refreshQuotas,
+  resetCodexQuota,
   resetGitCommit,
   restartManager,
   revertGitCommit,
@@ -743,6 +744,22 @@ function LivecraftProjectApp(
         setQuotas(await refreshQuotas(sessionId, automatic))
       } catch (cause) {
         if (!automatic) showToast('error', messageOf(cause))
+        setQuotas(await getQuotas().catch(() => quotasRef.current))
+      }
+    },
+    [showToast],
+  )
+
+  /** Redeems one banked Codex reset; the extension republishes the report itself. */
+  const resetCodexQuotas = useCallback(
+    async (sessionId: string): Promise<{ ok: boolean; error?: string }> => {
+      if (!sessionId) throw new Error('An open Pi session is required to redeem a reset.')
+      try {
+        return await resetCodexQuota(sessionId)
+      } catch (cause) {
+        showToast('error', messageOf(cause))
+        return { ok: false, error: messageOf(cause) }
+      } finally {
         setQuotas(await getQuotas().catch(() => quotasRef.current))
       }
     },
@@ -1815,6 +1832,7 @@ function LivecraftProjectApp(
         railActions={railActions}
         onEnvironmentRefresh={() => refreshSessionEnvironment(selectedId)}
         onQuotaRefresh={() => refreshSessionQuotas(selectedId, false)}
+        onQuotaReset={() => resetCodexQuotas(selectedId)}
         onWidgetSelect={(widget) =>
           setActiveRightWidget((current) => {
             const next = current === widget ? null : widget

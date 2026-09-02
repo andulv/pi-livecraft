@@ -52,6 +52,7 @@ export function RightSidebar({
   railActions,
   onEnvironmentRefresh,
   onQuotaRefresh,
+  onQuotaReset,
   onWidgetSelect,
 }: {
   activeSessionId: string
@@ -74,6 +75,7 @@ export function RightSidebar({
   railActions: RailAction[]
   onEnvironmentRefresh: () => Promise<void>
   onQuotaRefresh: () => Promise<void>
+  onQuotaReset: () => Promise<{ ok: boolean; error?: string }>
   onWidgetSelect: (widget: RightWidget) => void
 }) {
   const collapsed = activeWidget === null || (activeWidget === 'analysis' && !analysis)
@@ -181,7 +183,7 @@ export function RightSidebar({
               </WidgetLayout>
             )}
             {activeWidget === 'quotas' && (
-              <QuotaWidget onRefresh={onQuotaRefresh} quotas={quotas} />
+              <QuotaWidget onRefresh={onQuotaRefresh} onReset={onQuotaReset} quotas={quotas} />
             )}
             {activeWidget === 'environment' && (
               <SessionEnvironmentWidget

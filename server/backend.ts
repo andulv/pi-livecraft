@@ -176,6 +176,14 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     return
   }
 
+  if (method === 'POST' && url.pathname === '/api/quotas/reset') {
+    const body = await readJsonBody(request)
+    if (typeof body.sessionId !== 'string' || !body.sessionId)
+      throw new HttpError(409, 'An open Pi session is required to redeem a reset.')
+    sendJson(response, 200, await quotas.resetCodex(body.sessionId))
+    return
+  }
+
   if (method === 'GET' && url.pathname === '/api/environment') {
     const sessionId = url.searchParams.get('sessionId')
     if (!sessionId) throw new HttpError(400, 'A session identifier is required.')

@@ -5,6 +5,7 @@ The quotas widget gives a quick answer to a practical question: how much of the 
 ## What it shows
 
 - OpenAI Codex five-hour and seven-day windows, with used percentage, elapsed-period progress, and reset time;
+- banked OpenAI resets — how many are available, when the soonest expires, and a confirmed "Use reset" action that redeems one through the extension's `/livecraft-quotas-reset` command (irreversible; requires an open session);
 - GitHub Copilot usage categories, with used and total values, elapsed calendar-month progress, and reset times when available;
 - time-bound usage bars stack green, yellow, and red segments to show how much usage is within pace, close to pace, or well ahead of pace; GLM web searches retain the standard bar because their period is unknown;
 - Z.AI peak-pricing hours (weekdays 14:00–18:00 UTC+8, ×3 quota; weekends exempt) on a 24-hour local-day bar: hour labels every four hours plus any peak boundaries between them, the word "peak" centered under the window, a red highlight while the current time is inside it, and a note stating the window in both local and Singapore time;

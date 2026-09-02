@@ -4,13 +4,15 @@ import {
   glmBusinessError,
   parseCopilotUsage,
   parseGlmUsage,
+  parseOpenAiResetCredits,
+  parseOpenAiResets,
   parseOpenAiUsage,
 } from '../shared/quota-parsers.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type {
   CopilotQuotaWindow,
   GlmQuotaWindow,
-  OpenAiQuotaWindow,
+  OpenAiQuotaReport,
   QuotaProviderReport,
   QuotaReport,
 } from '../shared/types.ts'
@@ -49,6 +51,15 @@ export default function registerQuotas(pi: ExtensionAPI): void {
     description: 'Refresh Pi Livecraft quotas',
     handler: async (args, ctx) => refresh(ctx, args.trim() === 'auto'),
   })
+  pi.registerCommand('livecraft-quotas-reset', {
+    description: 'Redeem one banked OpenAI Codex rate-limit reset',
+    handler: async (_args, ctx) => {
+      const result = await consumeOpenAiReset(ctx)
+      lastRefreshAt = 0
+      await refresh(ctx, false)
+      return result
+    },
+  })
 }
 
 async function publishQuotaReport(ctx: ExtensionContext): Promise<QuotaReport> {
@@ -70,25 +81,97 @@ async function publishQuotaReport(ctx: ExtensionContext): Promise<QuotaReport> {
 }
 
 /** Resolves OAuth through Pi before calling the Codex usage endpoint. */
-async function fetchOpenAiQuotas(
-  ctx: ExtensionContext,
-): Promise<QuotaProviderReport<OpenAiQuotaWindow>> {
+async function fetchOpenAiQuotas(ctx: ExtensionContext): Promise<OpenAiQuotaReport> {
   try {
-    const auth = await ctx.modelRegistry.getProviderAuth('openai-codex')
-    const credential = await readCredential(ctx, 'openai-codex')
-    const token = auth?.auth.apiKey
-    const accountId = stringField(credential, 'accountId')
-    if (!token || !accountId) return failure('OpenAI Codex connection is unavailable in Pi.')
-    const data = await fetchJson('https://chatgpt.com/backend-api/wham/usage', {
+    const credential = await openAiCredential(ctx)
+    if (!credential) return failure('OpenAI Codex connection is unavailable in Pi.')
+    const data = await fetchJson('https://chatgpt.com/backend-api/wham/usage', credential.headers)
+    const resets = parseOpenAiResets(data)
+    // The usage endpoint only carries the count; expiry needs the details endpoint.
+    // A failed detail lookup degrades to the summary instead of failing the provider.
+    const detail = resets && resets.availableCount > 0
+      ? await fetchJson(
+        'https://chatgpt.com/backend-api/wham/rate-limit-reset-credits',
+        credential.headers,
+      )
+        .catch(() => undefined)
+      : undefined
+    const nearestExpiry = detail === undefined
+      ? undefined
+      : parseOpenAiResetCredits(detail)
+        .map((credit) => credit.expiresAt)
+        .filter((expiry): expiry is number => expiry !== undefined)
+        .sort((left, right) => left - right)[0]
+    return {
+      ok: true,
+      data: parseOpenAiUsage(data),
+      ...(resets ? { resets: { ...resets, ...(nearestExpiry ? { nearestExpiry } : {}) } } : {}),
+    }
+  } catch (error) {
+    return failure(fetchError(error, 'Unable to fetch OpenAI quotas.'))
+  }
+}
+
+interface OpenAiCredential {
+  accountId: string
+  headers: Record<string, string>
+}
+
+/** Resolves the ChatGPT OAuth pair used by every Codex WHAM endpoint. */
+async function openAiCredential(ctx: ExtensionContext): Promise<OpenAiCredential | undefined> {
+  const auth = await ctx.modelRegistry.getProviderAuth('openai-codex')
+  const credential = await readCredential(ctx, 'openai-codex')
+  const token = auth?.auth.apiKey
+  const accountId = stringField(credential, 'accountId')
+  if (!token || !accountId) return undefined
+  return {
+    accountId,
+    headers: {
       Authorization: `Bearer ${token}`,
       'ChatGPT-Account-Id': accountId,
       Accept: 'application/json',
       Origin: 'https://chatgpt.com',
       Referer: 'https://chatgpt.com/',
-    })
-    return { ok: true, data: parseOpenAiUsage(data) }
+    },
+  }
+}
+
+/**
+ * Redeems the soonest-expiring available banked reset. The consume endpoint is
+ * undocumented and irreversible, so one request is made with a fresh idempotency
+ * key and no automatic retry; the caller refreshes afterwards either way.
+ */
+async function consumeOpenAiReset(ctx: ExtensionContext): Promise<string> {
+  try {
+    const credential = await openAiCredential(ctx)
+    if (!credential) return 'error: OpenAI Codex connection is unavailable in Pi.'
+    const detail = await fetchJson(
+      'https://chatgpt.com/backend-api/wham/rate-limit-reset-credits',
+      credential.headers,
+    )
+    const credits = parseOpenAiResetCredits(detail).sort(
+      (left, right) => (left.expiresAt ?? Infinity) - (right.expiresAt ?? Infinity),
+    )
+    const credit = credits[0]
+    if (!credit) return 'no_credit'
+    const response = await fetchJson(
+      'https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume',
+      {
+        ...credential.headers,
+        'Content-Type': 'application/json',
+      },
+      {
+        method: 'POST',
+        body: JSON.stringify({ credit_id: credit.id, redeem_request_id: crypto.randomUUID() }),
+      },
+    )
+    const code = stringField(response, 'code')
+    if (code === 'reset' || code === 'already_redeemed') return 'ok'
+    if (code === 'no_credit') return 'no_credit'
+    if (code === 'nothing_to_reset') return 'nothing_to_reset'
+    return `error: Unexpected response from the reset endpoint${code ? ` (${code})` : ''}.`
   } catch (error) {
-    return failure(fetchError(error, 'Unable to fetch OpenAI quotas.'))
+    return `error: ${fetchError(error, 'Unable to redeem the banked reset.')}`
   }
 }
 
@@ -147,8 +230,16 @@ async function fetchGlmQuotas(
   }
 }
 
-async function fetchJson(url: string, headers: Record<string, string>): Promise<unknown> {
-  const response = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) })
+async function fetchJson(
+  url: string,
+  headers: Record<string, string>,
+  init?: RequestInit,
+): Promise<unknown> {
+  const response = await fetch(url, {
+    ...init,
+    headers,
+    signal: AbortSignal.timeout(timeoutMs),
+  })
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
   return response.json()
 }

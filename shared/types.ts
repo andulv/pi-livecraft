@@ -245,6 +245,13 @@ export interface OpenAiQuotaWindow {
   resetsAt?: number
 }
 
+/** Banked Codex rate-limit resets that can still be redeemed. */
+export interface OpenAiQuotaResets {
+  availableCount: number
+  /** Expiry of the soonest-expiring available reset, in ms since epoch. */
+  nearestExpiry?: number
+}
+
 export interface CopilotQuotaWindow {
   name: string
   used: number
@@ -271,8 +278,17 @@ export interface QuotaProviderSnapshot<T> {
   error?: string
 }
 
+/** The OpenAI report additionally carries banked rate-limit resets. */
+export type OpenAiQuotaReport =
+  | { ok: true; data: OpenAiQuotaWindow[]; resets?: OpenAiQuotaResets }
+  | { ok: false; error: string }
+
+export type OpenAiQuotaSnapshot = QuotaProviderSnapshot<OpenAiQuotaWindow> & {
+  resets?: OpenAiQuotaResets
+}
+
 export interface QuotaSnapshot {
-  openai: QuotaProviderSnapshot<OpenAiQuotaWindow>
+  openai: OpenAiQuotaSnapshot
   copilot: QuotaProviderSnapshot<CopilotQuotaWindow>
   glm: QuotaProviderSnapshot<GlmQuotaWindow>
   refreshing: boolean
@@ -287,7 +303,7 @@ export interface QuotaReport {
   protocol: 'pi-livecraft.quotas'
   version: 1
   refreshedAt: number
-  openai: QuotaProviderReport<OpenAiQuotaWindow>
+  openai: OpenAiQuotaReport
   copilot: QuotaProviderReport<CopilotQuotaWindow>
   // Optional so reports from Pi sessions running an older extension (without GLM)
   // still validate instead of dropping the OpenAI/Copilot readings.

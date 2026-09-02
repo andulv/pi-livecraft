@@ -4,6 +4,8 @@ import {
   glmBusinessError,
   parseCopilotUsage,
   parseGlmUsage,
+  parseOpenAiResetCredits,
+  parseOpenAiResets,
   parseOpenAiUsage,
 } from '../shared/quota-parsers.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
@@ -37,6 +39,32 @@ test('normalizes the Codex five-hour and weekly windows', () => {
     [
       { period: '5h', remainingPercent: 75.5, resetsAt: 1_800_000_000_000 },
       { period: '7d', remainingPercent: 31, resetsAt: 1_900_000_000_000 },
+    ],
+  )
+})
+
+test('reads banked Codex resets from the usage and credit responses', () => {
+  assert.deepEqual(
+    parseOpenAiResets({ rate_limit_reset_credits: { available_count: 2 } }),
+    { availableCount: 2 },
+  )
+  assert.deepEqual(parseOpenAiResets({}), undefined)
+  assert.deepEqual(
+    parseOpenAiResetCredits({
+      credits: [
+        { id: 'a', status: 'redeemed' },
+        {
+          id: 'b',
+          status: 'available',
+          expires_at: '2030-01-01T00:00:00Z',
+        },
+        { id: 'c', status: 'available' },
+        { status: 'available' },
+      ],
+    }),
+    [
+      { id: 'b', expiresAt: Date.parse('2030-01-01T00:00:00Z') },
+      { id: 'c' },
     ],
   )
 })
@@ -218,7 +246,11 @@ test('retains a stale provider snapshot when its next refresh fails', () => {
     protocol: 'pi-livecraft.quotas',
     version: 1,
     refreshedAt: 100,
-    openai: { ok: true, data: [{ period: '5h', remainingPercent: 80 }] },
+    openai: {
+      ok: true,
+      data: [{ period: '5h', remainingPercent: 80 }],
+      resets: { availableCount: 1, nearestExpiry: 1_900_000_000_000 },
+    },
     copilot: { ok: true, data: [] },
   }))
   cache.receiveManagerEvent(statusEvent({
@@ -234,7 +266,33 @@ test('retains a stale provider snapshot when its next refresh fails', () => {
     updatedAt: 100,
     stale: true,
     error: 'OpenAI indisponible',
+    // Banked resets survive a failed refresh alongside the stale windows.
+    resets: { availableCount: 1, nearestExpiry: 1_900_000_000_000 },
   })
+})
+
+test('replaces banked resets on each successful OpenAI refresh', () => {
+  const cache = new QuotaCache()
+  cache.receiveManagerEvent(statusEvent({
+    protocol: 'pi-livecraft.quotas',
+    version: 1,
+    refreshedAt: 100,
+    openai: {
+      ok: true,
+      data: [],
+      resets: { availableCount: 1, nearestExpiry: 1_900_000_000_000 },
+    },
+    copilot: { ok: true, data: [] },
+  }))
+  cache.receiveManagerEvent(statusEvent({
+    protocol: 'pi-livecraft.quotas',
+    version: 1,
+    refreshedAt: 200,
+    openai: { ok: true, data: [], resets: { availableCount: 0 } },
+    copilot: { ok: true, data: [] },
+  }))
+
+  assert.deepEqual(cache.snapshot(false).openai.resets, { availableCount: 0 })
 })
 
 test('parses the GLM quota report alongside OpenAI and Copilot', () => {

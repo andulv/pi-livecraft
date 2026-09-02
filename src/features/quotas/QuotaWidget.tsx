@@ -13,10 +13,17 @@ import type { QuotaProviderSnapshot, QuotaSnapshot } from '../../../shared/types
 
 /** Displays normalized quota readings without deducing absent quota from provider responses. */
 export function QuotaWidget(
-  { quotas, onRefresh }: { quotas: QuotaSnapshot | null; onRefresh: () => Promise<void> },
+  { onReset, onRefresh, quotas }: {
+    onReset: () => Promise<{ ok: boolean; error?: string }>
+    onRefresh: () => Promise<void>
+    quotas: QuotaSnapshot | null
+  },
 ) {
   const [refreshing, setRefreshing] = useState(false)
+  const [usingReset, setUsingReset] = useState(false)
+  const [resetError, setResetError] = useState('')
   const now = useCurrentTime()
+  const resets = quotas?.openai.resets
   const updatedAt = Math.max(
     quotas?.openai.updatedAt ?? 0,
     quotas?.copilot.updatedAt ?? 0,
@@ -30,6 +37,25 @@ export function QuotaWidget(
       await onRefresh()
     } finally {
       setRefreshing(false)
+    }
+  }
+
+  /** Redemption is irreversible, so it always requires explicit confirmation. */
+  async function redeemReset(): Promise<void> {
+    const count = quotas?.openai.resets?.availableCount ?? 0
+    const confirmed = window.confirm(
+      `Redeem one banked Codex reset now? This immediately refreshes your 5-hour and weekly usage windows${
+        count > 1 ? ` and leaves ${count - 1} reset${count - 1 > 1 ? 's' : ''} banked` : ''
+      }. It cannot be undone.`,
+    )
+    if (!confirmed) return
+    setUsingReset(true)
+    setResetError('')
+    try {
+      const result = await onReset()
+      if (!result.ok && result.error) setResetError(result.error)
+    } finally {
+      setUsingReset(false)
     }
   }
 
@@ -95,6 +121,26 @@ export function QuotaWidget(
                   </div>
                 )
               })}
+              {resets && resets.availableCount > 0 && (
+                <div className='quota-resets'>
+                  <span>
+                    {resets.availableCount} banked reset{resets.availableCount > 1 ? 's' : ''}{' '}
+                    available
+                    {resets.nearestExpiry && ` · expires ${formatReset(resets.nearestExpiry)}`}
+                  </span>
+                  <Tooltip label='Redeem one banked reset now'>
+                    <button
+                      className='quota-reset-button'
+                      disabled={usingReset || quotas.sessionRequired}
+                      onClick={() => void redeemReset()}
+                      type='button'
+                    >
+                      {usingReset ? 'Redeeming…' : 'Use reset'}
+                    </button>
+                  </Tooltip>
+                </div>
+              )}
+              {resetError && <p className='quota-error' role='status'>{resetError}</p>}
             </ProviderSection>
             <ProviderSection icon={<CopilotIcon />} name='GitHub Copilot' provider={quotas.copilot}>
               {quotas.copilot.data.map((window) => {

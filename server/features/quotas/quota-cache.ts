@@ -3,6 +3,9 @@ import type {
   CopilotQuotaWindow,
   GlmQuotaWindow,
   JsonObject,
+  OpenAiQuotaReport,
+  OpenAiQuotaResets,
+  OpenAiQuotaSnapshot,
   OpenAiQuotaWindow,
   QuotaProviderReport,
   QuotaProviderSnapshot,
@@ -14,7 +17,7 @@ const emptyProvider = <T>(): QuotaProviderSnapshot<T> => ({ data: [], stale: fal
 
 /** Keeps each provider's last valid snapshot when the next one fails. */
 export class QuotaCache {
-  #openai = emptyProvider<OpenAiQuotaWindow>()
+  #openai: OpenAiQuotaSnapshot = emptyProvider<OpenAiQuotaWindow>()
   #copilot = emptyProvider<CopilotQuotaWindow>()
   #glm = emptyProvider<GlmQuotaWindow>()
   #refreshing = false
@@ -49,12 +52,25 @@ export class QuotaCache {
     }
     const report = parseQuotaReport(parsed)
     if (!report) return false
-    this.#openai = mergeProvider(this.#openai, report.openai, report.refreshedAt)
+    this.#openai = mergeOpenAi(this.#openai, report.openai, report.refreshedAt)
     this.#copilot = mergeProvider(this.#copilot, report.copilot, report.refreshedAt)
     if (report.glm) this.#glm = mergeProvider(this.#glm, report.glm, report.refreshedAt)
     this.#refreshing = false
     return true
   }
+}
+
+/** Like `mergeProvider`, but a fresh report also replaces the banked resets. */
+function mergeOpenAi(
+  current: OpenAiQuotaSnapshot,
+  report: OpenAiQuotaReport,
+  updatedAt: number,
+): OpenAiQuotaSnapshot {
+  if (report.ok) {
+    const base = { data: report.data, updatedAt, stale: false }
+    return report.resets ? { ...base, resets: report.resets } : base
+  }
+  return { ...current, stale: current.updatedAt !== undefined, error: report.error }
 }
 
 function mergeProvider<T>(
@@ -72,7 +88,7 @@ function parseQuotaReport(value: unknown): QuotaReport | undefined {
     report?.protocol !== 'pi-livecraft.quotas' || report.version !== 1
     || !finiteNumber(report.refreshedAt)
   ) return undefined
-  const openai = parseProvider(report.openai, parseOpenAiWindow)
+  const openai = parseOpenAiReport(report.openai)
   const copilot = parseProvider(report.copilot, parseCopilotWindow)
   if (!openai || !copilot) return undefined
   const glm = parseProvider(report.glm, parseGlmWindow)
@@ -99,6 +115,21 @@ function parseProvider<T>(
   if (provider?.ok !== true || !Array.isArray(provider.data)) return undefined
   const data = provider.data.map(parseItem)
   return data.every((item): item is T => item !== undefined) ? { ok: true, data } : undefined
+}
+
+function parseOpenAiReport(value: unknown): OpenAiQuotaReport | undefined {
+  const provider = parseProvider(value, parseOpenAiWindow)
+  if (!provider || provider.ok === false) return provider
+  const resets = parseResets(object(value)?.resets)
+  return resets ? { ...provider, resets } : provider
+}
+
+function parseResets(value: unknown): OpenAiQuotaResets | undefined {
+  const resets = object(value)
+  if (resets === undefined || !finiteNumber(resets.availableCount)) return undefined
+  const count = Math.max(0, Math.round(resets.availableCount))
+  const nearestExpiry = finiteNumber(resets.nearestExpiry) ? resets.nearestExpiry : undefined
+  return { availableCount: count, ...(nearestExpiry ? { nearestExpiry } : {}) }
 }
 
 function parseOpenAiWindow(value: unknown): OpenAiQuotaWindow | undefined {

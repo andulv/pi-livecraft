@@ -1,5 +1,38 @@
-import type { CopilotQuotaWindow, GlmQuotaWindow, OpenAiQuotaWindow } from './types.ts'
+import type {
+  CopilotQuotaWindow,
+  GlmQuotaWindow,
+  OpenAiQuotaResets,
+  OpenAiQuotaWindow,
+} from './types.ts'
 import { isObject } from './is-object.ts'
+
+/** One redeemable banked reset from the rate-limit-reset-credits endpoint. */
+export interface OpenAiResetCredit {
+  id: string
+  expiresAt?: number
+}
+
+/** Reads the banked-reset summary embedded in the usage response, when present. */
+export function parseOpenAiResets(value: unknown): OpenAiQuotaResets | undefined {
+  const summary = object(object(value)?.rate_limit_reset_credits)
+  const count = summary && numberField(summary, 'available_count')
+  if (count === undefined) return undefined
+  return { availableCount: Math.max(0, Math.round(count)) }
+}
+
+/** Reads the ids and expiries of credits that can still be redeemed. */
+export function parseOpenAiResetCredits(value: unknown): OpenAiResetCredit[] {
+  const credits = object(value)?.credits
+  if (!Array.isArray(credits)) return []
+  return credits.flatMap((entry) => {
+    const credit = object(entry)
+    if (!credit || credit.status !== 'available' || typeof credit.id !== 'string' || !credit.id) {
+      return []
+    }
+    const expiresAt = dateValue(credit.expires_at)
+    return [{ id: credit.id, ...(expiresAt ? { expiresAt } : {}) }]
+  })
+}
 
 /** Extracts rate-limit windows from OpenAI's opaque quota response. */
 export function parseOpenAiUsage(value: unknown): OpenAiQuotaWindow[] {

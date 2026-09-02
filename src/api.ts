@@ -282,6 +282,13 @@ export async function refreshQuotas(sessionId: string, automatic = false): Promi
   })
 }
 
+export async function resetCodexQuota(sessionId: string): Promise<{ ok: boolean; error?: string }> {
+  return request<{ ok: boolean; error?: string }>('/api/quotas/reset', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId }),
+  })
+}
+
 export async function getEnvironment(sessionId: string): Promise<SessionEnvironmentSnapshot> {
   return request<SessionEnvironmentSnapshot>(
     `/api/environment?sessionId=${encodeURIComponent(sessionId)}`,
