@@ -34,6 +34,26 @@ export function parseOpenAiResetCredits(value: unknown): OpenAiResetCredit[] {
   })
 }
 
+/**
+ * Summarizes the rate-limit-reset-credits response. The top-level count is
+ * authoritative; the credit rows only supply the soonest expiry.
+ */
+export function parseOpenAiResetSummary(value: unknown): OpenAiQuotaResets | undefined {
+  const root = object(value)
+  if (root === undefined) return undefined
+  const count = numberField(root, 'available_count')
+  const credits = parseOpenAiResetCredits(root)
+  if (count === undefined && credits.length === 0) return undefined
+  const nearestExpiry = credits
+    .map((credit) => credit.expiresAt)
+    .filter((expiry): expiry is number => expiry !== undefined)
+    .sort((left, right) => left - right)[0]
+  return {
+    availableCount: Math.max(0, Math.round(count ?? credits.length)),
+    ...(nearestExpiry ? { nearestExpiry } : {}),
+  }
+}
+
 /** Extracts rate-limit windows from OpenAI's opaque quota response. */
 export function parseOpenAiUsage(value: unknown): OpenAiQuotaWindow[] {
   const root = object(value)

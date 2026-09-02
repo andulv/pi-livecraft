@@ -5,6 +5,7 @@ import {
   parseCopilotUsage,
   parseGlmUsage,
   parseOpenAiResetCredits,
+  parseOpenAiResetSummary,
   parseOpenAiResets,
   parseOpenAiUsage,
 } from '../shared/quota-parsers.ts'
@@ -67,6 +68,24 @@ test('reads banked Codex resets from the usage and credit responses', () => {
       { id: 'c' },
     ],
   )
+})
+
+test('summarizes the reset-credits response with the authoritative count', () => {
+  assert.deepEqual(
+    parseOpenAiResetSummary({
+      available_count: 2,
+      credits: [{
+        id: 'b',
+        status: 'available',
+        expires_at: '2030-01-01T00:00:00Z',
+      }],
+    }),
+    { availableCount: 2, nearestExpiry: Date.parse('2030-01-01T00:00:00Z') },
+  )
+  // The top-level count wins when the credit rows are truncated or absent.
+  assert.deepEqual(parseOpenAiResetSummary({ available_count: 0 }), { availableCount: 0 })
+  assert.deepEqual(parseOpenAiResetSummary({ credits: [] }), undefined)
+  assert.deepEqual(parseOpenAiResetSummary('nope'), undefined)
 })
 
 test('keeps only finite monthly Copilot quotas', () => {

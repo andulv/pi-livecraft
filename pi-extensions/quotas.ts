@@ -5,6 +5,7 @@ import {
   parseCopilotUsage,
   parseGlmUsage,
   parseOpenAiResetCredits,
+  parseOpenAiResetSummary,
   parseOpenAiResets,
   parseOpenAiUsage,
 } from '../shared/quota-parsers.ts'
@@ -86,26 +87,18 @@ async function fetchOpenAiQuotas(ctx: ExtensionContext): Promise<OpenAiQuotaRepo
     const credential = await openAiCredential(ctx)
     if (!credential) return failure('OpenAI Codex connection is unavailable in Pi.')
     const data = await fetchJson('https://chatgpt.com/backend-api/wham/usage', credential.headers)
-    const resets = parseOpenAiResets(data)
-    // The usage endpoint only carries the count; expiry needs the details endpoint.
-    // A failed detail lookup degrades to the summary instead of failing the provider.
-    const detail = resets && resets.availableCount > 0
-      ? await fetchJson(
-        'https://chatgpt.com/backend-api/wham/rate-limit-reset-credits',
-        credential.headers,
-      )
-        .catch(() => undefined)
-      : undefined
-    const nearestExpiry = detail === undefined
-      ? undefined
-      : parseOpenAiResetCredits(detail)
-        .map((credit) => credit.expiresAt)
-        .filter((expiry): expiry is number => expiry !== undefined)
-        .sort((left, right) => left - right)[0]
+    // The credits endpoint is the authoritative reset source; the usage summary
+    // field is not returned for every client, so it only serves as a fallback.
+    const detail = await fetchJson(
+      'https://chatgpt.com/backend-api/wham/rate-limit-reset-credits',
+      credential.headers,
+    )
+      .catch(() => undefined)
+    const resets = parseOpenAiResetSummary(detail) ?? parseOpenAiResets(data)
     return {
       ok: true,
       data: parseOpenAiUsage(data),
-      ...(resets ? { resets: { ...resets, ...(nearestExpiry ? { nearestExpiry } : {}) } } : {}),
+      ...(resets ? { resets } : {}),
     }
   } catch (error) {
     return failure(fetchError(error, 'Unable to fetch OpenAI quotas.'))
