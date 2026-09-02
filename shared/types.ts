@@ -252,6 +252,15 @@ export interface OpenAiQuotaResets {
   nearestExpiry?: number
 }
 
+/**
+ * Z.AI reset cards per quota window, from the ZCode account service. Cards are
+ * only issued to accounts signed in to ZCode, so the fields are absent otherwise.
+ */
+export interface GlmQuotaResets {
+  fiveHour: { availableCount: number; nearestExpiry?: number }
+  week: { availableCount: number; nearestExpiry?: number }
+}
+
 export interface CopilotQuotaWindow {
   name: string
   used: number
@@ -287,10 +296,19 @@ export type OpenAiQuotaSnapshot = QuotaProviderSnapshot<OpenAiQuotaWindow> & {
   resets?: OpenAiQuotaResets
 }
 
+/** The GLM report additionally carries Z.AI reset cards when ZCode is signed in. */
+export type GlmQuotaReport =
+  | { ok: true; data: GlmQuotaWindow[]; resets?: GlmQuotaResets }
+  | { ok: false; error: string }
+
+export type GlmQuotaSnapshot = QuotaProviderSnapshot<GlmQuotaWindow> & {
+  resets?: GlmQuotaResets
+}
+
 export interface QuotaSnapshot {
   openai: OpenAiQuotaSnapshot
   copilot: QuotaProviderSnapshot<CopilotQuotaWindow>
-  glm: QuotaProviderSnapshot<GlmQuotaWindow>
+  glm: GlmQuotaSnapshot
   refreshing: boolean
   sessionRequired: boolean
 }
@@ -307,7 +325,7 @@ export interface QuotaReport {
   copilot: QuotaProviderReport<CopilotQuotaWindow>
   // Optional so reports from Pi sessions running an older extension (without GLM)
   // still validate instead of dropping the OpenAI/Copilot readings.
-  glm?: QuotaProviderReport<GlmQuotaWindow>
+  glm?: GlmQuotaReport
 }
 
 /**

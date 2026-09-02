@@ -1,6 +1,9 @@
 import { isObject } from '../../../shared/is-object.ts'
 import type {
   CopilotQuotaWindow,
+  GlmQuotaReport,
+  GlmQuotaResets,
+  GlmQuotaSnapshot,
   GlmQuotaWindow,
   JsonObject,
   OpenAiQuotaReport,
@@ -19,7 +22,7 @@ const emptyProvider = <T>(): QuotaProviderSnapshot<T> => ({ data: [], stale: fal
 export class QuotaCache {
   #openai: OpenAiQuotaSnapshot = emptyProvider<OpenAiQuotaWindow>()
   #copilot = emptyProvider<CopilotQuotaWindow>()
-  #glm = emptyProvider<GlmQuotaWindow>()
+  #glm: GlmQuotaSnapshot = emptyProvider<GlmQuotaWindow>()
   #refreshing = false
 
   snapshot(sessionRequired: boolean): QuotaSnapshot {
@@ -54,7 +57,7 @@ export class QuotaCache {
     if (!report) return false
     this.#openai = mergeOpenAi(this.#openai, report.openai, report.refreshedAt)
     this.#copilot = mergeProvider(this.#copilot, report.copilot, report.refreshedAt)
-    if (report.glm) this.#glm = mergeProvider(this.#glm, report.glm, report.refreshedAt)
+    if (report.glm) this.#glm = mergeGlm(this.#glm, report.glm, report.refreshedAt)
     this.#refreshing = false
     return true
   }
@@ -66,6 +69,19 @@ function mergeOpenAi(
   report: OpenAiQuotaReport,
   updatedAt: number,
 ): OpenAiQuotaSnapshot {
+  if (report.ok) {
+    const base = { data: report.data, updatedAt, stale: false }
+    return report.resets ? { ...base, resets: report.resets } : base
+  }
+  return { ...current, stale: current.updatedAt !== undefined, error: report.error }
+}
+
+/** Same retention rules for Z.AI reset cards. */
+function mergeGlm(
+  current: GlmQuotaSnapshot,
+  report: GlmQuotaReport,
+  updatedAt: number,
+): GlmQuotaSnapshot {
   if (report.ok) {
     const base = { data: report.data, updatedAt, stale: false }
     return report.resets ? { ...base, resets: report.resets } : base
@@ -91,7 +107,7 @@ function parseQuotaReport(value: unknown): QuotaReport | undefined {
   const openai = parseOpenAiReport(report.openai)
   const copilot = parseProvider(report.copilot, parseCopilotWindow)
   if (!openai || !copilot) return undefined
-  const glm = parseProvider(report.glm, parseGlmWindow)
+  const glm = parseGlmReport(report.glm)
   return {
     protocol: 'pi-livecraft.quotas',
     version: 1,
@@ -122,6 +138,35 @@ function parseOpenAiReport(value: unknown): OpenAiQuotaReport | undefined {
   if (!provider || provider.ok === false) return provider
   const resets = parseResets(object(value)?.resets)
   return resets ? { ...provider, resets } : provider
+}
+
+function parseGlmReport(value: unknown): GlmQuotaReport | undefined {
+  const provider = parseProvider(value, parseGlmWindow)
+  if (!provider || provider.ok === false) return provider
+  const resets = parseGlmResets(object(value)?.resets)
+  return resets ? { ...provider, resets } : provider
+}
+
+/** Parses the nested Z.AI reset-card summary already normalized by the extension. */
+function parseGlmResets(value: unknown): GlmQuotaResets | undefined {
+  const resets = object(value)
+  const fiveHour = resets && parseResetSummary(resets.fiveHour)
+  const week = resets && parseResetSummary(resets.week)
+  if (fiveHour === undefined && week === undefined) return undefined
+  return {
+    fiveHour: fiveHour ?? { availableCount: 0 },
+    week: week ?? { availableCount: 0 },
+  }
+}
+
+function parseResetSummary(
+  value: unknown,
+): { availableCount: number; nearestExpiry?: number } | undefined {
+  const summary = object(value)
+  if (summary === undefined || !finiteNumber(summary.availableCount)) return undefined
+  const count = Math.max(0, Math.round(summary.availableCount))
+  const nearestExpiry = finiteNumber(summary.nearestExpiry) ? summary.nearestExpiry : undefined
+  return { availableCount: count, ...(nearestExpiry ? { nearestExpiry } : {}) }
 }
 
 function parseResets(value: unknown): OpenAiQuotaResets | undefined {

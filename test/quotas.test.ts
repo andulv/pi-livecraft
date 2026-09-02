@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   glmBusinessError,
   parseCopilotUsage,
+  parseGlmResets,
   parseGlmUsage,
   parseOpenAiResetCredits,
   parseOpenAiResetSummary,
@@ -86,6 +87,24 @@ test('summarizes the reset-credits response with the authoritative count', () =>
   assert.deepEqual(parseOpenAiResetSummary({ available_count: 0 }), { availableCount: 0 })
   assert.deepEqual(parseOpenAiResetSummary({ credits: [] }), undefined)
   assert.deepEqual(parseOpenAiResetSummary('nope'), undefined)
+})
+
+test('reads Z.AI reset cards from the ZCode status response', () => {
+  assert.deepEqual(
+    parseGlmResets({
+      code: 0,
+      data: {
+        available_five_hour_resets: [],
+        available_week_resets: [{ expire_at: 1_800_000_000_000 }, { expire_at: 1_700_000_000_000 }],
+      },
+    }),
+    {
+      fiveHour: { availableCount: 0 },
+      week: { availableCount: 2, nearestExpiry: 1_700_000_000_000 },
+    },
+  )
+  assert.deepEqual(parseGlmResets({ code: 0, data: {} }), undefined)
+  assert.deepEqual(parseGlmResets('nope'), undefined)
 })
 
 test('keeps only finite monthly Copilot quotas', () => {
@@ -312,6 +331,36 @@ test('replaces banked resets on each successful OpenAI refresh', () => {
   }))
 
   assert.deepEqual(cache.snapshot(false).openai.resets, { availableCount: 0 })
+})
+
+test('carries Z.AI reset cards through the GLM snapshot', () => {
+  const cache = new QuotaCache()
+  cache.receiveManagerEvent(statusEvent({
+    protocol: 'pi-livecraft.quotas',
+    version: 1,
+    refreshedAt: 100,
+    openai: { ok: true, data: [] },
+    copilot: { ok: true, data: [] },
+    glm: {
+      ok: true,
+      data: [{ kind: 'weekly', usedPercent: 42 }],
+      resets: { fiveHour: { availableCount: 0 }, week: { availableCount: 1 } },
+    },
+  }))
+  // A failing GLM refresh keeps the cards alongside the stale windows.
+  cache.receiveManagerEvent(statusEvent({
+    protocol: 'pi-livecraft.quotas',
+    version: 1,
+    refreshedAt: 200,
+    openai: { ok: true, data: [] },
+    copilot: { ok: true, data: [] },
+    glm: { ok: false, error: 'Z.AI indisponible' },
+  }))
+
+  assert.deepEqual(cache.snapshot(false).glm.resets, {
+    fiveHour: { availableCount: 0 },
+    week: { availableCount: 1 },
+  })
 })
 
 test('parses the GLM quota report alongside OpenAI and Copilot', () => {

@@ -1,8 +1,13 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
+import { createDecipheriv, createHash } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
+import { homedir, platform, userInfo } from 'node:os'
+import { join } from 'node:path'
 import { isObject } from '../shared/is-object.ts'
 import {
   glmBusinessError,
   parseCopilotUsage,
+  parseGlmResets,
   parseGlmUsage,
   parseOpenAiResetCredits,
   parseOpenAiResetSummary,
@@ -12,7 +17,8 @@ import {
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type {
   CopilotQuotaWindow,
-  GlmQuotaWindow,
+  GlmQuotaReport,
+  GlmQuotaResets,
   OpenAiQuotaReport,
   QuotaProviderReport,
   QuotaReport,
@@ -53,9 +59,11 @@ export default function registerQuotas(pi: ExtensionAPI): void {
     handler: async (args, ctx) => refresh(ctx, args.trim() === 'auto'),
   })
   pi.registerCommand('livecraft-quotas-reset', {
-    description: 'Redeem one banked OpenAI Codex rate-limit reset',
-    handler: async (_args, ctx) => {
-      const result = await consumeOpenAiReset(ctx)
+    description: 'Redeem one banked OpenAI Codex or Z.AI reset card',
+    handler: async (args, ctx) => {
+      const result = args.trim() === ''
+        ? await consumeOpenAiReset(ctx)
+        : await consumeGlmReset(args.trim())
       lastRefreshAt = 0
       await refresh(ctx, false)
       return result
@@ -198,9 +206,7 @@ async function fetchCopilotQuotas(
  * `getApiKeyForProvider`, falling back to the stored credential when resolved auth is unavailable.
  * The China (open.bigmodel.cn) station authenticates with the raw key; z.ai uses `Bearer {key}`.
  */
-async function fetchGlmQuotas(
-  ctx: ExtensionContext,
-): Promise<QuotaProviderReport<GlmQuotaWindow>> {
+async function fetchGlmQuotas(ctx: ExtensionContext): Promise<GlmQuotaReport> {
   try {
     let apiKey = await ctx.modelRegistry.getApiKeyForProvider('zai')
     // env-key providers hold the usable key on the credential itself; read it directly when the
@@ -217,9 +223,108 @@ async function fetchGlmQuotas(
     })
     const businessError = glmBusinessError(data)
     if (businessError) return failure(businessError)
-    return { ok: true, data: parseGlmUsage(data) }
+    // Reset cards live in the ZCode account service behind its own credentials;
+    // anything missing (sign-in, file, endpoint) just leaves the card info absent.
+    const resets = await fetchGlmResets().catch(() => undefined)
+    return { ok: true, data: parseGlmUsage(data), ...(resets ? { resets } : {}) }
   } catch (error) {
     return failure(fetchError(error, 'Unable to fetch GLM quotas.'))
+  }
+}
+
+const zcodeResetBase = 'https://zcode.z.ai/api/v1/coding-plan/reset'
+
+interface ZcodeCredential {
+  headers: Record<string, string>
+}
+
+/**
+ * Reads the ZCode credential store the same way ZCode itself does: values are
+ * AES-256-GCM blobs keyed by `ZCODE_CREDENTIAL_SECRET` or a deterministic
+ * per-machine fallback. Reset cards require the ZCode sign-in JWT, so the
+ * feature stays hidden when the user has not signed in. Tokens are never logged.
+ */
+async function readZcodeCredential(): Promise<ZcodeCredential | undefined> {
+  const file = join(homedir(), '.zcode', 'v2', 'credentials.json')
+  let stored: unknown
+  try {
+    stored = JSON.parse(await readFile(file, 'utf-8'))
+  } catch {
+    return undefined
+  }
+  const jwt = decryptZcodeValue(stringField(stored, 'zcodejwttoken'))
+  const oauth = decryptZcodeValue(stringField(stored, 'oauth:zai:access_token'))
+  if (!jwt || !oauth) return undefined
+  return {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      'X-Bigmodel-Authorization': oauth,
+      'Bigmodel-Target-Type': 'PERSONAL',
+    },
+  }
+}
+
+function decryptZcodeValue(value: string | undefined): string | undefined {
+  const prefix = 'enc:v1:'
+  if (!value?.startsWith(prefix)) return value || undefined
+  const [ivPart, tagPart, dataPart] = value.slice(prefix.length).split('.')
+  if (!ivPart || !tagPart || !dataPart) return undefined
+  const secret = process.env.ZCODE_CREDENTIAL_SECRET
+    ?? `zcode-credential-fallback:${platform()}:${homedir()}:${userInfo().username}`
+  const key = createHash('sha256').update(secret).digest()
+  try {
+    const decipher = createDecipheriv('aes-256-gcm', key, base64UrlToBuffer(ivPart))
+    decipher.setAuthTag(base64UrlToBuffer(tagPart))
+    return Buffer
+      .concat([decipher.update(base64UrlToBuffer(dataPart)), decipher.final()])
+      .toString('utf-8')
+  } catch {
+    return undefined
+  }
+}
+
+function base64UrlToBuffer(value: string): Buffer {
+  return Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/'), 'base64')
+}
+
+/** Lists the account's reset cards; absent when ZCode is not signed in. */
+async function fetchGlmResets(): Promise<GlmQuotaResets | undefined> {
+  const credential = await readZcodeCredential()
+  if (!credential) return undefined
+  const status = await fetchJson(`${zcodeResetBase}/status`, {
+    ...credential.headers,
+    Accept: 'application/json',
+  })
+  return parseGlmResets(status)
+}
+
+/**
+ * Redeems one Z.AI reset card. Like the Codex path, one request is made with a
+ * fresh idempotency key and no automatic retry; the caller refreshes after.
+ */
+async function consumeGlmReset(resetType: string): Promise<string> {
+  try {
+    if (resetType !== 'glm five-hour' && resetType !== 'glm week') {
+      return 'error: Unknown reset target.'
+    }
+    const credential = await readZcodeCredential()
+    if (!credential) return 'error: Sign in to ZCode to use Z.AI reset cards.'
+    const response = await fetchJson(`${zcodeResetBase}/use`, {
+      ...credential.headers,
+      'Content-Type': 'application/json',
+    }, {
+      method: 'POST',
+      body: JSON.stringify({
+        idempotency_key: crypto.randomUUID(),
+        reset_type: resetType === 'glm week' ? 'WEEK' : 'FIVE_HOUR',
+      }),
+    })
+    const code = numberField(response, 'code')
+    if (code === 0) return 'ok'
+    const message = stringField(response, 'msg')
+    return `error: Z.AI rejected the reset${message ? `: ${message}` : ''}.`
+  } catch (error) {
+    return `error: ${fetchError(error, 'Unable to redeem the Z.AI reset card.')}`
   }
 }
 

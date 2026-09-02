@@ -13,6 +13,7 @@ import type {
 import { QuotaWidget } from '../quotas/QuotaWidget.tsx'
 import { SessionEnvironmentWidget } from '../session-environment/SessionEnvironmentWidget.tsx'
 import { railQuota, type QuotaProvider } from '../quotas/quota-display.ts'
+import type { QuotaResetTarget } from '../../api.ts'
 import { formatSessionStats } from '../composer/composer-utils.ts'
 import type { ConversationNavigationTarget } from '../conversation/conversation-navigation.ts'
 import { SessionIndexWidget } from '../session-index/SessionIndexWidget.tsx'
@@ -75,7 +76,7 @@ export function RightSidebar({
   railActions: RailAction[]
   onEnvironmentRefresh: () => Promise<void>
   onQuotaRefresh: () => Promise<void>
-  onQuotaReset: () => Promise<{ ok: boolean; error?: string }>
+  onQuotaReset: (target: QuotaResetTarget) => Promise<{ ok: boolean; error?: string }>
   onWidgetSelect: (widget: RightWidget) => void
 }) {
   const collapsed = activeWidget === null || (activeWidget === 'analysis' && !analysis)

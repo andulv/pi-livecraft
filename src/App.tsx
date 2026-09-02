@@ -18,7 +18,7 @@ import {
   pushCommits,
   refreshEnvironment,
   refreshQuotas,
-  resetCodexQuota,
+  resetQuota,
   resetGitCommit,
   restartManager,
   revertGitCommit,
@@ -26,6 +26,7 @@ import {
   sendPiCommand,
   subscribeManagerEvents,
 } from './api.ts'
+import type { QuotaResetTarget } from './api.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type {
   GitSnapshot,
@@ -750,12 +751,12 @@ function LivecraftProjectApp(
     [showToast],
   )
 
-  /** Redeems one banked Codex reset; the extension republishes the report itself. */
-  const resetCodexQuotas = useCallback(
-    async (sessionId: string): Promise<{ ok: boolean; error?: string }> => {
-      if (!sessionId) throw new Error('An open Pi session is required to redeem a reset.')
+  /** Redeems one banked reset; the extension republishes the report itself. */
+  const redeemQuotaReset = useCallback(
+    async (target: QuotaResetTarget): Promise<{ ok: boolean; error?: string }> => {
+      if (!selectedId) throw new Error('An open Pi session is required to redeem a reset.')
       try {
-        return await resetCodexQuota(sessionId)
+        return await resetQuota(selectedId, target)
       } catch (cause) {
         showToast('error', messageOf(cause))
         return { ok: false, error: messageOf(cause) }
@@ -763,7 +764,7 @@ function LivecraftProjectApp(
         setQuotas(await getQuotas().catch(() => quotasRef.current))
       }
     },
-    [showToast],
+    [selectedId, showToast],
   )
 
   /** Reads the loaded tools and context files from the Pi session. */
@@ -1832,7 +1833,7 @@ function LivecraftProjectApp(
         railActions={railActions}
         onEnvironmentRefresh={() => refreshSessionEnvironment(selectedId)}
         onQuotaRefresh={() => refreshSessionQuotas(selectedId, false)}
-        onQuotaReset={() => resetCodexQuotas(selectedId)}
+        onQuotaReset={redeemQuotaReset}
         onWidgetSelect={(widget) =>
           setActiveRightWidget((current) => {
             const next = current === widget ? null : widget

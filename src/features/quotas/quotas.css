@@ -167,6 +167,10 @@
   color: var(--muted);
   font-size: 10px;
 }
+/* Inside a GLM window row the reset row sits tighter under the reset time. */
+.quota-resets-compact {
+  margin-top: 5px;
+}
 .quota-resets span {
   min-width: 0;
 }

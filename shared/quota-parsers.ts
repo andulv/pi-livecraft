@@ -1,5 +1,6 @@
 import type {
   CopilotQuotaWindow,
+  GlmQuotaResets,
   GlmQuotaWindow,
   OpenAiQuotaResets,
   OpenAiQuotaWindow,
@@ -18,6 +19,34 @@ export function parseOpenAiResets(value: unknown): OpenAiQuotaResets | undefined
   const count = summary && numberField(summary, 'available_count')
   if (count === undefined) return undefined
   return { availableCount: Math.max(0, Math.round(count)) }
+}
+
+/** Reads the ZCode reset-card status response, when the account has any cards. */
+export function parseGlmResets(value: unknown): GlmQuotaResets | undefined {
+  const data = object(object(value)?.data)
+  if (data === undefined) return undefined
+  const fiveHour = resetCardSummary(data.available_five_hour_resets)
+  const week = resetCardSummary(data.available_week_resets)
+  if (fiveHour === undefined && week === undefined) return undefined
+  return {
+    fiveHour: fiveHour ?? { availableCount: 0 },
+    week: week ?? { availableCount: 0 },
+  }
+}
+
+function resetCardSummary(
+  value: unknown,
+): { availableCount: number; nearestExpiry?: number } | undefined {
+  if (!Array.isArray(value)) return undefined
+  const expiries = value.flatMap((entry) => {
+    const expiry = numberField(object(entry), 'expire_at')
+    return expiry === undefined ? [] : [expiry]
+  })
+  const nearestExpiry = [...expiries].sort((left, right) => left - right)[0]
+  return {
+    availableCount: value.length,
+    ...(nearestExpiry !== undefined ? { nearestExpiry } : {}),
+  }
 }
 
 /** Reads the ids and expiries of credits that can still be redeemed. */

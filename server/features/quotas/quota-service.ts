@@ -60,15 +60,23 @@ export class QuotaService {
   }
 
   /**
-   * Redeems one banked Codex reset through the extension command. The command
+   * Redeems one banked reset through the extension command. The command
    * refreshes the published report itself, so the manager response carries only
    * the redemption outcome string defined by the extension.
    */
-  async resetCodex(sessionId: string): Promise<{ ok: boolean; error?: string }> {
+  async reset(
+    sessionId: string,
+    target: 'openai' | 'glm-five-hour' | 'glm-week',
+  ): Promise<{ ok: boolean; error?: string }> {
+    const args = target === 'openai'
+      ? ''
+      : target === 'glm-week'
+      ? 'glm week'
+      : 'glm five-hour'
     const response = await this.#manager.request({
       action: 'command',
       sessionId,
-      command: { type: 'prompt', message: '/livecraft-quotas-reset' },
+      command: { type: 'prompt', message: `/livecraft-quotas-reset${args ? ` ${args}` : ''}` },
     }, 60_000)
     const result = isObject(response) && typeof response.data === 'string'
       ? response.data

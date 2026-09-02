@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
+import type { QuotaResetTarget } from '../../api.ts'
 import {
   copilotPeriodProgress,
   glmPeakDay,
@@ -14,16 +15,17 @@ import type { QuotaProviderSnapshot, QuotaSnapshot } from '../../../shared/types
 /** Displays normalized quota readings without deducing absent quota from provider responses. */
 export function QuotaWidget(
   { onReset, onRefresh, quotas }: {
-    onReset: () => Promise<{ ok: boolean; error?: string }>
+    onReset: (target: QuotaResetTarget) => Promise<{ ok: boolean; error?: string }>
     onRefresh: () => Promise<void>
     quotas: QuotaSnapshot | null
   },
 ) {
   const [refreshing, setRefreshing] = useState(false)
-  const [usingReset, setUsingReset] = useState(false)
+  const [usingReset, setUsingReset] = useState<QuotaResetTarget | null>(null)
   const [resetError, setResetError] = useState('')
   const now = useCurrentTime()
   const resets = quotas?.openai.resets
+  const glmResets = quotas?.glm.resets
   const updatedAt = Math.max(
     quotas?.openai.updatedAt ?? 0,
     quotas?.copilot.updatedAt ?? 0,
@@ -41,21 +43,24 @@ export function QuotaWidget(
   }
 
   /** Redemption is irreversible, so it always requires explicit confirmation. */
-  async function redeemReset(): Promise<void> {
-    const count = quotas?.openai.resets?.availableCount ?? 0
+  async function redeemReset(
+    target: QuotaResetTarget,
+    label: string,
+    count: number,
+  ): Promise<void> {
     const confirmed = window.confirm(
-      `Redeem one banked Codex reset now? This immediately refreshes your 5-hour and weekly usage windows${
-        count > 1 ? ` and leaves ${count - 1} reset${count - 1 > 1 ? 's' : ''} banked` : ''
+      `Redeem one ${label} now? The affected usage window returns to 100%${
+        count > 1 ? ` and ${count - 1} reset${count - 1 > 1 ? 's' : ''} stay banked` : ''
       }. It cannot be undone.`,
     )
     if (!confirmed) return
-    setUsingReset(true)
+    setUsingReset(target)
     setResetError('')
     try {
-      const result = await onReset()
+      const result = await onReset(target)
       if (!result.ok && result.error) setResetError(result.error)
     } finally {
-      setUsingReset(false)
+      setUsingReset(null)
     }
   }
 
@@ -122,23 +127,14 @@ export function QuotaWidget(
                 )
               })}
               {resets && resets.availableCount > 0 && (
-                <div className='quota-resets'>
-                  <span>
-                    {resets.availableCount} banked reset{resets.availableCount > 1 ? 's' : ''}{' '}
-                    available
-                    {resets.nearestExpiry && ` · expires ${formatReset(resets.nearestExpiry)}`}
-                  </span>
-                  <Tooltip label='Redeem one banked reset now'>
-                    <button
-                      className='quota-reset-button'
-                      disabled={usingReset || quotas.sessionRequired}
-                      onClick={() => void redeemReset()}
-                      type='button'
-                    >
-                      {usingReset ? 'Redeeming…' : 'Use reset'}
-                    </button>
-                  </Tooltip>
-                </div>
+                <ResetRow
+                  count={resets.availableCount}
+                  disabled={quotas.sessionRequired}
+                  expiry={resets.nearestExpiry}
+                  label='banked Codex reset'
+                  onUse={() => redeemReset('openai', 'banked Codex reset', resets.availableCount)}
+                  using={usingReset === 'openai'}
+                />
               )}
               {resetError && <p className='quota-error' role='status'>{resetError}</p>}
             </ProviderSection>
@@ -226,6 +222,39 @@ export function QuotaWidget(
                       )}
                     </div>
                     {window.resetsAt && <small>Reset {formatReset(window.resetsAt)}</small>}
+                    {window.kind === 'session' && glmResets && glmResets.fiveHour.availableCount > 0
+                      && (
+                        <ResetRow
+                          compact
+                          count={glmResets.fiveHour.availableCount}
+                          disabled={quotas.sessionRequired}
+                          expiry={glmResets.fiveHour.nearestExpiry}
+                          label='5-hour reset card'
+                          onUse={() =>
+                            redeemReset(
+                              'glm-five-hour',
+                              'Z.AI 5-hour reset card',
+                              glmResets.fiveHour.availableCount,
+                            )}
+                          using={usingReset === 'glm-five-hour'}
+                        />
+                      )}
+                    {window.kind === 'weekly' && glmResets && glmResets.week.availableCount > 0 && (
+                      <ResetRow
+                        compact
+                        count={glmResets.week.availableCount}
+                        disabled={quotas.sessionRequired}
+                        expiry={glmResets.week.nearestExpiry}
+                        label='weekly reset card'
+                        onUse={() =>
+                          redeemReset(
+                            'glm-week',
+                            'Z.AI weekly reset card',
+                            glmResets.week.availableCount,
+                          )}
+                        using={usingReset === 'glm-week'}
+                      />
+                    )}
                   </div>
                 )
               })}
@@ -236,6 +265,38 @@ export function QuotaWidget(
         )}
       </div>
     </>
+  )
+}
+
+function ResetRow(
+  { compact, count, disabled, expiry, label, onUse, using }: {
+    compact?: boolean
+    count: number
+    disabled: boolean
+    expiry?: number
+    label: string
+    onUse: () => Promise<void>
+    using: boolean
+  },
+) {
+  return (
+    <div className={`quota-resets${compact ? ' quota-resets-compact' : ''}`}>
+      <span>
+        {count} {label}
+        {count > 1 ? 's' : ''} available
+        {expiry && ` · expires ${formatReset(expiry)}`}
+      </span>
+      <Tooltip label={`Redeem one ${label} now`}>
+        <button
+          className='quota-reset-button'
+          disabled={disabled || using}
+          onClick={() => void onUse()}
+          type='button'
+        >
+          {using ? 'Redeeming…' : 'Use reset'}
+        </button>
+      </Tooltip>
+    </div>
   )
 }
 

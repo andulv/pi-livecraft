@@ -282,10 +282,15 @@ export async function refreshQuotas(sessionId: string, automatic = false): Promi
   })
 }
 
-export async function resetCodexQuota(sessionId: string): Promise<{ ok: boolean; error?: string }> {
+export type QuotaResetTarget = 'openai' | 'glm-five-hour' | 'glm-week'
+
+export async function resetQuota(
+  sessionId: string,
+  target: QuotaResetTarget = 'openai',
+): Promise<{ ok: boolean; error?: string }> {
   return request<{ ok: boolean; error?: string }>('/api/quotas/reset', {
     method: 'POST',
-    body: JSON.stringify({ sessionId }),
+    body: JSON.stringify({ sessionId, target }),
   })
 }
 
