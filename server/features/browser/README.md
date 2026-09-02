@@ -28,7 +28,10 @@ tooling (Chrome DevTools MCP, Playwright, Puppeteer, or raw CDP). See the
   crashed`), subscribes to `Page.startScreencast` frames (acking with the frame's
   session id — Chrome may report it as a number, and un-acked casts are throttled to
   a stop), forwards validated input events to `Input.*`, and emits frame/url/status
-  events to SSE subscribers. Its diagnostics snapshot opens a short-lived connection
+  events to SSE subscribers. With a viewer open, capture stays at full pace for five
+  seconds after viewer input, navigation, or viewport changes, then ack-paces to about
+  one frame per second; frame traffic itself never resets that idle timer.
+  Its diagnostics snapshot opens a short-lived connection
   to the browser-level CDP target for `SystemInfo.getProcessInfo`; it also reports the
   root PID, temporary profile, viewer count, and capture counters without starting a
   screencast viewer.

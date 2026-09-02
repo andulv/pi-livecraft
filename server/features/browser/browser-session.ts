@@ -42,8 +42,16 @@ function screencastParamsFor(viewport: BrowserViewport): JsonObject {
   }
 }
 
-/** Minimum spacing between screencast acks; pacing acks caps Chrome's encode rate. */
-const minAckIntervalMs = 80
+const activeScreencastAckIntervalMs = 80
+const idleScreencastAckIntervalMs = 1_000
+const browserIdleDelayMs = 5_000
+
+/** Chooses the screencast acknowledgement pace without treating animation frames as activity. */
+export function screencastAckInterval(lastInteractionAt: number, now: number): number {
+  return now - lastInteractionAt >= browserIdleDelayMs
+    ? idleScreencastAckIntervalMs
+    : activeScreencastAckIntervalMs
+}
 
 export type BrowserSessionEvent =
   | { type: 'frame'; data: string }
@@ -220,6 +228,7 @@ export class BrowserSession {
   #capturedFrames = 0
   #capturedBytes = 0
   #lastAckAt = 0
+  #lastInteractionAt = Date.now()
   #ackTimer: ReturnType<typeof setTimeout> | null = null
   #pendingAckSession: number | string | null = null
   #viewport: BrowserViewport = { ...defaultViewport }
@@ -277,6 +286,7 @@ export class BrowserSession {
 
   /** Emulates a device viewport and recaptures at the matching size. */
   async setViewport(viewport: BrowserViewport): Promise<void> {
+    this.#recordInteraction()
     this.#viewport = { ...viewport }
     const cdp = this.#cdp
     if (this.#state !== 'live' || !cdp) {
@@ -289,6 +299,7 @@ export class BrowserSession {
       deviceScaleFactor: 1,
       mobile: viewport.mobile,
     })
+    this.#clearPendingAck()
     await cdp.send('Page.stopScreencast').catch(() => {})
     if (this.#viewers > 0) {
       await cdp.send('Page.startScreencast', screencastParamsFor(this.#viewport))
@@ -303,6 +314,7 @@ export class BrowserSession {
 
   /** Registers an active frame consumer; the screencast pauses while none remain. */
   addViewer(): void {
+    this.#recordInteraction()
     this.#viewers++
     if (this.#viewers === 1 && this.#state === 'live') {
       void this.#cdp?.send('Page.startScreencast', screencastParamsFor(this.#viewport)).catch(
@@ -314,13 +326,37 @@ export class BrowserSession {
   releaseViewer(): void {
     if (this.#viewers > 0) this.#viewers--
     if (this.#viewers === 0 && this.#state === 'live') {
+      this.#clearPendingAck()
       void this.#cdp?.send('Page.stopScreencast').catch(() => {})
+    }
+  }
+
+  #clearPendingAck(): void {
+    if (this.#ackTimer) clearTimeout(this.#ackTimer)
+    this.#ackTimer = null
+    this.#pendingAckSession = null
+  }
+
+  /** Records explicit viewer or navigation activity without letting CSS animations keep capture active. */
+  #recordInteraction(): void {
+    const now = Date.now()
+    const wasIdle = screencastAckInterval(this.#lastInteractionAt, now)
+      === idleScreencastAckIntervalMs
+    this.#lastInteractionAt = now
+    // An idle acknowledgement may be delayed for a second. Release its latest frame immediately,
+    // while preserving the normal 12 FPS cap during already-active interaction.
+    if (wasIdle && this.#ackTimer) {
+      clearTimeout(this.#ackTimer)
+      this.#ackTimer = null
+      this.#sendPendingAck()
     }
   }
 
   #paceScreencastAck(sessionId: number | string): void {
     this.#pendingAckSession = sessionId
-    const elapsed = Date.now() - this.#lastAckAt
+    const now = Date.now()
+    const minAckIntervalMs = screencastAckInterval(this.#lastInteractionAt, now)
+    const elapsed = now - this.#lastAckAt
     if (elapsed >= minAckIntervalMs) {
       if (this.#ackTimer) clearTimeout(this.#ackTimer)
       this.#ackTimer = null
@@ -354,6 +390,7 @@ export class BrowserSession {
   }
 
   async #start(): Promise<BrowserSessionStatus> {
+    this.#lastInteractionAt = Date.now()
     this.#capturedFrames = 0
     this.#capturedBytes = 0
     this.#startedAt = undefined
@@ -402,6 +439,7 @@ export class BrowserSession {
       cdp.on('Page.frameNavigated', (params) => {
         const frame = isObject(params.frame) ? params.frame : null
         if (frame && frame.parentId === undefined && typeof frame.url === 'string') {
+          this.#recordInteraction()
           this.#url = frame.url
           this.#emit({ type: 'url', url: frame.url })
         }
@@ -472,19 +510,19 @@ export class BrowserSession {
 
   async navigate(url: string): Promise<void> {
     if (this.#state !== 'live' || !this.#cdp) throw new Error('The browser session is not live')
+    this.#recordInteraction()
     await this.#cdp.send('Page.navigate', { url })
   }
 
   async dispatchInput(event: BrowserInputEvent): Promise<void> {
     if (this.#state !== 'live' || !this.#cdp) throw new Error('The browser session is not live')
+    this.#recordInteraction()
     const { method, params } = cdpInputCommand(event)
     await this.#cdp.send(method, params)
   }
 
   async #teardown(): Promise<void> {
-    if (this.#ackTimer) clearTimeout(this.#ackTimer)
-    this.#ackTimer = null
-    this.#pendingAckSession = null
+    this.#clearPendingAck()
     this.#cdp?.close()
     this.#cdp = null
     const browser = this.#browser

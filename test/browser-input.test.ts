@@ -3,7 +3,14 @@ import test from 'node:test'
 import {
   cdpInputCommand,
   parseBrowserInputEvent,
+  screencastAckInterval,
 } from '../server/features/browser/browser-session.ts'
+
+test('slows screencast acknowledgements after viewer inactivity', () => {
+  const lastInteractionAt = 10_000
+  assert.equal(screencastAckInterval(lastInteractionAt, 14_999), 80)
+  assert.equal(screencastAckInterval(lastInteractionAt, 15_000), 1_000)
+})
 
 test('maps input events to their CDP commands', () => {
   assert.deepEqual(
