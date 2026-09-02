@@ -32,9 +32,9 @@ test(
 
     const frames: string[] = []
     const urls: string[] = []
-    session.subscribe((event) => {
-      if (event.type === 'frame') frames.push(event.data)
-      else if (event.type === 'url') urls.push(event.url)
+    session.subscribe((event, json) => {
+      if (event === 'frame') frames.push((JSON.parse(json) as { data: string }).data)
+      else if (event === 'url') urls.push((JSON.parse(json) as { url: string }).url)
     })
     session.addViewer()
 

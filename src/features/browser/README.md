@@ -36,6 +36,9 @@ screencast as a viewer.
   session becomes live and on explicit selection, but never fights external
   viewport changes while live. The zoom control picks `Auto` (frames scale to the
   pane, with a live percentage readout) or `100%` (natural frame size, scrollable).
+- While the document is hidden, the pane closes its event stream and the debug
+  widget stops polling; the backend then has no viewers and stops the screencast.
+  Returning re-subscribes for a fresh status and frame (`use-document-visible.ts`).
 - URL state (`App.tsx`, persisted by workspace path and browser ID) stays in sync
   with the live browser through `url` stream events. While focus is inside the browser
   pane, application-level command shortcuts are disabled so native address-bar editing

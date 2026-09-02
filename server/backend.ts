@@ -612,18 +612,14 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
       })
-      const writeEvent = (event: string, data: unknown): void => {
+      const writeEvent = (event: string, json: string): void => {
         if (event === 'frame' && response.writableLength > 512 * 1024) return
-        response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+        response.write(`event: ${event}\ndata: ${json}\n\n`)
       }
-      writeEvent('status', browserSession.status())
+      writeEvent('status', JSON.stringify(browserSession.status()))
       const currentUrl = browserSession.status().url
-      if (currentUrl) writeEvent('url', { url: currentUrl })
-      const unsubscribe = browserSession.subscribe((event) => {
-        if (event.type === 'frame') writeEvent('frame', { data: event.data })
-        else if (event.type === 'url') writeEvent('url', { url: event.url })
-        else writeEvent('status', event.status)
-      })
+      if (currentUrl) writeEvent('url', JSON.stringify({ url: currentUrl }))
+      const unsubscribe = browserSession.subscribe((event, json) => writeEvent(event, json))
       browserSession.addViewer()
       request.on('close', () => {
         unsubscribe()

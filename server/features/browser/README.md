@@ -28,7 +28,9 @@ tooling (Chrome DevTools MCP, Playwright, Puppeteer, or raw CDP). See the
   crashed`), subscribes to `Page.startScreencast` frames (acking with the frame's
   session id — Chrome may report it as a number, and un-acked casts are throttled to
   a stop), forwards validated input events to `Input.*`, and emits frame/url/status
-  events to SSE subscribers. With a viewer open, capture stays at full pace for five
+  events to SSE subscribers as pre-serialized event payloads (`wireFor`, pure
+  and unit-tested): one serialization per event is shared by every connected
+  viewer. With a viewer open, capture stays at full pace for five
   seconds after viewer input, navigation, or viewport changes, then ack-paces to about
   one frame per second; frame traffic itself never resets that idle timer.
   Its diagnostics snapshot opens a short-lived connection

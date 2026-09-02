@@ -18,6 +18,7 @@ import {
 import type { BrowserSessionStatus, BrowserViewport } from '../../../shared/types.ts'
 import { normalizeBrowserUrl } from './browser-url.ts'
 import { cdpModifiers, mapPointerToPage } from './coordinates.ts'
+import { useDocumentVisible } from './use-document-visible.ts'
 
 const wheelFlushIntervalMs = 50
 
@@ -88,6 +89,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   const onUrlCommitRef = useRef(onUrlCommit)
   const requestedUrlRef = useRef(url)
   const lastMoveSentRef = useRef(0)
+  const documentVisible = useDocumentVisible()
   const live = status.state === 'live'
   liveRef.current = live
   onUrlCommitRef.current = onUrlCommit
@@ -131,6 +133,10 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   }, [status, target, viewportChoice])
 
   useEffect(() => {
+    // Hidden documents cannot watch frames: closing the stream releases the
+    // backend viewer so the screencast stops, and returning re-subscribes (the
+    // start call is idempotent) for a fresh status and frame.
+    if (!documentVisible) return
     setStatus({ state: 'off' })
     setHasFrame(false)
     const initialUrl = requestedUrlRef.current
@@ -160,7 +166,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
       active = false
       unsubscribe()
     }
-  }, [target])
+  }, [documentVisible, target])
 
   useEffect(() => {
     const element = liveSurfaceRef.current

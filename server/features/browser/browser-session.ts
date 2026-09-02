@@ -58,6 +58,13 @@ export type BrowserSessionEvent =
   | { type: 'url'; url: string }
   | { type: 'status'; status: BrowserSessionStatus }
 
+/** Serializes one session event into its SSE event name and JSON payload. Pure. */
+export function wireFor(event: BrowserSessionEvent): { name: string; json: string } {
+  if (event.type === 'frame') return { name: 'frame', json: JSON.stringify({ data: event.data }) }
+  if (event.type === 'url') return { name: 'url', json: JSON.stringify({ url: event.url }) }
+  return { name: 'status', json: JSON.stringify(event.status) }
+}
+
 /** Maps a validated input event to its CDP command. Pure; unit-tested. */
 export function cdpInputCommand(event: BrowserInputEvent): {
   method: string
@@ -221,7 +228,7 @@ export class BrowserSession {
   #endpoint: string | undefined
   #browser: LaunchedBrowser | null = null
   #cdp: CdpConnection | null = null
-  #subscribers = new Set<(event: BrowserSessionEvent) => void>()
+  #subscribers = new Set<(event: string, json: string) => void>()
   #startPromise: Promise<BrowserSessionStatus> | null = null
   #viewers = 0
   #startedAt: number | undefined
@@ -307,7 +314,7 @@ export class BrowserSession {
     this.#emit({ type: 'status', status: this.status() })
   }
 
-  subscribe(listener: (event: BrowserSessionEvent) => void): () => void {
+  subscribe(listener: (event: string, json: string) => void): () => void {
     this.#subscribers.add(listener)
     return () => this.#subscribers.delete(listener)
   }
@@ -539,7 +546,10 @@ export class BrowserSession {
   }
 
   #emit(event: BrowserSessionEvent): void {
-    for (const subscriber of this.#subscribers) subscriber(event)
+    if (this.#subscribers.size === 0) return
+    // Serialized once per event so every SSE viewer writes the same bytes.
+    const { name, json } = wireFor(event)
+    for (const subscriber of this.#subscribers) subscriber(name, json)
   }
 }
 

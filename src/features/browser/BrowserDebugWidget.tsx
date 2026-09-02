@@ -8,6 +8,7 @@ import { getBrowserDebugSnapshot, startBrowserSession, stopBrowserSession } from
 import { Tooltip } from '../../components/Tooltip.tsx'
 import { WidgetLayout } from '../right-sidebar/WidgetLayout.tsx'
 import { primaryBrowserId } from './browser-url.ts'
+import { useDocumentVisible } from './use-document-visible.ts'
 
 const pollIntervalMs = 2_000
 
@@ -22,6 +23,7 @@ export function BrowserDebugWidget({ onOpenBrowser, workspacePath }: {
   const [action, setAction] = useState<'start' | 'stop' | null>(null)
   const [copiedInstance, setCopiedInstance] = useState<string | null>(null)
   const requestSequenceRef = useRef(0)
+  const documentVisible = useDocumentVisible()
   const target = { browserId: primaryBrowserId, workspacePath }
 
   const refresh = useCallback(async (showProgress = false): Promise<void> => {
@@ -41,10 +43,13 @@ export function BrowserDebugWidget({ onOpenBrowser, workspacePath }: {
   }, [workspacePath])
 
   useEffect(() => {
+    // Polling pauses while the document is hidden; each poll opens a short-lived
+    // CDP connection per live instance, so an unwatched app stays silent.
+    if (!documentVisible) return
     void refresh(true)
     const timer = window.setInterval(() => void refresh(), pollIntervalMs)
     return () => window.clearInterval(timer)
-  }, [refresh])
+  }, [documentVisible, refresh])
 
   useEffect(() => {
     if (!copiedInstance) return
