@@ -1087,6 +1087,13 @@ function LivecraftProjectApp(
   const handleComposerAbort = useCallback(() => sendPiCommand(selectedId, { type: 'abort' }), [
     selectedId,
   ])
+  /** Resends a failed turn's prompt as a fresh follow-up message. */
+  const retryConversationPrompt = useCallback(
+    async (prompt: string): Promise<void> => {
+      await handleComposerSend(prompt, [], 'followUp', false)
+    },
+    [handleComposerSend],
+  )
   /** Starts a real Pi session in the current workspace (sidebar + / empty-state CTA). */
   const handleNewSession = useCallback(async (): Promise<void> => {
     await startNewSession(() => createSession(workspacePath))
@@ -1589,6 +1596,7 @@ function LivecraftProjectApp(
                       navigationRequest={conversationNavigation}
                       onError={handleConversationError}
                       onFork={handleForkConversation}
+                      onRetry={retryConversationPrompt}
                       pendingSteering={pendingSteering}
                       repositoryRoot={gitSnapshot?.root}
                       scrollToBottomRequest={scrollToBottomRequest}

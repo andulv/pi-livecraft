@@ -22,7 +22,7 @@ import type { ConversationNavigationTarget } from './conversation-navigation.ts'
 import { ActivityIndicator } from './ActivityIndicator.tsx'
 import { Markdown } from './Markdown.tsx'
 import { MessageCard, TurnUsage } from './MessageCard.tsx'
-import { isVisibleConversationMessage } from './message-display.ts'
+import { isVisibleConversationMessage, providerError, userPromptText } from './message-display.ts'
 import { ToolCallCard } from './ToolCallCard.tsx'
 import {
   conversationHistoryStart,
@@ -47,6 +47,7 @@ export function Conversation(
     workingDirectory,
     onError,
     onFork,
+    onRetry,
   }: {
     activity: Activity | null
     agentName?: string
@@ -62,6 +63,7 @@ export function Conversation(
     workingDirectory: string
     onError: (cause: unknown) => void
     onFork: (entryId: string) => Promise<boolean>
+    onRetry?: (prompt: string) => Promise<void>
   },
 ) {
   const showToolCalls = conversationView !== 'simple'
@@ -123,6 +125,21 @@ export function Conversation(
     allMessages,
     liveMessages,
   ])
+  /** Retry handler per failed assistant message, bound to the prompt it should resend. */
+  const retryByMessage = useMemo(() => {
+    const bound = new WeakMap<JsonObject, () => Promise<void>>()
+    if (!onRetry) return bound
+    let lastUserPrompt: string | undefined
+    for (const { message } of messageEntries) {
+      const prompt = userPromptText(message)
+      if (prompt !== undefined) lastUserPrompt = prompt
+      if (providerError(message) && lastUserPrompt !== undefined) {
+        const retryPrompt = lastUserPrompt
+        bound.set(message, () => onRetry(retryPrompt))
+      }
+    }
+    return bound
+  }, [messageEntries, onRetry])
   const initialHistoryStart = useMemo(
     () => conversationHistoryStart(allMessages, allMessages.length),
     [allMessages],
@@ -355,7 +372,12 @@ export function Conversation(
                 key={entry.key}
               >
                 {isVisibleConversationMessage(message) && (
-                  <MessageCard message={message} onError={onError} onFork={onFork} />
+                  <MessageCard
+                    message={message}
+                    onError={onError}
+                    onFork={onFork}
+                    onRetry={retryByMessage.get(message)}
+                  />
                 )}
                 {calls.map((call) => {
                   const execution = executionsByCallId.get(call.id)
@@ -413,6 +435,7 @@ export function Conversation(
                         message={part.message}
                         onError={onError}
                         onFork={onFork}
+                        onRetry={retryByMessage.get(part.message)}
                       />
                     )
                     : null

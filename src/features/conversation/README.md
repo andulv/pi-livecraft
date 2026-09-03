@@ -2,6 +2,8 @@
 
 `useConversationRuntime` owns state for the selected Pi conversation: snapshots, streamed messages, steering queue reconciliation, activity, tool execution updates, observed durations, event sequences, and replay of snapshot `liveEvents`. It rejects stale snapshot responses and batches assistant deltas with `requestAnimationFrame`.
 
+Pi persists failed provider responses as assistant messages with `stopReason: "error"`, often with no content. The thread keeps those messages visible, presents Pi's safe error message, and retries the preceding user prompt when one is available.
+
 `App.tsx` keeps only cross-feature Pi effects such as session status, dialogs, Git refreshes, quotas, and notifications. Live and replayed events pass through that orchestration before reaching the runtime so their ordering and sequence deduplication remain consistent.
 
 Pure protocol, reconciliation, and display rules stay separate:

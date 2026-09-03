@@ -1,33 +1,42 @@
-import { memo, type ReactNode } from 'react'
+import { memo, useState, type ReactNode } from 'react'
 import type { JsonObject } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
 import { CopyButton } from './CopyButton.tsx'
 import { ForkButton } from './ForkButton.tsx'
 import { Markdown } from './Markdown.tsx'
-import { hasVisibleContent, reasoningTextForDisplay } from './message-display.ts'
+import {
+  hasVisibleContent,
+  providerError,
+  reasoningTextForDisplay,
+  type ProviderError,
+} from './message-display.ts'
 import { formatTokens, formatTurnCost, type MessageUsage } from './message-usage.ts'
 
 /** Renders a visible protocol message with the default or custom presentation. */
 export const MessageCard = memo(
   function MessageCard(
-    { message, onError, onFork }: {
+    { message, onError, onFork, onRetry }: {
       message: JsonObject
       onError: (cause: unknown) => void
       onFork: (entryId: string) => Promise<boolean>
+      onRetry?: () => Promise<void>
     },
   ) {
     if (message.role === 'custom' && typeof message.customType === 'string')
       return <DefaultCustomMessage message={message} />
-    return <DefaultMessageCard message={message} onError={onError} onFork={onFork} />
+    return (
+      <DefaultMessageCard message={message} onError={onError} onFork={onFork} onRetry={onRetry} />
+    )
   },
 )
 
 const DefaultMessageCard = memo(
   function DefaultMessageCard(
-    { message, onError, onFork }: {
+    { message, onError, onFork, onRetry }: {
       message: JsonObject
       onError: (cause: unknown) => void
       onFork: (entryId: string) => Promise<boolean>
+      onRetry?: () => Promise<void>
     },
   ) {
     const role = String(message.role)
@@ -37,8 +46,9 @@ const DefaultMessageCard = memo(
     const forkEntryId = role === 'user' && typeof message.forkEntryId === 'string'
       ? message.forkEntryId
       : undefined
+    const failure = providerError(message)
     return (
-      <article className={`message ${role}`}>
+      <article className={`message ${role}${failure ? ' provider-failure' : ''}`}>
         {(text || forkEntryId) && (
           <div className='conversation-actions message-actions'>
             {forkEntryId && <ForkButton entryId={forkEntryId} onError={onError} onFork={onFork} />}
@@ -48,6 +58,7 @@ const DefaultMessageCard = memo(
         <div className='content'>
           {renderContent(message.content ?? message.output, message.role, onError)}
         </div>
+        {failure && <ProviderErrorCard failure={failure} onError={onError} onRetry={onRetry} />}
         {role === 'user' && time && (
           <time
             className='message-time'
@@ -60,6 +71,49 @@ const DefaultMessageCard = memo(
     )
   },
 )
+
+/** Explains a failed provider response in place of the silent empty bubble. */
+function ProviderErrorCard(
+  { failure, onError, onRetry }: {
+    failure: ProviderError
+    onError: (cause: unknown) => void
+    onRetry?: () => Promise<void>
+  },
+) {
+  const [retrying, setRetrying] = useState(false)
+
+  async function retry(): Promise<void> {
+    if (!onRetry) return
+    setRetrying(true)
+    try {
+      await onRetry()
+    } catch (cause) {
+      onError(cause)
+    } finally {
+      setRetrying(false)
+    }
+  }
+
+  return (
+    <div className='provider-error' role='alert'>
+      <div className='provider-error-copy'>
+        <strong>Provider error</strong>
+        <span>{failure.errorMessage}</span>
+        {failure.model && <small>{failure.model}</small>}
+      </div>
+      {onRetry && (
+        <button
+          className='provider-error-retry'
+          disabled={retrying}
+          onClick={() => void retry()}
+          type='button'
+        >
+          {retrying ? 'Retrying…' : 'Retry'}
+        </button>
+      )}
+    </div>
+  )
+}
 
 /** Renders an unknown custom message without interpreting extension-specific details. */
 function DefaultCustomMessage({ message }: { message: JsonObject & { customType?: unknown } }) {

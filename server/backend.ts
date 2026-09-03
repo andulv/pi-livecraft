@@ -53,6 +53,7 @@ import type {
   SessionSnapshot,
 } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
+import { providerFailure } from '../shared/provider-failure.ts'
 
 const host = '127.0.0.1'
 const port = readPort('PI_LIVECRAFT_BACKEND_PORT', 43_121)
@@ -78,6 +79,7 @@ manager.on('event', (event: ManagerEvent) => {
   if (event.event === 'session_exited' || event.event === 'session_reassigned')
     liveSessionEvents.delete(event.sessionId)
   if (event.event === 'pi' && isObject(event.data)) {
+    logProviderFailure(event.sessionId, event.data)
     const sequence = ++piEventSequence
     const live = liveSessionEvents.get(event.sessionId) ?? new LiveSessionEvents()
     liveSessionEvents.set(event.sessionId, live)
@@ -911,6 +913,23 @@ function isModelBody(value: unknown): { provider: string; modelId: string } | un
   if (!isObject(value) || typeof value.provider !== 'string' || typeof value.modelId !== 'string')
     return undefined
   return { provider: value.provider, modelId: value.modelId }
+}
+
+/** Logs only the safe summary Pi stores for an unsuccessful provider response. */
+function logProviderFailure(sessionId: string, event: JsonObject): void {
+  if (event.type !== 'message_end' || !isObject(event.message)) return
+  const failure = providerFailure(event.message)
+  if (!failure) return
+  const model = failure.model ? `, model ${logLine(failure.model)}` : ''
+  console.error(
+    `Pi provider request failed (session ${sessionId}${model}): ${logLine(failure.errorMessage)}`,
+  )
+}
+
+/** Keeps provider-controlled error text to one readable log line. */
+function logLine(value: string): string {
+  const normalized = value.replace(/\s+/g, ' ')
+  return normalized.length > 1_000 ? `${normalized.slice(0, 997)}...` : normalized
 }
 
 function errorMessage(error: unknown): string {

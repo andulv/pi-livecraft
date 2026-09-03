@@ -1,5 +1,9 @@
 import { isObject } from '../../../shared/is-object.ts'
+import { providerFailure, type ProviderFailure } from '../../../shared/provider-failure.ts'
 import type { JsonObject } from '../../../shared/types.ts'
+
+export { providerFailure as providerError }
+export type { ProviderFailure as ProviderError }
 
 const ESC = String.fromCodePoint(0x1B)
 const C1_CSI = String.fromCodePoint(0x9B)
@@ -14,8 +18,28 @@ export function reasoningTextForDisplay(role: unknown, text: string): string {
 export function isVisibleConversationMessage(message: JsonObject): boolean {
   const role = message.role
   if (role === 'custom') return message.display === true && typeof message.customType === 'string'
-  return (role === 'user' || role === 'assistant' || role === 'system')
-    && hasVisibleContent(message.content ?? message.output)
+  if (role !== 'user' && role !== 'assistant' && role !== 'system') return false
+  // A failed provider response carries no content but must stay visible as an error.
+  if (role === 'assistant' && providerFailure(message) !== undefined) return true
+  return hasVisibleContent(message.content ?? message.output)
+}
+
+/** Concatenates the text parts of a user message, for retrying its prompt. */
+export function userPromptText(message: JsonObject): string | undefined {
+  if (message.role !== 'user') return undefined
+  const content = message.content
+  if (!Array.isArray(content))
+    return typeof content === 'string' && content.trim()
+      ? content
+      : undefined
+  const text = content
+    .filter((part): part is { text: string } =>
+      isObject(part) && part.type === 'text' && typeof part.text === 'string'
+    )
+    .map((part) => part.text)
+    .join('\n')
+    .trim()
+  return text || undefined
 }
 
 /** Reports whether protocol content contains text, thinking, or a supported inline image. */

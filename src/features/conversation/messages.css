@@ -232,6 +232,66 @@
   line-height: 1.5;
   text-align: center;
 }
+/* Failed provider response: replaces the silent empty assistant bubble. */
+.provider-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--line));
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--danger-soft);
+}
+.provider-error-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.provider-error-copy strong {
+  color: var(--danger);
+  font-size: 11px;
+}
+.provider-error-copy span {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 12px;
+}
+.provider-error-copy small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.provider-error-retry {
+  flex: 0 0 auto;
+  height: 26px;
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--line-strong));
+  border-radius: 7px;
+  padding: 0 10px;
+  background: var(--surface);
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 700;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
+}
+.provider-error-retry:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+}
+.provider-error-retry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.provider-error-retry:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.provider-error-retry:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
 .message.system.error {
   margin: 6px 0;
   padding: 6px 12px;
