@@ -152,7 +152,6 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
     // nobody watched. The remembered URL is applied once per instance, so a
     // page moved by attached tooling while hidden is never navigated back.
     if (!documentVisible) return
-    const initialUrl = requestedUrlRef.current
     const shouldNavigateInitial = !didInitialNavigateRef.current
     didInitialNavigateRef.current = true
     let active = true
@@ -174,8 +173,13 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
       .then((next) => {
         if (!active) return
         setStatus(next)
-        if (shouldNavigateInitial && initialUrl && initialUrl !== next.url) {
-          return navigateBrowser(target, initialUrl)
+        // Read the requested URL at resolution time: when the pane remounts on a
+        // workspace switch it first sees the previous workspace's URL until the
+        // app state catches up, and that stale value must never steer the new
+        // instance's first navigation.
+        const requestedUrl = requestedUrlRef.current
+        if (shouldNavigateInitial && requestedUrl && requestedUrl !== next.url) {
+          return navigateBrowser(target, requestedUrl)
         }
       })
       .catch(() => {})
