@@ -3,7 +3,7 @@
 Pi Livecraft is documented in layers: begin with the system you want to build on, then follow a deeper link only when the change crosses a boundary. Implementation guides describe the project's supported composition points; feature README files record their local contracts.
 
 - **[Andulv fork feature overview](/docs/ANDULV-FORK-FEATURES.md)** — additions and improvements made by `andulv/pi-livecraft`, with screenshots from the running fork.
-- **[Browser bridge specification](/docs/BROWSER-BRIDGE.md)** — planned CDP livecast browser for the viewer pane. Not yet implemented; a specification and task plan, not a guide.
+- **[Browser bridge specification](/docs/BROWSER-BRIDGE.md)** — CDP livecast browser for the viewer pane; the spec records the design and is now implemented.
 - **[Embedded terminal specification](/docs/EMBEDDED-TERMINAL.md)** — server-side PTY shell in a viewer-pane Terminal tab; the spec records the transport decision and is now implemented.
 
 ## Find the right place
@@ -15,6 +15,7 @@ Pi Livecraft is documented in layers: begin with the system you want to build on
 - **Add a command, palette entry, or shortcut:** [step-by-step guide](/docs/HOW-TO-PALETTE-COMMAND.md), then [contract reference](/src/features/commands/README.md).
 - **Add a preference, persisted UI state, or settings tab:** [how to settings](/docs/HOW-TO-SETTINGS.md), then [settings and preferences](/src/features/settings/README.md).
 - **Customise colours or add a theme:** [how to theme](/docs/HOW-TO-THEME.md).
+- **Verify a visual or pane change in the running app:** load the [livecraft-browser skill](/pi-skills/livecraft-browser/SKILL.md) and attach to the workspace's shared browser — the one rendered in the viewer pane; never launch your own. Use it for what unit tests cannot see: rendering, themes, tabs, focus, and SSE-driven surfaces.
 - **Add a right sidebar widget:** [step-by-step guide](/docs/HOW-TO-WIDGET.md), then [contract reference](/src/features/right-sidebar/README.md).
 - **Add an action to a message or tool call:** [step-by-step guide](/docs/HOW-TO-CONVERSATION-ACTION.md), then [conversation contract](/src/features/conversation/README.md).
 - **Change a tool call display:** [step-by-step guide](/docs/HOW-TO-TOOL-PRESENTATION.md), then [conversation contract](/src/features/conversation/README.md).
