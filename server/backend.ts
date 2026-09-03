@@ -24,6 +24,13 @@ import { openTerminalApplication, TerminalTemplateError } from './features/termi
 import { parseBrowserInputEvent, parseBrowserViewport } from './features/browser/browser-session.ts'
 import { BrowserService, parseBrowserId } from './features/browser/browser-service.ts'
 import {
+  parseTerminalId,
+  parseTerminalInput,
+  parseTerminalResize,
+  TerminalService,
+} from './features/terminal/session.ts'
+import { openSseStream, parseSseLastEventId } from './sse-response.ts'
+import {
   openVSCodeApplication,
   readWorkspaceTitleBarColor,
   VSCodeSettingsError,
@@ -58,6 +65,8 @@ const quotas = new QuotaService(manager)
 const environment = new EnvironmentService(manager)
 const browsers = new BrowserService()
 process.once('exit', () => browsers.killSync())
+const terminals = new TerminalService()
+process.once('exit', () => terminals.killSync())
 const managerRuntime = new ManagerRuntimeMonitor(manager, (status) => {
   broadcast({ kind: 'event', event: 'manager_status', sessionId: '', data: status })
 })
@@ -607,14 +616,10 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         sendJson(response, 200, browserSession.status())
         return
       }
-      response.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      })
+      const stream = openSseStream(response)
       const writeEvent = (event: string, json: string): void => {
-        if (event === 'frame' && response.writableLength > 512 * 1024) return
-        response.write(`event: ${event}\ndata: ${json}\n\n`)
+        if (event === 'frame' && stream.writableLength > 512 * 1024) return
+        stream.writeEvent(event, json)
       }
       writeEvent('status', JSON.stringify(browserSession.status()))
       const currentUrl = browserSession.status().url
@@ -677,6 +682,82 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     }
   }
 
+  const terminalInstanceMatch = url.pathname.match(
+    /^\/api\/terminal\/instances\/([^/]+)\/(status|stream|start|stop|input|resize)$/,
+  )
+  if (terminalInstanceMatch) {
+    const terminalId = parseTerminalId(decodeURIComponent(terminalInstanceMatch[1]))
+    if (!terminalId) throw new HttpError(400, 'A valid terminal ID is required')
+    const action = terminalInstanceMatch[2]
+
+    if (method === 'GET' && (action === 'status' || action === 'stream')) {
+      const workspacePath = await resolveBrowserWorkspace(
+        url.searchParams.get('workspacePath'),
+      )
+      const terminalSession = terminals.session(workspacePath, terminalId)
+      if (!terminalSession) {
+        throw new HttpError(429, 'Too many terminal sessions for this workspace')
+      }
+      if (action === 'status') {
+        sendJson(response, 200, terminalSession.status())
+        return
+      }
+      const stream = openSseStream(response)
+      const lastEventId = parseSseLastEventId(request.headers['last-event-id'])
+        ?? parseSseLastEventId(url.searchParams.get('lastEventId'))
+      for (const item of terminalSession.replay(lastEventId)) {
+        stream.writeEvent(item.name, item.json, item.id)
+      }
+      const subscription = terminalSession.subscribe((event, json, id) => {
+        if (!stream.writeEvent(event, json, id)) subscription.setCongested(true)
+      })
+      const drain = (): void => subscription.setCongested(false)
+      response.on('drain', drain)
+      request.on('close', () => {
+        subscription.setCongested(false)
+        subscription.unsubscribe()
+        response.off('drain', drain)
+      })
+      return
+    }
+
+    if (method === 'POST') {
+      const body = await readJsonBody(request)
+      const workspacePath = await resolveBrowserWorkspace(body.workspacePath)
+      const terminalSession = terminals.session(workspacePath, terminalId)
+      if (!terminalSession) {
+        throw new HttpError(429, 'Too many terminal sessions for this workspace')
+      }
+      if (action === 'start') {
+        try {
+          sendJson(response, 200, await terminalSession.start())
+        } catch (error) {
+          throw new HttpError(400, errorMessage(error))
+        }
+        return
+      }
+      if (action === 'stop') {
+        terminalSession.stop()
+        sendJson(response, 200, { ok: true })
+        return
+      }
+      if (action === 'input') {
+        const data = parseTerminalInput(body)
+        if (data === null) throw new HttpError(400, 'Invalid terminal input payload')
+        terminalSession.write(data)
+        sendJson(response, 200, { ok: true })
+        return
+      }
+      if (action === 'resize') {
+        const resize = parseTerminalResize(body)
+        if (!resize) throw new HttpError(400, 'A valid terminal size is required')
+        terminalSession.resize(resize.cols, resize.rows)
+        sendJson(response, 200, terminalSession.status())
+        return
+      }
+    }
+  }
+
   const browserInstanceRootMatch = url.pathname.match(/^\/api\/browser\/instances\/([^/]+)$/)
   if (method === 'DELETE' && browserInstanceRootMatch) {
     const browserId = parseBrowserId(decodeURIComponent(browserInstanceRootMatch[1]))
@@ -710,7 +791,7 @@ function arrayData(response: JsonObject, key: string): JsonObject[] {
   return response.data[key].filter(isObject)
 }
 
-/** Reads and canonicalizes the workspace key used by browser instance routes. */
+/** Reads and canonicalizes the workspace key used by browser and terminal instance routes. */
 async function resolveBrowserWorkspace(value: unknown): Promise<string> {
   if (typeof value !== 'string') throw new HttpError(400, 'Browser workspace is required')
   return resolveWorkingDirectory(value)

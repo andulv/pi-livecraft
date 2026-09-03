@@ -127,8 +127,11 @@ const conversationViewDetails = {
 } as const
 type ConversationView = keyof typeof conversationViewDetails
 
-/** The file pane shows either one open file or one identified browser tab. */
-type PaneView = { kind: 'browser'; browserId: string } | { kind: 'file'; path: string }
+/** The file pane shows either one open file, the browser tab, or the terminal tab. */
+type PaneView =
+  | { kind: 'browser'; browserId: string }
+  | { kind: 'terminal'; terminalId: string }
+  | { kind: 'file'; path: string }
 
 const gitRefreshDelayMs = 250
 const managerUnavailableMessage = 'Pi manager is unavailable'
@@ -265,6 +268,7 @@ function LivecraftProjectApp(
   },
 ) {
   const browserId = primaryBrowserId
+  const terminalId = 'main'
   const initialBrowserWorkspacePath = initialWorkspacePath ?? project.root
 
   // Workspace and sessions
@@ -314,6 +318,7 @@ function LivecraftProjectApp(
   const [openFilePaths, setOpenFilePaths] = useState<string[]>([])
   const [activePaneView, setActivePaneView] = useState<PaneView | null>(null)
   const [browserOpen, setBrowserOpen] = useState(false)
+  const [terminalOpen, setTerminalOpen] = useState(false)
   const [browserUrl, setBrowserUrl] = useState(
     () => readBrowserUrl(initialBrowserWorkspacePath, browserId),
   )
@@ -1775,6 +1780,7 @@ function LivecraftProjectApp(
           key={workspacePath}
           onActivate={(path) => setActivePaneView({ kind: 'file', path })}
           onActivateBrowser={() => setActivePaneView({ kind: 'browser', browserId })}
+          onActivateTerminal={() => setActivePaneView({ kind: 'terminal', terminalId })}
           onBrowserUrlCommit={(url) => {
             writeBrowserUrl(workspacePath, browserId, url)
             setBrowserUrl(url)
@@ -1783,8 +1789,16 @@ function LivecraftProjectApp(
             setBrowserOpen(true)
             setActivePaneView({ kind: 'browser', browserId })
           }}
+          onOpenTerminal={() => {
+            setTerminalOpen(true)
+            setActivePaneView({ kind: 'terminal', terminalId })
+          }}
           onResize={updateFilePaneShare}
           share={filePaneShare}
+          terminalActive={activePaneView?.kind === 'terminal'
+            && activePaneView.terminalId === terminalId}
+          terminalId={terminalId}
+          terminalOpen={terminalOpen}
           onClose={(path) => {
             setOpenFilePaths((current) => current.filter((candidate) => candidate !== path))
             setActivePaneView((current) => {
@@ -1792,7 +1806,9 @@ function LivecraftProjectApp(
               const remaining = openFilePaths.filter((candidate) => candidate !== path)
               const last = remaining.at(-1)
               if (last !== undefined) return { kind: 'file', path: last }
-              return browserOpen ? { kind: 'browser', browserId } : null
+              if (browserOpen) return { kind: 'browser', browserId }
+              if (terminalOpen) return { kind: 'terminal', terminalId }
+              return null
             })
           }}
           onCloseBrowser={() => {
@@ -1800,7 +1816,19 @@ function LivecraftProjectApp(
             setActivePaneView((current) => {
               if (current?.kind !== 'browser') return current
               const last = openFilePaths.at(-1)
-              return last !== undefined ? { kind: 'file', path: last } : null
+              if (last !== undefined) return { kind: 'file', path: last }
+              if (terminalOpen) return { kind: 'terminal', terminalId }
+              return null
+            })
+          }}
+          onCloseTerminal={() => {
+            setTerminalOpen(false)
+            setActivePaneView((current) => {
+              if (current?.kind !== 'terminal') return current
+              const last = openFilePaths.at(-1)
+              if (last !== undefined) return { kind: 'file', path: last }
+              if (browserOpen) return { kind: 'browser', browserId }
+              return null
             })
           }}
           openPaths={openFilePaths}

@@ -1,0 +1,76 @@
+.terminal-view {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--canvas);
+}
+.terminal-session-error {
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 7px 10px;
+  color: var(--danger);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.terminal-surface {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 6px 8px;
+  outline: 0;
+}
+.terminal-surface:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.terminal-view .xterm {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+.terminal-veil {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: color-mix(in srgb, var(--canvas) 86%, transparent);
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+.terminal-veil p {
+  margin: 0;
+}
+.terminal-veil button {
+  height: 26px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 0 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 650 11px ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+.terminal-veil button:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.terminal-veil button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.terminal-veil button:active {
+  transform: scale(0.97);
+}

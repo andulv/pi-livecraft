@@ -17,6 +17,7 @@ server/backend.ts ─── JSON Lines over local TCP ──▶ server/manager.t
 `src/App.tsx` remains the cross-cutting orchestrator: it receives the SSE stream, applies effects that span features (dialogs, Git, quotas, notifications, and manager state), and connects the panels. Workspace/session lifecycle belongs to `useWorkspaceSessions`; selected-conversation snapshots, replay, streaming, and tool execution state belong to `useConversationRuntime`. Area-specific logic and rendering live in `src/features/`:
 
 - `browser/` — the viewer pane's workspace-scoped browser instance: live stream plus input forwarding, with a sandboxed iframe fallback;
+- `terminal/` — the viewer pane's workspace-scoped embedded shell: PTY output stream plus input forwarding, distinct from the external-launcher terminal action;
 - `composer/` — input, commands, and image preparation;
 - `conversation/` — history, activity, usage, and tool calls;
 - `dialogs/` — extension questionnaires and dialogs;
@@ -34,7 +35,7 @@ Use the [`src/features/` map](/src/features/README.md) to locate frontend owners
 
 ## Backend and manager
 
-`server/backend.ts` exposes the web API, validates HTTP requests, serves the build, and broadcasts SSE events. Domain behavior for Git, quotas, terminal launching, and livecast browsers lives in `server/features/`; route definitions remain in the backend. `BrowserService` groups browser sessions by canonical workspace path and browser ID. Each `BrowserSession` owns one Chrome process. Other neighboring modules provide workspace files, recent sessions, and system integrations.
+`server/backend.ts` exposes the web API, validates HTTP requests, serves the build, and broadcasts SSE events. Domain behavior for Git, quotas, terminal launching, livecast browsers, and embedded terminals lives in `server/features/`; route definitions remain in the backend. `BrowserService` groups browser sessions by canonical workspace path and browser ID. Each `BrowserSession` owns one Chrome process. `TerminalService` groups embedded terminal sessions by canonical workspace path and terminal ID; each `TerminalSession` owns one shell PTY, a bounded replay buffer, and SSE fan-out with resumable event ids. Both registries kill their children when the backend exits. Other neighboring modules provide workspace files, recent sessions, and system integrations.
 
 `server/manager.ts` is the sole owner of `pi --mode rpc` processes. `server/pi-process.ts` starts them with the extensions from `pi-extensions/` and the shared-browser skill from `pi-skills/`, while `server/manager-client.ts` carries backend requests over local JSON Lines. Keeping this ownership outside the backend preserves Pi sessions across backend restarts.
 
@@ -53,6 +54,18 @@ Use the [`src/features/` map](/src/features/README.md) to locate frontend owners
 3. The manager creates, reopens, or commands the relevant Pi process.
 4. Pi events travel back to the backend and then to the browser through SSE.
 5. `App` updates cross-cutting state and delegates rendering to the relevant feature.
+
+## Restart semantics
+
+The layers restart independently. What users lose depends on which layer restarts:
+
+| Event | Pi sessions | Browser instances | Embedded terminals | Manager event stream |
+|---|---|---|---|---|
+| Frontend reload | survive | survive; the pane reattaches | survive; the pane replays the session buffer | `EventSource` reconnects |
+| Backend restart | survive — the manager owns the processes | restart with the backend | restart with the backend; the shell state is lost | auto-reconnects |
+| Accepted manager restart | active Pi sessions close (idle ones stay in history) | unaffected | unaffected | reconnects when the replacement starts |
+
+Embedded terminals are the one stateful surface that dies with the backend: unlike Pi sessions, a shell's process tree lives under the backend. Restart survival for terminals is a named future path — a tmux-backed session — not a manager concern.
 
 ## Where to make a change
 

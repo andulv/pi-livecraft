@@ -19,6 +19,8 @@ import type {
   SessionEnvironmentSnapshot,
   SessionSnapshot,
   SessionSummary,
+  TerminalInstanceTarget,
+  TerminalSessionStatus,
   WorkspaceFile,
   WorkspaceFileListing,
 } from '../shared/types.ts'
@@ -374,6 +376,72 @@ export function sendBrowserInput(target: BrowserInstanceTarget, event: BrowserIn
     .catch(() => {})
 }
 
+export async function stopTerminalSession(target: TerminalInstanceTarget): Promise<void> {
+  await request<void>(terminalInstanceUrl(target, 'stop'), {
+    method: 'POST',
+    body: JSON.stringify({ workspacePath: target.workspacePath }),
+  })
+}
+
+export async function startTerminalSession(
+  target: TerminalInstanceTarget,
+): Promise<TerminalSessionStatus> {
+  return request<TerminalSessionStatus>(terminalInstanceUrl(target, 'start'), {
+    method: 'POST',
+    body: JSON.stringify({ workspacePath: target.workspacePath }),
+  })
+}
+
+function terminalInstanceUrl(target: TerminalInstanceTarget, action?: string): string {
+  const base = `/api/terminal/instances/${encodeURIComponent(target.terminalId)}`
+  return action ? `${base}/${action}` : base
+}
+
+/** One-in-flight sender that preserves submission order and coalesces a backlog. */
+export interface OrderedSender {
+  send(data: string): void
+}
+
+/** Creates a sender that keeps one POST in flight and merges bytes queued behind it. */
+export function createOrderedSender(post: (data: string) => Promise<unknown>): OrderedSender {
+  let queued = ''
+  let sending = false
+  const pump = (): void => {
+    if (sending || queued === '') return
+    const batch = queued
+    queued = ''
+    sending = true
+    void post(batch).catch(() => {}).finally(() => {
+      sending = false
+      pump()
+    })
+  }
+  return {
+    send(data) {
+      if (!data) return
+      queued += data
+      pump()
+    },
+  }
+}
+
+const terminalSenders = new Map<string, OrderedSender>()
+
+function terminalSender(target: TerminalInstanceTarget): OrderedSender {
+  const key = `${target.workspacePath}\u0000${target.terminalId}`
+  let sender = terminalSenders.get(key)
+  if (!sender) {
+    sender = createOrderedSender((data) =>
+      request<void>(terminalInstanceUrl(target, 'input'), {
+        method: 'POST',
+        body: JSON.stringify({ workspacePath: target.workspacePath, data }),
+      })
+    )
+    terminalSenders.set(key, sender)
+  }
+  return sender
+}
+
 export interface BrowserEventHandlers {
   onFrame?: (data: string) => void
   onUrl?: (url: string) => void
@@ -411,6 +479,82 @@ export function subscribeBrowserEvents(
     }
   })
   return () => source.close()
+}
+
+/** Forwards typed bytes in order; a backlog of keystrokes merges into the next POST. */
+export function sendTerminalInput(target: TerminalInstanceTarget, data: string): void {
+  terminalSender(target).send(data)
+}
+
+/** Fire-and-forget resize; the latest size wins and races with input are harmless. */
+export function resizeTerminal(
+  target: TerminalInstanceTarget,
+  cols: number,
+  rows: number,
+): void {
+  void request<void>(terminalInstanceUrl(target, 'resize'), {
+    method: 'POST',
+    body: JSON.stringify({ workspacePath: target.workspacePath, cols, rows }),
+  })
+    .catch(() => {})
+}
+
+export interface TerminalStreamHandlers {
+  onOutput: (base64: string) => void
+  onStatus: (status: TerminalSessionStatus) => void
+}
+
+/** Subscribes to one terminal's output stream, resuming from the last seen id on reopen. */
+export function subscribeTerminalOutput(
+  target: TerminalInstanceTarget,
+  handlers: TerminalStreamHandlers,
+): () => void {
+  let lastSeenId: number | undefined
+  let disposed = false
+  let reopenTimer: ReturnType<typeof setTimeout> | null = null
+  let source: EventSource | null = null
+  const open = (): void => {
+    if (disposed) return
+    // EventSource reconnects on its own carrying the Last-Event-ID header; the
+    // query covers a deliberate reopen after the stream reached CLOSED state.
+    const query = lastSeenId === undefined
+      ? `workspacePath=${encodeURIComponent(target.workspacePath)}`
+      : `workspacePath=${encodeURIComponent(target.workspacePath)}&lastEventId=${lastSeenId}`
+    source = new EventSource(`${terminalInstanceUrl(target, 'stream')}?${query}`)
+    source.addEventListener('output', (event) => {
+      const rawId = (event as MessageEvent).lastEventId
+      const parsed = Number(rawId)
+      if (rawId !== '' && Number.isSafeInteger(parsed) && parsed >= 0) lastSeenId = parsed
+      const data = (event as { data?: unknown }).data
+      if (typeof data === 'string') handlers.onOutput(data)
+    })
+    source.addEventListener('status', (event) => {
+      const data = (event as { data?: unknown }).data
+      if (typeof data !== 'string') return
+      try {
+        const value: unknown = JSON.parse(data)
+        if (isObject(value) && typeof value.state === 'string') {
+          handlers.onStatus(value as unknown as TerminalSessionStatus)
+        }
+      } catch {
+        // Ignore malformed stream payloads.
+      }
+    })
+    source.onerror = () => {
+      if (source && source.readyState === EventSource.CLOSED) {
+        source.close()
+        source = null
+        reopenTimer = setTimeout(open, 500)
+      }
+    }
+  }
+  open()
+  return () => {
+    disposed = true
+    if (reopenTimer !== null) clearTimeout(reopenTimer)
+    source?.close()
+    source = null
+  }
 }
 
 export async function refreshEnvironment(sessionId: string): Promise<SessionEnvironmentSnapshot> {

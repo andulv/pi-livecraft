@@ -483,6 +483,24 @@ export interface BrowserSystemDebugSnapshot {
   workspaces: BrowserWorkspaceDebugSnapshot[]
 }
 
+/** Lifecycle of one embedded terminal session owned by the backend. */
+export type TerminalSessionState = 'off' | 'starting' | 'live' | 'exited' | 'crashed'
+
+/** Identifies one terminal session inside one canonical workspace. */
+export interface TerminalInstanceTarget {
+  workspacePath: string
+  terminalId: string
+}
+
+/** Status payload for one embedded terminal session. */
+export interface TerminalSessionStatus {
+  state: TerminalSessionState
+  cols?: number
+  rows?: number
+  shell?: string
+  error?: string
+}
+
 export type BrowserMouseButton = 'none' | 'left' | 'middle' | 'right' | 'back' | 'forward'
 
 /** Input events forwarded from the livecast pane into one browser instance. */

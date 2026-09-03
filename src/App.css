@@ -14,6 +14,7 @@
 @import "./features/files/files.css";
 @import "./features/browser/browser.css";
 @import "./features/browser/browser-debug.css";
+@import "./features/terminal/TerminalView.css";
 @import "./features/session-index/session-index.css";
 @import "./features/session-analysis/session-analysis.css";
 @import "./features/dialogs/dialogs.css";

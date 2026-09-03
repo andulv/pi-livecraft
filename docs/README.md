@@ -4,7 +4,7 @@ Pi Livecraft is documented in layers: begin with the system you want to build on
 
 - **[Andulv fork feature overview](/docs/ANDULV-FORK-FEATURES.md)** — additions and improvements made by `andulv/pi-livecraft`, with screenshots from the running fork.
 - **[Browser bridge specification](/docs/BROWSER-BRIDGE.md)** — planned CDP livecast browser for the viewer pane. Not yet implemented; a specification and task plan, not a guide.
-- **[Embedded terminal specification](/docs/EMBEDDED-TERMINAL.md)** — planned server-side PTY shell in a viewer-pane Terminal tab. Not yet implemented; a specification and task plan, not a guide.
+- **[Embedded terminal specification](/docs/EMBEDDED-TERMINAL.md)** — server-side PTY shell in a viewer-pane Terminal tab; the spec records the transport decision and is now implemented.
 
 ## Find the right place
 

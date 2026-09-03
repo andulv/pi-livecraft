@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { Markdown } from '../conversation/Markdown.tsx'
 import { BrowserView } from '../browser/BrowserView.tsx'
+import { TerminalView } from '../terminal/TerminalView.tsx'
 import { getWorkspaceFile } from '../../api.ts'
 import { maxFilePaneShare, minFilePaneShare } from './file-pane-width.ts'
 
@@ -24,13 +25,19 @@ export function FileContentPane({
   browserUrl,
   onActivate,
   onActivateBrowser,
+  onActivateTerminal,
   onBrowserUrlCommit,
   onClose,
   onCloseBrowser,
+  onCloseTerminal,
   onOpenBrowser,
+  onOpenTerminal,
   onResize,
   openPaths,
   share,
+  terminalActive,
+  terminalId,
+  terminalOpen,
   workspacePath,
 }: {
   activePath: string | null
@@ -40,13 +47,19 @@ export function FileContentPane({
   browserUrl: string
   onActivate: (path: string) => void
   onActivateBrowser: () => void
+  onActivateTerminal: () => void
   onBrowserUrlCommit: (url: string) => void
   onClose: (path: string) => void
   onCloseBrowser: () => void
+  onCloseTerminal: () => void
   onOpenBrowser: () => void
+  onOpenTerminal: () => void
   onResize: (share: number) => void
   openPaths: readonly string[]
   share: number
+  terminalActive: boolean
+  terminalId: string
+  terminalOpen: boolean
   workspacePath: string
 }) {
   const [files, setFiles] = useState<Record<string, FileState>>({})
@@ -213,8 +226,49 @@ export function FileContentPane({
             <GlobeIcon />
           </button>
         )}
+        {terminalOpen && (
+          <div className={`file-tab${terminalActive ? ' active' : ''}`}>
+            <button
+              aria-selected={terminalActive}
+              onClick={onActivateTerminal}
+              role='tab'
+              type='button'
+            >
+              <TerminalIcon />
+              Terminal
+            </button>
+            <button
+              aria-label='Close terminal'
+              className='file-tab-close'
+              onClick={onCloseTerminal}
+              type='button'
+            >
+              ×
+            </button>
+          </div>
+        )}
+        {!terminalOpen && (
+          <button
+            aria-label='Open terminal'
+            className='file-tab-open-browser'
+            onClick={onOpenTerminal}
+            title='Open terminal'
+            type='button'
+          >
+            <TerminalIcon />
+          </button>
+        )}
       </div>
-      {browserActive
+      {terminalActive
+        ? (
+          <div className='file-content'>
+            <TerminalView
+              terminalId={terminalId}
+              workspacePath={workspacePath}
+            />
+          </div>
+        )
+        : browserActive
         ? (
           <div className='file-content'>
             <BrowserView
@@ -271,7 +325,11 @@ export function FileContentPane({
                 ))}
           </div>
         )
-        : <p className='file-content-empty'>Open a file from the explorer, or open the browser.</p>}
+        : (
+          <p className='file-content-empty'>
+            Open a file from the explorer, or open the browser or terminal.
+          </p>
+        )}
     </aside>
   )
 }
@@ -293,6 +351,26 @@ function GlobeIcon() {
       <circle cx='12' cy='12' r='9' />
       <path d='M3 12h18' />
       <path d='M12 3c2.5 2.5 4 5.6 4 9s-1.5 6.5-4 9c-2.5-2.5-4-5.6-4-9s1.5-6.5 4-9z' />
+    </svg>
+  )
+}
+
+/** Compact prompt glyph marking the embedded terminal tab. */
+function TerminalIcon() {
+  return (
+    <svg
+      aria-hidden='true'
+      fill='none'
+      height='13'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='1.6'
+      viewBox='0 0 24 24'
+      width='13'
+    >
+      <polyline points='4 17 10 11 4 5' />
+      <line x1='12' x2='20' y1='19' y2='19' />
     </svg>
   )
 }

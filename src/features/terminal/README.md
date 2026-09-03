@@ -29,3 +29,14 @@ A custom command can be entered in Settings. It must contain `{cwd}`, which the 
 The [terminal backend capability](/server/features/terminal/README.md) validates the workspace and command template before spawning the external application.
 
 Focused coverage: `test/terminal-launcher.test.ts`.
+
+## Embedded terminal pane
+
+`TerminalView.tsx` renders the workspace-scoped embedded shell in a viewer-pane Terminal tab — distinct from the external-launcher terminal action above, which opens the platform's own terminal app. xterm.js (`@xterm/xterm` 6 + `@xterm/addon-fit`, 5000 scrollback lines) draws the surface; the backend PTY does the rest.
+
+- Output arrives over `subscribeTerminalOutput` as base64 chunks; the pane writes bytes straight into the terminal without a React re-render. Every event carries a byte-offset id, and the subscriber tracks the last seen id so a deliberate reopen can resume without doubling lines (native `EventSource` reconnects carry the id automatically).
+- Input goes through `sendTerminalInput`, an ordered one-POST-in-flight queue that merges a backlog of keystrokes into the next request — parallel POSTs have no arrival-order guarantee, and scrambled typing is the failure mode.
+- Fit drives resize: a `ResizeObserver` fits the grid and reports `cols`/`rows` to the backend. Colors are read from theme variables on mount and re-read when `data-theme` flips, so both themes match without hard-coded colors.
+- The session starts when the tab opens and keeps running while the tab is closed or the document is hidden; reopening replays the bounded server-side buffer. A shell that exits shows a Restart affordance; a spawn failure degrades to a "Terminal unavailable" state. Sessions die with the backend restart — the restart table in docs/ARCHITECTURE.md records the asymmetry.
+
+Focused coverage: `test/terminal-send-queue.test.ts` (ordering/coalescing) and `test/terminal-session.test.ts` (backend contract).
