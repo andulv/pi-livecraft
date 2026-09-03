@@ -198,6 +198,7 @@ function assistantMessageText(message: JsonObject): string {
 
 const headingLine = /^\s{0,3}#{1,6}\s+(.*)$/
 const horizontalRuleLine = /^\s*([-*_])(?:\s*\1){2,}\s*$/
+const tableRowLine = /^\s*\|/
 
 /** Returns response lines that are not enclosed in a fenced code block. */
 function visibleLines(text: string): string[] {
@@ -228,7 +229,8 @@ function closingFence(line: string, marker: string): boolean {
 }
 
 /** Picks a one-line label for a final response: its first Markdown heading, else
- * the first line that is neither blank, a code fence, nor a horizontal rule. */
+ * the first line that is neither blank, a code fence, a horizontal rule, nor a
+ * table row. */
 function firstResponseLine(text: string): string {
   const lines = visibleLines(text)
   for (const line of lines) {
@@ -239,7 +241,7 @@ function firstResponseLine(text: string): string {
   }
   for (const line of lines) {
     const trimmed = line.trim()
-    if (!trimmed || horizontalRuleLine.test(trimmed)) continue
+    if (!trimmed || horizontalRuleLine.test(trimmed) || tableRowLine.test(trimmed)) continue
     return truncate(trimmed, maxAssistantPreviewLength)
   }
   return ''

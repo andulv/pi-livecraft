@@ -197,7 +197,8 @@ test('ignores fences and horizontal rules when picking the first response line',
       role: 'assistant',
       content: [{
         type: 'text',
-        text: '```ts\nconst x = 1\n```\n\n---\n\nHere is the summary.',
+        text:
+          '```ts\nconst x = 1\n```\n\n---\n\n| Option | Why |\n|---|---|\n| a | first |\n\nHere is the summary.',
       }],
     },
   ])

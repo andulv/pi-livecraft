@@ -126,9 +126,7 @@ function formatTurnMetrics(metrics: SessionIndexMetrics | undefined): string {
   const parts: string[] = []
   if (metrics.turns > 0) parts.push(count(metrics.turns, 'turn'))
   if (metrics.toolCalls > 0) {
-    const failed = metrics.failedToolCalls > 0
-      ? ` (${count(metrics.failedToolCalls, 'failed')})`
-      : ''
+    const failed = metrics.failedToolCalls > 0 ? ` (${metrics.failedToolCalls} failed)` : ''
     parts.push(`${count(metrics.toolCalls, 'tool call')}${failed}`)
   }
   const totalIn = metrics.cacheMiss + metrics.cacheRead + metrics.cacheWrite
