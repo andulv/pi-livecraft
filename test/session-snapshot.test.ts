@@ -122,6 +122,56 @@ test('keeps the active conversation before and after compaction', () => {
   ])
 })
 
+test('stamps assistant messages with the thinking level recorded before them', () => {
+  const messages = activeSessionMessages(
+    [
+      {
+        type: 'message',
+        id: 'user-1',
+        parentId: null,
+        message: { role: 'user', content: 'First' },
+      },
+      {
+        type: 'message',
+        id: 'assistant-1',
+        parentId: 'user-1',
+        message: { role: 'assistant', content: 'Before any switch', model: 'm' },
+      },
+      {
+        type: 'thinking_level_change',
+        id: 'level-1',
+        parentId: 'assistant-1',
+        thinkingLevel: 'high',
+      },
+      {
+        type: 'message',
+        id: 'assistant-2',
+        parentId: 'level-1',
+        message: { role: 'assistant', content: 'After the switch', model: 'm' },
+      },
+      {
+        type: 'message',
+        id: 'assistant-3',
+        parentId: 'assistant-2',
+        message: {
+          role: 'assistant',
+          content: 'Native level wins',
+          model: 'm',
+          thinkingLevel: 'max',
+        },
+      },
+    ],
+    'assistant-3',
+  )
+
+  assert.deepEqual(messages.map((message) => message.thinkingLevel), [
+    undefined, // the user message
+    undefined, // generated before any thinking_level_change entry
+    'high',
+    'max', // a native level on the message itself wins over the stamp
+  ])
+})
+
 test('marks forkable user messages by entry ID instead of duplicated text', () => {
   const messages = activeSessionMessages(
     [

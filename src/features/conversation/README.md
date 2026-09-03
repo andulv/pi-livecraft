@@ -15,7 +15,7 @@ Pure protocol, reconciliation, and display rules stay separate:
 Presentation follows the same ownership boundaries:
 
 - `Conversation.tsx` assembles the thread and owns scrolling and navigation;
-- `MessageCard.tsx` renders protocol messages and turn usage;
+- `MessageCard.tsx` renders protocol messages and turn usage (including the model and reasoning effort behind each response);
 - `ActivityIndicator.tsx` renders the current Pi activity;
 - `Markdown.tsx` owns Markdown and front matter rendering;
 - `ToolCallCard.tsx` owns tool state, actions, and expansion;

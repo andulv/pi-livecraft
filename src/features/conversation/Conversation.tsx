@@ -383,7 +383,16 @@ export function Conversation(
                     />
                   )
                 })}
-                {usage && <TurnUsage turnNumber={turnNumbers.get(index)} usage={usage} />}
+                {usage && (
+                  <TurnUsage
+                    model={typeof message.model === 'string' ? message.model : undefined}
+                    thinkingLevel={typeof message.thinkingLevel === 'string'
+                      ? message.thinkingLevel
+                      : undefined}
+                    turnNumber={turnNumbers.get(index)}
+                    usage={usage}
+                  />
+                )}
               </div>
             )
           }

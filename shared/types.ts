@@ -227,6 +227,9 @@ export interface PromptTemplate {
 
 export interface ConversationMessage extends JsonObject {
   forkEntryId?: string
+  /** Reasoning effort in effect when Pi generated an assistant response, stamped from
+   * thinking_level_change entries during snapshot assembly; undefined when never switched. */
+  thinkingLevel?: string
 }
 
 export interface SessionSnapshot {

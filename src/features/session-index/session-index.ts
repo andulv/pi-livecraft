@@ -29,6 +29,10 @@ export interface SessionIndexEntry {
   timestamp?: number
   assistant?: SessionIndexAssistant
   metrics?: SessionIndexMetrics
+  /** Model identifiers of the turn's assistant responses, recorded at each switch point. */
+  models?: string[]
+  /** Reasoning-effort levels of the turn's assistant responses, recorded at each switch point. */
+  thinkingLevels?: string[]
 }
 
 interface SessionIndexTelemetry {
@@ -50,6 +54,10 @@ export function sessionIndexEntries(
   let current: SessionIndexEntry | undefined
   let metrics: SessionIndexMetrics | undefined
   let lastActivityAt: number | undefined
+  let turnModels: string[] | undefined
+  let lastModel: string | undefined
+  let turnLevels: string[] | undefined
+  let lastLevel: string | undefined
 
   const closeTurn = () => {
     if (current && metrics) {
@@ -61,8 +69,14 @@ export function sessionIndexEntries(
         metrics.durationMs = lastActivityAt - current.timestamp
       if (hasTurnActivity(metrics)) current.metrics = { ...metrics }
     }
+    if (current && turnModels) current.models = turnModels
+    if (current && turnLevels) current.thinkingLevels = turnLevels
     metrics = undefined
     lastActivityAt = undefined
+    turnModels = undefined
+    lastModel = undefined
+    turnLevels = undefined
+    lastLevel = undefined
   }
 
   for (const [messageIndex, message] of messages.entries()) {
@@ -94,6 +108,18 @@ export function sessionIndexEntries(
         addUsage(metrics, usage)
       }
       metrics.toolCalls += toolCallsInMessage(message).length
+      const model = messageModel(message)
+      if (model && model !== lastModel) {
+        turnModels ??= []
+        turnModels.push(model)
+        lastModel = model
+      }
+      const level = messageThinkingLevel(message)
+      if (level && level !== lastLevel) {
+        turnLevels ??= []
+        turnLevels.push(level)
+        lastLevel = level
+      }
       const text = assistantMessageText(message)
       if (text.trim()) {
         const preview = firstResponseLine(text)
@@ -217,6 +243,18 @@ function firstResponseLine(text: string): string {
     return truncate(trimmed, maxAssistantPreviewLength)
   }
   return ''
+}
+
+/** Reads the model identifier Pi records on assistant responses. */
+function messageModel(message: JsonObject): string | undefined {
+  return typeof message.model === 'string' && message.model.trim() ? message.model : undefined
+}
+
+/** Reads the reasoning effort stamped onto assistant messages during snapshot assembly. */
+function messageThinkingLevel(message: JsonObject): string | undefined {
+  return typeof message.thinkingLevel === 'string' && message.thinkingLevel.trim()
+    ? message.thinkingLevel
+    : undefined
 }
 
 function messageTimestamp(message: JsonObject): number | undefined {

@@ -75,13 +75,32 @@ function DefaultCustomMessage({ message }: { message: JsonObject & { customType?
 }
 
 /** Displays counters billed by Pi for a completed assistant response. */
-export function TurnUsage({ turnNumber, usage }: { turnNumber?: number; usage: MessageUsage }) {
+export function TurnUsage(
+  { model, thinkingLevel, turnNumber, usage }: {
+    model?: string
+    thinkingLevel?: string
+    turnNumber?: number
+    usage: MessageUsage
+  },
+) {
   return (
     <dl className='turn-usage'>
       {turnNumber !== undefined && (
         <div>
           <dt>Turn</dt>
           <dd>{turnNumber}</dd>
+        </div>
+      )}
+      {model && (
+        <div>
+          <dt>Model</dt>
+          <dd>{model}</dd>
+        </div>
+      )}
+      {thinkingLevel && (
+        <div>
+          <dt>Thinking</dt>
+          <dd>{thinkingLevel}</dd>
         </div>
       )}
       <div>

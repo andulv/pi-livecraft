@@ -88,6 +88,7 @@ export function activeSessionMessages(
   const activeEntries: JsonObject[] = []
   const visited = new Set<string>()
   let id: string | null = leafId
+  let thinkingLevel: string | undefined
   while (id && !visited.has(id)) {
     visited.add(id)
     const entry = entriesById.get(id)
@@ -96,7 +97,20 @@ export function activeSessionMessages(
     id = typeof entry.parentId === 'string' ? entry.parentId : null
   }
   return visibleSessionMessages(
-    activeEntries.reverse().flatMap((entry) => messageFromEntry(entry, forkEntryIds)),
+    activeEntries.reverse().flatMap((entry) => {
+      // Pi records reasoning-effort switches as separate entries; assistant messages
+      // themselves do not carry the level they ran with.
+      if (entry.type === 'thinking_level_change') {
+        if (typeof entry.thinkingLevel === 'string') thinkingLevel = entry.thinkingLevel
+        return []
+      }
+      return messageFromEntry(entry, forkEntryIds).map((message) =>
+        message.role === 'assistant' && thinkingLevel !== undefined
+          && message.thinkingLevel === undefined
+          ? { ...message, thinkingLevel }
+          : message
+      )
+    }),
   )
 }
 

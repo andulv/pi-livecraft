@@ -3,7 +3,11 @@ import type { JsonObject } from '../../../shared/types.ts'
 import type { ConversationNavigationTarget } from '../conversation/conversation-navigation.ts'
 import { formatTokens } from '../conversation/message-usage.ts'
 import { WidgetLayout } from '../right-sidebar/WidgetLayout.tsx'
-import { sessionIndexEntries, type SessionIndexMetrics } from './session-index.ts'
+import {
+  sessionIndexEntries,
+  type SessionIndexEntry,
+  type SessionIndexMetrics,
+} from './session-index.ts'
 
 /** Lists the current session's user messages as navigable conversation anchors. */
 export function SessionIndexWidget(
@@ -73,9 +77,9 @@ export function SessionIndexWidget(
                               .preview}
                           </span>
                         )}
-                        {entry.metrics && (
+                        {(entry.metrics || entry.models) && (
                           <span aria-hidden='true' className='session-index-meta'>
-                            {formatTurnMetrics(entry.metrics)}
+                            {formatTurnSummary(entry)}
                           </span>
                         )}
                         {(time || entry.metrics?.durationMs !== undefined) && (
@@ -104,8 +108,20 @@ export function SessionIndexWidget(
   )
 }
 
+/** Joins turn activity, model usage, and reasoning effort into one compact summary line. */
+function formatTurnSummary(entry: SessionIndexEntry): string {
+  return [
+    formatTurnMetrics(entry.metrics),
+    entry.models?.join(' → '),
+    entry.thinkingLevels?.join(' → '),
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(' · ')
+}
+
 /** Builds a compact, monospace summary of what the agent did during one turn. */
-function formatTurnMetrics(metrics: SessionIndexMetrics): string {
+function formatTurnMetrics(metrics: SessionIndexMetrics | undefined): string {
+  if (!metrics) return ''
   const count = (value: number, word: string) => `${value} ${word}${value === 1 ? '' : 's'}`
   const parts: string[] = []
   if (metrics.turns > 0) parts.push(count(metrics.turns, 'turn'))

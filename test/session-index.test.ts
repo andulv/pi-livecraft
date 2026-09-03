@@ -86,6 +86,7 @@ test('aggregates per-turn activity metrics for each user message', () => {
       {
         role: 'assistant',
         timestamp: 5_000,
+        model: 'model-a',
         content: [
           { type: 'toolCall', id: 'call_ok', name: 'read', arguments: {} },
           { type: 'toolCall', id: 'call_bad', name: 'bash', arguments: {} },
@@ -112,6 +113,8 @@ test('aggregates per-turn activity metrics for each user message', () => {
       {
         role: 'assistant',
         timestamp: 8_000,
+        model: 'model-a',
+        thinkingLevel: 'high',
         content: [{ type: 'text', text: 'Done.' }],
         ...usage(200, 2_000, 20),
       },
@@ -119,6 +122,7 @@ test('aggregates per-turn activity metrics for each user message', () => {
       {
         role: 'assistant',
         timestamp: 23_000,
+        model: 'model-b',
         content: [{ type: 'text', text: 'Sure.' }],
         ...usage(10, 0, 5),
       },
@@ -150,6 +154,28 @@ test('aggregates per-turn activity metrics for each user message', () => {
     durationMs: 3_000,
   })
   assert.equal(entries[2]?.metrics, undefined)
+  assert.deepEqual(entries[0]?.models, ['model-a'])
+  assert.deepEqual(entries[1]?.models, ['model-b'])
+  assert.equal(entries[2]?.models, undefined)
+  assert.deepEqual(entries[0]?.thinkingLevels, ['high'])
+  assert.equal(entries[1]?.thinkingLevels, undefined)
+})
+
+test('records each model switch within a turn in order', () => {
+  const entries = sessionIndexEntries([
+    { role: 'user', content: 'Compare models.' },
+    { role: 'assistant', model: 'model-a', content: [{ type: 'text', text: 'First part.' }] },
+    { role: 'assistant', model: 'model-b', content: [{ type: 'text', text: 'Second part.' }] },
+    {
+      role: 'assistant',
+      model: 'model-a',
+      thinkingLevel: 'max',
+      content: [{ type: 'text', text: 'Third part.' }],
+    },
+  ])
+
+  assert.deepEqual(entries[0]?.models, ['model-a', 'model-b', 'model-a'])
+  assert.deepEqual(entries[0]?.thinkingLevels, ['max'])
 })
 
 test('prefers the first Markdown heading of the final response and strips markup', () => {
