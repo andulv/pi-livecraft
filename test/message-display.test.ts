@@ -4,6 +4,7 @@ import {
   isVisibleConversationMessage,
   providerError,
   reasoningTextForDisplay,
+  supersededProviderFailures,
   userPromptText,
 } from '../src/features/conversation/message-display.ts'
 
@@ -61,6 +62,27 @@ test('uses a diagnostic message without exposing its stack when direct error tex
     }),
     { errorMessage: 'Provider connection closed' },
   )
+})
+
+test('collapses automatic retry attempts to their final empty provider failure', () => {
+  const first = { role: 'assistant', content: [], stopReason: 'error' }
+  const second = { role: 'assistant', content: [], stopReason: 'error' }
+  const final = { role: 'assistant', content: [], stopReason: 'error' }
+  const nextTurnFailure = { role: 'assistant', content: [], stopReason: 'error' }
+
+  const superseded = supersededProviderFailures([
+    { role: 'user', content: 'First request' },
+    first,
+    second,
+    final,
+    { role: 'user', content: 'Second request' },
+    nextTurnFailure,
+  ])
+
+  assert.equal(superseded.has(first), true)
+  assert.equal(superseded.has(second), true)
+  assert.equal(superseded.has(final), false)
+  assert.equal(superseded.has(nextTurnFailure), false)
 })
 
 test('extracts user text for retrying a failed turn', () => {

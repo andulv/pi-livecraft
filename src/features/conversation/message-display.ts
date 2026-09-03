@@ -42,6 +42,28 @@ export function userPromptText(message: JsonObject): string | undefined {
   return text || undefined
 }
 
+/**
+ * Returns empty provider failures superseded by Pi's next automatic retry attempt.
+ * Pi persists one assistant error per attempt, but only the final failure is actionable.
+ */
+export function supersededProviderFailures(
+  messages: Iterable<JsonObject>,
+): ReadonlySet<JsonObject> {
+  const superseded = new Set<JsonObject>()
+  let previousFailure: JsonObject | undefined
+  for (const message of messages) {
+    const isEmptyFailure = providerFailure(message) !== undefined
+      && !hasVisibleContent(message.content ?? message.output)
+    if (!isEmptyFailure) {
+      previousFailure = undefined
+      continue
+    }
+    if (previousFailure) superseded.add(previousFailure)
+    previousFailure = message
+  }
+  return superseded
+}
+
 /** Reports whether protocol content contains text, thinking, or a supported inline image. */
 export function hasVisibleContent(content: unknown): boolean {
   if (typeof content === 'string') return content.trim().length > 0

@@ -22,7 +22,12 @@ import type { ConversationNavigationTarget } from './conversation-navigation.ts'
 import { ActivityIndicator } from './ActivityIndicator.tsx'
 import { Markdown } from './Markdown.tsx'
 import { MessageCard, TurnUsage } from './MessageCard.tsx'
-import { isVisibleConversationMessage, providerError, userPromptText } from './message-display.ts'
+import {
+  isVisibleConversationMessage,
+  providerError,
+  supersededProviderFailures,
+  userPromptText,
+} from './message-display.ts'
 import { ToolCallCard } from './ToolCallCard.tsx'
 import {
   conversationHistoryStart,
@@ -69,9 +74,22 @@ export function Conversation(
   const showToolCalls = conversationView !== 'simple'
   const semiDetailed = conversationView === 'semi-detailed'
   const allMessages = messages
+  const messageEntries = useMemo(() => conversationMessageEntries(allMessages, liveMessages), [
+    allMessages,
+    liveMessages,
+  ])
+  const supersededFailures = useMemo(
+    () => supersededProviderFailures(messageEntries.map(({ message }) => message)),
+    [messageEntries],
+  )
+  const isRenderableMessage = useCallback(
+    (message: JsonObject): boolean =>
+      isVisibleConversationMessage(message) && !supersededFailures.has(message),
+    [supersededFailures],
+  )
   const { visibleMessages, toolCallIds, resultsByCallId } = useMemo(
     () => {
-      const visible = allMessages.filter(isVisibleConversationMessage)
+      const visible = allMessages.filter(isRenderableMessage)
       const calls = allMessages.flatMap(toolCallsInMessage)
       const results = new Map(allMessages.flatMap((message) => {
         const result = toolResultInMessage(message)
@@ -83,7 +101,7 @@ export function Conversation(
         resultsByCallId: results,
       }
     },
-    [allMessages],
+    [allMessages, isRenderableMessage],
   )
   const executionsByCallId = useMemo(
     () => new Map(toolExecutions.map((execution) => [execution.id, execution])),
@@ -121,10 +139,6 @@ export function Conversation(
       ),
     [liveMessages],
   )
-  const messageEntries = useMemo(() => conversationMessageEntries(allMessages, liveMessages), [
-    allMessages,
-    liveMessages,
-  ])
   /** Retry handler per failed assistant message, bound to the prompt it should resend. */
   const retryByMessage = useMemo(() => {
     const bound = new WeakMap<JsonObject, () => Promise<void>>()
@@ -133,13 +147,16 @@ export function Conversation(
     for (const { message } of messageEntries) {
       const prompt = userPromptText(message)
       if (prompt !== undefined) lastUserPrompt = prompt
-      if (providerError(message) && lastUserPrompt !== undefined) {
+      if (
+        providerError(message) && !supersededFailures.has(message)
+        && lastUserPrompt !== undefined
+      ) {
         const retryPrompt = lastUserPrompt
         bound.set(message, () => onRetry(retryPrompt))
       }
     }
     return bound
-  }, [messageEntries, onRetry])
+  }, [messageEntries, onRetry, supersededFailures])
   const initialHistoryStart = useMemo(
     () => conversationHistoryStart(allMessages, allMessages.length),
     [allMessages],
@@ -153,7 +170,9 @@ export function Conversation(
       ),
     [messageEntries, renderedHistoryStart],
   )
-  const visibleLiveMessages = messageEntries.filter((entry) => entry.source === 'live')
+  const visibleLiveMessages = messageEntries.filter(
+    (entry) => entry.source === 'live' && isRenderableMessage(entry.message),
+  )
   const conversationRef = useRef<HTMLDivElement>(null)
   const conversationContentRef = useRef<HTMLDivElement>(null)
   const autoScrollRef = useRef(true)
@@ -362,7 +381,8 @@ export function Conversation(
             const index = entry.historyIndex
             const calls = showToolCalls ? toolCallsInMessage(message) : []
             const usage = usagesByMessage.get(index)
-            if (!isVisibleConversationMessage(message) && calls.length === 0) return null
+            const messageVisible = isRenderableMessage(message)
+            if (!messageVisible && calls.length === 0) return null
             return (
               <div
                 className={highlightedTarget === `message:${index}`
@@ -371,7 +391,7 @@ export function Conversation(
                 data-message-index={index}
                 key={entry.key}
               >
-                {isVisibleConversationMessage(message) && (
+                {messageVisible && (
                   <MessageCard
                     message={message}
                     onError={onError}
@@ -423,12 +443,13 @@ export function Conversation(
           const calls = showToolCalls
             ? parts.flatMap((part) => part.kind === 'tool' ? [part.call] : [])
             : []
-          if (!isVisibleConversationMessage(message) && calls.length === 0) return null
+          const messageVisible = isRenderableMessage(message)
+          if (!messageVisible && calls.length === 0) return null
           return (
             <div className='conversation-entry' key={entry.key}>
               {parts.map((part) => {
                 if (part.kind === 'message')
-                  return isVisibleConversationMessage(part.message)
+                  return messageVisible
                     ? (
                       <MessageCard
                         key='message'
