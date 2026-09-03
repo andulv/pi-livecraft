@@ -83,6 +83,8 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   const [viewportChoice, setViewportChoice] = useState(readStoredViewportChoice)
   const target = useMemo(() => ({ browserId, workspacePath }), [browserId, workspacePath])
   const frameImageRef = useRef<HTMLImageElement>(null)
+  /** Latest frame payload; the image is not mounted until the first frame flips hasFrame. */
+  const lastFrameRef = useRef<string | null>(null)
   const composeInputRef = useRef<HTMLInputElement>(null)
   const liveSurfaceRef = useRef<HTMLDivElement>(null)
   const liveRef = useRef(false)
@@ -97,6 +99,17 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   requestedUrlRef.current = url
 
   useEffect(() => setAddress(url), [url])
+
+  // Paint the frame that mounted the image: on a fresh mount the first (and,
+  // for a settled static page, only) frame can arrive before the image exists,
+  // and dropping it would leave the placeholder gif on screen forever.
+  useEffect(() => {
+    const image = frameImageRef.current
+    const data = lastFrameRef.current
+    if (image && data && !image.src.startsWith('data:image/jpeg')) {
+      image.src = `data:image/jpeg;base64,${data}`
+    }
+  }, [hasFrame])
 
   // Report the effective zoom whenever the rendered frame size changes.
   useEffect(() => {
@@ -159,6 +172,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
       // Frames bypass React state: writing the data URL straight to the image
       // avoids a full component re-render at frame rate.
       onFrame: (data) => {
+        lastFrameRef.current = data
         const image = frameImageRef.current
         if (image) image.src = `data:image/jpeg;base64,${data}`
         setHasFrame((current) => current || true)
