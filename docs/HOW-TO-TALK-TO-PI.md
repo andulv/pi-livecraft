@@ -24,7 +24,7 @@ No command whitelist or semantic filter is applied. The backend only checks that
 ### 1. Snapshot — selection and event reconciliation
 
 The frontend calls `getSnapshot(sessionId)` when a session is selected and when Pi events require
-history reconciliation. Each request triggers six Pi commands in parallel inside
+history reconciliation. Each request triggers seven Pi commands in parallel inside
 `server/backend.ts`:
 
 | Command | Returns |
@@ -32,14 +32,17 @@ history reconciliation. Each request triggers six Pi commands in parallel inside
 | `get_state` | Current model, thinking level, streaming status, session name |
 | `get_entries` | Entries used by the backend to rebuild the visible active conversation |
 | `get_available_models` | `Model[]` — id, provider, cost, context window, input types |
+| `get_available_thinking_levels` | Thinking levels the current model supports |
 | `get_commands` | Available extensions, prompt templates, and skills |
 | `get_session_stats` | Token usage, total cost, context window pressure |
 | `get_fork_messages` | User-message entry IDs that can start a fork |
 
 The backend follows the active entry branch, keeps user, assistant, tool-result, and explicitly
 visible custom messages, marks forkable user messages with their entry ID, and represents
-compactions as visible custom messages. It then assembles
-the result into a `SessionSnapshot` and sends it to the frontend as JSON. These six commands are
+compactions as visible custom messages. It also derives `snapshot.responseControls` from the
+current model, the registered `livecraft-response-controls` extension command, and the newest
+response-controls entry on the active branch. It then assembles the result into a
+`SessionSnapshot` and sends it to the frontend as JSON. These seven commands are
 the only ones called as part of snapshot refreshes; you never need to invoke them yourself.
 
 ### 2. Arbitrary commands — on demand

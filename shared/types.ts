@@ -232,10 +232,31 @@ export interface ConversationMessage extends JsonObject {
   thinkingLevel?: string
 }
 
+/** Responses-API answer-length override for models that support it. */
+export type ResponseVerbosity = 'low' | 'medium' | 'high'
+
+/** Responses-API reasoning-summary override for models that support it. */
+export type ResponseSummary = 'auto' | 'concise' | 'detailed' | 'none'
+
+/** Per-session response-control overrides persisted by the Pi extension. */
+export interface ResponseControlsState {
+  verbosity?: ResponseVerbosity
+  summary?: ResponseSummary
+}
+
+/** Composer-facing response controls: capability plus current overrides. */
+export interface ResponseControlsReport {
+  supported: boolean
+  verbosity?: ResponseVerbosity
+  summary?: ResponseSummary
+}
+
 export interface SessionSnapshot {
   state: JsonObject | null
   messages: ConversationMessage[]
   models: JsonObject[]
+  thinkingLevels: string[]
+  responseControls: ResponseControlsReport | null
   commands: JsonObject[]
   promptTemplates: PromptTemplate[]
   stats: SessionStats | null

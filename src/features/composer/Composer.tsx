@@ -30,7 +30,9 @@ import { AgentSelect } from './selects/AgentSelect.tsx'
 import { BehaviorSelect } from './selects/BehaviorSelect.tsx'
 import { ModelSelect } from './selects/ModelSelect.tsx'
 import { PromptSelect } from './selects/PromptSelect.tsx'
+import { SummarySelect } from './selects/SummarySelect.tsx'
 import { ThinkingSelect } from './selects/ThinkingSelect.tsx'
+import { VerbositySelect } from './selects/VerbositySelect.tsx'
 import { ComposerSelect } from './selects/ComposerSelect.tsx'
 
 /** Static options for the Improve-prompt dropdown; hoisted to a module constant so the select never re-renders for it. */
@@ -151,6 +153,9 @@ export const Composer = memo(function Composer({
   const thinking = typeof snapshot.state?.thinkingLevel === 'string'
     ? snapshot.state.thinkingLevel
     : 'off'
+  const responseControls = snapshot.responseControls
+  const verbosity = responseControls?.verbosity ?? 'default'
+  const summary = responseControls?.summary ?? 'default'
   // Keep a ref to the latest draft so stable callbacks can read it without re-creating on every keystroke.
   const messageRef = useRef(message)
   messageRef.current = message
@@ -609,12 +614,27 @@ export const Composer = memo(function Composer({
             />
             <ThinkingSelect
               thinking={thinking}
+              levels={snapshot.thinkingLevels}
               onCommand={onCommand}
               onError={onError}
               open={openSelect === 'thinking'}
               onOpenChange={handleThinkingOpenChange}
               triggerRef={thinkingTriggerRef}
             />
+            {responseControls?.supported && (
+              <>
+                <VerbositySelect
+                  verbosity={verbosity}
+                  onCommand={onCommand}
+                  onError={onError}
+                />
+                <SummarySelect
+                  summary={summary}
+                  onCommand={onCommand}
+                  onError={onError}
+                />
+              </>
+            )}
             <Tooltip label='Insert a configured prompt'>
               <PromptSelect
                 canSave={Boolean(message.trim()) && !previewingPrompt}

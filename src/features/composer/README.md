@@ -24,7 +24,9 @@ All data arrives through props. The Composer never calls the backend directly.
 | `selects/ComposerSelect.tsx` | Generic Radix Select wrapper with tone-based icons |
 | `selects/AgentSelect.tsx` | Agent picker — derives label from options, calls `onAgentChange` |
 | `selects/ModelSelect.tsx` | Model picker — searchable popover with collapsible provider groups, issues RPC `set_model` from selection |
-| `selects/ThinkingSelect.tsx` | Thinking level — maps level to `set_thinking_level` RPC |
+| `selects/ThinkingSelect.tsx` | Thinking level — renders the levels Pi reports for the current model and maps the choice to `set_thinking_level` RPC |
+| `selects/VerbositySelect.tsx` | Response verbosity — per-session override sent through the `/livecraft-response-controls` extension command, shown only for supported models |
+| `selects/SummarySelect.tsx` | Reasoning summary — per-session override sent through the `/livecraft-response-controls` extension command, shown only for supported models |
 | `selects/PromptSelect.tsx` | Prompt templates — previews, inserts, and saves Pi-discovered templates |
 | `selects/BehaviorSelect.tsx` | Steer / Follow-up toggle, only rendered while Pi is running |
 | `status-bar/ChatTopBar.tsx` | Two-line status strip pinned to the top of the chat window: project/workspace/path/Git context first, then session identity and usage |
@@ -57,6 +59,12 @@ group (matched groups render expanded), provider group headers expand and collap
 Favorites (pinned models) expanded by default, and the filter resets when the menu closes.
 Keyboard navigation moves through visible rows only; the highlight follows model keys so it
 survives re-filtering and pin-driven regrouping.
+
+`ThinkingSelect` lists `snapshot.thinkingLevels`, which the backend fills from Pi's
+`get_available_thinking_levels` for the current model. `VerbositySelect` and `SummarySelect`
+render only while `snapshot.responseControls.supported` is true; the backend derives that report
+from the current model, the extension's registered command, and the newest response-controls
+session entry, so no model list is duplicated in the frontend.
 
 ## Draft persistence
 

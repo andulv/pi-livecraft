@@ -23,6 +23,8 @@ const emptySnapshot: SessionSnapshot = {
   state: null,
   messages: [],
   models: [],
+  thinkingLevels: [],
+  responseControls: null,
   commands: [],
   promptTemplates: [],
   stats: null,

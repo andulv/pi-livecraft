@@ -43,6 +43,7 @@ import {
 } from './workspace-file.ts'
 import { activeSessionMessages, LiveSessionEvents } from './session-snapshot.ts'
 import { loadPromptTemplates, savePromptTemplate } from './prompt-templates.ts'
+import { responseControlsReport } from '../shared/response-controls.ts'
 import { externalWorkspacePath, openPath } from './system-integration.ts'
 import { expandHomePath } from './home-path.ts'
 import type {
@@ -497,14 +498,16 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   const snapshotMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/snapshot$/)
   if (method === 'GET' && snapshotMatch) {
     const sessionId = decodeURIComponent(snapshotMatch[1])
-    const [state, entries, models, commands, stats, forkMessages] = await Promise.all([
-      piCommand(sessionId, { type: 'get_state' }),
-      piCommand(sessionId, { type: 'get_entries' }),
-      piCommand(sessionId, { type: 'get_available_models' }),
-      piCommand(sessionId, { type: 'get_commands' }),
-      piCommand(sessionId, { type: 'get_session_stats' }),
-      piCommand(sessionId, { type: 'get_fork_messages' }),
-    ])
+    const [state, entries, models, commands, stats, forkMessages, thinkingLevels] = await Promise
+      .all([
+        piCommand(sessionId, { type: 'get_state' }),
+        piCommand(sessionId, { type: 'get_entries' }),
+        piCommand(sessionId, { type: 'get_available_models' }),
+        piCommand(sessionId, { type: 'get_commands' }),
+        piCommand(sessionId, { type: 'get_session_stats' }),
+        piCommand(sessionId, { type: 'get_fork_messages' }),
+        piCommand(sessionId, { type: 'get_available_thinking_levels' }),
+      ])
     const commandList = arrayData(commands, 'commands')
     const forkEntryIds = new Set(
       arrayData(forkMessages, 'messages').flatMap((message) =>
@@ -519,6 +522,13 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         forkEntryIds,
       ),
       models: arrayData(models, 'models'),
+      thinkingLevels: stringArrayData(thinkingLevels, 'levels'),
+      responseControls: responseControlsReport(
+        arrayData(entries, 'entries'),
+        objectData(entries)?.leafId,
+        objectData(state)?.model,
+        commandList.some((command) => command.name === 'livecraft-response-controls'),
+      ),
       commands: commandList,
       promptTemplates: await loadPromptTemplates(commandList),
       stats: objectData(stats),
@@ -789,6 +799,12 @@ function objectData(response: JsonObject): JsonObject | null {
 function arrayData(response: JsonObject, key: string): JsonObject[] {
   if (!isObject(response.data) || !Array.isArray(response.data[key])) return []
   return response.data[key].filter(isObject)
+}
+
+/** Reads a string array field from a Pi response, tolerating non-string members. */
+function stringArrayData(response: JsonObject, key: string): string[] {
+  if (!isObject(response.data) || !Array.isArray(response.data[key])) return []
+  return response.data[key].filter((item): item is string => typeof item === 'string')
 }
 
 /** Reads and canonicalizes the workspace key used by browser and terminal instance routes. */

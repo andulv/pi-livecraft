@@ -23,7 +23,15 @@ export const ComposerSelect = memo(function ComposerSelect(
     onValueChange: (value: string) => void
     options: { description?: string; kind?: 'action'; label: string; value: string }[]
     placeholder?: string
-    tone: 'agent' | 'behavior' | 'command' | 'improve' | 'model' | 'prompt' | 'thinking'
+    tone:
+      | 'agent'
+      | 'behavior'
+      | 'command'
+      | 'improve'
+      | 'model'
+      | 'prompt'
+      | 'response'
+      | 'thinking'
     value: string
     loading?: boolean
     open?: boolean
@@ -80,7 +88,15 @@ export const ComposerSelect = memo(function ComposerSelect(
 /** Uses consistent SVG pictograms independent of a font or emoji set. */
 function ComposerSelectIcon(
   { tone }: {
-    tone: 'agent' | 'behavior' | 'command' | 'improve' | 'model' | 'prompt' | 'thinking'
+    tone:
+      | 'agent'
+      | 'behavior'
+      | 'command'
+      | 'improve'
+      | 'model'
+      | 'prompt'
+      | 'response'
+      | 'thinking'
   },
 ) {
   if (tone === 'model')
@@ -106,6 +122,21 @@ function ComposerSelectIcon(
           strokeLinejoin='round'
           strokeWidth='1.4'
         />
+      </svg>
+    )
+  if (tone === 'response')
+    return (
+      <svg aria-hidden='true' className='composer-select-icon' viewBox='0 0 16 16'>
+        <path
+          d='M2.5 4.2h4.1m4.4 0h2.5M2.5 8h1.7m4.4 0h4.4M2.5 11.8h6.7m4.4 0h.4'
+          fill='none'
+          stroke='currentColor'
+          strokeLinecap='round'
+          strokeWidth='1.4'
+        />
+        <circle cx='8.5' cy='4.2' fill='none' r='1.5' stroke='currentColor' strokeWidth='1.2' />
+        <circle cx='6' cy='8' fill='none' r='1.5' stroke='currentColor' strokeWidth='1.2' />
+        <circle cx='10.7' cy='11.8' fill='none' r='1.5' stroke='currentColor' strokeWidth='1.2' />
       </svg>
     )
   if (tone === 'thinking')
