@@ -504,6 +504,16 @@ export interface TerminalStreamHandlers {
   onStatus: (status: TerminalSessionStatus) => void
 }
 
+/** Validates a raw SSE data field into the base64 output payload it carries. Pure. */
+export function parseTerminalOutputPayload(data: string): string | null {
+  try {
+    const value: unknown = JSON.parse(data)
+    return isObject(value) && typeof value.data === 'string' ? value.data : null
+  } catch {
+    return null
+  }
+}
+
 /** Subscribes to one terminal's output stream, resuming from the last seen id on reopen. */
 export function subscribeTerminalOutput(
   target: TerminalInstanceTarget,
@@ -526,7 +536,9 @@ export function subscribeTerminalOutput(
       const parsed = Number(rawId)
       if (rawId !== '' && Number.isSafeInteger(parsed) && parsed >= 0) lastSeenId = parsed
       const data = (event as { data?: unknown }).data
-      if (typeof data === 'string') handlers.onOutput(data)
+      if (typeof data !== 'string') return
+      const payload = parseTerminalOutputPayload(data)
+      if (payload !== null) handlers.onOutput(payload)
     })
     source.addEventListener('status', (event) => {
       const data = (event as { data?: unknown }).data

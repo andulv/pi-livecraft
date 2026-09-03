@@ -55,3 +55,17 @@ test('ordered sender sends nothing for empty input and recovers from failures', 
   await new Promise((resolve) => setTimeout(resolve, 10))
   assert.deepEqual(batches, ['ls\r', 'after-failure'], 'a failed POST never blocks the queue')
 })
+
+test('output payloads are extracted from the raw SSE data field', async () => {
+  const { parseTerminalOutputPayload } = await import('../src/api.ts')
+  const b64 = Buffer.from('hello world').toString('base64')
+  assert.equal(parseTerminalOutputPayload(JSON.stringify({ data: b64 })), b64)
+  // The regression: the raw JSON reached atob instead of the extracted field.
+  assert.equal(
+    parseTerminalOutputPayload(JSON.stringify({ data: 'not-strictly-base64' })),
+    'not-strictly-base64',
+  )
+  assert.equal(parseTerminalOutputPayload('{broken'), null)
+  assert.equal(parseTerminalOutputPayload('["array"]'), null)
+  assert.equal(parseTerminalOutputPayload(''), null)
+})
