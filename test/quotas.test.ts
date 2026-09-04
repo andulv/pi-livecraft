@@ -12,6 +12,8 @@ import {
 } from '../shared/quota-parsers.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import { QuotaCache } from '../server/features/quotas/quota-cache.ts'
+import { QuotaService } from '../server/features/quotas/quota-service.ts'
+import type { ManagerClient } from '../server/manager-client.ts'
 import {
   copilotPeriodProgress,
   glmPeakDay,
@@ -276,6 +278,41 @@ test('shows the primary quota for the provider selected by the model', () => {
     stale: false,
     value: '5h 30%',
   })
+})
+
+test('uses a correlated reset status instead of Pi’s empty prompt acknowledgement', async () => {
+  let service: QuotaService
+  const manager = {
+    request: async (request: { command?: { message?: unknown } }) => {
+      const message = request.command?.message
+      if (typeof message !== 'string') throw new Error('Expected a reset command.')
+      const requestId = /--request-id=([0-9a-f-]+)/i.exec(message)?.[1]
+      if (!requestId) throw new Error('Expected a reset request id.')
+      setTimeout(() => {
+        service.receiveManagerEvent({
+          kind: 'event',
+          event: 'pi',
+          sessionId: 'session-id',
+          data: {
+            type: 'extension_ui_request',
+            method: 'setStatus',
+            statusKey: 'pi-livecraft.quota-reset',
+            statusText: JSON.stringify({
+              protocol: 'pi-livecraft.quota-reset',
+              version: 1,
+              requestId,
+              outcome: 'ok',
+            }),
+          },
+        })
+      }, 0)
+      // Public Pi RPC acknowledges the prompt but does not return the handler result.
+      return { type: 'response', command: 'prompt', success: true }
+    },
+  } as unknown as ManagerClient
+  service = new QuotaService(manager)
+
+  assert.deepEqual(await service.reset('session-id', 'openai'), { ok: true })
 })
 
 test('retains a stale provider snapshot when its next refresh fails', () => {

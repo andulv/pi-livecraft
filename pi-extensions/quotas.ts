@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { isObject } from '../shared/is-object.ts'
 import {
   glmBusinessError,
+  isOpenAiResetConfirmed,
   parseCopilotUsage,
   parseGlmResets,
   parseGlmUsage,
@@ -22,9 +23,12 @@ import type {
   OpenAiQuotaReport,
   QuotaProviderReport,
   QuotaReport,
+  QuotaResetOutcome,
+  QuotaResetStatus,
 } from '../shared/types.ts'
 
 const statusKey = 'pi-livecraft.quotas'
+const resetStatusKey = 'pi-livecraft.quota-reset'
 const timeoutMs = 15_000
 
 /** Registers a silent RPC command that publishes only normalized quotas to Pi Livecraft. */
@@ -58,17 +62,128 @@ export default function registerQuotas(pi: ExtensionAPI): void {
     description: 'Refresh Pi Livecraft quotas',
     handler: async (args, ctx) => refresh(ctx, args.trim() === 'auto'),
   })
+  /** Ensures a redemption always receives a report collected after it completed. */
+  async function refreshAfterReset(ctx: ExtensionContext): Promise<QuotaReport | undefined> {
+    if (pendingRefresh) await pendingRefresh.catch(() => undefined)
+    lastRefreshAt = 0
+    await refresh(ctx, false)
+    return lastReport
+  }
+
   pi.registerCommand('livecraft-quotas-reset', {
     description: 'Redeem one banked OpenAI Codex or Z.AI reset card',
     handler: async (args, ctx) => {
-      const result = args.trim() === ''
-        ? await consumeOpenAiReset(ctx)
-        : await consumeGlmReset(args.trim())
-      lastRefreshAt = 0
-      await refresh(ctx, false)
-      return result
+      const command = parseResetCommand(args)
+      let result: ResetResult
+      if (command.target === 'openai') {
+        const attempt = await consumeOpenAiReset(ctx)
+        let report: QuotaReport | undefined
+        try {
+          report = await refreshAfterReset(ctx)
+        } catch {
+          // A known redemption outcome still reaches the backend if refresh fails.
+        }
+        result = confirmOpenAiReset(attempt, report)
+      } else {
+        result = command.target
+          ? await consumeGlmReset(command.target)
+          : errorReset('Unknown reset target.')
+        try {
+          await refreshAfterReset(ctx)
+        } catch {
+          // The result remains useful even when the refreshed provider data is unavailable.
+        }
+      }
+      publishResetStatus(ctx, command.requestId, result)
+      return resetResultText(result)
     },
   })
+}
+
+type ResetTarget = 'openai' | 'glm five-hour' | 'glm week'
+
+interface ResetCommand {
+  target?: ResetTarget
+  requestId?: string
+}
+
+interface ResetResult {
+  outcome: QuotaResetOutcome
+  error?: string
+}
+
+interface UnconfirmedOpenAiReset {
+  outcome: 'unconfirmed'
+  previousAvailableCount: number
+  error?: string
+}
+
+type OpenAiResetResult = ResetResult | UnconfirmedOpenAiReset
+
+/** Splits the optional server correlation flag from the human-facing reset target. */
+function parseResetCommand(args: string): ResetCommand {
+  const parts = args.trim().split(/\s+/).filter(Boolean)
+  const requestId = parts
+    .find((part) => part.startsWith('--request-id='))
+    ?.slice('--request-id='.length)
+  const target = parts.filter((part) => !part.startsWith('--request-id=')).join(' ')
+  const command: ResetCommand = target === '' || target === 'openai'
+    ? { target: 'openai' }
+    : target === 'glm five-hour' || target === 'glm week'
+    ? { target }
+    : {}
+  return validRequestId(requestId) ? { ...command, requestId } : command
+}
+
+/** Avoids emitting an unbounded status key for manually typed command arguments. */
+function validRequestId(value: string | undefined): value is string {
+  return value !== undefined && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(value)
+}
+
+function errorReset(error: string): ResetResult {
+  return { outcome: 'error', error }
+}
+
+/** Publishes the result after the post-redemption report so the backend can correlate it. */
+function publishResetStatus(
+  ctx: ExtensionContext,
+  requestId: string | undefined,
+  result: ResetResult,
+): void {
+  if (!requestId) return
+  const status: QuotaResetStatus = {
+    protocol: 'pi-livecraft.quota-reset',
+    version: 1,
+    requestId,
+    outcome: result.outcome,
+    ...(result.error ? { error: result.error } : {}),
+  }
+  ctx.ui.setStatus(resetStatusKey, JSON.stringify(status))
+}
+
+/** Retains the command's textual result for direct interactive Pi use. */
+function resetResultText(result: ResetResult): string {
+  if (result.outcome === 'ok') return 'ok'
+  if (result.outcome === 'no_credit') return 'no_credit'
+  if (result.outcome === 'nothing_to_reset') return 'nothing_to_reset'
+  return `error: ${result.error ?? 'Unable to redeem the reset.'}`
+}
+
+/**
+ * A successful consume may have no documented response body. Accept it only if
+ * the immediately refreshed authoritative credit count decreased.
+ */
+function confirmOpenAiReset(
+  result: OpenAiResetResult,
+  report: QuotaReport | undefined,
+): ResetResult {
+  if (result.outcome !== 'unconfirmed') return result
+  if (isOpenAiResetConfirmed(result.previousAvailableCount, report?.openai))
+    return { outcome: 'ok' }
+  const reason = result.error
+    ? `${result.error} The refreshed quota data could not confirm the reset.`
+    : 'The reset endpoint returned an unrecognized response and the refreshed quota data could not confirm the reset.'
+  return errorReset(`${reason} Refresh quotas before trying again.`)
 }
 
 async function publishQuotaReport(ctx: ExtensionContext): Promise<QuotaReport> {
@@ -142,20 +257,28 @@ async function openAiCredential(ctx: ExtensionContext): Promise<OpenAiCredential
  * undocumented and irreversible, so one request is made with a fresh idempotency
  * key and no automatic retry; the caller refreshes afterwards either way.
  */
-async function consumeOpenAiReset(ctx: ExtensionContext): Promise<string> {
+async function consumeOpenAiReset(ctx: ExtensionContext): Promise<OpenAiResetResult> {
+  let credential: OpenAiCredential | undefined
+  let detail: unknown
   try {
-    const credential = await openAiCredential(ctx)
-    if (!credential) return 'error: OpenAI Codex connection is unavailable in Pi.'
-    const detail = await fetchJson(
+    credential = await openAiCredential(ctx)
+    if (!credential) return errorReset('OpenAI Codex connection is unavailable in Pi.')
+    detail = await fetchJson(
       'https://chatgpt.com/backend-api/wham/rate-limit-reset-credits',
       credential.headers,
     )
-    const credits = parseOpenAiResetCredits(detail).sort(
-      (left, right) => (left.expiresAt ?? Infinity) - (right.expiresAt ?? Infinity),
-    )
-    const credit = credits[0]
-    if (!credit) return 'no_credit'
-    const response = await fetchJson(
+  } catch (error) {
+    return errorReset(fetchError(error, 'Unable to redeem the banked reset.'))
+  }
+  const credits = parseOpenAiResetCredits(detail).sort(
+    (left, right) => (left.expiresAt ?? Infinity) - (right.expiresAt ?? Infinity),
+  )
+  const credit = credits[0]
+  if (!credit) return { outcome: 'no_credit' }
+  const previousAvailableCount = parseOpenAiResetSummary(detail)?.availableCount ?? credits.length
+  try {
+    // Successful undocumented responses may legitimately have no JSON body.
+    const response = await fetchOptionalJson(
       'https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume',
       {
         ...credential.headers,
@@ -167,12 +290,17 @@ async function consumeOpenAiReset(ctx: ExtensionContext): Promise<string> {
       },
     )
     const code = stringField(response, 'code')
-    if (code === 'reset' || code === 'already_redeemed') return 'ok'
-    if (code === 'no_credit') return 'no_credit'
-    if (code === 'nothing_to_reset') return 'nothing_to_reset'
-    return `error: Unexpected response from the reset endpoint${code ? ` (${code})` : ''}.`
+    if (code === 'reset' || code === 'already_redeemed') return { outcome: 'ok' }
+    if (code === 'no_credit') return { outcome: 'no_credit' }
+    if (code === 'nothing_to_reset') return { outcome: 'nothing_to_reset' }
+    return { outcome: 'unconfirmed', previousAvailableCount }
   } catch (error) {
-    return `error: ${fetchError(error, 'Unable to redeem the banked reset.')}`
+    // The request may have reached the provider before a transport failure.
+    return {
+      outcome: 'unconfirmed',
+      previousAvailableCount,
+      error: fetchError(error, 'Unable to redeem the banked reset.'),
+    }
   }
 }
 
@@ -302,13 +430,12 @@ async function fetchGlmResets(): Promise<GlmQuotaResets | undefined> {
  * Redeems one Z.AI reset card. Like the Codex path, one request is made with a
  * fresh idempotency key and no automatic retry; the caller refreshes after.
  */
-async function consumeGlmReset(resetType: string): Promise<string> {
+async function consumeGlmReset(
+  resetType: 'glm five-hour' | 'glm week',
+): Promise<ResetResult> {
   try {
-    if (resetType !== 'glm five-hour' && resetType !== 'glm week') {
-      return 'error: Unknown reset target.'
-    }
     const credential = await readZcodeCredential()
-    if (!credential) return 'error: Sign in to ZCode to use Z.AI reset cards.'
+    if (!credential) return errorReset('Sign in to ZCode to use Z.AI reset cards.')
     const response = await fetchJson(`${zcodeResetBase}/use`, {
       ...credential.headers,
       'Content-Type': 'application/json',
@@ -320,11 +447,11 @@ async function consumeGlmReset(resetType: string): Promise<string> {
       }),
     })
     const code = numberField(response, 'code')
-    if (code === 0) return 'ok'
+    if (code === 0) return { outcome: 'ok' }
     const message = stringField(response, 'msg')
-    return `error: Z.AI rejected the reset${message ? `: ${message}` : ''}.`
+    return errorReset(`Z.AI rejected the reset${message ? `: ${message}` : '.'}`)
   } catch (error) {
-    return `error: ${fetchError(error, 'Unable to redeem the Z.AI reset card.')}`
+    return errorReset(fetchError(error, 'Unable to redeem the Z.AI reset card.'))
   }
 }
 
@@ -333,13 +460,31 @@ async function fetchJson(
   headers: Record<string, string>,
   init?: RequestInit,
 ): Promise<unknown> {
+  return (await fetchResponse(url, headers, init)).json()
+}
+
+/** Parses a successful response when present; undocumented consume calls may reply 204. */
+async function fetchOptionalJson(
+  url: string,
+  headers: Record<string, string>,
+  init?: RequestInit,
+): Promise<unknown> {
+  const text = await (await fetchResponse(url, headers, init)).text()
+  return text ? JSON.parse(text) : undefined
+}
+
+async function fetchResponse(
+  url: string,
+  headers: Record<string, string>,
+  init?: RequestInit,
+): Promise<Response> {
   const response = await fetch(url, {
     ...init,
     headers,
     signal: AbortSignal.timeout(timeoutMs),
   })
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
-  return response.json()
+  return response
 }
 
 /** Reads the credential held by the Pi runtime without accessing its storage file. */
@@ -358,6 +503,11 @@ function object(value: unknown): Record<string, unknown> | undefined {
 function stringField(value: unknown, key: string): string | undefined {
   const field = object(value)?.[key]
   return typeof field === 'string' && field ? field : undefined
+}
+
+function numberField(value: unknown, key: string): number | undefined {
+  const field = object(value)?.[key]
+  return typeof field === 'number' && Number.isFinite(field) ? field : undefined
 }
 
 function failure<T>(error: string): QuotaProviderReport<T> {

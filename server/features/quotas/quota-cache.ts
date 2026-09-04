@@ -13,10 +13,17 @@ import type {
   QuotaProviderReport,
   QuotaProviderSnapshot,
   QuotaReport,
+  QuotaResetStatus,
   QuotaSnapshot,
 } from '../../../shared/types.ts'
 
 const emptyProvider = <T>(): QuotaProviderSnapshot<T> => ({ data: [], stale: false })
+const quotaStatusKey = 'pi-livecraft.quotas'
+const resetStatusKey = 'pi-livecraft.quota-reset'
+
+interface ResetWaiter {
+  resolve: (status: QuotaResetStatus | undefined) => void
+}
 
 /** Keeps each provider's last valid snapshot when the next one fails. */
 export class QuotaCache {
@@ -24,6 +31,7 @@ export class QuotaCache {
   #copilot = emptyProvider<CopilotQuotaWindow>()
   #glm: GlmQuotaSnapshot = emptyProvider<GlmQuotaWindow>()
   #refreshing = false
+  #resetWaiters = new Map<string, ResetWaiter>()
 
   snapshot(sessionRequired: boolean): QuotaSnapshot {
     return {
@@ -39,14 +47,29 @@ export class QuotaCache {
     this.#refreshing = refreshing
   }
 
-  /** Accepts only the private, versioned status emitted by the quota extension. */
+  /** Waits for the status event that carries one reset command's actual result. */
+  waitForResetOutcome(requestId: string): Promise<QuotaResetStatus | undefined> {
+    this.cancelResetOutcome(requestId)
+    return new Promise((resolve) => {
+      this.#resetWaiters.set(requestId, { resolve })
+    })
+  }
+
+  /** Releases a waiter when the corresponding manager command fails before reporting an outcome. */
+  cancelResetOutcome(requestId: string): void {
+    this.#settleResetOutcome(requestId)
+  }
+
+  /** Accepts only the private, versioned statuses emitted by the quota extension. */
   receiveManagerEvent(event: unknown): boolean {
-    const data = object(object(event)?.data)
+    const managerEvent = object(event)
+    const data = object(managerEvent?.data)
     if (
-      object(event)?.event !== 'pi' || data?.type !== 'extension_ui_request' || data
-          .method !== 'setStatus'
-      || data.statusKey !== 'pi-livecraft.quotas' || typeof data.statusText !== 'string'
+      managerEvent?.event !== 'pi' || data?.type !== 'extension_ui_request'
+      || data.method !== 'setStatus' || typeof data.statusText !== 'string'
     ) return false
+    if (data.statusKey === resetStatusKey) return this.#receiveResetStatus(data.statusText)
+    if (data.statusKey !== quotaStatusKey) return false
     let parsed: unknown
     try {
       parsed = JSON.parse(data.statusText)
@@ -60,6 +83,26 @@ export class QuotaCache {
     if (report.glm) this.#glm = mergeGlm(this.#glm, report.glm, report.refreshedAt)
     this.#refreshing = false
     return true
+  }
+
+  #receiveResetStatus(statusText: string): boolean {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(statusText)
+    } catch {
+      return false
+    }
+    const status = parseQuotaResetStatus(parsed)
+    if (!status) return false
+    this.#settleResetOutcome(status.requestId, status)
+    return true
+  }
+
+  #settleResetOutcome(requestId: string, status?: QuotaResetStatus): void {
+    const waiter = this.#resetWaiters.get(requestId)
+    if (!waiter) return
+    this.#resetWaiters.delete(requestId)
+    waiter.resolve(status)
   }
 }
 
@@ -116,6 +159,34 @@ function parseQuotaReport(value: unknown): QuotaReport | undefined {
     copilot,
     ...(glm ? { glm } : {}),
   }
+}
+
+function parseQuotaResetStatus(value: unknown): QuotaResetStatus | undefined {
+  const status = object(value)
+  if (
+    status?.protocol !== 'pi-livecraft.quota-reset' || status.version !== 1
+    || !validRequestId(status.requestId)
+  ) return undefined
+  const outcome = status.outcome
+  if (
+    outcome !== 'ok' && outcome !== 'no_credit' && outcome !== 'nothing_to_reset'
+    && outcome !== 'error'
+  ) return undefined
+  const error = typeof status.error === 'string' && status.error.trim()
+    ? status.error.trim().slice(0, 300)
+    : undefined
+  return {
+    protocol: 'pi-livecraft.quota-reset',
+    version: 1,
+    requestId: status.requestId,
+    outcome,
+    ...(error ? { error } : {}),
+  }
+}
+
+function validRequestId(value: unknown): value is string {
+  return typeof value === 'string'
+    && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(value)
 }
 
 function parseProvider<T>(
