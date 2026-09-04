@@ -20,6 +20,11 @@ import {
 } from './features/git/git.ts'
 import { QuotaService } from './features/quotas/quota-service.ts'
 import { EnvironmentService } from './features/session-environment/environment-service.ts'
+import {
+  ExtensionSettingsError,
+  readExtensionSettings,
+  updateExtensionSetting,
+} from './features/extension-settings/extension-settings.ts'
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
 import { parseBrowserInputEvent, parseBrowserViewport } from './features/browser/browser-session.ts'
 import { BrowserService, parseBrowserId } from './features/browser/browser-service.ts'
@@ -211,6 +216,29 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     if (typeof body.sessionId !== 'string' || !body.sessionId)
       throw new HttpError(409, 'An open Pi session is required to refresh the environment.')
     sendJson(response, 200, await environment.refresh(body.sessionId))
+    return
+  }
+
+  if (method === 'GET' && url.pathname === '/api/extension-settings') {
+    try {
+      sendJson(response, 200, await readExtensionSettings())
+    } catch (error) {
+      if (error instanceof ExtensionSettingsError) throw new HttpError(409, error.message)
+      throw error
+    }
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/extension-settings') {
+    const body = await readJsonBody(request)
+    if (typeof body.extension !== 'string' || typeof body.id !== 'string')
+      throw new HttpError(400, 'Extension and setting identifiers are required')
+    try {
+      sendJson(response, 200, await updateExtensionSetting(body.extension, body.id, body.value))
+    } catch (error) {
+      if (error instanceof ExtensionSettingsError) throw new HttpError(400, error.message)
+      throw error
+    }
     return
   }
 

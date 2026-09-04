@@ -401,6 +401,152 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* Extension settings */
+.extension-settings > p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.extension-settings > p.extension-settings-error {
+  color: var(--danger);
+}
+.extension-settings code {
+  font: 11px ui-monospace, monospace;
+}
+.extension-settings > button {
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+.extension-settings > button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.extension-settings > button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.extension-settings > button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.extension-settings-group {
+  margin-bottom: 18px;
+}
+.extension-settings-group > p {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.extension-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 13px;
+}
+.extension-setting-label {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.extension-setting-label small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.extension-setting-label small.extension-setting-badge {
+  color: var(--warning);
+}
+.extension-setting-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.extension-setting-control select,
+.extension-setting-control input {
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font-size: 12px;
+}
+.extension-setting-control input {
+  width: 210px;
+  font: 11px ui-monospace, monospace;
+}
+.extension-setting-control select {
+  max-width: 210px;
+}
+.extension-setting-control select:focus,
+.extension-setting-control input:focus {
+  border-color: var(--accent);
+  outline: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent);
+}
+.extension-setting-control select:disabled,
+.extension-setting-control input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.extension-setting-control button {
+  border: 0;
+  border-radius: 6px;
+  padding: 4px 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 180ms ease, background 180ms ease;
+}
+.extension-setting-control button:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--accent-soft);
+}
+.extension-setting-control button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.extension-setting-control button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.extension-settings-advanced {
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.extension-settings-advanced summary {
+  padding: 8px 0;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.extension-settings-advanced summary:hover {
+  color: var(--ink);
+}
+.extension-settings-advanced summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.extension-settings-path {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font: 11px ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
 @media (prefers-reduced-motion: reduce) {
   .settings-backdrop,
   .settings-panel,
@@ -408,6 +554,10 @@
     animation: none;
   }
   .settings-tab-bar button {
+    transition: none;
+  }
+  .extension-settings > button,
+  .extension-setting-control button {
     transition: none;
   }
 }
@@ -433,6 +583,19 @@
     width: 100%;
   }
   .shortcut-row input {
+    width: 100%;
+  }
+  .extension-setting-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .extension-setting-control {
+    width: 100%;
+  }
+  .extension-setting-control input,
+  .extension-setting-control select {
+    flex: 1;
     width: 100%;
   }
 }

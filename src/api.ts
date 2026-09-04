@@ -1,4 +1,8 @@
 import type {
+  ExtensionSettingsSnapshot,
+  ExtensionSettingValue,
+} from '../shared/extension-settings.ts'
+import type {
   BrowserInputEvent,
   BrowserInstanceTarget,
   BrowserSessionStatus,
@@ -300,6 +304,23 @@ export async function getEnvironment(sessionId: string): Promise<SessionEnvironm
   return request<SessionEnvironmentSnapshot>(
     `/api/environment?sessionId=${encodeURIComponent(sessionId)}`,
   )
+}
+
+/** Reports settings published by the installed Pi extensions and their stored values. */
+export async function getExtensionSettings(): Promise<ExtensionSettingsSnapshot> {
+  return request<ExtensionSettingsSnapshot>('/api/extension-settings')
+}
+
+/** Stores or clears one published extension setting; `null` restores the extension default. */
+export async function updateExtensionSetting(
+  extension: string,
+  id: string,
+  value: ExtensionSettingValue | null,
+): Promise<ExtensionSettingsSnapshot> {
+  return request<ExtensionSettingsSnapshot>('/api/extension-settings', {
+    method: 'POST',
+    body: JSON.stringify({ extension, id, value }),
+  })
 }
 
 function browserInstanceUrl(target: BrowserInstanceTarget, action?: string): string {

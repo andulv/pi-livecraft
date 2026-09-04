@@ -7,6 +7,7 @@ import {
   getGitFileDiff,
   getGitSnapshot,
   getEnvironment,
+  getExtensionSettings,
   getQuotas,
   getVSCodeTitleBarColor,
   improvePrompt,
@@ -25,8 +26,13 @@ import {
   savePrompt,
   sendPiCommand,
   subscribeManagerEvents,
+  updateExtensionSetting,
 } from './api.ts'
 import type { QuotaResetTarget } from './api.ts'
+import type {
+  ExtensionSettingsSnapshot,
+  ExtensionSettingValue,
+} from '../shared/extension-settings.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type {
   GitSnapshot,
@@ -315,6 +321,10 @@ function LivecraftProjectApp(
   const [vscodeTitleBarColor, setVSCodeTitleBarColor] = useState<string | null>(null)
   const [quotas, setQuotas] = useState<QuotaSnapshot | null>(null)
   const [environment, setEnvironment] = useState<SessionEnvironmentSnapshot | null>(null)
+  const [extensionSettings, setExtensionSettings] = useState<ExtensionSettingsSnapshot | null>(
+    null,
+  )
+  const [extensionSettingsError, setExtensionSettingsError] = useState<string | null>(null)
   const [openFilePaths, setOpenFilePaths] = useState<string[]>([])
   const [activePaneView, setActivePaneView] = useState<PaneView | null>(null)
   const [browserOpen, setBrowserOpen] = useState(false)
@@ -840,6 +850,30 @@ function LivecraftProjectApp(
     setEnvironment(null)
     if (selectedId) void getEnvironment(selectedId).then(setEnvironment).catch(() => undefined)
   }, [selectedId])
+
+  // Pi extension settings: published by the extensions themselves, read when the modal opens.
+  const loadExtensionSettings = useCallback(() => {
+    setExtensionSettingsError(null)
+    void getExtensionSettings()
+      .then(setExtensionSettings)
+      .catch((cause) => setExtensionSettingsError(messageOf(cause)))
+  }, [])
+
+  useEffect(() => {
+    if (settingsOpen) loadExtensionSettings()
+  }, [settingsOpen, loadExtensionSettings])
+
+  const changeExtensionSetting = useCallback(
+    (extension: string, id: string, value: ExtensionSettingValue | null) => {
+      void updateExtensionSetting(extension, id, value)
+        .then(setExtensionSettings)
+        .catch((cause) => {
+          showToast('error', messageOf(cause))
+          setExtensionSettingsError(messageOf(cause))
+        })
+    },
+    [showToast],
+  )
 
   // Selected session synchronization
   useEffect(() => setConversationNavigation(undefined), [selectedId])
@@ -1917,6 +1951,10 @@ function LivecraftProjectApp(
           terminalCommand={terminalCommand}
           themes={allThemes(themePreferences)}
           activeThemeId={activeTheme.id}
+          extensionSettings={extensionSettings}
+          extensionSettingsError={extensionSettingsError}
+          onExtensionSettingChange={changeExtensionSetting}
+          onExtensionSettingsReload={loadExtensionSettings}
           onChange={(id, shortcut) => {
             const next = { ...shortcuts, [id]: shortcut }
             setShortcuts(next)

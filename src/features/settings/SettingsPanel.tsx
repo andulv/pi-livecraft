@@ -1,6 +1,11 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import * as Select from '@radix-ui/react-select'
 import type { CommandDefinition, CommandId } from '../commands/command-registry.ts'
+import { ExtensionSettings } from './ExtensionSettings.tsx'
+import type {
+  ExtensionSettingsSnapshot,
+  ExtensionSettingValue,
+} from '../../../shared/extension-settings.ts'
 import { shortcutFromEvent, shortcutConflicts } from '../commands/command-registry.ts'
 import {
   applyThemePalette,
@@ -25,7 +30,7 @@ const themeVariableLabels: Record<ThemeVariable, string> = {
 // ── Tab registry ───────────────────────────────────────────────────
 
 /** Identifies a settings tab. Extend this union when adding a new tab. */
-export type SettingsTabId = 'themes' | 'terminal' | 'shortcuts'
+export type SettingsTabId = 'themes' | 'terminal' | 'shortcuts' | 'extensions'
 
 /** Describes one tab in the settings modal. */
 export interface SettingsTabDefinition {
@@ -38,6 +43,7 @@ export const settingsTabs: SettingsTabDefinition[] = [
   { id: 'themes', label: 'Color themes' },
   { id: 'terminal', label: 'Terminal' },
   { id: 'shortcuts', label: 'Shortcuts' },
+  { id: 'extensions', label: 'Pi extensions' },
 ]
 
 // ── Shared props ───────────────────────────────────────────────────
@@ -48,8 +54,16 @@ interface SettingsPanelProps {
   terminalCommand: string
   themes: Theme[]
   activeThemeId: string
+  extensionSettings: ExtensionSettingsSnapshot | null
+  extensionSettingsError: string | null
   onChange: (id: CommandId, shortcut: string) => void
   onTerminalCommandChange: (value: string) => void
+  onExtensionSettingChange: (
+    extension: string,
+    id: string,
+    value: ExtensionSettingValue | null,
+  ) => void
+  onExtensionSettingsReload: () => void
   onSelectTheme: (id: string) => void
   onDuplicateTheme: () => void
   onRenameTheme: (id: string, name: string) => void
@@ -326,8 +340,12 @@ export function SettingsPanel({
   terminalCommand,
   themes,
   activeThemeId,
+  extensionSettings,
+  extensionSettingsError,
   onChange,
   onTerminalCommandChange,
+  onExtensionSettingChange,
+  onExtensionSettingsReload,
   onSelectTheme,
   onDuplicateTheme,
   onRenameTheme,
@@ -427,6 +445,20 @@ export function SettingsPanel({
                 onCaptureEnd={() => setCapturing(null)}
                 onCaptureStart={setCapturing}
                 shortcuts={shortcuts}
+              />
+            </TabPanel>
+          )}
+          {activeTab === 'extensions' && (
+            <TabPanel
+              key='extensions'
+              id='settings-tab-extensions'
+              labelledBy='settings-tab-btn-extensions'
+            >
+              <ExtensionSettings
+                error={extensionSettingsError}
+                onChange={onExtensionSettingChange}
+                onRetry={onExtensionSettingsReload}
+                snapshot={extensionSettings}
               />
             </TabPanel>
           )}

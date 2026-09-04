@@ -8,8 +8,11 @@
 - `settings/` captures shortcut changes and resets them.
 - `App.tsx` persists shortcuts, theme, conversation view, workspace restoration, left and right sidebar state.
 - `composer/` persists drafts per session.
+- `settings/ExtensionSettings.tsx` renders settings that installed Pi extensions published themselves; the values belong to Pi, not to the browser, and are read and written through the [extension settings capability](/server/features/extension-settings/README.md).
 
-All values stay in browser `localStorage`; never store secrets there. Readers must tolerate missing, malformed, and documented legacy values so a preference cannot prevent startup. The palette and Settings shortcuts remain fixed to keep both surfaces recoverable.
+Local values stay in browser `localStorage`; never store secrets there. Readers must tolerate missing, malformed, and documented legacy values so a preference cannot prevent startup. The palette and Settings shortcuts remain fixed to keep both surfaces recoverable.
+
+Extension settings are the exception: they live in Pi's agent directory so the same value applies to the `pi` command line, and an extension publishes its own definitions — adding a setting never requires a change here.
 
 ## Add a preference
 

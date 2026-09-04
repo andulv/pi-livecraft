@@ -25,6 +25,9 @@ SettingsPanel (modal container, tab state)
 | `themes` | Color themes | `ThemeSettings` | `themes`, `activeThemeId`, `onSelectTheme`, `onDuplicateTheme`, `onRenameTheme`, `onUpdateThemeColor`, `onDeleteTheme`, `onResetTheme` |
 | `terminal` | Terminal | `TerminalSettings` | `terminalCommand`, `onTerminalCommandChange` |
 | `shortcuts` | Shortcuts | `ShortcutsSettings` | `definitions`, `shortcuts`, `onChange`, `onReset` |
+| `extensions` | Pi extensions | `ExtensionSettings` | `extensionSettings`, `extensionSettingsError`, `onExtensionSettingChange`, `onExtensionSettingsReload` |
+
+The `extensions` tab is the one tab whose values are not local preferences: `ExtensionSettings` (`src/features/settings/ExtensionSettings.tsx`) renders settings that the installed Pi extensions published themselves and writes them through the backend into Pi's own configuration, so they also apply to the `pi` command line. Add a setting by publishing it from the extension, not by editing this component. See the [extension settings capability](/server/features/extension-settings/README.md).
 
 ## Add a new tab
 
@@ -100,7 +103,7 @@ The `TabPanel` component handles `role="tabpanel"`, `aria-labelledby`, and the `
 
 ### Step 6: Persist the value (if needed)
 
-Settings values live in `localStorage` under the `pi-livecraft.` prefix. Add a line to your `App.tsx` callback:
+Local settings values live in `localStorage` under the `pi-livecraft.` prefix. Add a line to your `App.tsx` callback:
 
 ```ts
 onMyFeatureChange={(value) => {
