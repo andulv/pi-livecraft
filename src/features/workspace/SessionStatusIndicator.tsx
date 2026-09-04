@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { CompactingIcon } from '../../components/CompactingIcon.tsx'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type { SessionIndicator } from './session-indicator.ts'
@@ -10,13 +11,49 @@ const indicatorLabels: Record<SessionIndicator, string> = {
   idle: 'Pi is idle',
 }
 
+const workingPulseIntervalMs = 500
+const workingPulseListeners = new Set<(large: boolean) => void>()
+let workingPulseLarge = false
+let workingPulseTimer: number | undefined
+
+/** Shares one discrete size pulse across working indicators instead of continuous CSS animation. */
+function useWorkingPulse(working: boolean): boolean {
+  const [large, setLarge] = useState(false)
+  useEffect(() => {
+    if (working === false || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setLarge(false)
+      return
+    }
+    workingPulseListeners.add(setLarge)
+    setLarge(workingPulseLarge)
+    if (workingPulseTimer === undefined) {
+      workingPulseTimer = window.setInterval(() => {
+        workingPulseLarge = !workingPulseLarge
+        for (const listener of workingPulseListeners) listener(workingPulseLarge)
+      }, workingPulseIntervalMs)
+    }
+    return () => {
+      workingPulseListeners.delete(setLarge)
+      if (workingPulseListeners.size === 0 && workingPulseTimer !== undefined) {
+        window.clearInterval(workingPulseTimer)
+        workingPulseTimer = undefined
+        workingPulseLarge = false
+      }
+    }
+  }, [working])
+  return large
+}
+
 /** Reusable indicator using the same visual vocabulary as the workspace sidebar. */
 export function SessionStatusIndicator({ status }: { status: SessionIndicator }) {
+  const pulseLarge = useWorkingPulse(status === 'working')
   return (
     <Tooltip label={indicatorLabels[status]}>
       <span
         aria-label={indicatorLabels[status]}
-        className={`session-status-indicator ${status}`}
+        className={`session-status-indicator ${status}${
+          pulseLarge && status === 'working' ? ' working-pulse-large' : ''
+        }`}
         role='img'
       >
         {status === 'compacting' && <CompactingIcon />}

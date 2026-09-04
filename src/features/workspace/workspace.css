@@ -907,6 +907,15 @@
 .session-status-indicator.working {
   background: var(--danger);
 }
+/* The dot changes size in discrete half-second steps; no CSS animation keeps frames running. */
+.session-status-indicator.working.working-pulse-large {
+  transform: scale(1.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .session-status-indicator.working.working-pulse-large {
+    transform: none;
+  }
+}
 .session-status-indicator.idle {
   width: 8px;
   height: 8px;
