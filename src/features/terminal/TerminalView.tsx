@@ -9,6 +9,7 @@ import {
   subscribeTerminalOutput,
 } from '../../api.ts'
 import type { TerminalSessionStatus } from '../../../shared/types.ts'
+import { terminalKeyAction } from './terminal-key.ts'
 
 /** Client-side scrollback lines; the server keeps only the bounded replay buffer. */
 const scrollbackLines = 5000
@@ -48,6 +49,19 @@ export function TerminalView({ terminalId, workspacePath }: {
     terminal.loadAddon(fit)
     terminal.open(host)
     fit.fit()
+    terminal.focus()
+    terminal.attachCustomKeyEventHandler((event) => {
+      const action = terminalKeyAction(event, terminal.hasSelection())
+      if (action === 'passthrough') return true
+      // Keep terminal keys out of application shortcuts. Copy keeps the native
+      // browser action; interrupt sends ETX exactly once instead of asking xterm
+      // to apply its platform-dependent Ctrl+C behavior.
+      event.stopPropagation()
+      if (action === 'copy') return false
+      event.preventDefault()
+      sendTerminalInput(target, '\x03')
+      return false
+    })
     terminalRef.current = terminal
     fitRef.current = fit
 

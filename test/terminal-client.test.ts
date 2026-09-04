@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createOrderedSender } from '../src/api.ts'
+import { terminalKeyAction, type TerminalKeyInput } from '../src/features/terminal/terminal-key.ts'
 
 /** Double that resolves under test control. */
 function deferred(): { promise: Promise<void>; resolve: () => void } {
@@ -10,6 +11,24 @@ function deferred(): { promise: Promise<void>; resolve: () => void } {
   })
   return { promise, resolve }
 }
+
+test('terminal Ctrl+C interrupts unless copy semantics take precedence', () => {
+  const key = (overrides: Partial<TerminalKeyInput> = {}): TerminalKeyInput => ({
+    altKey: false,
+    ctrlKey: false,
+    key: 'c',
+    metaKey: false,
+    shiftKey: false,
+    ...overrides,
+  })
+
+  assert.equal(terminalKeyAction(key({ ctrlKey: true }), false), 'interrupt')
+  assert.equal(terminalKeyAction(key({ ctrlKey: true }), true), 'copy')
+  assert.equal(terminalKeyAction(key({ ctrlKey: true, shiftKey: true }), false), 'copy')
+  assert.equal(terminalKeyAction(key({ metaKey: true }), false), 'copy')
+  assert.equal(terminalKeyAction(key({ altKey: true, ctrlKey: true }), false), 'passthrough')
+  assert.equal(terminalKeyAction(key({ ctrlKey: true, key: 'x' }), false), 'passthrough')
+})
 
 test('ordered sender keeps exactly one POST in flight, in submission order', async () => {
   const first = deferred()
