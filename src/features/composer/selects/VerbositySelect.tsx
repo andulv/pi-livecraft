@@ -26,7 +26,7 @@ export const VerbositySelect = memo(function VerbositySelect({ verbosity, onComm
           .catch(onError)}
       options={verbosityOptions}
       tone='response'
-      triggerLabel='Response verbosity'
+      triggerLabel='Verbosity'
       value={verbosity}
     />
   )

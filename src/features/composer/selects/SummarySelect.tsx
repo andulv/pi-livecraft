@@ -24,7 +24,7 @@ export const SummarySelect = memo(function SummarySelect({ summary, onCommand, o
           .catch(onError)}
       options={summaryOptions}
       tone='response'
-      triggerLabel='Reasoning summary'
+      triggerLabel='Reasoning'
       value={summary}
     />
   )

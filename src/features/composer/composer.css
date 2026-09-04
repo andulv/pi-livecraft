@@ -644,6 +644,24 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.composer-select-trigger-copy {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+  line-height: 1;
+}
+.composer-select-trigger-copy > span,
+.composer-select-trigger-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-select-trigger-copy small {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 500;
+  line-height: 1.1;
+}
 .composer-select-provider {
   color: var(--muted);
   font-size: 10px;

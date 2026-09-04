@@ -24,7 +24,7 @@ export const ComposerSelect = memo(function ComposerSelect(
     onValueChange: (value: string) => void
     options: { description?: string; kind?: 'action'; label: string; value: string }[]
     placeholder?: string
-    /** Fixed trigger text for controls whose selected value is conveyed in the menu. */
+    /** Secondary trigger label for controls whose values need a permanent name. */
     triggerLabel?: string
     tone:
       | 'agent'
@@ -57,7 +57,12 @@ export const ComposerSelect = memo(function ComposerSelect(
           ? <span aria-hidden='true' className='composer-select-spinner' />
           : <ComposerSelectIcon tone={tone} />}
         {triggerLabel
-          ? <span className='composer-select-value'>{triggerLabel}</span>
+          ? (
+            <span className='composer-select-trigger-copy'>
+              <Select.Value placeholder={placeholder} />
+              <small>{triggerLabel}</small>
+            </span>
+          )
           : <Select.Value placeholder={placeholder} />}
       </Select.Trigger>
       <Select.Portal>
