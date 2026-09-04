@@ -9,6 +9,7 @@ import {
   subscribeTerminalOutput,
 } from '../../api.ts'
 import type { TerminalSessionStatus } from '../../../shared/types.ts'
+import { cwdFromOsc3008, cwdFromOsc7, cwdFromTerminalTitle } from './terminal-cwd.ts'
 import { terminalKeyAction } from './terminal-key.ts'
 
 /** Client-side scrollback lines; the server keeps only the bounded replay buffer. */
@@ -20,6 +21,7 @@ export function TerminalView({ terminalId, workspacePath }: {
   workspacePath: string
 }) {
   const [status, setStatus] = useState<TerminalSessionStatus>({ state: 'starting' })
+  const [currentDirectory, setCurrentDirectory] = useState(workspacePath)
   const target = useMemo(() => ({ terminalId, workspacePath }), [terminalId, workspacePath])
   const hostRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
@@ -34,7 +36,8 @@ export function TerminalView({ terminalId, workspacePath }: {
     previousTargetRef.current = target
     previousStateRef.current = 'starting'
     setStatus({ state: 'starting' })
-  }, [target])
+    setCurrentDirectory(workspacePath)
+  }, [target, workspacePath])
 
   // Create the terminal surface once per target; it survives status changes.
   useEffect(() => {
@@ -65,6 +68,21 @@ export function TerminalView({ terminalId, workspacePath }: {
     terminalRef.current = terminal
     fitRef.current = fit
 
+    const updateDirectory = (directory: string | null): void => {
+      if (directory) setCurrentDirectory(directory)
+    }
+    const metadataListeners = [
+      terminal.parser.registerOscHandler(7, (data) => {
+        updateDirectory(cwdFromOsc7(data))
+        return true
+      }),
+      terminal.parser.registerOscHandler(3008, (data) => {
+        updateDirectory(cwdFromOsc3008(data))
+        return true
+      }),
+      terminal.onTitleChange((title) => updateDirectory(cwdFromTerminalTitle(title))),
+    ]
+
     const resizeObserver = new ResizeObserver(() => {
       if (host.clientHeight === 0) return
       fit.fit()
@@ -86,6 +104,7 @@ export function TerminalView({ terminalId, workspacePath }: {
       resizeObserver.disconnect()
       themeObserver.disconnect()
       dataListener.dispose()
+      for (const listener of metadataListeners) listener.dispose()
       terminal.dispose()
       terminalRef.current = null
       fitRef.current = null
@@ -146,6 +165,14 @@ export function TerminalView({ terminalId, workspacePath }: {
         onClick={() => terminalRef.current?.focus()}
         ref={hostRef}
       />
+      <div
+        aria-label={`Current terminal directory: ${currentDirectory}`}
+        className='terminal-statusline'
+        title={currentDirectory}
+      >
+        <span>pwd</span>
+        <code>{currentDirectory}</code>
+      </div>
       {!live && (
         <div aria-live='polite' className='terminal-veil'>
           {status.state === 'starting' && <p>Starting shell…</p>}

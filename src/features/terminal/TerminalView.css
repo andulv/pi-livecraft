@@ -31,6 +31,28 @@
   min-height: 0;
   height: 100%;
 }
+.terminal-statusline {
+  display: flex;
+  flex: 0 0 24px;
+  align-items: center;
+  min-width: 0;
+  gap: 7px;
+  border-top: 1px solid var(--line);
+  padding: 0 8px;
+  background: var(--surface-raised);
+  color: var(--subtle);
+  font: 650 10px ui-sans-serif, system-ui, sans-serif;
+  text-transform: uppercase;
+}
+.terminal-statusline code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font: 500 11px ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
 .terminal-veil {
   position: absolute;
   inset: 0;

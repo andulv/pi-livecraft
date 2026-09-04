@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createOrderedSender } from '../src/api.ts'
+import {
+  cwdFromOsc3008,
+  cwdFromOsc7,
+  cwdFromTerminalTitle,
+} from '../src/features/terminal/terminal-cwd.ts'
 import { terminalKeyAction, type TerminalKeyInput } from '../src/features/terminal/terminal-key.ts'
 
 /** Double that resolves under test control. */
@@ -28,6 +33,16 @@ test('terminal Ctrl+C interrupts unless copy semantics take precedence', () => {
   assert.equal(terminalKeyAction(key({ metaKey: true }), false), 'copy')
   assert.equal(terminalKeyAction(key({ altKey: true, ctrlKey: true }), false), 'passthrough')
   assert.equal(terminalKeyAction(key({ ctrlKey: true, key: 'x' }), false), 'passthrough')
+})
+
+test('terminal metadata resolves only path-like working directories', () => {
+  assert.equal(cwdFromOsc7('file://workstation/home/anders/my%20repo'), '/home/anders/my repo')
+  assert.equal(cwdFromOsc7('https://example.test/repo'), null)
+  assert.equal(cwdFromOsc3008('start=id;type=shell;cwd=%2Ftmp%2Fdemo'), '/tmp/demo')
+  assert.equal(cwdFromOsc3008('start=id;type=command'), null)
+  assert.equal(cwdFromTerminalTitle('/home/anders/repo'), '/home/anders/repo')
+  assert.equal(cwdFromTerminalTitle('anders@host:/home/anders/repo'), '/home/anders/repo')
+  assert.equal(cwdFromTerminalTitle('vim: README.md'), null)
 })
 
 test('ordered sender keeps exactly one POST in flight, in submission order', async () => {
