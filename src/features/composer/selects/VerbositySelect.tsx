@@ -3,7 +3,7 @@ import type { JsonObject } from '../../../../shared/types.ts'
 import { ComposerSelect } from './ComposerSelect.tsx'
 
 const verbosityOptions = [
-  { label: 'Default', value: 'default', description: 'Use the model\'s own setting' },
+  { label: 'Default', value: 'default' },
   { label: 'Low', value: 'low' },
   { label: 'Medium', value: 'medium' },
   { label: 'High', value: 'high' },
@@ -26,6 +26,7 @@ export const VerbositySelect = memo(function VerbositySelect({ verbosity, onComm
           .catch(onError)}
       options={verbosityOptions}
       tone='response'
+      triggerLabel='Response verbosity'
       value={verbosity}
     />
   )

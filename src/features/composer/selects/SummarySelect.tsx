@@ -3,7 +3,7 @@ import type { JsonObject } from '../../../../shared/types.ts'
 import { ComposerSelect } from './ComposerSelect.tsx'
 
 const summaryOptions = [
-  { label: 'Default', value: 'default', description: 'Use the model\'s own setting' },
+  { label: 'Default', value: 'default' },
   { label: 'Auto', value: 'auto' },
   { label: 'None', value: 'none' },
   { label: 'Concise', value: 'concise' },
@@ -24,6 +24,7 @@ export const SummarySelect = memo(function SummarySelect({ summary, onCommand, o
           .catch(onError)}
       options={summaryOptions}
       tone='response'
+      triggerLabel='Reasoning summary'
       value={summary}
     />
   )
