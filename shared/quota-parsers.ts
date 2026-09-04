@@ -2,7 +2,6 @@ import type {
   CopilotQuotaWindow,
   GlmQuotaResets,
   GlmQuotaWindow,
-  OpenAiQuotaReport,
   OpenAiQuotaResets,
   OpenAiQuotaWindow,
 } from './types.ts'
@@ -82,16 +81,6 @@ export function parseOpenAiResetSummary(value: unknown): OpenAiQuotaResets | und
     availableCount: Math.max(0, Math.round(count ?? credits.length)),
     ...(nearestExpiry ? { nearestExpiry } : {}),
   }
-}
-
-/** Confirms an otherwise undocumented consume response from the fresh credit count. */
-export function isOpenAiResetConfirmed(
-  previousAvailableCount: number,
-  report: OpenAiQuotaReport | undefined,
-): boolean {
-  if (!report || !report.ok) return false
-  const availableCount = report.resets?.availableCount
-  return availableCount !== undefined && availableCount < previousAvailableCount
 }
 
 /** Extracts rate-limit windows from OpenAI's opaque quota response. */

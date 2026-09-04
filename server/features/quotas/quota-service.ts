@@ -1,10 +1,9 @@
-import { randomUUID } from 'node:crypto'
-import type { ManagerEvent, QuotaResetStatus, QuotaSnapshot } from '../../../shared/types.ts'
+import type { ManagerEvent, QuotaSnapshot } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
 import type { ManagerClient } from '../../manager-client.ts'
 import { QuotaCache } from './quota-cache.ts'
 
-const resetOutcomeGracePeriodMs = 5_000
+const resetRefreshGracePeriodMs = 5_000
 
 /** Coordinates quota snapshots and refresh commands without exposing Pi details to HTTP routing. */
 export class QuotaService {
@@ -63,82 +62,56 @@ export class QuotaService {
   }
 
   /**
-   * Redeems one banked reset through the extension command. Pi's RPC prompt
-   * acknowledgement has no handler return value, so the extension emits a
-   * correlated status event after its post-redemption refresh instead.
+   * Redeems one banked reset, then verifies it from the normal quota report the
+   * extension already publishes after every redemption.
    */
   async reset(
     sessionId: string,
     target: 'openai' | 'glm-five-hour' | 'glm-week',
   ): Promise<{ ok: boolean; error?: string }> {
-    const requestId = randomUUID()
-    const outcome = this.#cache.waitForResetOutcome(requestId)
+    const before = resetCount(this.#cache.snapshot(false), target)
+    const report = this.#cache.waitForNextReport()
     const args = target === 'openai'
       ? ''
       : target === 'glm-week'
       ? 'glm week'
       : 'glm five-hour'
-    const commandArgs = `${args ? `${args} ` : ''}--request-id=${requestId}`
     try {
-      const response = await this.#manager.request({
+      await this.#manager.request({
         action: 'command',
         sessionId,
-        command: { type: 'prompt', message: `/livecraft-quotas-reset ${commandArgs}` },
+        command: { type: 'prompt', message: `/livecraft-quotas-reset${args ? ` ${args}` : ''}` },
       }, 60_000)
-      const legacyResult = resetResultFromText(
-        isObject(response) && typeof response.data === 'string' ? response.data : undefined,
-      )
-      if (legacyResult) return legacyResult
-      const status = await waitForResetStatus(outcome)
-      return status
-        ? resetResultFromStatus(status)
-        : {
-          ok: false,
-          error: 'The reset result could not be confirmed. Refresh quotas before trying again.',
-        }
+      await waitForQuotaReport(report.promise)
+      const after = resetCount(this.#cache.snapshot(false), target)
+      if (before !== undefined && after !== undefined && after < before) return { ok: true }
+      return {
+        ok: false,
+        error: 'The reset result could not be confirmed from the refreshed quota data.',
+      }
     } finally {
-      this.#cache.cancelResetOutcome(requestId)
+      report.cancel()
     }
   }
 }
 
-/** Gives the event stream a moment to deliver the status emitted before Pi settled the prompt. */
-function waitForResetStatus(
-  outcome: Promise<QuotaResetStatus | undefined>,
-): Promise<QuotaResetStatus | undefined> {
+function resetCount(
+  snapshot: QuotaSnapshot,
+  target: 'openai' | 'glm-five-hour' | 'glm-week',
+): number | undefined {
+  if (target === 'openai') return snapshot.openai.resets?.availableCount
+  return target === 'glm-five-hour'
+    ? snapshot.glm.resets?.fiveHour.availableCount
+    : snapshot.glm.resets?.week.availableCount
+}
+
+/** Avoids hanging the reset button if Pi fails to publish its normal report. */
+function waitForQuotaReport(report: Promise<void>): Promise<void> {
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(undefined), resetOutcomeGracePeriodMs)
-    void outcome.then((status) => {
+    const timeout = setTimeout(resolve, resetRefreshGracePeriodMs)
+    void report.then(() => {
       clearTimeout(timeout)
-      resolve(status)
+      resolve()
     })
   })
-}
-
-function resetResultFromStatus(status: QuotaResetStatus): { ok: boolean; error?: string } {
-  if (status.outcome === 'ok') return { ok: true }
-  if (status.outcome === 'no_credit') return { ok: false, error: 'No banked reset is available.' }
-  if (status.outcome === 'nothing_to_reset') {
-    return {
-      ok: false,
-      error: 'Nothing to reset yet — the reset stays banked. Try again when a window is in use.',
-    }
-  }
-  return { ok: false, error: status.error ?? 'Unable to redeem the banked reset.' }
-}
-
-/** Retains compatibility with older Pi runtimes that did expose a command string. */
-function resetResultFromText(
-  value: string | undefined,
-): { ok: boolean; error?: string } | undefined {
-  if (value === 'ok') return { ok: true }
-  if (value === 'no_credit') return { ok: false, error: 'No banked reset is available.' }
-  if (value === 'nothing_to_reset') {
-    return {
-      ok: false,
-      error: 'Nothing to reset yet — the reset stays banked. Try again when a window is in use.',
-    }
-  }
-  if (value?.startsWith('error: ')) return { ok: false, error: value.slice(7, 307) }
-  return undefined
 }

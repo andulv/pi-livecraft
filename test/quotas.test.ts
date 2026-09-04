@@ -11,6 +11,7 @@ import {
   parseOpenAiUsage,
 } from '../shared/quota-parsers.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
+import type { ManagerEvent } from '../shared/types.ts'
 import { QuotaCache } from '../server/features/quotas/quota-cache.ts'
 import { QuotaService } from '../server/features/quotas/quota-service.ts'
 import type { ManagerClient } from '../server/manager-client.ts'
@@ -280,37 +281,31 @@ test('shows the primary quota for the provider selected by the model', () => {
   })
 })
 
-test('uses a correlated reset status instead of Pi’s empty prompt acknowledgement', async () => {
+test('confirms a reset from the extension’s normal refreshed quota report', async () => {
   let service: QuotaService
   const manager = {
     request: async (request: { command?: { message?: unknown } }) => {
-      const message = request.command?.message
-      if (typeof message !== 'string') throw new Error('Expected a reset command.')
-      const requestId = /--request-id=([0-9a-f-]+)/i.exec(message)?.[1]
-      if (!requestId) throw new Error('Expected a reset request id.')
+      assert.equal(request.command?.message, '/livecraft-quotas-reset')
       setTimeout(() => {
-        service.receiveManagerEvent({
-          kind: 'event',
-          event: 'pi',
-          sessionId: 'session-id',
-          data: {
-            type: 'extension_ui_request',
-            method: 'setStatus',
-            statusKey: 'pi-livecraft.quota-reset',
-            statusText: JSON.stringify({
-              protocol: 'pi-livecraft.quota-reset',
-              version: 1,
-              requestId,
-              outcome: 'ok',
-            }),
-          },
-        })
+        service.receiveManagerEvent(statusEvent({
+          protocol: 'pi-livecraft.quotas',
+          version: 1,
+          refreshedAt: 200,
+          openai: { ok: true, data: [], resets: { availableCount: 1 } },
+          copilot: { ok: true, data: [] },
+        }))
       }, 0)
-      // Public Pi RPC acknowledges the prompt but does not return the handler result.
       return { type: 'response', command: 'prompt', success: true }
     },
   } as unknown as ManagerClient
   service = new QuotaService(manager)
+  service.receiveManagerEvent(statusEvent({
+    protocol: 'pi-livecraft.quotas',
+    version: 1,
+    refreshedAt: 100,
+    openai: { ok: true, data: [], resets: { availableCount: 2 } },
+    copilot: { ok: true, data: [] },
+  }))
 
   assert.deepEqual(await service.reset('session-id', 'openai'), { ok: true })
 })
@@ -441,9 +436,11 @@ test('keeps OpenAI and Copilot readings when a report omits the GLM section', ()
   assert.equal(cache.snapshot(false).openai.data[0].remainingPercent, 80)
 })
 
-function statusEvent(report: unknown): unknown {
+function statusEvent(report: unknown): ManagerEvent {
   return {
+    kind: 'event',
     event: 'pi',
+    sessionId: '',
     data: {
       type: 'extension_ui_request',
       method: 'setStatus',

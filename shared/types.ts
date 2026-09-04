@@ -352,21 +352,6 @@ export interface QuotaReport {
   glm?: GlmQuotaReport
 }
 
-/** Terminal outcome of one correlated banked-reset redemption. */
-export type QuotaResetOutcome = 'ok' | 'no_credit' | 'nothing_to_reset' | 'error'
-
-/**
- * Private, versioned extension status used to return a reset result over Pi's
- * event channel. RPC prompt acknowledgements do not include command return values.
- */
-export interface QuotaResetStatus {
-  protocol: 'pi-livecraft.quota-reset'
-  version: 1
-  requestId: string
-  outcome: QuotaResetOutcome
-  error?: string
-}
-
 /**
  * One parameter from a tool's top-level JSON schema object, summarized so the
  * payload stays small. Absent fields are omitted, never zero-filled.
