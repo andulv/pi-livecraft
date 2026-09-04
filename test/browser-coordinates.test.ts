@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { cdpModifiers, mapPointerToPage } from '../src/features/browser/coordinates.ts'
+import {
+  browserMouseButton,
+  cdpModifiers,
+  mapPointerToPage,
+} from '../src/features/browser/coordinates.ts'
 
 test('maps pane coordinates into the captured frame and clamps overflow', () => {
   const frame = {
@@ -16,6 +20,15 @@ test('maps pane coordinates into the captured frame and clamps overflow', () => 
     mapPointerToPage({ clientX: 10, clientY: 10 }, { ...frame, naturalWidth: 0 }),
     { x: 0, y: 0 },
   )
+})
+
+test('maps auxiliary pointer buttons to browser navigation buttons', () => {
+  assert.equal(browserMouseButton(0), 'left')
+  assert.equal(browserMouseButton(1), 'middle')
+  assert.equal(browserMouseButton(2), 'right')
+  assert.equal(browserMouseButton(3), 'back')
+  assert.equal(browserMouseButton(4), 'forward')
+  assert.equal(browserMouseButton(-1), 'left')
 })
 
 test('combines modifier flags into the CDP bitmask', () => {

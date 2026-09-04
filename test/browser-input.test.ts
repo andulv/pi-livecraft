@@ -29,6 +29,22 @@ test('maps input events to their CDP commands', () => {
     },
   )
 
+  for (const button of ['back', 'forward'] as const) {
+    assert.equal(
+      cdpInputCommand({
+        type: 'mousePressed',
+        x: 0,
+        y: 0,
+        button,
+        clickCount: 1,
+        modifiers: 0,
+      })
+        .params
+        .button,
+      button,
+    )
+  }
+
   assert.deepEqual(
     cdpInputCommand({
       type: 'mouseMoved',

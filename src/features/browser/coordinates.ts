@@ -1,3 +1,14 @@
+import type { BrowserMouseButton } from '../../../shared/types.ts'
+
+/** Maps DOM pointer button numbers to CDP mouse button names. */
+export function browserMouseButton(button: number): BrowserMouseButton {
+  if (button === 1) return 'middle'
+  if (button === 2) return 'right'
+  if (button === 3) return 'back'
+  if (button === 4) return 'forward'
+  return 'left'
+}
+
 /** Maps a pane pointer position to page coordinates inside the captured frame. */
 export function mapPointerToPage(
   point: { clientX: number; clientY: number },

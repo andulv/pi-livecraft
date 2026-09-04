@@ -6,6 +6,7 @@ import {
   type CompositionEvent,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import {
@@ -17,7 +18,7 @@ import {
 } from '../../api.ts'
 import type { BrowserSessionStatus, BrowserViewport } from '../../../shared/types.ts'
 import { normalizeBrowserUrl } from './browser-url.ts'
-import { cdpModifiers, mapPointerToPage } from './coordinates.ts'
+import { browserMouseButton, cdpModifiers, mapPointerToPage } from './coordinates.ts'
 import { useDocumentVisible } from './use-document-visible.ts'
 
 const wheelFlushIntervalMs = 50
@@ -279,10 +280,6 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
     })
   }
 
-  function buttonName(button: number): 'left' | 'middle' | 'right' {
-    return button === 1 ? 'middle' : button === 2 ? 'right' : 'left'
-  }
-
   function dispatchMouse(
     event: ReactPointerEvent<HTMLImageElement>,
     type: 'mouseMoved' | 'mousePressed' | 'mouseReleased',
@@ -293,7 +290,9 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
       type,
       x,
       y,
-      button: type === 'mouseMoved' && event.buttons === 0 ? 'none' : buttonName(event.button),
+      button: type === 'mouseMoved' && event.buttons === 0
+        ? 'none'
+        : browserMouseButton(event.button),
       clickCount: type === 'mouseMoved' ? 0 : event.detail || 1,
       modifiers: cdpModifiers(event),
     })
@@ -321,7 +320,12 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
 
   function handlePointerUp(event: ReactPointerEvent<HTMLImageElement>): void {
     if (!live) return
+    if (event.button === 3 || event.button === 4) event.preventDefault()
     dispatchMouse(event, 'mouseReleased')
+  }
+
+  function handleAuxClick(event: ReactMouseEvent<HTMLImageElement>): void {
+    if (event.button === 3 || event.button === 4) event.preventDefault()
   }
 
   function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
@@ -445,6 +449,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
               className='browser-frame'
               decoding='async'
               draggable={false}
+              onAuxClick={handleAuxClick}
               onContextMenu={(event) => event.preventDefault()}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
