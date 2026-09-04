@@ -11,7 +11,7 @@ const indicatorLabels: Record<SessionIndicator, string> = {
   idle: 'Pi is idle',
 }
 
-const workingPulseIntervalMs = 500
+const workingPulseIntervalMs = 1_000
 const workingPulseListeners = new Set<(large: boolean) => void>()
 let workingPulseLarge = false
 let workingPulseTimer: number | undefined
