@@ -183,18 +183,6 @@ export function WorkspaceSidebar({
   const workspaces = useMemo(() => projectDetails?.workspaces ?? [], [projectDetails])
   const selectedWorkspace = workspaces.find(({ path }) => path === workspacePath)
   const selectedWorkspaceLabel = selectedWorkspace?.branch ?? workspacePath
-  const projectIndicator = aggregateSessionIndicator(
-    sessions.filter(({ cwd }) => workspaces.some(({ path }) => path === cwd)),
-    selectedId,
-    compactingSessionIds,
-    completedSessionIds,
-  )
-  const selectedWorkspaceIndicator = aggregateSessionIndicator(
-    sessions.filter(({ cwd }) => cwd === workspacePath),
-    selectedId,
-    compactingSessionIds,
-    completedSessionIds,
-  )
   const gitDirtyCount = gitSnapshot?.files.length ?? 0
   const gitUnpushedCount = gitSnapshot?.ahead ?? 0
   const gitChangeCount = gitDirtyCount + gitUnpushedCount
@@ -490,7 +478,6 @@ export function WorkspaceSidebar({
         </div>
         <div className='brand-project'>
           <strong title={project.name}>{project.name}</strong>
-          {projectIndicator && <SessionStatusIndicator status={projectIndicator} />}
         </div>
         <Tooltip label='Settings'>
           <button
@@ -597,8 +584,6 @@ export function WorkspaceSidebar({
           >
             Sessions
             {visibleSessions.length > 0 && <small>{visibleSessions.length}</small>}
-            {selectedWorkspaceIndicator
-              && <SessionStatusIndicator status={selectedWorkspaceIndicator} />}
           </button>
           <button
             aria-controls='workspace-files-panel'
