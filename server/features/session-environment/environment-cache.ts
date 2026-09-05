@@ -2,6 +2,7 @@ import { isObject } from '../../../shared/is-object.ts'
 import type {
   JsonObject,
   SessionEnvironmentContextFile,
+  SessionEnvironmentPromptSnippet,
   SessionEnvironmentReport,
   SessionEnvironmentSnapshot,
   SessionEnvironmentSkill,
@@ -190,7 +191,42 @@ function parseSystemPrompt(value: unknown): SessionEnvironmentSystemPrompt | und
   if (toolSnippetCount !== undefined) entry.toolSnippetCount = toolSnippetCount
   const toolSnippetChars = chars(prompt?.toolSnippetChars)
   if (toolSnippetChars !== undefined) entry.toolSnippetChars = toolSnippetChars
+  const text = boundedText(prompt?.text)
+  if (text !== undefined) entry.text = text
+  const customPrompt = boundedText(prompt?.customPrompt)
+  if (customPrompt !== undefined) entry.customPrompt = customPrompt
+  const appendText = boundedText(prompt?.appendText)
+  if (appendText !== undefined) entry.appendText = appendText
+  const guidelines = boundedList(prompt?.guidelines)
+  if (guidelines) entry.guidelines = guidelines
+  const toolSnippets = prompt?.toolSnippets === undefined
+    ? undefined
+    : parseArray(prompt.toolSnippets, parsePromptSnippet)
+  if (toolSnippets && toolSnippets.length > 0) entry.toolSnippets = toolSnippets
   return entry
+}
+
+/** Prompt text is clamped, not rejected, so an oversized reading still renders. */
+function boundedText(value: unknown): string | undefined {
+  return typeof value === 'string' ? value.slice(0, 2_000_000) : undefined
+}
+
+/** Bullet lists are clamped in count and length; one malformed bullet drops the list. */
+function boundedList(value: unknown): string[] | undefined {
+  const items = parseArray(value, (item) =>
+    typeof item === 'string'
+      ? item.slice(0, 100_000)
+      : undefined)
+  return items && items.length > 0 ? items.slice(0, 200) : undefined
+}
+
+function parsePromptSnippet(value: unknown): SessionEnvironmentPromptSnippet | undefined {
+  const snippet = object(value)
+  if (!nonEmptyString(snippet?.tool) || typeof snippet?.text !== 'string') return undefined
+  return {
+    tool: snippet.tool.slice(0, 120),
+    text: snippet.text.slice(0, 100_000),
+  }
 }
 
 function count(value: unknown): number | undefined {

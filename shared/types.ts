@@ -399,9 +399,16 @@ export interface SessionEnvironmentContextFile {
   bytes: number
 }
 
+/** One tool snippet registered into the system prompt, keyed by tool name. */
+export interface SessionEnvironmentPromptSnippet {
+  tool: string
+  text: string
+}
+
 /**
- * Sizes of the assembled system prompt and its structured components. The prompt text
- * itself embeds context-file contents, so only measurements cross the boundary.
+ * The assembled system prompt and its structured components, with the text of each
+ * inspectable part. The assembled text embeds context-file contents; the context-file
+ * section itself still carries only paths and sizes.
  */
 export interface SessionEnvironmentSystemPrompt {
   totalChars: number
@@ -412,6 +419,16 @@ export interface SessionEnvironmentSystemPrompt {
   appendChars?: number
   toolSnippetCount?: number
   toolSnippetChars?: number
+  /** The assembled prompt text Pi will send; absent until a command-context refresh. */
+  text?: string
+  /** Custom prompt replacing Pi's default, when one is set. */
+  customPrompt?: string
+  /** Guideline bullets added beyond Pi's default guidelines. */
+  guidelines?: string[]
+  /** Text appended after the default prompt (CLI flag or extension). */
+  appendText?: string
+  /** Per-tool snippets registered into the prompt. */
+  toolSnippets?: SessionEnvironmentPromptSnippet[]
 }
 
 /**

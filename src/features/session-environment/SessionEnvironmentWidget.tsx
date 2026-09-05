@@ -5,15 +5,17 @@ import type {
   JsonObject,
   SessionEnvironmentSkill,
   SessionEnvironmentSnapshot,
+  SessionEnvironmentSystemPrompt,
   SessionEnvironmentTool,
   SessionStats,
 } from '../../../shared/types.ts'
 import { formatTokens } from '../composer/composer-utils.ts'
 
 /**
- * Shows what the selected session has loaded: context usage and files, tools, skills,
- * extensions, and prompt templates. Tools and context files arrive through the
- * session-environment extension payload; the command groups come from the snapshot.
+ * Shows what the selected session has loaded: context usage and files, the system
+ * prompt with its inspectable parts, tools, skills, extensions, and prompt templates.
+ * Tools and context files arrive through the session-environment extension payload;
+ * the command groups come from the snapshot.
  */
 export function SessionEnvironmentWidget(
   {
@@ -35,6 +37,7 @@ export function SessionEnvironmentWidget(
   const [toolsSectionExpanded, setToolsSectionExpanded] = useState(true)
   const [skillsSectionExpanded, setSkillsSectionExpanded] = useState(true)
   const [expandedTool, setExpandedTool] = useState<string | null>(null)
+  const [expandedPromptPart, setExpandedPromptPart] = useState<string | null>(null)
   const [collapsedToolGroups, setCollapsedToolGroups] = useState<ReadonlySet<string>>(() =>
     new Set()
   )
@@ -95,6 +98,10 @@ export function SessionEnvironmentWidget(
   }, [tools])
   const contextFiles = environment?.contextFiles ?? []
   const systemPrompt = environment?.systemPrompt
+  const promptParts = useMemo(
+    () => (systemPrompt ? promptPartsOf(systemPrompt) : []),
+    [systemPrompt],
+  )
 
   return (
     <>
@@ -168,41 +175,60 @@ export function SessionEnvironmentWidget(
               </span>
             </div>
           )}
-          {systemPrompt?.guidelinesCount !== undefined && (
-            <div className='environment-kv'>
-              <span className='environment-key'>Guidelines</span>
-              <span className='environment-value'>
-                {systemPrompt.guidelinesCount} · {formatTokens(systemPrompt.guidelinesChars ?? 0)}
-                {' '}
-                ch
-              </span>
-            </div>
-          )}
-          {systemPrompt?.appendChars !== undefined && systemPrompt.appendChars > 0 && (
-            <div className='environment-kv'>
-              <span className='environment-key'>Appended text</span>
-              <span className='environment-value'>
-                {formatTokens(systemPrompt.appendChars)} ch
-              </span>
-            </div>
-          )}
-          {systemPrompt?.toolSnippetCount !== undefined && (
-            <div className='environment-kv'>
-              <span className='environment-key'>Tool snippets</span>
-              <span className='environment-value'>
-                {systemPrompt.toolSnippetCount} · {formatTokens(systemPrompt.toolSnippetChars ?? 0)}
-                {' '}
-                ch
-              </span>
-            </div>
-          )}
+          {systemPrompt && promptParts.length > 0
+            ? (
+              <div className='environment-prompt-parts'>
+                {promptParts.map((part) => (
+                  <PromptPartRow
+                    expanded={expandedPromptPart === part.id}
+                    key={part.id}
+                    onToggle={() =>
+                      setExpandedPromptPart((current) => current === part.id ? null : part.id)}
+                    part={part}
+                  />
+                ))}
+              </div>
+            )
+            : (
+              <>
+                {systemPrompt?.guidelinesCount !== undefined && (
+                  <div className='environment-kv'>
+                    <span className='environment-key'>Guidelines</span>
+                    <span className='environment-value'>
+                      {systemPrompt.guidelinesCount} ·{' '}
+                      {formatTokens(systemPrompt.guidelinesChars ?? 0)} ch
+                    </span>
+                  </div>
+                )}
+                {systemPrompt?.appendChars !== undefined && systemPrompt.appendChars > 0 && (
+                  <div className='environment-kv'>
+                    <span className='environment-key'>Appended text</span>
+                    <span className='environment-value'>
+                      {formatTokens(systemPrompt.appendChars)} ch
+                    </span>
+                  </div>
+                )}
+                {systemPrompt?.toolSnippetCount !== undefined && (
+                  <div className='environment-kv'>
+                    <span className='environment-key'>Tool snippets</span>
+                    <span className='environment-value'>
+                      {systemPrompt.toolSnippetCount} ·{' '}
+                      {formatTokens(systemPrompt.toolSnippetChars ?? 0)} ch
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
           <p className='environment-sub-label'>
             Context files · {contextFiles.length}
           </p>
           {contextFiles.length === 0
             ? <p className='environment-empty'>{emptyContextFilesText(environment)}</p>
             : contextFiles.map((file) => (
-              <div className='environment-file-row' key={file.path}>
+              <div
+                className='environment-file-row'
+                key={file.path}
+              >
                 <span aria-hidden='true' className='environment-file-glyph'>▤</span>
                 <span className='environment-file-name'>{fileNameOf(file.path)}</span>
                 <span className='environment-file-path'>{dirNameOf(file.path)}</span>
@@ -547,6 +573,37 @@ function ToolRow(
   )
 }
 
+/** One expandable system-prompt part; the row shows its measured footprint. */
+function PromptPartRow(
+  { expanded, onToggle, part }: {
+    expanded: boolean
+    onToggle: () => void
+    part: PromptPartInfo
+  },
+) {
+  return (
+    <div className='environment-tool-row'>
+      <button
+        aria-controls={`environment-prompt-${part.id}`}
+        aria-expanded={expanded}
+        className='environment-tool-toggle'
+        onClick={onToggle}
+        type='button'
+      >
+        <span className='environment-tool-name'>{part.label}</span>
+        <span className='environment-tool-footprint'>
+          {formatPromptFootprint(part.text.length)}
+        </span>
+      </button>
+      {expanded && (
+        <pre className='environment-prompt-text' id={`environment-prompt-${part.id}`}>
+          {part.text}
+        </pre>
+      )}
+    </div>
+  )
+}
+
 /** Sums only active tools because inactive tools are not sent in the current prompt. */
 function contextCharsForTools(tools: readonly SessionEnvironmentTool[]): number {
   return tools.reduce(
@@ -676,6 +733,51 @@ function groupSkills(skills: readonly SkillInfo[]): SkillGroupInfo[] {
     groups.set(key, group)
   }
   return [...groups.values()].sort((left, right) => left.label.localeCompare(right.label))
+}
+
+interface PromptPartInfo {
+  id: string
+  label: string
+  text: string
+}
+
+/** Orders the inspectable prompt parts: the assembled text first, then who added what. */
+function promptPartsOf(prompt: SessionEnvironmentSystemPrompt): PromptPartInfo[] {
+  const parts: PromptPartInfo[] = []
+  if (typeof prompt.text === 'string') {
+    parts.push({ id: 'assembled', label: 'Assembled prompt', text: prompt.text })
+  }
+  if (typeof prompt.customPrompt === 'string' && prompt.customPrompt) {
+    parts.push({
+      id: 'custom',
+      label: 'Custom prompt · replaces default',
+      text: prompt.customPrompt,
+    })
+  }
+  if (prompt.guidelines && prompt.guidelines.length > 0) {
+    parts.push({
+      id: 'guidelines',
+      label: `Guidelines · ${prompt.guidelines.length}`,
+      text: prompt
+        .guidelines
+        .map((guideline, index) => `${index + 1}. ${guideline}`)
+        .join('\n'),
+    })
+  }
+  if (typeof prompt.appendText === 'string' && prompt.appendText) {
+    parts.push({ id: 'append', label: 'Appended text', text: prompt.appendText })
+  }
+  if (prompt.toolSnippets && prompt.toolSnippets.length > 0) {
+    parts.push({
+      id: 'snippets',
+      label: `Tool snippets · ${prompt.toolSnippets.length}`,
+      text: prompt
+        .toolSnippets
+        .map((snippet) => `${snippet.tool}: ${snippet.text}`)
+        .join('\n\n'),
+    })
+  }
+  return parts
 }
 
 function readCommands(commands: readonly JsonObject[]): CommandInfo[] {

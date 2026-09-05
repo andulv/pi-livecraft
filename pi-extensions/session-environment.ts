@@ -18,9 +18,10 @@ const statusKey = 'pi-livecraft.environment'
 const maxParams = 40
 
 /**
- * Publishes what the session has loaded — tools and context files — to Pi Livecraft.
- * Skills, prompt templates, and extension commands already reach the browser through the
- * RPC `get_commands` snapshot, so only the data without an RPC equivalent is published.
+ * Publishes what the session has loaded — tools, context files, and the assembled
+ * system prompt with its inspectable components — to Pi Livecraft. Skills, prompt
+ * templates, and extension commands already reach the browser through the RPC
+ * `get_commands` snapshot, so only the data without an RPC equivalent is published.
  */
 export default function registerSessionEnvironment(pi: ExtensionAPI): void {
   pi.on('session_start', (_event, ctx) => {
@@ -136,25 +137,38 @@ function buildSkills(
 
 /**
  * Measures the assembled system prompt — the string Pi will actually send — together
- * with its structured components. The prompt embeds context-file contents, so only
- * sizes are published, never text.
+ * with its structured components, and publishes the inspectable prompt text. The
+ * assembled text embeds context-file contents by design: it is the exact text the
+ * next provider request carries.
  */
 function buildSystemPrompt(
   ctx: ExtensionContext | ExtensionCommandContext,
   options: BuildSystemPromptOptions | undefined,
 ): SessionEnvironmentSystemPrompt {
-  const entry: SessionEnvironmentSystemPrompt = { totalChars: ctx.getSystemPrompt().length }
-  if (options?.customPrompt) entry.hasCustomPrompt = true
+  const prompt = ctx.getSystemPrompt()
+  const entry: SessionEnvironmentSystemPrompt = { totalChars: prompt.length, text: prompt }
+  const customPrompt = options?.customPrompt
+  if (customPrompt) {
+    entry.hasCustomPrompt = true
+    entry.customPrompt = customPrompt
+  }
   const guidelines = options?.promptGuidelines ?? []
   if (guidelines.length > 0) {
     entry.guidelinesCount = guidelines.length
     entry.guidelinesChars = guidelines.reduce((total, guideline) => total + guideline.length, 0)
+    entry.guidelines = [...guidelines]
   }
-  if (options?.appendSystemPrompt) entry.appendChars = options.appendSystemPrompt.length
-  const snippets = options?.toolSnippets ? Object.values(options.toolSnippets) : []
+  if (options?.appendSystemPrompt) {
+    entry.appendChars = options.appendSystemPrompt.length
+    entry.appendText = options.appendSystemPrompt
+  }
+  const snippets = options?.toolSnippets ? Object.entries(options.toolSnippets) : []
   if (snippets.length > 0) {
     entry.toolSnippetCount = snippets.length
-    entry.toolSnippetChars = snippets.reduce((total, snippet) => total + snippet.length, 0)
+    entry.toolSnippetChars = snippets.reduce((total, [, snippet]) => total + snippet.length, 0)
+    entry.toolSnippets = snippets
+      .filter(([name, text]) => typeof name === 'string' && typeof text === 'string')
+      .map(([tool, text]) => ({ tool, text }))
   }
   return entry
 }

@@ -51,6 +51,11 @@ const fullReport = JSON.stringify({
     appendChars: 300,
     toolSnippetCount: 8,
     toolSnippetChars: 640,
+    text: 'You are Pi, a coding agent…',
+    customPrompt: 'Custom system prompt',
+    guidelines: ['Keep answers short.', 'Cite file paths.'],
+    appendText: 'Always answer in English.',
+    toolSnippets: [{ tool: 'read', text: 'Read files with the read tool.' }],
   },
   contextFiles: [{ path: '/repo/AGENTS.md', bytes: 8_400 }],
 })
@@ -79,6 +84,11 @@ test('accepts the versioned environment payload', () => {
     appendChars: 300,
     toolSnippetCount: 8,
     toolSnippetChars: 640,
+    text: 'You are Pi, a coding agent…',
+    customPrompt: 'Custom system prompt',
+    guidelines: ['Keep answers short.', 'Cite file paths.'],
+    appendText: 'Always answer in English.',
+    toolSnippets: [{ tool: 'read', text: 'Read files with the read tool.' }],
   })
   assert.deepEqual(snapshot.contextFiles, [{ path: '/repo/AGENTS.md', bytes: 8_400 }])
   assert.equal(snapshot.updatedAt, 1_000)
@@ -100,6 +110,30 @@ test('ignores payloads with the wrong protocol, version, or shape', () => {
     assert.equal(cache.receiveManagerEvent(setStatusEvent(payload)), false)
   }
   assert.equal(cache.snapshot('session-1', true).updatedAt, undefined)
+})
+
+test('accepts sizes-only reports without prompt text', () => {
+  const cache = new EnvironmentCache()
+  // A session start publishes the system-prompt size before options are readable.
+  const sizesOnly = JSON.stringify({
+    protocol: 'pi-livecraft.environment',
+    version: 1,
+    refreshedAt: 5_000,
+    systemPrompt: { totalChars: 900 },
+  })
+  assert.equal(cache.receiveManagerEvent(setStatusEvent(sizesOnly)), true)
+  const snapshot = cache.snapshot('session-1', false)
+  assert.deepEqual(snapshot.systemPrompt, { totalChars: 900 })
+})
+
+test('drops a malformed guideline list but keeps the report', () => {
+  const cache = new EnvironmentCache()
+  const malformed = JSON.parse(fullReport)
+  malformed.systemPrompt.guidelines = ['valid', 42]
+  assert.equal(cache.receiveManagerEvent(setStatusEvent(JSON.stringify(malformed))), true)
+  const snapshot = cache.snapshot('session-1', false)
+  assert.equal(snapshot.systemPrompt?.guidelines, undefined)
+  assert.equal(snapshot.systemPrompt?.text, 'You are Pi, a coding agent…')
 })
 
 test('ignores status events without a session', () => {
