@@ -93,6 +93,11 @@ export function ExtensionSettings(
   )
 }
 
+/** Formats a default for the label column, matching how the control words booleans. */
+function defaultLabel(value: ExtensionSettingValue): string {
+  return typeof value === 'boolean' ? (value ? 'On' : 'Off') : String(value)
+}
+
 interface SettingRowProps {
   definition: ExtensionSettingDefinition
   extension: string
@@ -127,6 +132,9 @@ function SettingRow({ definition, extension, snapshot, onChange }: SettingRowPro
         {definition.label}
         {override && <small className='extension-setting-badge'>Overridden by {override.env}
         </small>}
+        {definition.defaultValue !== undefined && (
+          <small>Default: {defaultLabel(definition.defaultValue)}</small>
+        )}
         {definition.description && <small>{definition.description}</small>}
         {definition.effect === 'reload-required' && <small>Applies after a Pi reload.</small>}
       </span>
@@ -167,7 +175,7 @@ function SettingRow({ definition, extension, snapshot, onChange }: SettingRowPro
               commitDraft()
               event.currentTarget.blur()
             }}
-            placeholder={fallback === '' ? 'Extension default' : `Default: ${fallback}`}
+            placeholder='Extension default'
             spellCheck={false}
             type='text'
             value={draft}

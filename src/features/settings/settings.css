@@ -463,6 +463,7 @@
   color: var(--muted);
   font-size: 11px;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 .extension-setting-label small.extension-setting-badge {
   color: var(--warning);
