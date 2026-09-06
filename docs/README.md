@@ -6,6 +6,7 @@ Pi Livecraft is documented in layers: begin with the system you want to build on
 - **[Browser bridge specification](/docs/BROWSER-BRIDGE.md)** — CDP livecast browser for the viewer pane; the spec records the design and is now implemented.
 - **[Embedded terminal specification](/docs/EMBEDDED-TERMINAL.md)** — server-side PTY shell in a viewer-pane Terminal tab; the spec records the transport decision and is now implemented.
 - **[Project trust UI specification](/docs/PROJECT-TRUST.md)** — proposed workspace trust indicator and exact-workspace trust controls backed by Pi's native trust model.
+- **[Session data performance spec](/docs/SESSION-PERFORMANCE-SPEC.md)** — measured findings and a task plan for snapshot cost, workspace switching, right-panel persistence, and session data reading. Not yet implemented; a specification and task plan, not a guide.
 
 ## Find the right place
 
