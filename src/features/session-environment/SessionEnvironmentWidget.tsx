@@ -38,7 +38,6 @@ export function SessionEnvironmentWidget(
   const [toolsSectionExpanded, setToolsSectionExpanded] = useState(true)
   const [skillsSectionExpanded, setSkillsSectionExpanded] = useState(true)
   const [expandedTool, setExpandedTool] = useState<string | null>(null)
-  const [expandedFile, setExpandedFile] = useState<string | null>(null)
 
   const [collapsedToolGroups, setCollapsedToolGroups] = useState<ReadonlySet<string>>(() =>
     new Set()
@@ -98,38 +97,11 @@ export function SessionEnvironmentWidget(
     }
     return counts
   }, [tools])
-  const contextFiles = environment?.contextFiles ?? []
   const systemPrompt = environment?.systemPrompt
   const promptSections = useMemo(
     () => (systemPrompt ? buildPromptSections(systemPrompt) : null),
     [systemPrompt],
   )
-  /** File contents sliced from the assembled prompt via each context part's offsets. */
-  const contextFileContent = useMemo(() => {
-    const map = new Map<string, string>()
-    const text = systemPrompt?.text
-    for (const part of systemPrompt?.parts ?? []) {
-      if (
-        part.kind === 'context' && part.ownerPath && part.start !== undefined
-        && part.end !== undefined && text !== undefined
-      ) {
-        map.set(part.ownerPath, text.slice(part.start, part.end))
-      }
-    }
-    return map
-  }, [systemPrompt])
-
-  /** Exact char sizes per context file, from the same offsets as the contents. */
-  const contextFileChars = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const part of systemPrompt?.parts ?? []) {
-      if (part.kind === 'context' && part.ownerPath && part.chars !== undefined) {
-        map.set(part.ownerPath, part.chars)
-      }
-    }
-    return map
-  }, [systemPrompt])
-
   return (
     <>
       <header className='widget-header environment-header'>
@@ -211,17 +183,28 @@ export function SessionEnvironmentWidget(
             {systemPrompt.text !== undefined
               ? (
                 <div className='environment-prompt-full' id='environment-prompt-full'>
-                  {(promptSections ?? [{ label: '', text: systemPrompt.text }]).map((
-                    section,
-                    index,
-                  ) => (
-                    <div key={index}>
-                      {section.label && (
-                        <div className='environment-prompt-marker'>{section.label}</div>
-                      )}
-                      <pre className='environment-prompt-slice'>{section.text}</pre>
-                    </div>
-                  ))}
+                  {(promptSections
+                    ?? [{ label: '', text: systemPrompt.text, chars: systemPrompt.totalChars }])
+                    .map((
+                      section,
+                      index,
+                    ) => (
+                      <div key={index}>
+                        {section.label && (
+                          <div className='environment-prompt-marker'>
+                            <span className='environment-prompt-marker-label'>
+                              {section.label}
+                            </span>
+                            <span className='environment-prompt-marker-stats'>
+                              {formatPromptFootprint(section.chars)}
+                              {' · '}
+                              {formatShare(section.chars, systemPrompt.totalChars)}
+                            </span>
+                          </div>
+                        )}
+                        <pre className='environment-prompt-slice'>{section.text}</pre>
+                      </div>
+                    ))}
                 </div>
               )
               : (
@@ -231,66 +214,6 @@ export function SessionEnvironmentWidget(
               )}
           </section>
         )}
-
-        <section className='environment-section compact'>
-          <div className='environment-heading'>
-            <h2>Context files</h2>
-            {contextFiles.length > 0 && (
-              <div className='environment-heading-meta'>
-                <span className='environment-chip'>{contextFiles.length} loaded</span>
-                <span className='environment-chip muted'>
-                  {formatPromptFootprint(contextFiles.reduce(
-                    (total, file) => total + (contextFileChars.get(file.path) ?? file.bytes),
-                    0,
-                  ))}
-                </span>
-              </div>
-            )}
-          </div>
-          {contextFiles.length === 0
-            ? <p className='environment-empty'>{emptyContextFilesText(environment)}</p>
-            : contextFiles.map((file, index) => {
-              const content = contextFileContent.get(file.path)
-              const chars = contextFileChars.get(file.path) ?? file.bytes
-              const expanded = expandedFile === file.path
-              const row = (
-                <>
-                  <span aria-hidden='true' className='environment-file-glyph'>▤</span>
-                  <span className='environment-file-name'>{fileNameOf(file.path)}</span>
-                  <span className='environment-file-path'>{dirNameOf(file.path)}</span>
-                  <span className='environment-file-size'>{formatPromptFootprint(chars)}</span>
-                  {content !== undefined && (
-                    <span aria-hidden='true' className='environment-file-chevron'>
-                      {expanded ? '⌄' : '›'}
-                    </span>
-                  )}
-                </>
-              )
-              return (
-                <div className='environment-tool-row' key={file.path}>
-                  {content !== undefined
-                    ? (
-                      <button
-                        aria-controls={`environment-file-${index}`}
-                        aria-expanded={expanded}
-                        className='environment-file-row environment-file-toggle'
-                        onClick={() =>
-                          setExpandedFile((current) => (current === file.path ? null : file.path))}
-                        type='button'
-                      >
-                        {row}
-                      </button>
-                    )
-                    : <div className='environment-file-row'>{row}</div>}
-                  {expanded && content !== undefined && (
-                    <pre className='environment-prompt-text' id={`environment-file-${index}`}>
-                      {content}
-                    </pre>
-                  )}
-                </div>
-              )
-            })}
-        </section>
 
         <section className='environment-section'>
           <div className='environment-heading'>
@@ -787,6 +710,14 @@ function promptMarkerLabel(part: SessionEnvironmentPromptPart): string {
 interface PromptSection {
   label: string
   text: string
+  chars: number
+}
+
+/** Share of a section within the assembled prompt, as a whole percent. */
+function formatShare(chars: number, total: number): string {
+  if (total <= 0) return '0%'
+  const percent = Math.round((chars / total) * 100)
+  return percent < 1 ? '<1%' : `${percent}%`
 }
 
 /**
@@ -800,7 +731,7 @@ function buildPromptSections(prompt: SessionEnvironmentSystemPrompt): PromptSect
     .filter((part) => part.start !== undefined && part.end !== undefined)
     .sort((left, right) => (left.start ?? 0) - (right.start ?? 0))
   if (ranged.length === 0) return null
-  const sections: PromptSection[] = []
+  const sections: { label: string; text: string }[] = []
   let pending = ''
   let cursor = 0
   const push = (label: string, text: string): void => {
@@ -826,7 +757,7 @@ function buildPromptSections(prompt: SessionEnvironmentSystemPrompt): PromptSect
   if (tail.trim()) push('Pi', pending + tail)
   else pending += tail
   if (pending && sections.length > 0) sections[sections.length - 1].text += pending
-  return sections
+  return sections.map((section) => ({ ...section, chars: section.text.length }))
 }
 
 function readCommands(commands: readonly JsonObject[]): CommandInfo[] {
@@ -933,11 +864,6 @@ function emptyToolsText(environment: SessionEnvironmentSnapshot | null): string 
   return 'No tools reported.'
 }
 
-function emptyContextFilesText(environment: SessionEnvironmentSnapshot | null): string {
-  if (!environment?.updatedAt) return 'Included in the next environment refresh.'
-  return 'No context files loaded.'
-}
-
 function formatRelativeDate(timestamp: number): string {
   const elapsedMinutes = Math.max(0, Math.round((Date.now() - timestamp) / 60_000))
   if (elapsedMinutes < 1) return 'just now'
@@ -950,9 +876,4 @@ function fileNameOf(path: string | undefined): string {
   if (!path) return 'unknown'
   const index = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
   return index >= 0 ? path.slice(index + 1) : path
-}
-
-function dirNameOf(path: string): string {
-  const index = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
-  return index > 0 ? path.slice(0, index) : path
 }

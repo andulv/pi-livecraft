@@ -161,68 +161,6 @@
   text-transform: uppercase;
   color: var(--subtle);
 }
-.environment-file-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-  padding: 4px 0;
-  font-size: 11px;
-}
-.environment-file-toggle {
-  border: 0;
-  border-radius: 7px;
-  padding: 4px;
-  margin: 0 -4px;
-  width: calc(100% + 8px);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: background 180ms ease;
-}
-.environment-file-toggle:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ink) 4%, var(--surface));
-}
-.environment-file-toggle:active {
-  transform: scale(0.99);
-}
-.environment-file-toggle:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-.environment-file-chevron {
-  flex: 0 0 auto;
-  color: var(--subtle);
-  font-size: 9px;
-}
-.environment-file-glyph {
-  flex: 0 0 auto;
-  color: var(--subtle);
-}
-.environment-file-name {
-  flex: 0 0 auto;
-  max-width: 45%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
-}
-.environment-file-path {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--subtle);
-  font-size: 10px;
-}
-.environment-file-size {
-  flex: 0 0 auto;
-  color: var(--muted);
-  font: 10px ui-monospace, monospace;
-}
 .environment-empty {
   margin: 4px 0;
   color: var(--subtle);
@@ -452,6 +390,9 @@
   overflow-wrap: anywhere;
 }
 .environment-prompt-marker {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   /* Bleed past the container padding so the rule spans the full block width. */
   margin: 10px -10px 4px;
   padding: 0 10px 4px;
@@ -461,6 +402,21 @@
   font-weight: 700;
   letter-spacing: 0.3px;
   text-transform: uppercase;
+}
+.environment-prompt-marker-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.environment-prompt-marker-stats {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--muted);
+  font: 9px ui-monospace, monospace;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .environment-prompt-full > div:first-child .environment-prompt-marker {
   margin-top: 0;
