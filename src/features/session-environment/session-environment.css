@@ -391,13 +391,43 @@
   color: var(--subtle);
 }
 
-/* System prompt parts */
-.environment-prompt-parts {
-  margin: 2px 0 4px;
+/* Assembled prompt view: one continuous block; markers separate owned sections. */
+.environment-prompt-full {
+  max-height: 300px;
+  margin: 6px 0 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--ink) 3%, var(--surface));
+  color: var(--muted);
+  font: 10.5px/1.6 ui-monospace, monospace;
+  overflow-y: auto;
 }
-/* Part labels carry the section name, so they may run wider than tool names. */
-.environment-prompt-parts .environment-tool-name {
-  max-width: 72%;
+.environment-prompt-slice {
+  margin: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.environment-prompt-marker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 2px;
+  color: var(--subtle);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.environment-prompt-marker::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--panel-line);
+}
+.environment-prompt-full > div:first-child .environment-prompt-marker {
+  margin-top: 0;
 }
 .environment-prompt-text {
   max-height: 260px;

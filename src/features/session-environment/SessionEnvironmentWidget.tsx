@@ -4,9 +4,9 @@ import { isObject } from '../../../shared/is-object.ts'
 import type {
   JsonObject,
   SessionEnvironmentPromptPart,
-  SessionEnvironmentPromptSource,
   SessionEnvironmentSkill,
   SessionEnvironmentSnapshot,
+  SessionEnvironmentSystemPrompt,
   SessionEnvironmentTool,
   SessionStats,
 } from '../../../shared/types.ts'
@@ -38,10 +38,7 @@ export function SessionEnvironmentWidget(
   const [toolsSectionExpanded, setToolsSectionExpanded] = useState(true)
   const [skillsSectionExpanded, setSkillsSectionExpanded] = useState(true)
   const [expandedTool, setExpandedTool] = useState<string | null>(null)
-  const [expandedPromptPart, setExpandedPromptPart] = useState<string | null>(null)
-  const [collapsedOwnerGroups, setCollapsedOwnerGroups] = useState<ReadonlySet<string>>(() =>
-    new Set()
-  )
+  const [promptExpanded, setPromptExpanded] = useState(false)
   const [collapsedToolGroups, setCollapsedToolGroups] = useState<ReadonlySet<string>>(() =>
     new Set()
   )
@@ -102,8 +99,8 @@ export function SessionEnvironmentWidget(
   }, [tools])
   const contextFiles = environment?.contextFiles ?? []
   const systemPrompt = environment?.systemPrompt
-  const promptOwnerGroups = useMemo(
-    () => (systemPrompt?.parts ? groupPromptParts(systemPrompt.parts) : []),
+  const promptSections = useMemo(
+    () => (systemPrompt ? buildPromptSections(systemPrompt) : null),
     [systemPrompt],
   )
 
@@ -179,40 +176,40 @@ export function SessionEnvironmentWidget(
               </span>
             </div>
           )}
-          {systemPrompt && promptOwnerGroups.length > 0
+          {systemPrompt?.text !== undefined
             ? (
-              <div className='environment-prompt-parts'>
-                {promptOwnerGroups.map((group) => (
-                  <PromptOwnerGroup
-                    activePart={expandedPromptPart}
-                    expanded={!collapsedOwnerGroups.has(group.key)}
-                    group={group}
-                    key={group.key}
-                    onPartToggle={(id) =>
-                      setExpandedPromptPart((current) => (current === id ? null : id))}
-                    onToggle={() =>
-                      setCollapsedOwnerGroups((current) => {
-                        const next = new Set(current)
-                        if (next.has(group.key)) next.delete(group.key)
-                        else next.add(group.key)
-                        return next
-                      })}
-                  />
-                ))}
-                {systemPrompt.text !== undefined && (
-                  <PromptPartRow
-                    expanded={expandedPromptPart === 'assembled'}
-                    part={{
-                      id: 'assembled',
-                      label: 'Assembled prompt',
-                      chars: systemPrompt.totalChars,
-                      text: systemPrompt.text,
-                    }}
-                    onToggle={() =>
-                      setExpandedPromptPart((current) =>
-                        current === 'assembled' ? null : 'assembled'
-                      )}
-                  />
+              <div className='environment-tool-row'>
+                <button
+                  aria-controls='environment-prompt-full'
+                  aria-expanded={promptExpanded}
+                  className='environment-tool-toggle'
+                  onClick={() => setPromptExpanded((expanded) => !expanded)}
+                  type='button'
+                >
+                  <span className='environment-tool-name'>Assembled prompt</span>
+                  <span className='environment-tool-footprint'>
+                    {formatPromptFootprint(systemPrompt.totalChars)}
+                  </span>
+                </button>
+                {promptExpanded && (
+                  <div className='environment-prompt-full' id='environment-prompt-full'>
+                    {(promptSections ?? [{
+                      label: '',
+                      text: systemPrompt
+                        .text,
+                    }])
+                      .map((
+                        section,
+                        index,
+                      ) => (
+                        <div key={index}>
+                          {section.label && (
+                            <div className='environment-prompt-marker'>{section.label}</div>
+                          )}
+                          <pre className='environment-prompt-slice'>{section.text}</pre>
+                        </div>
+                      ))}
+                  </div>
                 )}
               </div>
             )
@@ -600,114 +597,6 @@ function ToolRow(
   )
 }
 
-/**
- * One system-prompt part row. Rows with text expand into it; the base part has no
- * readable text and shows only its remainder footprint.
- */
-function PromptPartRow(
-  { expanded, onToggle, part }: {
-    expanded: boolean
-    onToggle: () => void
-    part: PromptPartInfo
-  },
-) {
-  const expandable = part.text !== undefined
-  return (
-    <div className='environment-tool-row'>
-      {expandable
-        ? (
-          <button
-            aria-controls={`environment-prompt-${part.id}`}
-            aria-expanded={expanded}
-            className='environment-tool-toggle'
-            onClick={onToggle}
-            type='button'
-          >
-            <span className='environment-tool-name'>{part.label}</span>
-            {part.tools && part.tools.length > 0 && (
-              <span className='environment-tool-desc'>{part.tools.join(', ')}</span>
-            )}
-            <span className='environment-tool-footprint'>
-              {formatPromptFootprint(part.chars)}
-            </span>
-          </button>
-        )
-        : (
-          <div className='environment-tool-line'>
-            <span className='environment-tool-name'>{part.label}</span>
-            <span className='environment-tool-footprint'>
-              {formatPromptFootprint(part.chars)}
-            </span>
-          </div>
-        )}
-      {expanded && part.text !== undefined && (
-        <pre className='environment-prompt-text' id={`environment-prompt-${part.id}`}>
-          {part.text}
-        </pre>
-      )}
-    </div>
-  )
-}
-
-/** One collapsible owner group of system prompt parts. */
-function PromptOwnerGroup(
-  { activePart, expanded, group, onPartToggle, onToggle }: {
-    activePart: string | null
-    expanded: boolean
-    group: PromptOwnerGroupInfo
-    onPartToggle: (id: string) => void
-    onToggle: () => void
-  },
-) {
-  const chars = group.parts.reduce((total, part) => total + part.chars, 0)
-  return (
-    <div className='environment-tool-group'>
-      <button
-        aria-expanded={expanded}
-        aria-label={`${expanded ? 'Collapse' : 'Expand'} ${group.label} prompt sections`}
-        className='environment-tool-group-toggle'
-        onClick={onToggle}
-        type='button'
-      >
-        <span className='environment-tool-group-title'>
-          <span aria-hidden='true' className='environment-tool-group-chevron'>
-            {expanded ? '⌄' : '›'}
-          </span>
-          {group.label}
-        </span>
-        <span className='environment-tool-group-count'>
-          <span>
-            {group.parts.length} section{group.parts.length === 1 ? '' : 's'}
-          </span>
-          <span>{formatPromptFootprint(chars)}</span>
-        </span>
-      </button>
-      {expanded && (
-        <div className='environment-tool-group-tools'>
-          {group.ownerPath && (
-            <p className='environment-tool-group-path' title={group.ownerPath}>
-              {group.ownerPath}
-            </p>
-          )}
-          {group.source === 'session' && (
-            <p className='environment-tool-group-path'>
-              Pi does not report who added these sections (CLI flag or per-turn extension change).
-            </p>
-          )}
-          {group.parts.map((part) => (
-            <PromptPartRow
-              expanded={activePart === part.id}
-              key={part.id}
-              onToggle={() => onPartToggle(part.id)}
-              part={part}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 /** Sums only active tools because inactive tools are not sent in the current prompt. */
 function contextCharsForTools(tools: readonly SessionEnvironmentTool[]): number {
   return tools.reduce(
@@ -839,22 +728,6 @@ function groupSkills(skills: readonly SkillInfo[]): SkillGroupInfo[] {
   return [...groups.values()].sort((left, right) => left.label.localeCompare(right.label))
 }
 
-interface PromptPartInfo {
-  id: string
-  label: string
-  chars: number
-  text?: string
-  tools?: string[]
-}
-
-interface PromptOwnerGroupInfo {
-  key: string
-  label: string
-  source: SessionEnvironmentPromptSource
-  ownerPath?: string
-  parts: PromptPartInfo[]
-}
-
 const promptKindLabels: Record<SessionEnvironmentPromptPart['kind'], string> = {
   base: 'Base prompt',
   guidelines: 'Guidelines',
@@ -864,52 +737,65 @@ const promptKindLabels: Record<SessionEnvironmentPromptPart['kind'], string> = {
   append: 'Appended text',
 }
 
-const promptOwnerRank: Record<SessionEnvironmentPromptSource, number> = {
-  pi: 0,
-  sdk: 1,
-  extension: 2,
-  project: 3,
-  session: 4,
-}
-
 function promptOwnerLabel(part: SessionEnvironmentPromptPart): string {
   if (part.source === 'pi') return 'Pi'
   if (part.source === 'sdk') return 'Pi · SDK tools'
   if (part.source === 'extension') {
     return `Extension · ${extensionSourceLabel(part.ownerPath, part.ownerName)}`
   }
-  if (part.source === 'project') return fileNameOf(part.ownerPath)
+  if (part.source === 'project') return 'Project'
   return 'Session'
 }
 
-/** Groups prompt parts by owner; Pi first and unattributed sections last. */
-function groupPromptParts(parts: readonly SessionEnvironmentPromptPart[]): PromptOwnerGroupInfo[] {
-  const groups = new Map<string, PromptOwnerGroupInfo>()
-  parts.forEach((part, index) => {
-    const key = `${part.source}:${part.ownerPath ?? ''}`
-    const group = groups.get(key) ?? {
-      key,
-      label: promptOwnerLabel(part),
-      source: part.source,
-      ...(part.ownerPath ? { ownerPath: part.ownerPath } : {}),
-      parts: [],
+function promptMarkerLabel(part: SessionEnvironmentPromptPart): string {
+  if (part.kind === 'base') return 'Pi'
+  if (part.kind === 'context' && part.ownerName) return `Project · ${part.ownerName}`
+  return `${promptOwnerLabel(part)} · ${promptKindLabels[part.kind]}`
+}
+
+interface PromptSection {
+  label: string
+  text: string
+}
+
+/**
+ * Splits the assembled prompt into sections at the parts' offsets. Whitespace between
+ * sections attaches to the preceding slice and labelled regions merge with their
+ * predecessor of the same owner, so the slices concatenate back to the exact text.
+ */
+function buildPromptSections(prompt: SessionEnvironmentSystemPrompt): PromptSection[] | null {
+  if (typeof prompt.text !== 'string') return null
+  const ranged = (prompt.parts ?? [])
+    .filter((part) => part.start !== undefined && part.end !== undefined)
+    .sort((left, right) => (left.start ?? 0) - (right.start ?? 0))
+  if (ranged.length === 0) return null
+  const sections: PromptSection[] = []
+  let pending = ''
+  let cursor = 0
+  const push = (label: string, text: string): void => {
+    if (!text) return
+    const last = sections[sections.length - 1]
+    if (last && last.label === label) last.text += text
+    else sections.push({ label, text })
+  }
+  for (const part of ranged) {
+    const start = part.start ?? 0
+    const end = part.end ?? 0
+    if (start > cursor) {
+      const gap = prompt.text.slice(cursor, start)
+      if (gap.trim()) push('Pi', pending + gap)
+      else pending += gap
+      cursor = start
     }
-    group.parts.push({
-      id: `${key}:${part.kind}:${index}`,
-      label: part.kind === 'context' && part.ownerName
-        ? part.ownerName
-        : promptKindLabels[part.kind],
-      chars: part.chars,
-      ...(part.text !== undefined ? { text: part.text } : {}),
-      ...(part.tools && part.tools.length > 0 ? { tools: part.tools } : {}),
-    })
-    groups.set(key, group)
-  })
-  return [...groups.values()].sort(
-    (left, right) =>
-      promptOwnerRank[left.source] - promptOwnerRank[right.source]
-      || left.label.localeCompare(right.label),
-  )
+    push(promptMarkerLabel(part), pending + prompt.text.slice(start, end))
+    pending = ''
+    cursor = end
+  }
+  const tail = prompt.text.slice(cursor)
+  if (tail.trim()) push('Pi', pending + tail)
+  else pending += tail
+  if (pending && sections.length > 0) sections[sections.length - 1].text += pending
+  return sections
 }
 
 function readCommands(commands: readonly JsonObject[]): CommandInfo[] {

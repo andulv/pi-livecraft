@@ -150,30 +150,19 @@ function buildSystemPrompt(
 ): SessionEnvironmentSystemPrompt {
   const prompt = ctx.getSystemPrompt()
   const entry: SessionEnvironmentSystemPrompt = { totalChars: prompt.length, text: prompt }
-  const customPrompt = options?.customPrompt
-  if (customPrompt) {
-    entry.hasCustomPrompt = true
-    entry.customPrompt = customPrompt
-  }
+  if (options?.customPrompt) entry.hasCustomPrompt = true
   const guidelines = options?.promptGuidelines ?? []
   if (guidelines.length > 0) {
     entry.guidelinesCount = guidelines.length
     entry.guidelinesChars = guidelines.reduce((total, guideline) => total + guideline.length, 0)
-    entry.guidelines = [...guidelines]
   }
-  if (options?.appendSystemPrompt) {
-    entry.appendChars = options.appendSystemPrompt.length
-    entry.appendText = options.appendSystemPrompt
-  }
-  const snippets = options?.toolSnippets ? Object.entries(options.toolSnippets) : []
+  if (options?.appendSystemPrompt) entry.appendChars = options.appendSystemPrompt.length
+  const snippets = options?.toolSnippets ? Object.values(options.toolSnippets) : []
   if (snippets.length > 0) {
     entry.toolSnippetCount = snippets.length
-    entry.toolSnippetChars = snippets.reduce((total, [, snippet]) => total + snippet.length, 0)
-    entry.toolSnippets = snippets
-      .filter(([name, text]) => typeof name === 'string' && typeof text === 'string')
-      .map(([tool, text]) => ({ tool, text }))
+    entry.toolSnippetChars = snippets.reduce((total, snippet) => total + snippet.length, 0)
   }
-  const parts = buildPromptParts(pi, prompt.length, options)
+  const parts = buildPromptParts(pi, prompt, options)
   if (parts) entry.parts = parts
   return entry
 }
@@ -184,6 +173,15 @@ interface PromptOwner {
   source: SessionEnvironmentPromptSource
   path?: string
   name?: string
+}
+
+/** One located contribution: a verbatim span inside the assembled prompt text. */
+interface PromptSpan {
+  start: number
+  end: number
+  kind: SessionEnvironmentPromptPart['kind']
+  owner: PromptOwner
+  tools?: string[]
 }
 
 function ownerOfTool(tool: {
@@ -201,20 +199,52 @@ function ownerOfTool(tool: {
   return { key: `extension:${path}`, source: 'extension', path, name: fileNameOf(path) }
 }
 
+/** Records the first non-overlapping occurrence of `text` in the assembled prompt. */
+function claimSpan(
+  prompt: string,
+  text: string,
+  kind: SessionEnvironmentPromptPart['kind'],
+  owner: PromptOwner,
+  tools: string[] | undefined,
+  spans: PromptSpan[],
+): void {
+  if (!text) return
+  let at = prompt.indexOf(text)
+  while (at >= 0) {
+    const end = at + text.length
+    if (!spans.some((span) => at < span.end && span.start < end)) {
+      spans.push({ start: at, end, kind, owner, ...(tools ? { tools } : {}) })
+      return
+    }
+    at = prompt.indexOf(text, at + 1)
+  }
+}
+
 /**
- * Groups the system prompt's components by the owner that contributed them. Tools
- * carry their own snippet and guideline texts, so ownership comes from the tool
- * registry; guideline bullets Pi received without a matching tool stay under the
- * unattributable 'session' owner. Returns undefined when no command context exposed
- * the system-prompt options (session start).
+ * Locates the system prompt's attributable sections inside the assembled text.
+ * Tools carry their own snippet and guideline texts, so ownership comes from the
+ * tool registry; guideline bullets Pi received without a matching tool stay under
+ * the unattributable 'session' owner. Unmatched spans are simply absent, and every
+ * remaining region belongs to Pi's own prompt skeleton. Returns undefined when no
+ * command context exposed the system-prompt options (session start).
  */
 function buildPromptParts(
   pi: ExtensionAPI,
-  totalChars: number,
+  prompt: string,
   options: BuildSystemPromptOptions | undefined,
 ): SessionEnvironmentPromptPart[] | undefined {
   if (!options) return undefined
-  const parts: SessionEnvironmentPromptPart[] = []
+  // A custom prompt replaces everything Pi would otherwise assemble.
+  if (options.customPrompt) {
+    return [{
+      kind: 'custom',
+      source: 'session',
+      chars: prompt.length,
+      start: 0,
+      end: prompt.length,
+    }]
+  }
+  const spans: PromptSpan[] = []
   const active = new Set(pi.getActiveTools())
   const ownerBuckets = new Map<string, { owner: PromptOwner; tools: string[]; bullets: string[] }>()
   const toolOwners = new Map<string, PromptOwner>()
@@ -235,89 +265,118 @@ function buildPromptParts(
   const published = (options.promptGuidelines ?? []).filter((bullet) => typeof bullet === 'string')
   const claimed = new Set<number>()
   for (const bucket of ownerBuckets.values()) {
-    const owned: string[] = []
     for (const bullet of bucket.bullets) {
       const index = published.findIndex(
         (candidate, at) => !claimed.has(at) && candidate === bullet,
       )
       if (index < 0) continue
       claimed.add(index)
-      owned.push(bullet)
-    }
-    if (owned.length > 0) {
-      parts.push({
-        kind: 'guidelines',
-        source: bucket.owner.source,
-        ...(bucket.owner.path ? { ownerPath: bucket.owner.path } : {}),
-        ...(bucket.owner.name ? { ownerName: bucket.owner.name } : {}),
-        tools: [...bucket.tools],
-        chars: owned.reduce((total, bullet) => total + bullet.length, 0),
-        text: owned.map((bullet) => `- ${bullet}`).join('\n'),
-      })
+      claimSpan(prompt, bullet, 'guidelines', bucket.owner, [...bucket.tools], spans)
     }
   }
-  const leftover = published.filter((_, index) => !claimed.has(index))
-  if (leftover.length > 0) {
-    parts.push({
-      kind: 'guidelines',
-      source: 'session',
-      chars: leftover.reduce((total, bullet) => total + bullet.length, 0),
-      text: leftover.map((bullet) => `- ${bullet}`).join('\n'),
-    })
+  // Guideline bullets Pi received that no active tool declares.
+  for (const index of claimed.keys()) published[index] = ''
+  const leftover = published.filter((bullet) => bullet !== '')
+  for (const bullet of leftover) {
+    claimSpan(prompt, bullet, 'guidelines', { key: 'session', source: 'session' }, undefined, spans)
   }
-  const snippetLines = new Map<string, { owner: PromptOwner; tools: string[]; lines: string[] }>()
   for (const [tool, snippet] of Object.entries(options.toolSnippets ?? {})) {
-    if (typeof snippet !== 'string') continue
+    if (typeof snippet !== 'string' || !snippet) continue
     const owner = toolOwners.get(tool) ?? { key: 'session', source: 'session' }
-    const bucket = snippetLines.get(owner.key) ?? { owner, tools: [], lines: [] }
-    bucket.tools.push(tool)
-    bucket.lines.push(`${tool}: ${snippet}`)
-    snippetLines.set(owner.key, bucket)
-  }
-  for (const bucket of snippetLines.values()) {
-    parts.push({
-      kind: 'snippets',
-      source: bucket.owner.source,
-      ...(bucket.owner.path ? { ownerPath: bucket.owner.path } : {}),
-      ...(bucket.owner.name ? { ownerName: bucket.owner.name } : {}),
-      tools: [...bucket.tools],
-      chars: bucket.lines.reduce((total, line) => total + line.length, 0),
-      text: bucket.lines.join('\n'),
-    })
+    claimSpan(prompt, `${tool}: ${snippet}`, 'snippets', owner, [tool], spans)
   }
   for (const file of options.contextFiles ?? []) {
     if (typeof file?.path !== 'string' || !file.path) continue
-    const content = typeof file.content === 'string' ? file.content : ''
-    parts.push({
-      kind: 'context',
-      source: 'project',
-      ownerPath: file.path,
-      ownerName: fileNameOf(file.path),
-      chars: content.length,
-      text: content,
-    })
-  }
-  if (options.customPrompt) {
-    parts.push({
-      kind: 'custom',
-      source: 'session',
-      chars: options.customPrompt.length,
-      text: options.customPrompt,
-    })
+    if (typeof file.content !== 'string' || !file.content) continue
+    claimSpan(
+      prompt,
+      file.content,
+      'context',
+      {
+        key: `project:${file.path}`,
+        source: 'project',
+        path: file.path,
+        name: fileNameOf(file.path),
+      },
+      undefined,
+      spans,
+    )
   }
   if (options.appendSystemPrompt) {
-    parts.push({
-      kind: 'append',
-      source: 'session',
-      chars: options.appendSystemPrompt.length,
-      text: options.appendSystemPrompt,
-    })
+    claimSpan(
+      prompt,
+      options.appendSystemPrompt,
+      'append',
+      { key: 'session', source: 'session' },
+      undefined,
+      spans,
+    )
   }
-  if (!options.customPrompt) {
-    const detailed = parts.reduce((total, part) => total + part.chars, 0)
-    // Pi's default prompt is not reproducible through the public API; it carries the
-    // remainder of the assembled prompt after the attributable parts.
-    parts.unshift({ kind: 'base', source: 'pi', chars: Math.max(0, totalChars - detailed) })
+  spans.sort((left, right) => left.start - right.start || left.end - right.end)
+  const parts: SessionEnvironmentPromptPart[] = []
+  let cursor = 0
+  // Gaps this small are bullet prefixes and newlines of the surrounding sections,
+  // not Pi's own content — they are absorbed into the adjacent owned section.
+  const isSkeleton = (gap: string): boolean => gap.length <= 60 && !/^#/m.test(gap)
+  const emit = (part: SessionEnvironmentPromptPart): void => {
+    const last = parts[parts.length - 1]
+    if (
+      last && last.kind === part.kind && last.source === part.source
+      && last.ownerPath === part.ownerPath && last.start !== undefined
+      && part.start !== undefined && part.start - (last.end ?? 0) <= 0
+    ) {
+      last.end = part.end
+      return
+    }
+    parts.push(part)
+  }
+  for (const span of spans) {
+    if (span.start < cursor) continue
+    if (span.start > cursor) {
+      const gap = prompt.slice(cursor, span.start)
+      if (!isSkeleton(gap) && gap.trim()) {
+        emit({
+          kind: 'base',
+          source: 'pi',
+          chars: span.start - cursor,
+          start: cursor,
+          end: span.start,
+        })
+      } else {
+        span.start = cursor
+      }
+    }
+    emit({
+      kind: span.kind,
+      source: span.owner.source,
+      ...(span.owner.path ? { ownerPath: span.owner.path } : {}),
+      ...(span.owner.name ? { ownerName: span.owner.name } : {}),
+      ...(span.tools ? { tools: span.tools } : {}),
+      chars: span.end - span.start,
+      start: span.start,
+      end: span.end,
+    })
+    cursor = span.end
+  }
+  if (cursor < prompt.length) {
+    const tail = prompt.slice(cursor)
+    if (!isSkeleton(tail) && tail.trim()) {
+      emit({
+        kind: 'base',
+        source: 'pi',
+        chars: prompt.length - cursor,
+        start: cursor,
+        end: prompt.length,
+      })
+    } else if (parts.length > 0) {
+      const last = parts[parts.length - 1]
+      if (last.end !== undefined) {
+        last.end = prompt.length
+        last.chars += prompt.length - cursor
+      }
+    } else {
+      parts.push({ kind: 'base', source: 'pi', chars: prompt.length, start: 0, end: prompt.length })
+    }
   }
   return parts
 }

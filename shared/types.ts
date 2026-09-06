@@ -399,20 +399,13 @@ export interface SessionEnvironmentContextFile {
   bytes: number
 }
 
-/** One tool snippet registered into the system prompt, keyed by tool name. */
-export interface SessionEnvironmentPromptSnippet {
-  tool: string
-  text: string
-}
-
 /** Who contributed a section of the system prompt. 'session' marks contributions Pi does not attribute. */
 export type SessionEnvironmentPromptSource = 'pi' | 'sdk' | 'extension' | 'project' | 'session'
 
 /**
- * One attributable contribution to the system prompt: who added it and the text Pi
- * places in the prompt for it. The 'base' part has no text — Pi's default prompt is
- * not reproducible through the public API, so it carries the remainder of the
- * assembled prompt's size after the other parts.
+ * One attributable section of the system prompt: who added it and where it sits
+ * inside the assembled text. Parts without offsets were not found verbatim in the
+ * text and only carry their measured size.
  */
 export interface SessionEnvironmentPromptPart {
   kind: 'base' | 'guidelines' | 'snippets' | 'context' | 'custom' | 'append'
@@ -421,16 +414,18 @@ export interface SessionEnvironmentPromptPart {
   ownerPath?: string
   /** File name of the owning extension or context file. */
   ownerName?: string
-  /** Tool names whose snippets or guidelines this part carries. */
+  /** Tool names whose snippets or guidelines this section carries. */
   tools?: string[]
   chars: number
-  text?: string
+  /** Char offsets of this section inside the assembled prompt text. */
+  start?: number
+  end?: number
 }
 
 /**
- * The assembled system prompt and its structured components, with the text of each
- * inspectable part. The assembled text embeds context-file contents; the context-file
- * section itself still carries only paths and sizes.
+ * The assembled system prompt with its components. Parts carry char offsets into
+ * `text` so the browser can render the exact prompt with owner markers between
+ * sections.
  */
 export interface SessionEnvironmentSystemPrompt {
   totalChars: number
@@ -443,15 +438,7 @@ export interface SessionEnvironmentSystemPrompt {
   toolSnippetChars?: number
   /** The assembled prompt text Pi will send; absent until a command-context refresh. */
   text?: string
-  /** Custom prompt replacing Pi's default, when one is set. */
-  customPrompt?: string
-  /** Guideline bullets added beyond Pi's default guidelines. */
-  guidelines?: string[]
-  /** Text appended after the default prompt (CLI flag or extension). */
-  appendText?: string
-  /** Per-tool snippets registered into the prompt. */
-  toolSnippets?: SessionEnvironmentPromptSnippet[]
-  /** Prompt sections grouped by the owner that contributed them. */
+  /** Prompt sections with their owner and position inside `text`. */
   parts?: SessionEnvironmentPromptPart[]
 }
 

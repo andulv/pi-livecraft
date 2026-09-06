@@ -52,34 +52,26 @@ const fullReport = JSON.stringify({
     toolSnippetCount: 8,
     toolSnippetChars: 640,
     text: 'You are Pi, a coding agent…',
-    customPrompt: 'Custom system prompt',
-    guidelines: ['Keep answers short.', 'Cite file paths.'],
-    appendText: 'Always answer in English.',
-    toolSnippets: [{ tool: 'read', text: 'Read files with the read tool.' }],
     parts: [
-      { kind: 'base', source: 'pi', chars: 17_000 },
+      { kind: 'base', source: 'pi', chars: 12, start: 0, end: 12 },
       {
         kind: 'guidelines',
         source: 'extension',
         ownerPath: '/home/user/.pi/agent/extensions/pi-ketch/index.ts',
         ownerName: 'index.ts',
         tools: ['ketch_search'],
-        chars: 90,
-        text: '- Search the live web through Ketch.',
-      },
-      {
-        kind: 'guidelines',
-        source: 'session',
-        chars: 30,
-        text: '- Unattributed workflow guidance.',
+        chars: 36,
+        start: 12,
+        end: 48,
       },
       {
         kind: 'context',
         source: 'project',
         ownerPath: '/repo/AGENTS.md',
         ownerName: 'AGENTS.md',
-        chars: 8_400,
-        text: '# Agent instructions',
+        chars: 4,
+        start: 48,
+        end: 52,
       },
     ],
   },
@@ -111,34 +103,26 @@ test('accepts the versioned environment payload', () => {
     toolSnippetCount: 8,
     toolSnippetChars: 640,
     text: 'You are Pi, a coding agent…',
-    customPrompt: 'Custom system prompt',
-    guidelines: ['Keep answers short.', 'Cite file paths.'],
-    appendText: 'Always answer in English.',
-    toolSnippets: [{ tool: 'read', text: 'Read files with the read tool.' }],
     parts: [
-      { kind: 'base', source: 'pi', chars: 17_000 },
+      { kind: 'base', source: 'pi', chars: 12, start: 0, end: 12 },
       {
         kind: 'guidelines',
         source: 'extension',
         ownerPath: '/home/user/.pi/agent/extensions/pi-ketch/index.ts',
         ownerName: 'index.ts',
         tools: ['ketch_search'],
-        chars: 90,
-        text: '- Search the live web through Ketch.',
-      },
-      {
-        kind: 'guidelines',
-        source: 'session',
-        chars: 30,
-        text: '- Unattributed workflow guidance.',
+        chars: 36,
+        start: 12,
+        end: 48,
       },
       {
         kind: 'context',
         source: 'project',
         ownerPath: '/repo/AGENTS.md',
         ownerName: 'AGENTS.md',
-        chars: 8_400,
-        text: '# Agent instructions',
+        chars: 4,
+        start: 48,
+        end: 52,
       },
     ],
   })
@@ -178,13 +162,16 @@ test('accepts sizes-only reports without prompt text', () => {
   assert.deepEqual(snapshot.systemPrompt, { totalChars: 900 })
 })
 
-test('drops a malformed guideline list but keeps the report', () => {
+test('strips prompt parts with invalid offsets but keeps the report', () => {
   const cache = new EnvironmentCache()
   const malformed = JSON.parse(fullReport)
-  malformed.systemPrompt.guidelines = ['valid', 42]
+  malformed.systemPrompt.parts = [
+    { kind: 'base', source: 'pi', chars: 12, start: 20, end: 5 },
+  ]
   assert.equal(cache.receiveManagerEvent(setStatusEvent(JSON.stringify(malformed))), true)
   const snapshot = cache.snapshot('session-1', false)
-  assert.equal(snapshot.systemPrompt?.guidelines, undefined)
+  // Offsets must never point backwards; the part survives with its size only.
+  assert.deepEqual(snapshot.systemPrompt?.parts, [{ kind: 'base', source: 'pi', chars: 12 }])
   assert.equal(snapshot.systemPrompt?.text, 'You are Pi, a coding agent…')
 })
 
