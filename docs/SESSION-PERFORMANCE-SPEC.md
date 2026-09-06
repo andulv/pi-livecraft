@@ -1,133 +1,370 @@
-# Session data performance: findings and plan
+# Session performance: investigation and work plan
 
-This is a specification and task plan. It is not a guide; no part of it is implemented yet.
-It records measured findings about Livecraft's session data flow and lists the smallest
-changes that remove the cost. Evidence comes from source reading (2026-09-05) and live
-measurements in the shared viewer Chrome with CDP metrics and `/proc` CPU sampling.
+This is a specification, not an implementation guide. It is step one of three:
+**performance → logging and observability → stability**. Basic measurements and regression
+checks belong in step one. The later steps must not be prerequisites for a safe change.
 
-## Symptoms
+## Goal and scope
 
-1. Livecraft feels slow after many sessions, projects, and workspaces run for a long time.
-2. Switching workspaces hides the right panel. It should stay open and refresh.
-3. Switching sessions or workspaces seems to repeat work.
-4. Session lists and the session index (TOC) read more data than they need.
+Find why Livecraft becomes slow with many sessions, projects, and workspaces over time.
+The cause can be Livecraft, Pi, workspace applications, or shared machine load. Do not assume
+that snapshots explain the whole problem.
 
-## How snapshot refresh works today
+Reduce unnecessary work during session switches and session-data refreshes. Read only the
+data needed by each component. Keep the interface responsive while data loads. Background
+loading does not, by itself, reduce total work.
 
-`GET /api/sessions/:id/snapshot` (`server/backend.ts`, snapshot route) sends seven Pi RPC
-commands on every call: `get_state`, `get_entries`, `get_available_models`, `get_commands`,
-`get_session_stats`, `get_fork_messages`, `get_available_thinking_levels`. `get_entries`
-returns the full session entry list. The route then walks the parent chain
-(`activeSessionMessages`), reads every prompt-template file from disk
-(`loadPromptTemplates`, `server/prompt-templates.ts`), and returns everything as one JSON
-response.
+Right-panel persistence and its loading presentation are assigned to another worker. They
+are outside this plan. Do not change that worker's files or duplicate that work.
 
-The frontend calls this route from `useConversationRuntime`:
+## Evidence and open questions
 
-- on every `tool_execution_end`, debounced by 100 ms;
-- on every `message_end`;
-- on every `agent_settled`.
+### Confirmed source behavior at review
 
-So one busy turn triggers several full-history round trips. Each response replaces
-`snapshot.messages` with a new array. The session index recomputes over all messages, and
-the conversation re-renders from the new identity.
+- `server/backend.ts` sends seven parallel RPC commands for each snapshot: `get_state`,
+  `get_entries`, `get_available_models`, `get_commands`, `get_session_stats`,
+  `get_fork_messages`, and `get_available_thinking_levels`. It reconstructs the active
+  conversation and loads prompt templates before returning the response.
+- `useConversationRuntime` refreshes after several event types, including tool completion,
+  message completion, and agent settlement. It already combines concurrent refresh requests,
+  delays subsequent requests by 100 ms, and rejects stale responses. Do not add a second
+  request scheduler without evidence that the existing one cannot meet the need.
+- `get_entries` returns full history. Repeated calls can cost more as history grows. The
+  actual bytes, frequency, and cost during active work still need measurement.
+- State, stats, and forkable messages are dynamic. Thinking levels depend on the model.
+  Models, commands, and templates are cache candidates, not proven static data.
+- Workspace selection can require a manager list, a bounded session scan, a Pi reopen,
+  a snapshot, Git data, workspace colour, and environment data. Most operations are valid
+  once. Duplicate or unnecessary operations must be identified from a trace.
+- The session list scans only the selected workspace. The documented scan reads head 8 KB
+  and tail 16 KB from at most 30 files. Pins resolve by stored path. Preserve these bounds.
+- Structural manager events can refresh the selected project's list even when unrelated.
+  `session_created` carries a session summary. `session_reassigned` carries the old session
+  ID and `data.newSessionId`, not a workspace path.
+- The index traverses messages and also uses observed request durations. A cache key based
+  only on the last message ID and message count is not sufficient.
+- Automatic snapshot refreshes are not gated by page visibility.
 
-## Findings
+These are the starting contracts. Other workers can change source during this project.
+Record the tested revision and relevant working-tree changes before using these findings.
 
-| # | Finding | Owner | Cost |
-|---|---|---|---|
-| F1 | Every snapshot re-fetches static data: models, commands, fork messages, thinking levels, prompt templates | `server/backend.ts` snapshot route | 6 of 7 RPC commands plus disk reads repeat for data that rarely changes |
-| F2 | `get_entries` ships the whole history each time; sessions grow without bound | Pi RPC via `server/manager.ts` | Many MB per call for long sessions; repeated several times per minute while Pi works |
-| F3 | The panel resets on workspace switch: `handleWorkspaceSelected` sets the active widget to null | `src/App.tsx` `handleWorkspaceSelected` | User-visible annoyance; widget choice persists in `pi-livecraft.right-sidebar-widget` but is cleared at runtime |
-| F4 | The analysis panel hides while its data loads (`rightPanelVisible` requires `sessionAnalysis`) | `src/App.tsx` layout | Panel blinks off during loads instead of showing a loading state |
-| F5 | A workspace switch runs: manager list + bounded session scan + possible Pi reopen + full snapshot + Git snapshot + VS Code colour + environment | `useWorkspaceSessions.selectWorkspace`, `App` effects | Most steps are needed once; the snapshot's static parts (F1) are not |
-| F6 | `refreshSessions` re-runs on every `session_created`, `session_reassigned`, and `manager_connected` SSE event, for any project | `App` manager-event subscription | With many live sessions, unrelated events re-scan this project's list |
-| F7 | The session index recomputes over all messages on every snapshot | `src/features/session-index/session-index.ts` | Repeated full-array work during active runs |
-| F8 | The session list is already efficient: head 8 KB + tail 16 KB per file, at most 30 files; pins resolve by path | `server/pi-session-store.ts` | No change needed |
-| F9 | Snapshot refreshes continue while the tab is hidden | `useConversationRuntime` | Wasted work in background tabs |
+### Earlier measurements
 
-Measured context (idle UI, 30 s, software-rendered viewer Chrome): the old infinite CSS
-status animations caused 1,784 style recalculations and ~56 % GPU + 22 % renderer CPU.
-After the discrete size pulse (`SessionStatusIndicator`), recalculations dropped to 60 and
-the GPU sat near idle. Backend and manager CPU stayed under 5 % when idle. The remaining
-hot path is snapshot fetch and render during active runs.
+The original investigation reports a 30-second idle sample in software-rendered viewer
+Chrome. Before the status-animation fix it found 1,784 style recalculations and about 56%
+GPU-process CPU plus 22% renderer CPU. After the discrete pulse it found 60 recalculations
+and near-idle GPU-process CPU. Backend and manager CPU were below 5% while idle.
 
-## Plan
+These results concern the earlier idle animation problem. They do not establish the main
+active-work bottleneck. Raw traces and the original sampling method are not included here.
 
-Ordered by size. Each task is independent; do them in order and stop when the symptoms are
-gone. Keep the HTTP and SSE contracts observable: new fields are additive.
+### Questions to resolve
 
-### T1 — Keep the right panel open on workspace switch
+1. Which process or operation consumes the time when the user sees a slowdown?
+2. Does cost depend on history size, live process count, application load, or elapsed time?
+3. Which switch requests repeat without a data change?
+4. Is the main snapshot cost RPC, conversion, transfer, parsing, or rendering?
+5. Does memory return to a stable range after work stops and switches finish?
 
-Remove `setActiveRightWidget(null)` from `handleWorkspaceSelected` in `src/App.tsx`.
-Widget data already flows from App props and refreshes with the newly selected session.
-Clearing open file paths can stay.
+## Work order A — measure before changing behavior
 
-Add a loading state instead of hiding: when `activeRightWidget === 'analysis'` and
-`analysisAvailable` is false, render the panel with a "Loading analysis…" body. Adjust
-`rightPanelVisible` so the chosen widget stays visible while its data loads.
+### A1. Safety and setup
 
-Validation: manual — switch workspaces with the index and analysis panels open; panel
-stays, data follows the new session. `npm run typecheck`.
+1. Read repository instructions and the guide for the area under test. Load the
+   `livecraft-browser` skill before browser work. Use only the shared Livecraft browser.
+2. Record the commit, relevant local changes, date, OS, CPU count, Node/Pi/browser versions,
+   development or production mode, and whether Chrome uses software rendering. Record
+   process uptime, tab count, live Pi count, projects, workspaces, and workspace applications.
+   Do not dump environment variables, full command lines, credentials, or session content.
+3. Coordinate with other workers. Keep source and settings fixed during each measurement
+   batch. Discard and repeat a batch if a hot reload or another worker's change affects it.
+4. Use approved disposable sessions and workspaces for prompts and switching tests. Ask
+   before paid model calls, new network workloads, stopping applications, deleting data,
+   or any disruptive action. Never restart the manager or supervisor. Do not restart the
+   backend to get a clean baseline: it owns terminals and browser instances.
+5. Observe the existing long-running setup before any permitted reset. A browser reload is
+   not a fresh manager or Pi run. Label each process age separately. If a fresh comparison
+   needs a disruptive reset, report it as blocked and request approval.
+6. Keep raw traces in a local temporary directory outside Git. Use aliases for projects and
+   sessions. Do not retain request bodies, tool output, prompts, or response content. CDP
+   URLs and traces can contain private paths; sanitize them before sharing.
 
-### T2 — Background-aware snapshot refresh
+### A2. Workload matrix
 
-- Add a `snapshotLoading` flag to `useConversationRuntime`; expose it through `App`.
-- Session index and analysis widgets show the flag instead of blanking.
-- Skip debounced snapshot refreshes while `document.hidden`; fetch once when visible again.
+Use the same browser viewport, selected widget, conversation display mode, and application
+load for each before/after pair. Inventory existing session sizes by file size and snapshot
+message count; do not scan all history just to classify it. Select a short and a long session
+from the available workload. Report actual sizes, not just labels.
 
-Validation: focused test for the flag transitions beside the existing conversation tests;
-manual check of the loading indicator on a slow snapshot.
+Run these cases in both the available fresh/light setup and the aged/busy setup. If a case
+is unavailable, state that limitation instead of creating large workloads without approval.
 
-### T3 — Cache static snapshot parts per session
+| Case | Procedure |
+|---|---|
+| Visible idle | Leave the same session selected for 60 seconds. Do not interact. |
+| Hidden idle | Hide the Livecraft tab for 60 seconds, then restore it. Verify `document.visibilityState`; viewer occlusion alone is not proof. |
+| Active turn | Use one approved, repeatable prompt with several tool calls. Record event counts and output size because model runs can differ. Repeat three times where approved. |
+| Session switch | Alternate two already-live sessions in one workspace 20 times. Wait for data to settle between selections. |
+| Workspace switch | Alternate two workspaces in one project 20 times. Distinguish live-session selection from Pi reopen. |
+| Rapid selection | Select A, B, then A before requests finish. Repeat five times. Check that only A's data is applied. |
+| Multi-project | Observe two project tabs while an approved structural session event occurs in one project. Count list requests in both. |
+| Hidden active | Hide the tab during an approved active turn for 60 seconds. Restore it and check history, status, tools, and queue state. |
+| Long-run sample | Sample normal approved use for at least 30 minutes, then five minutes idle. Repeat the switch batch near the start and end. This is a growth screen, not proof about multi-day use. |
 
-Move the rarely changing parts of the snapshot route behind a per-session cache:
-`get_state` (model/state only refresh on events), `get_available_models`, `get_commands`,
-`get_fork_messages`, `get_available_thinking_levels`, and prompt templates. Refresh
-`get_entries` and `get_session_stats` on every call. Invalidate the cache when the session
-exits or when a `session_info_changed` event names the session. Keep the response shape
-unchanged.
+For short cases, capture three repetitions. Separate the first cold selection from warm
+selections. Do not manufacture a cold run by clearing user caches or session data. For a
+small sample, report count, median, range, and individual slow cases; report p95 only when
+there are at least 20 observations. Record unrelated background activity.
 
-Validation: extend the backend snapshot tests with cache-hit coverage; measure payload
-latency before and after on a long session.
+### A3. What to measure and how
 
-### T4 — Incremental messages
+**Process cost**
 
-Messages are append-only per active chain. Add an optional `since` query parameter
-(last entry id the client holds). The backend compares it with the cached entry list and
-returns only appended messages plus current stats; the client merges in
-`useConversationRuntime`. A full snapshot remains the fallback when the id is unknown.
-This changes `shared/types.ts` additively and the snapshot route; document the parameter
-beside the route.
+- Use a local sampler at one-second intervals. On Linux, read `/proc/<pid>/stat` CPU ticks
+  and RSS from `/proc/<pid>/status`; read the clock tick rate with `getconf CLK_TCK`.
+  CPU percent is `100 × delta CPU ticks / ticks per second / elapsed seconds`.
+  This convention makes one fully used core 100%; report the convention.
+- Identify processes by parent PID and safe labels. Sample backend, manager, each Pi,
+  Chrome browser/renderer/GPU processes, and workspace application process trees separately.
+  Include machine CPU, available memory, and swap activity when available with existing tools.
+- Keep per-process results and group totals. Do not double-count descendants. Record exits
+  and restarts; use PID plus start time so PID reuse cannot corrupt the sample. RSS totals
+  can double-count shared pages: label this limit and do not call them unique memory usage.
+- Compare idle memory before and after switch batches and the long-run sample. A rising
+  RSS alone does not prove a leak. Look for retained heap, DOM nodes, listeners, or growing
+  cache counts when evidence points to that owner.
 
-Validation: backend tests for append, unknown id, and compaction (id no longer on the
-active chain falls back to full snapshot); manual session run with the network panel open.
+**HTTP and switch cost**
 
-### T5 — Scope manager-event refreshes
+- Use shared-browser CDP Network events to collect request start, completion, status,
+  encoded transfer bytes, and decoded body bytes where available. Keep only route patterns,
+  safe session aliases, timings, and sizes. Count cached, failed, and cancelled requests
+  separately. Do not download response bodies for the report.
+- Count all requests per switch, especially session list/resolve, snapshot, Git, environment,
+  and project discovery. Record order, overlap, and repeated requests for the same selection.
+- Mark selection time, selected-session header update, correct conversation display, and
+  completion of required widget data separately. Use browser performance marks or a bounded
+  trace; state exactly how each completion was detected. Do not use global network-idle as
+  completion: SSE and other persistent connections stay open.
+- Count snapshot requests per active turn and per triggering event type. Record maximum
+  in-flight requests and requests whose responses are ignored after a selection change.
 
-In the App manager-event subscription, run `refreshSessions` for `session_created` and
-`session_reassigned` only when the event's `cwd` belongs to this project's workspaces.
-`manager_connected` stays global.
+**Snapshot stages**
 
-Validation: focused test beside the existing App/workspace tests; manual run of two
-projects side by side.
+- Start with browser timings. If they cannot separate the suspected cost, add minimal,
+  temporary timing probes at the owning backend route, in coordination with its worker.
+  Backend edits can trigger a restart; obtain approval before applying probes to the live
+  setup. Use a permitted test setup otherwise. Do not instrument manager runtime files.
+- Give each measured snapshot an ephemeral correlation ID. Use monotonic clocks to measure
+  each of the seven RPC waits, total parallel RPC wall time, active-message reconstruction,
+  response-controls derivation, template reads, JSON serialization, and total route time.
+  Count entries/messages and serialized bytes without recording their content. Avoid extra
+  serialization just to measure size. Label serialization time unavailable if it cannot be
+  measured without a larger change.
+- RPCs run in parallel: do not sum their durations as route latency. Backend RPC waits include
+  transport, queueing, and Pi work; they are not direct Pi CPU measurements. Correlate them
+  with process samples before attributing cost to Pi.
+- Keep probes local, bounded, and content-free. Record their overhead with a short unprobed
+  comparison. Do not add a permanent logging framework or expose a diagnostic endpoint.
 
-### T6 — Cheap session-index guard (optional)
+**Browser work**
 
-After T4, message identity changes only on appends. If profiling still shows index cost,
-memoize `sessionIndexEntries` on last message id plus count. Do this only with evidence.
+- Take CDP performance metric deltas around each case: script duration, task duration,
+  layout/style counts and duration, DOM nodes, and JS heap use where supported.
+- Capture a bounded Performance trace for one representative slow switch and active turn.
+  Locate long main-thread tasks and time in parsing, message reconciliation, index calculation,
+  and rendering. If React profiling is available, record commit count and duration. Otherwise
+  report browser task timings; do not label them React commit timings.
+- Use paired samples to check profiler overhead. Do not leave tracing on for the long-run
+  sample. Do not force garbage collection during normal timings. Any separate retained-heap
+  experiment must state its method and privacy limits.
 
-## Risks and boundaries
+### A4. Required report and decision gate
 
-- Pi, the manager, and the RPC protocol are unchanged. All work sits in the backend route,
-  shared types (additive), and frontend hooks.
-- The manager lifecycle is untouched; no restart behaviour changes.
-- The session list keeps its bounded scan (F8); do not widen it.
-- T4 is the only contract change; it is additive and keeps the full-snapshot fallback.
+Return a sanitized report with:
 
-## Related documents
+1. Setup, exact reproduction steps, sample counts, process ages, and unavailable cases.
+2. A table per case: request counts/bytes, latency, process CPU/RSS, browser task time,
+   and correctness failures. Include baseline variability and cold/warm results.
+3. A switch request timeline and snapshot-stage breakdown for the slowest representative case.
+4. Ranked causes with measured evidence, confidence, and the smallest proposed change.
+5. A clear distinction between Livecraft cost, Pi cost, application load, and unassigned cost.
+6. Commands/scripts and local artifact locations needed to repeat the measurements. Do not
+   commit raw traces or private workload data.
 
-- [Project architecture](/docs/ARCHITECTURE.md) — layer boundaries used above.
-- [Conversation feature](/src/features/conversation/README.md) — snapshot runtime owner.
-- [Workspace and sessions](/src/features/workspace/README.md) — switch flow owner.
-- [Right sidebar](/src/features/right-sidebar/README.md) — widget persistence keys.
+Proceed to work order B only for a supported cause. Select a numeric target for its primary
+metric from this baseline before editing. Repeat the same cases after the change. Claim an
+improvement only when it exceeds baseline variation and correctness checks pass. Report
+unchanged or worse metrics too. If the dominant cost is outside Livecraft, report the owner
+and the next diagnostic step rather than add speculative Livecraft caches.
+
+## Work order B — remove unnecessary work
+
+Implement one bounded change at a time. Do not run these tasks as independent parallel
+edits: they share request and state ownership. Coordinate with the panel worker before any
+change to `App.tsx` or loading-state props.
+
+### B1. Reduce duplicate refreshes and switch initialization
+
+Owners: `src/features/conversation/useConversationRuntime.ts`,
+`src/features/workspace/useWorkspaceSessions.ts`, and cross-feature effects in `src/App.tsx`.
+All HTTP calls must continue through `src/api.ts`.
+
+1. Use A's trace to map each repeated request to its caller, event, selected session/workspace,
+   and data dependency. Separate a necessary follow-up reconciliation from a duplicate.
+2. Extend the existing refresh scheduler if needed. Keep at most one in-flight automatic
+   snapshot per selected session. Combine a burst into one pending refresh; do not replay
+   one request for each queued event. Events during a fetch can still require a follow-up.
+3. Preserve immediate selection loading, explicit user refresh, final settled-state
+   reconciliation, error reporting, live-event replay, and stale-response rejection.
+   Inspect callers that await `refreshSnapshot` before changing when its promise resolves;
+   queue reconciliation already uses that promise.
+4. On a switch, fetch workspace data only when that workspace dependency changes. Fetch
+   session data for the new session. Reuse existing controller state rather than add a
+   second cache. Keep Pi reopen when required. Remove only work proven redundant.
+5. Keep independent required requests parallel where safe. Do not delay the conversation
+   behind unrelated Git or environment work. Do not move lifecycle ownership into `App`.
+
+Proof: controlled delayed-request tests for an event burst, an event during a fetch, final
+settlement, failed fetch/retry, and A→B→A selection. Assert request counts, bounded concurrency,
+correct applied data, and promise behavior. Repeat A's switch and active-turn measurements.
+Start with `test/conversation-runtime.test.ts`; locate the nearest workspace/controller test
+for switch behavior, or add a focused regression at that owner if none exists.
+
+### B2. Suspend automatic snapshots while hidden
+
+Owner: the existing conversation runtime scheduler, not each widget.
+
+1. Track visibility with `visibilitychange`. Confirm the hidden state with `document.hidden`.
+2. While hidden, suppress new automatic snapshot requests and mark the selected session
+   dirty. Keep SSE processing and required non-snapshot state handling intact.
+3. Let an existing request finish safely. Prevent its scheduled follow-up from starting
+   while hidden. Do not start a hidden polling loop.
+4. On visibility return, request one reconciliation for the current session if dirty. Use
+   the same scheduler so visibility and settlement events cannot launch parallel requests.
+   Events during this request can mark it dirty again.
+5. Preserve initial selection and explicit-command refresh semantics. Define these exceptions
+   in tests. Do not report a skipped request as fresh data to an awaiting caller.
+6. Clean up listeners and pending work on unmount and selection change. Never apply a
+   hidden session's old result to a new selection.
+
+Proof: tests for hide during debounce, hide during fetch, repeated hidden events, visible
+recovery, selection while hidden, failure, and unmount. After an in-flight request completes,
+hidden automatic events must start zero snapshots. On return, one catch-up request starts
+when dirty, unless new events require a follow-up. Test real tab visibility with the shared
+browser and verify messages, tools, queue state, and status after recovery.
+
+### B3. Scope session-list events safely
+
+Owners: App's manager-event subscription and the workspace controller's existing list state.
+
+1. For `session_created`, compare the summary's workspace with this project's known workspace
+   set. Use existing path identity rules, not a string-prefix comparison.
+2. For `session_reassigned`, use known old/new session membership. The event has no `cwd`.
+   Refresh if either belongs to this project. Skip only when unrelated ownership is known;
+   retain a safe refresh when ownership cannot be determined.
+3. Keep `manager_connected` global. Preserve rename, explicit refresh, workspace selection,
+   and current-session reassignment behavior. A session exit must not become a full scan.
+4. Do not add an event field or change manager runtime for this task. If available membership
+   cannot support a useful filter, report that limit and defer the protocol proposal.
+5. Keep the selected-workspace scan bounds and direct pin resolution unchanged.
+
+Proof: tests for relevant, unrelated, and unknown ownership; missing optional data; reassignment
+of the selected session; and reconnect. With two project tabs, a known unrelated creation
+must not trigger the other project's list scan. Unknown reassignment must still reconcile.
+
+### B4. Cache metadata only with a complete freshness policy
+
+Owner: snapshot assembly in `server/backend.ts` and its existing template loader. Start only
+if A shows material metadata cost. Do not cache full history as part of this task.
+
+1. Keep `get_state`, `get_entries`, `get_session_stats`, and `get_fork_messages` fresh.
+   Do not rely on `session_info_changed` to invalidate model, streaming, queue, or history data.
+2. For each proposed cache item, write a policy table before coding: key, source, dependencies,
+   invalidation trigger, fallback expiry if needed, acceptable stale interval, maximum retained
+   size/count, and cleanup owner. If freshness cannot be guaranteed within an acceptable
+   interval, leave that item uncached.
+3. Evaluate models, commands, model-dependent thinking levels, and prompt templates separately.
+   Account for model changes, command/resource reloads, template edits, and workspace/session
+   identity. A single session-level cache entry is not a sufficient policy for all these data.
+4. Clear applicable entries on exit, reassignment, and manager disconnect/reconnect. A backend
+   restart starts with an empty cache. Bound retention for sessions that remain live for days.
+5. Combine concurrent loads for the same key. Do not cache failures as successful empty data.
+   Prevent an old in-flight load from repopulating an invalidated entry. Preserve response shape.
+
+Proof: cache hit/miss and concurrency tests, invalidation during a pending load, model/resource
+change, template edit, exit, reassignment, reconnect, expiry, eviction, and failure/retry as
+applicable to the selected items. Use the nearest backend route tests; pure reconstruction
+coverage in `test/session-snapshot.test.ts` alone does not prove route caching. Repeat stage
+latency and memory measurements. Verify unchanged state and forkability after a new prompt.
+
+### B5. Keep loading correct without duplicating panel work
+
+Use the loading-state contract supplied by the panel worker. If another consumer needs new
+state, agree on ownership before editing. Distinguish initial loading, background refresh,
+empty data, and error. Retain usable same-session content during refresh. Do not label old
+session content as current. One request failure must not leave an endless loading indicator.
+Load the `livecraft-ui` skill before any visual change. This task does not reintroduce the
+excluded panel-persistence fix.
+
+## Deferred changes — require new evidence and a separate design
+
+### Incremental snapshot messages
+
+Consider only if full snapshots remain a measured cost after B. Browser deltas can reduce
+HTTP transfer and parsing but do not eliminate full-history `get_entries` RPC calls. Do not
+claim a reduction in Pi-side history reads unless it is separately demonstrated.
+
+Before implementation, define an additive HTTP contract in `shared/types.ts` and `src/api.ts`:
+explicit full/delta mode, session identity, base and next cursor, reset rules, and current
+metadata/live-event handling. Existing clients must still receive full snapshots by default.
+
+Visible messages do not currently all expose their entry IDs. Define cursor mapping rather
+than assume message IDs exist. Validate a cursor against the current active chain, not just
+an old cached entry list. Specify replacement when the client's prefix is no longer valid.
+Compaction does not necessarily remove old visible history in Livecraft. Test both retained
+history and invalid-prefix cases.
+
+Preserve event sequence deduplication, live replay, final-message reconciliation, and stale
+response rejection. Test append, unchanged history, branch/fork changes, compaction, unknown
+cursor, reconnect, overlapping requests, and rapid selection. Bound retained cache memory.
+No manager or Pi RPC change is authorized by this plan.
+
+### Session-index optimization
+
+Start only if profiling still shows material index cost. Preserve message identity when data
+is unchanged where practical. Any memoization must include session identity, actual message
+changes, and observed-duration telemetry. Do not use only last message ID plus count.
+Use `test/session-index.test.ts` for correctness and the same long-session browser case for
+performance. Avoid a new incremental index data structure without evidence it is needed.
+
+## Validation and completion
+
+- Documentation-only changes need targeted review and formatting validation.
+- For TypeScript changes, run `npm run lint`, the nearest focused tests, and
+  `npm run typecheck`. Use `npm test -- test/conversation-runtime.test.ts` for runtime changes;
+  select additional tests only for affected behavior. Do not launch paid integration runs
+  or external documentation evaluations without approval.
+- After each change, repeat the affected A cases with the same setup. Check request counts,
+  latency, memory, and correct state, not only visual responsiveness.
+- Stop adding optimizations when measured targets are met. Record residual costs and limits.
+  Do not call the long-running problem fixed based only on one short browser trace.
+- Preserve pre-existing work. Stage and commit only task-owned changes after checks pass.
+  Do not commit raw profiles, user data, temporary probes, or unrelated worker changes.
+
+## Handoff to the next two project steps
+
+**Logging and observability:** use the useful measurements from A to define content-free,
+bounded diagnostics: request counts, stage durations, errors, cache hit/miss/eviction, and
+reconnects. Define retention, correlation, and overhead before permanent instrumentation.
+
+**Stability:** extend regression coverage with longer runs, repeated switches, reconnects,
+failed requests, and listener/cache cleanup. Carry forward any unexplained growth with its
+reproduction steps. Fault injection that disrupts live services needs separate approval.
+
+## Related contracts
+
+- [Architecture](/docs/ARCHITECTURE.md) — layer ownership and restart effects.
+- [Talk to Pi](/docs/HOW-TO-TALK-TO-PI.md) — snapshot and public RPC boundary.
+- [Conversation](/src/features/conversation/README.md) — reconciliation and runtime owner.
+- [Workspace and sessions](/src/features/workspace/README.md) — selection and bounded lists.
