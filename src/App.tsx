@@ -485,7 +485,6 @@ function LivecraftProjectApp(
   }, [showToast])
   const handleWorkspaceSelected = useCallback((): void => {
     setGitSnapshot(null)
-    setActiveRightWidget(null)
     setOpenFilePaths([])
     setActivePaneView((current) => current?.kind === 'browser' ? current : null)
   }, [])
@@ -1487,7 +1486,7 @@ function LivecraftProjectApp(
   const rightPanelVisible = activeRightWidget === 'index'
     || activeRightWidget === 'quotas' || activeRightWidget === 'environment'
     || activeRightWidget === 'browser'
-    || (activeRightWidget === 'analysis' && sessionAnalysis !== null)
+    || activeRightWidget === 'analysis'
 
   if (projectDiscoveryError) {
     return (

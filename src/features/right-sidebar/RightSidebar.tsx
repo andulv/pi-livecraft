@@ -81,7 +81,8 @@ export function RightSidebar({
   onQuotaReset: (target: QuotaResetTarget) => Promise<{ ok: boolean; error?: string }>
   onWidgetSelect: (widget: RightWidget) => void
 }) {
-  const collapsed = activeWidget === null || (activeWidget === 'analysis' && !analysis)
+  // The analysis panel stays open with a loading or empty body while its data is absent.
+  const collapsed = activeWidget === null
   const quotaSummary = railQuota(quotas, currentQuotaProvider)
   const contextStats = formatSessionStats(sessionStats)
   const contextHasUsage = contextStats.contextPercentValue !== null
@@ -162,30 +163,45 @@ export function RightSidebar({
                 sessionMessagesAvailable={sessionMessagesAvailable}
               />
             )}
-            {activeWidget === 'analysis' && analysis && (
-              <WidgetLayout
-                header={
-                  <div>
-                    <strong>Session analysis</strong>
-                    <span>
-                      {analysis
-                        .requests
-                        .length} request{analysis
+            {activeWidget === 'analysis' && (analysis
+              ? (
+                <WidgetLayout
+                  header={
+                    <div>
+                      <strong>Session analysis</strong>
+                      <span>
+                        {analysis
                           .requests
-                          .length > 1
-                        ? 's'
-                        : ''} analyzed
-                    </span>
-                  </div>
-                }
-              >
-                <SessionAnalysisWidget
-                  analysis={analysis}
-                  onNavigate={onConversationNavigate}
-                  sessionId={activeSessionId}
-                />
-              </WidgetLayout>
-            )}
+                          .length} request{analysis
+                            .requests
+                            .length > 1
+                          ? 's'
+                          : ''} analyzed
+                      </span>
+                    </div>
+                  }
+                >
+                  <SessionAnalysisWidget
+                    analysis={analysis}
+                    onNavigate={onConversationNavigate}
+                    sessionId={activeSessionId}
+                  />
+                </WidgetLayout>
+              )
+              : (
+                <WidgetLayout
+                  header={
+                    <div>
+                      <strong>Session analysis</strong>
+                      <span>{activeSessionId ? 'Loading' : 'No session'}</span>
+                    </div>
+                  }
+                >
+                  {activeSessionId
+                    ? <p className='analysis-empty' role='status'>Loading analysis…</p>
+                    : <p className='analysis-empty'>Select a session to analyze.</p>}
+                </WidgetLayout>
+              ))}
             {activeWidget === 'quotas' && (
               <QuotaWidget onRefresh={onQuotaRefresh} onReset={onQuotaReset} quotas={quotas} />
             )}
