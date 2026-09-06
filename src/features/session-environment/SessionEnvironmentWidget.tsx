@@ -165,84 +165,6 @@ export function SessionEnvironmentWidget(
               </div>
             </>
           )}
-          {systemPrompt && (
-            <div className='environment-kv'>
-              <span className='environment-key'>System prompt</span>
-              <span className='environment-value'>
-                {formatPromptFootprint(systemPrompt.totalChars)}
-                {systemPrompt.hasCustomPrompt && (
-                  <span className='environment-chip accent'>custom</span>
-                )}
-              </span>
-            </div>
-          )}
-          {systemPrompt?.text !== undefined
-            ? (
-              <div className='environment-tool-row'>
-                <button
-                  aria-controls='environment-prompt-full'
-                  aria-expanded={promptExpanded}
-                  className='environment-tool-toggle'
-                  onClick={() => setPromptExpanded((expanded) => !expanded)}
-                  type='button'
-                >
-                  <span className='environment-tool-name'>Assembled prompt</span>
-                  <span className='environment-tool-footprint'>
-                    {formatPromptFootprint(systemPrompt.totalChars)}
-                  </span>
-                </button>
-                {promptExpanded && (
-                  <div className='environment-prompt-full' id='environment-prompt-full'>
-                    {(promptSections ?? [{
-                      label: '',
-                      text: systemPrompt
-                        .text,
-                    }])
-                      .map((
-                        section,
-                        index,
-                      ) => (
-                        <div key={index}>
-                          {section.label && (
-                            <div className='environment-prompt-marker'>{section.label}</div>
-                          )}
-                          <pre className='environment-prompt-slice'>{section.text}</pre>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
-            )
-            : (
-              <>
-                {systemPrompt?.guidelinesCount !== undefined && (
-                  <div className='environment-kv'>
-                    <span className='environment-key'>Guidelines</span>
-                    <span className='environment-value'>
-                      {systemPrompt.guidelinesCount} ·{' '}
-                      {formatTokens(systemPrompt.guidelinesChars ?? 0)} ch
-                    </span>
-                  </div>
-                )}
-                {systemPrompt?.appendChars !== undefined && systemPrompt.appendChars > 0 && (
-                  <div className='environment-kv'>
-                    <span className='environment-key'>Appended text</span>
-                    <span className='environment-value'>
-                      {formatTokens(systemPrompt.appendChars)} ch
-                    </span>
-                  </div>
-                )}
-                {systemPrompt?.toolSnippetCount !== undefined && (
-                  <div className='environment-kv'>
-                    <span className='environment-key'>Tool snippets</span>
-                    <span className='environment-value'>
-                      {systemPrompt.toolSnippetCount} ·{' '}
-                      {formatTokens(systemPrompt.toolSnippetChars ?? 0)} ch
-                    </span>
-                  </div>
-                )}
-              </>
-            )}
           <p className='environment-sub-label'>
             Context files · {contextFiles.length}
           </p>
@@ -260,6 +182,58 @@ export function SessionEnvironmentWidget(
               </div>
             ))}
         </section>
+
+        {systemPrompt && (
+          <section className='environment-section'>
+            <div className='environment-heading'>
+              <h2>
+                <button
+                  aria-controls='environment-prompt-full'
+                  aria-expanded={promptExpanded}
+                  className='environment-section-toggle'
+                  onClick={() => setPromptExpanded((expanded) => !expanded)}
+                  type='button'
+                >
+                  <span aria-hidden='true' className='environment-section-chevron'>
+                    {promptExpanded ? '⌄' : '›'}
+                  </span>
+                  Assembled prompt
+                </button>
+              </h2>
+              <div className='environment-heading-meta'>
+                <Tooltip label='The exact text Pi sends next turn; markers show which owner contributed each section.'>
+                  <span className='environment-chip'>
+                    {formatPromptFootprint(systemPrompt.totalChars)}
+                  </span>
+                </Tooltip>
+                {systemPrompt.hasCustomPrompt && (
+                  <span className='environment-chip accent'>custom</span>
+                )}
+              </div>
+            </div>
+            {promptExpanded && (systemPrompt.text !== undefined
+              ? (
+                <div className='environment-prompt-full' id='environment-prompt-full'>
+                  {(promptSections ?? [{ label: '', text: systemPrompt.text }]).map((
+                    section,
+                    index,
+                  ) => (
+                    <div key={index}>
+                      {section.label && (
+                        <div className='environment-prompt-marker'>{section.label}</div>
+                      )}
+                      <pre className='environment-prompt-slice'>{section.text}</pre>
+                    </div>
+                  ))}
+                </div>
+              )
+              : (
+                <p className='environment-empty'>
+                  Assembled text arrives with the next environment refresh.
+                </p>
+              ))}
+          </section>
+        )}
 
         <section className='environment-section'>
           <div className='environment-heading'>
