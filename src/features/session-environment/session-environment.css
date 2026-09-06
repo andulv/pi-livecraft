@@ -162,6 +162,34 @@
   padding: 4px 0;
   font-size: 11px;
 }
+.environment-file-toggle {
+  border: 0;
+  border-radius: 7px;
+  padding: 4px;
+  margin: 0 -4px;
+  width: calc(100% + 8px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 180ms ease;
+}
+.environment-file-toggle:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 4%, var(--surface));
+}
+.environment-file-toggle:active {
+  transform: scale(0.99);
+}
+.environment-file-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.environment-file-chevron {
+  flex: 0 0 auto;
+  color: var(--subtle);
+  font-size: 9px;
+}
 .environment-file-glyph {
   flex: 0 0 auto;
   color: var(--subtle);
@@ -491,7 +519,11 @@
   .environment-section-toggle,
   .environment-tool-group-toggle,
   .environment-skill-group-toggle,
-  .environment-tool-toggle {
+  .environment-tool-toggle,
+  .environment-file-toggle {
     transition: none;
+  }
+  .environment-file-toggle:active {
+    transform: none;
   }
 }

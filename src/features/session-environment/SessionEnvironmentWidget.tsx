@@ -39,7 +39,8 @@ export function SessionEnvironmentWidget(
   const [skillsSectionExpanded, setSkillsSectionExpanded] = useState(true)
   const [expandedTool, setExpandedTool] = useState<string | null>(null)
   const [promptExpanded, setPromptExpanded] = useState(false)
-  const [contextFilesSectionExpanded, setContextFilesSectionExpanded] = useState(true)
+  const [expandedFile, setExpandedFile] = useState<string | null>(null)
+
   const [collapsedToolGroups, setCollapsedToolGroups] = useState<ReadonlySet<string>>(() =>
     new Set()
   )
@@ -104,6 +105,20 @@ export function SessionEnvironmentWidget(
     () => (systemPrompt ? buildPromptSections(systemPrompt) : null),
     [systemPrompt],
   )
+  /** File contents sliced from the assembled prompt via each context part's offsets. */
+  const contextFileContent = useMemo(() => {
+    const map = new Map<string, string>()
+    const text = systemPrompt?.text
+    for (const part of systemPrompt?.parts ?? []) {
+      if (
+        part.kind === 'context' && part.ownerPath && part.start !== undefined
+        && part.end !== undefined && text !== undefined
+      ) {
+        map.set(part.ownerPath, text.slice(part.start, part.end))
+      }
+    }
+    return map
+  }, [systemPrompt])
 
   return (
     <>
@@ -222,20 +237,7 @@ export function SessionEnvironmentWidget(
 
         <section className='environment-section'>
           <div className='environment-heading'>
-            <h2>
-              <button
-                aria-controls='environment-context-files'
-                aria-expanded={contextFilesSectionExpanded}
-                className='environment-section-toggle'
-                onClick={() => setContextFilesSectionExpanded((expanded) => !expanded)}
-                type='button'
-              >
-                <span aria-hidden='true' className='environment-section-chevron'>
-                  {contextFilesSectionExpanded ? '⌄' : '›'}
-                </span>
-                Context files
-              </button>
-            </h2>
+            <h2>Context files</h2>
             {contextFiles.length > 0 && (
               <div className='environment-heading-meta'>
                 <span className='environment-chip'>
@@ -245,19 +247,48 @@ export function SessionEnvironmentWidget(
               </div>
             )}
           </div>
-          {contextFilesSectionExpanded && (contextFiles.length === 0
+          {contextFiles.length === 0
             ? <p className='environment-empty'>{emptyContextFilesText(environment)}</p>
-            : contextFiles.map((file) => (
-              <div
-                className='environment-file-row'
-                key={file.path}
-              >
-                <span aria-hidden='true' className='environment-file-glyph'>▤</span>
-                <span className='environment-file-name'>{fileNameOf(file.path)}</span>
-                <span className='environment-file-path'>{dirNameOf(file.path)}</span>
-                <span className='environment-file-size'>{formatBytes(file.bytes)}</span>
-              </div>
-            )))}
+            : contextFiles.map((file, index) => {
+              const content = contextFileContent.get(file.path)
+              const expanded = expandedFile === file.path
+              const row = (
+                <>
+                  <span aria-hidden='true' className='environment-file-glyph'>▤</span>
+                  <span className='environment-file-name'>{fileNameOf(file.path)}</span>
+                  <span className='environment-file-path'>{dirNameOf(file.path)}</span>
+                  <span className='environment-file-size'>{formatBytes(file.bytes)}</span>
+                  {content !== undefined && (
+                    <span aria-hidden='true' className='environment-file-chevron'>
+                      {expanded ? '⌄' : '›'}
+                    </span>
+                  )}
+                </>
+              )
+              return (
+                <div className='environment-tool-row' key={file.path}>
+                  {content !== undefined
+                    ? (
+                      <button
+                        aria-controls={`environment-file-${index}`}
+                        aria-expanded={expanded}
+                        className='environment-file-row environment-file-toggle'
+                        onClick={() =>
+                          setExpandedFile((current) => (current === file.path ? null : file.path))}
+                        type='button'
+                      >
+                        {row}
+                      </button>
+                    )
+                    : <div className='environment-file-row'>{row}</div>}
+                  {expanded && content !== undefined && (
+                    <pre className='environment-prompt-text' id={`environment-file-${index}`}>
+                      {content}
+                    </pre>
+                  )}
+                </div>
+              )
+            })}
         </section>
 
         <section className='environment-section'>
