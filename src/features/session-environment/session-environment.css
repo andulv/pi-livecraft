@@ -398,8 +398,8 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 8px 10px;
-  background: color-mix(in srgb, var(--ink) 3%, var(--surface));
-  color: var(--muted);
+  background: color-mix(in srgb, var(--ink) 10%, var(--surface));
+  color: var(--ink);
   font: 10.5px/1.6 ui-monospace, monospace;
   overflow-y: auto;
 }
@@ -410,21 +410,15 @@
   overflow-wrap: anywhere;
 }
 .environment-prompt-marker {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 10px 0 2px;
-  color: var(--subtle);
+  /* Bleed past the container padding so the rule spans the full block width. */
+  margin: 10px -10px 4px;
+  padding: 0 10px 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--accent-hover);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.3px;
   text-transform: uppercase;
-}
-.environment-prompt-marker::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--panel-line);
 }
 .environment-prompt-full > div:first-child .environment-prompt-marker {
   margin-top: 0;
@@ -435,8 +429,8 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 8px 10px;
-  background: color-mix(in srgb, var(--ink) 3%, var(--surface));
-  color: var(--muted);
+  background: color-mix(in srgb, var(--ink) 10%, var(--surface));
+  color: var(--ink);
   font: 10.5px/1.6 ui-monospace, monospace;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
