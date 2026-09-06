@@ -426,6 +426,7 @@
   align-items: center;
   gap: 7px;
   min-width: 0;
+  flex-wrap: wrap;
 }
 .environment-item-name {
   flex: 0 1 auto;

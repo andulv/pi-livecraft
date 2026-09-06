@@ -56,6 +56,32 @@ const fullReport = JSON.stringify({
     guidelines: ['Keep answers short.', 'Cite file paths.'],
     appendText: 'Always answer in English.',
     toolSnippets: [{ tool: 'read', text: 'Read files with the read tool.' }],
+    parts: [
+      { kind: 'base', source: 'pi', chars: 17_000 },
+      {
+        kind: 'guidelines',
+        source: 'extension',
+        ownerPath: '/home/user/.pi/agent/extensions/pi-ketch/index.ts',
+        ownerName: 'index.ts',
+        tools: ['ketch_search'],
+        chars: 90,
+        text: '- Search the live web through Ketch.',
+      },
+      {
+        kind: 'guidelines',
+        source: 'session',
+        chars: 30,
+        text: '- Unattributed workflow guidance.',
+      },
+      {
+        kind: 'context',
+        source: 'project',
+        ownerPath: '/repo/AGENTS.md',
+        ownerName: 'AGENTS.md',
+        chars: 8_400,
+        text: '# Agent instructions',
+      },
+    ],
   },
   contextFiles: [{ path: '/repo/AGENTS.md', bytes: 8_400 }],
 })
@@ -89,6 +115,32 @@ test('accepts the versioned environment payload', () => {
     guidelines: ['Keep answers short.', 'Cite file paths.'],
     appendText: 'Always answer in English.',
     toolSnippets: [{ tool: 'read', text: 'Read files with the read tool.' }],
+    parts: [
+      { kind: 'base', source: 'pi', chars: 17_000 },
+      {
+        kind: 'guidelines',
+        source: 'extension',
+        ownerPath: '/home/user/.pi/agent/extensions/pi-ketch/index.ts',
+        ownerName: 'index.ts',
+        tools: ['ketch_search'],
+        chars: 90,
+        text: '- Search the live web through Ketch.',
+      },
+      {
+        kind: 'guidelines',
+        source: 'session',
+        chars: 30,
+        text: '- Unattributed workflow guidance.',
+      },
+      {
+        kind: 'context',
+        source: 'project',
+        ownerPath: '/repo/AGENTS.md',
+        ownerName: 'AGENTS.md',
+        chars: 8_400,
+        text: '# Agent instructions',
+      },
+    ],
   })
   assert.deepEqual(snapshot.contextFiles, [{ path: '/repo/AGENTS.md', bytes: 8_400 }])
   assert.equal(snapshot.updatedAt, 1_000)
@@ -133,6 +185,19 @@ test('drops a malformed guideline list but keeps the report', () => {
   assert.equal(cache.receiveManagerEvent(setStatusEvent(JSON.stringify(malformed))), true)
   const snapshot = cache.snapshot('session-1', false)
   assert.equal(snapshot.systemPrompt?.guidelines, undefined)
+  assert.equal(snapshot.systemPrompt?.text, 'You are Pi, a coding agent…')
+})
+
+test('drops malformed prompt parts but keeps the rest of the report', () => {
+  const cache = new EnvironmentCache()
+  const malformed = JSON.parse(fullReport)
+  malformed.systemPrompt.parts = [
+    { kind: 'base', source: 'pi', chars: 5 },
+    { kind: '捣', source: 'pi', chars: 5 },
+  ]
+  assert.equal(cache.receiveManagerEvent(setStatusEvent(JSON.stringify(malformed))), true)
+  const snapshot = cache.snapshot('session-1', false)
+  assert.equal(snapshot.systemPrompt?.parts, undefined)
   assert.equal(snapshot.systemPrompt?.text, 'You are Pi, a coding agent…')
 })
 

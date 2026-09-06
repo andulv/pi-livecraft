@@ -405,6 +405,28 @@ export interface SessionEnvironmentPromptSnippet {
   text: string
 }
 
+/** Who contributed a section of the system prompt. 'session' marks contributions Pi does not attribute. */
+export type SessionEnvironmentPromptSource = 'pi' | 'sdk' | 'extension' | 'project' | 'session'
+
+/**
+ * One attributable contribution to the system prompt: who added it and the text Pi
+ * places in the prompt for it. The 'base' part has no text — Pi's default prompt is
+ * not reproducible through the public API, so it carries the remainder of the
+ * assembled prompt's size after the other parts.
+ */
+export interface SessionEnvironmentPromptPart {
+  kind: 'base' | 'guidelines' | 'snippets' | 'context' | 'custom' | 'append'
+  source: SessionEnvironmentPromptSource
+  /** Extension file, package directory, or context-file path when the owner has one. */
+  ownerPath?: string
+  /** File name of the owning extension or context file. */
+  ownerName?: string
+  /** Tool names whose snippets or guidelines this part carries. */
+  tools?: string[]
+  chars: number
+  text?: string
+}
+
 /**
  * The assembled system prompt and its structured components, with the text of each
  * inspectable part. The assembled text embeds context-file contents; the context-file
@@ -429,6 +451,8 @@ export interface SessionEnvironmentSystemPrompt {
   appendText?: string
   /** Per-tool snippets registered into the prompt. */
   toolSnippets?: SessionEnvironmentPromptSnippet[]
+  /** Prompt sections grouped by the owner that contributed them. */
+  parts?: SessionEnvironmentPromptPart[]
 }
 
 /**

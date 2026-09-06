@@ -2,7 +2,9 @@ import { isObject } from '../../../shared/is-object.ts'
 import type {
   JsonObject,
   SessionEnvironmentContextFile,
+  SessionEnvironmentPromptPart,
   SessionEnvironmentPromptSnippet,
+  SessionEnvironmentPromptSource,
   SessionEnvironmentReport,
   SessionEnvironmentSnapshot,
   SessionEnvironmentSkill,
@@ -203,6 +205,8 @@ function parseSystemPrompt(value: unknown): SessionEnvironmentSystemPrompt | und
     ? undefined
     : parseArray(prompt.toolSnippets, parsePromptSnippet)
   if (toolSnippets && toolSnippets.length > 0) entry.toolSnippets = toolSnippets
+  const parts = prompt?.parts === undefined ? undefined : parseArray(prompt.parts, parsePromptPart)
+  if (parts && parts.length > 0) entry.parts = parts
   return entry
 }
 
@@ -227,6 +231,35 @@ function parsePromptSnippet(value: unknown): SessionEnvironmentPromptSnippet | u
     tool: snippet.tool.slice(0, 120),
     text: snippet.text.slice(0, 100_000),
   }
+}
+
+const promptKinds = new Set(['base', 'guidelines', 'snippets', 'context', 'custom', 'append'])
+const promptSources = new Set(['pi', 'sdk', 'extension', 'project', 'session'])
+
+function parsePromptPart(value: unknown): SessionEnvironmentPromptPart | undefined {
+  const part = object(value)
+  if (
+    typeof part?.kind !== 'string' || !promptKinds.has(part.kind)
+    || typeof part?.source !== 'string' || !promptSources.has(part.source)
+    || !finiteNumber(part?.chars) || part.chars < 0
+  ) return undefined
+  const entry: SessionEnvironmentPromptPart = {
+    kind: part.kind as SessionEnvironmentPromptPart['kind'],
+    source: part.source as SessionEnvironmentPromptSource,
+    chars: Math.min(Math.floor(part.chars), 100_000_000),
+  }
+  if (nonEmptyString(part.ownerPath)) entry.ownerPath = part.ownerPath.slice(0, 1000)
+  if (nonEmptyString(part.ownerName)) entry.ownerName = part.ownerName.slice(0, 200)
+  if (typeof part.text === 'string') entry.text = part.text.slice(0, 2_000_000)
+  if (part.tools !== undefined) {
+    const tools = parseArray(
+      part.tools,
+      (tool) => nonEmptyString(tool) ? tool.slice(0, 120) : undefined,
+    )
+    if (!tools) return undefined
+    if (tools.length > 0) entry.tools = tools.slice(0, 200)
+  }
+  return entry
 }
 
 function count(value: unknown): number | undefined {
