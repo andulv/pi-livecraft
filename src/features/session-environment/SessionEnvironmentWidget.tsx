@@ -202,6 +202,14 @@ export function SessionEnvironmentWidget(
                             </span>
                           </div>
                         )}
+                        {section.ownerPath && (
+                          <p
+                            className='environment-prompt-marker-path'
+                            title={section.ownerPath}
+                          >
+                            {section.ownerPath}
+                          </p>
+                        )}
                         <pre className='environment-prompt-slice'>{section.text}</pre>
                       </div>
                     ))}
@@ -709,6 +717,8 @@ function promptMarkerLabel(part: SessionEnvironmentPromptPart): string {
 
 interface PromptSection {
   label: string
+  /** Owning file path; absent for Pi's own sections and unattributed contributions. */
+  ownerPath?: string
   text: string
   chars: number
 }
@@ -731,14 +741,14 @@ function buildPromptSections(prompt: SessionEnvironmentSystemPrompt): PromptSect
     .filter((part) => part.start !== undefined && part.end !== undefined)
     .sort((left, right) => (left.start ?? 0) - (right.start ?? 0))
   if (ranged.length === 0) return null
-  const sections: { label: string; text: string }[] = []
+  const sections: { label: string; ownerPath?: string; text: string }[] = []
   let pending = ''
   let cursor = 0
-  const push = (label: string, text: string): void => {
+  const push = (label: string, text: string, ownerPath?: string): void => {
     if (!text) return
     const last = sections[sections.length - 1]
-    if (last && last.label === label) last.text += text
-    else sections.push({ label, text })
+    if (last && last.label === label && last.ownerPath === ownerPath) last.text += text
+    else sections.push({ label, ...(ownerPath ? { ownerPath } : {}), text })
   }
   for (const part of ranged) {
     const start = part.start ?? 0
@@ -749,7 +759,7 @@ function buildPromptSections(prompt: SessionEnvironmentSystemPrompt): PromptSect
       else pending += gap
       cursor = start
     }
-    push(promptMarkerLabel(part), pending + prompt.text.slice(start, end))
+    push(promptMarkerLabel(part), pending + prompt.text.slice(start, end), part.ownerPath)
     pending = ''
     cursor = end
   }

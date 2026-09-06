@@ -418,6 +418,12 @@
   letter-spacing: 0;
   text-transform: none;
 }
+.environment-prompt-marker-path {
+  margin: 0 0 3px;
+  color: var(--subtle);
+  font: 9.5px/1.45 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
 .environment-prompt-full > div:first-child .environment-prompt-marker {
   margin-top: 0;
 }
