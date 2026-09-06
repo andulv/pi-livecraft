@@ -12,6 +12,13 @@
 .environment-section:last-of-type {
   border-bottom: 0;
 }
+/* Small list sections sandwiched between tall ones keep a tighter rhythm. */
+.environment-section.compact {
+  padding: 8px 0 10px;
+}
+.environment-section.compact .environment-heading {
+  margin-bottom: 6px;
+}
 .environment-heading {
   display: flex;
   align-items: center;

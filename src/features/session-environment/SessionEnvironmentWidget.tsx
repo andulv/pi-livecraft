@@ -38,7 +38,6 @@ export function SessionEnvironmentWidget(
   const [toolsSectionExpanded, setToolsSectionExpanded] = useState(true)
   const [skillsSectionExpanded, setSkillsSectionExpanded] = useState(true)
   const [expandedTool, setExpandedTool] = useState<string | null>(null)
-  const [promptExpanded, setPromptExpanded] = useState(false)
   const [expandedFile, setExpandedFile] = useState<string | null>(null)
 
   const [collapsedToolGroups, setCollapsedToolGroups] = useState<ReadonlySet<string>>(() =>
@@ -186,20 +185,7 @@ export function SessionEnvironmentWidget(
         {systemPrompt && (
           <section className='environment-section'>
             <div className='environment-heading'>
-              <h2>
-                <button
-                  aria-controls='environment-prompt-full'
-                  aria-expanded={promptExpanded}
-                  className='environment-section-toggle'
-                  onClick={() => setPromptExpanded((expanded) => !expanded)}
-                  type='button'
-                >
-                  <span aria-hidden='true' className='environment-section-chevron'>
-                    {promptExpanded ? '⌄' : '›'}
-                  </span>
-                  Assembled system prompt
-                </button>
-              </h2>
+              <h2>Assembled system prompt</h2>
               <div className='environment-heading-meta'>
                 <Tooltip label='The exact text Pi sends next turn; markers show which owner contributed each section.'>
                   <span className='environment-chip'>
@@ -211,7 +197,7 @@ export function SessionEnvironmentWidget(
                 )}
               </div>
             </div>
-            {promptExpanded && (systemPrompt.text !== undefined
+            {systemPrompt.text !== undefined
               ? (
                 <div className='environment-prompt-full' id='environment-prompt-full'>
                   {(promptSections ?? [{ label: '', text: systemPrompt.text }]).map((
@@ -231,11 +217,11 @@ export function SessionEnvironmentWidget(
                 <p className='environment-empty'>
                   Assembled text arrives with the next environment refresh.
                 </p>
-              ))}
+              )}
           </section>
         )}
 
-        <section className='environment-section'>
+        <section className='environment-section compact'>
           <div className='environment-heading'>
             <h2>Context files</h2>
             {contextFiles.length > 0 && (
