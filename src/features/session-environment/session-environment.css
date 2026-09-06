@@ -17,6 +17,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  /* Long titles squeeze the meta chips; the row wraps so chips keep their data. */
+  flex-wrap: wrap;
   margin-bottom: 12px;
 }
 .environment-heading h2 {
@@ -62,7 +64,12 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 5px;
-  min-width: 0;
+  /* Claim at least the chips' width; narrower panels wrap the row below the title. */
+  min-width: min-content;
+}
+/* Chips wrap onto their own rows instead of being starved by long section titles. */
+.environment-heading-meta .environment-chip {
+  max-width: 100%;
 }
 .environment-chip {
   flex: 0 0 auto;

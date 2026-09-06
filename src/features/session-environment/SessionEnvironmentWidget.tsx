@@ -39,6 +39,7 @@ export function SessionEnvironmentWidget(
   const [skillsSectionExpanded, setSkillsSectionExpanded] = useState(true)
   const [expandedTool, setExpandedTool] = useState<string | null>(null)
   const [promptExpanded, setPromptExpanded] = useState(false)
+  const [contextFilesSectionExpanded, setContextFilesSectionExpanded] = useState(true)
   const [collapsedToolGroups, setCollapsedToolGroups] = useState<ReadonlySet<string>>(() =>
     new Set()
   )
@@ -165,22 +166,6 @@ export function SessionEnvironmentWidget(
               </div>
             </>
           )}
-          <p className='environment-sub-label'>
-            Context files · {contextFiles.length}
-          </p>
-          {contextFiles.length === 0
-            ? <p className='environment-empty'>{emptyContextFilesText(environment)}</p>
-            : contextFiles.map((file) => (
-              <div
-                className='environment-file-row'
-                key={file.path}
-              >
-                <span aria-hidden='true' className='environment-file-glyph'>▤</span>
-                <span className='environment-file-name'>{fileNameOf(file.path)}</span>
-                <span className='environment-file-path'>{dirNameOf(file.path)}</span>
-                <span className='environment-file-size'>{formatBytes(file.bytes)}</span>
-              </div>
-            ))}
         </section>
 
         {systemPrompt && (
@@ -197,7 +182,7 @@ export function SessionEnvironmentWidget(
                   <span aria-hidden='true' className='environment-section-chevron'>
                     {promptExpanded ? '⌄' : '›'}
                   </span>
-                  Assembled prompt
+                  Assembled system prompt
                 </button>
               </h2>
               <div className='environment-heading-meta'>
@@ -234,6 +219,46 @@ export function SessionEnvironmentWidget(
               ))}
           </section>
         )}
+
+        <section className='environment-section'>
+          <div className='environment-heading'>
+            <h2>
+              <button
+                aria-controls='environment-context-files'
+                aria-expanded={contextFilesSectionExpanded}
+                className='environment-section-toggle'
+                onClick={() => setContextFilesSectionExpanded((expanded) => !expanded)}
+                type='button'
+              >
+                <span aria-hidden='true' className='environment-section-chevron'>
+                  {contextFilesSectionExpanded ? '⌄' : '›'}
+                </span>
+                Context files
+              </button>
+            </h2>
+            {contextFiles.length > 0 && (
+              <div className='environment-heading-meta'>
+                <span className='environment-chip'>
+                  {contextFiles.length} ·{' '}
+                  {formatBytes(contextFiles.reduce((total, file) => total + file.bytes, 0))}
+                </span>
+              </div>
+            )}
+          </div>
+          {contextFilesSectionExpanded && (contextFiles.length === 0
+            ? <p className='environment-empty'>{emptyContextFilesText(environment)}</p>
+            : contextFiles.map((file) => (
+              <div
+                className='environment-file-row'
+                key={file.path}
+              >
+                <span aria-hidden='true' className='environment-file-glyph'>▤</span>
+                <span className='environment-file-name'>{fileNameOf(file.path)}</span>
+                <span className='environment-file-path'>{dirNameOf(file.path)}</span>
+                <span className='environment-file-size'>{formatBytes(file.bytes)}</span>
+              </div>
+            )))}
+        </section>
 
         <section className='environment-section'>
           <div className='environment-heading'>
