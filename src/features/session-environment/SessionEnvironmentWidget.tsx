@@ -119,6 +119,17 @@ export function SessionEnvironmentWidget(
     return map
   }, [systemPrompt])
 
+  /** Exact char sizes per context file, from the same offsets as the contents. */
+  const contextFileChars = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const part of systemPrompt?.parts ?? []) {
+      if (part.kind === 'context' && part.ownerPath && part.chars !== undefined) {
+        map.set(part.ownerPath, part.chars)
+      }
+    }
+    return map
+  }, [systemPrompt])
+
   return (
     <>
       <header className='widget-header environment-header'>
@@ -226,9 +237,12 @@ export function SessionEnvironmentWidget(
             <h2>Context files</h2>
             {contextFiles.length > 0 && (
               <div className='environment-heading-meta'>
-                <span className='environment-chip'>
-                  {contextFiles.length} ·{' '}
-                  {formatBytes(contextFiles.reduce((total, file) => total + file.bytes, 0))}
+                <span className='environment-chip'>{contextFiles.length} loaded</span>
+                <span className='environment-chip muted'>
+                  {formatPromptFootprint(contextFiles.reduce(
+                    (total, file) => total + (contextFileChars.get(file.path) ?? file.bytes),
+                    0,
+                  ))}
                 </span>
               </div>
             )}
@@ -237,13 +251,14 @@ export function SessionEnvironmentWidget(
             ? <p className='environment-empty'>{emptyContextFilesText(environment)}</p>
             : contextFiles.map((file, index) => {
               const content = contextFileContent.get(file.path)
+              const chars = contextFileChars.get(file.path) ?? file.bytes
               const expanded = expandedFile === file.path
               const row = (
                 <>
                   <span aria-hidden='true' className='environment-file-glyph'>▤</span>
                   <span className='environment-file-name'>{fileNameOf(file.path)}</span>
                   <span className='environment-file-path'>{dirNameOf(file.path)}</span>
-                  <span className='environment-file-size'>{formatBytes(file.bytes)}</span>
+                  <span className='environment-file-size'>{formatPromptFootprint(chars)}</span>
                   {content !== undefined && (
                     <span aria-hidden='true' className='environment-file-chevron'>
                       {expanded ? '⌄' : '›'}
@@ -929,12 +944,6 @@ function formatRelativeDate(timestamp: number): string {
   if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`
   return new Intl.DateTimeFormat(navigator.language, { dateStyle: 'short', timeStyle: 'short' })
     .format(timestamp)
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes >= 1_048_576) return `${Math.round(bytes / 104_857.6) / 10} MB`
-  if (bytes >= 1024) return `${Math.round(bytes / 102.4) / 10} KB`
-  return `${bytes} B`
 }
 
 function fileNameOf(path: string | undefined): string {
