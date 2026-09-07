@@ -309,7 +309,29 @@ excluded panel-persistence fix.
 
 ## Deferred changes — require new evidence and a separate design
 
-### Incremental snapshot messages
+### Incremental snapshot messages (implemented 2026-09-07, commit c2a3bec)
+
+The A report showed full snapshots at 1.5–2 MB on every selection and settle, so this
+change left the deferred list with the design below, which it follows.
+
+Implemented as designed: visible messages are stamped with their snapshot `entryId`
+(additive field); `GET /api/sessions/:id/snapshot?since=<count>:<last entryId>` returns a
+`mode: 'delta'` response with only appended messages plus fresh metadata, and a `cursor`
+for the next request. The server validates the cursor against the current active chain;
+compaction, a branch change, or an unknown cursor falls back to a full snapshot. Clients
+without `since` still receive full snapshots. The client merges deltas and reuses the
+previous messages array when nothing was appended, so unchanged settles do not re-render.
+No manager or Pi RPC change was made. `get_entries` still ships full history per request:
+Pi-side history reads are not reduced, as stated above.
+
+Measured on a 1.5 MB session: warm settles returned 198 KB (metadata only; history bytes
+gone); invalid cursor returned the full 879-message snapshot. Focused coverage lives in
+`test/session-snapshot.test.ts` (append, unchanged, unknown/moved/oversized cursor,
+shrunk history) and `test/conversation-runtime.test.ts` (merge identity and full
+replacement). Residual: delta responses still re-send metadata (models, commands,
+templates) — that is B4's remaining case, and it now owns most of the delta bytes.
+
+Original design notes kept for reference:
 
 Consider only if full snapshots remain a measured cost after B. Browser deltas can reduce
 HTTP transfer and parsing but do not eliminate full-history `get_entries` RPC calls. Do not
@@ -329,6 +351,11 @@ Preserve event sequence deduplication, live replay, final-message reconciliation
 response rejection. Test append, unchanged history, branch/fork changes, compaction, unknown
 cursor, reconnect, overlapping requests, and rapid selection. Bound retained cache memory.
 No manager or Pi RPC change is authorized by this plan.
+
+Implemented alongside it (commit 88c19e9): the manager-event subscription no longer
+resubscribes when workspace-dependent handlers change identity. A's workspace-switch case
+measured one `/api/events` reconnect per switch; after the change, six switches produced
+zero reconnects.
 
 ### Session-index optimization
 

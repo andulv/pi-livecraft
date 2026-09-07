@@ -1,6 +1,6 @@
 # Conversation
 
-`useConversationRuntime` owns state for the selected Pi conversation: snapshots, streamed messages, steering queue reconciliation, activity, tool execution updates, observed durations, event sequences, and replay of snapshot `liveEvents`. It rejects stale snapshot responses and batches assistant deltas with `requestAnimationFrame`.
+`useConversationRuntime` owns state for the selected Pi conversation: snapshots, streamed messages, steering queue reconciliation, activity, tool execution updates, observed durations, event sequences, and replay of snapshot `liveEvents`. It rejects stale snapshot responses and batches assistant deltas with `requestAnimationFrame`. Automatic snapshot refreshes are deferred while the page is hidden and reconciled by one catch-up fetch on return, and warm fetches send an entry-id cursor so the backend returns only appended messages; an empty delta reuses the previous messages array, leaving unchanged history un-rendered.
 
 Pi persists failed provider responses as assistant messages with `stopReason: "error"`, often with no content. The thread keeps those messages visible, presents Pi's safe error message, and retries the preceding user prompt when one is available.
 
@@ -13,6 +13,8 @@ Pure protocol, reconciliation, and display rules stay separate:
 - `message-display.ts` identifies protocol content visible in the thread;
 - `tool-presentation.ts` and `tool-call-presentations/` describe tool-specific display;
 - `event-sequence.ts` accepts new sequence numbers and rejects duplicates.
+- `snapshot-gate.ts` decides when automatic snapshots may run and defers them while hidden.
+- `snapshot-merge.ts` folds full and delta snapshot responses into the held snapshot.
 
 Presentation follows the same ownership boundaries:
 
