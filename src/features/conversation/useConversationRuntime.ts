@@ -8,6 +8,7 @@ import { isObject } from '../../../shared/is-object.ts'
 import type { JsonObject, SessionSnapshot } from '../../../shared/types.ts'
 import { activityForPiEvent, type Activity } from './activity.ts'
 import { advanceEventSequence } from './event-sequence.ts'
+import { SnapshotGate } from './snapshot-gate.ts'
 import type { LiveMessage } from './message-reconciliation.ts'
 import {
   applyToolCallUpdate,
@@ -70,6 +71,8 @@ export function useConversationRuntime(
   const liveMessageIndexRef = useRef(-1)
   const pendingLiveMessagesRef = useRef<LiveMessage[] | undefined>(undefined)
   const liveUpdateFrameRef = useRef<number | undefined>(undefined)
+  const snapshotGateRef = useRef<SnapshotGate | undefined>(undefined)
+  snapshotGateRef.current ??= new SnapshotGate(document.hidden)
   selectedIdRef.current = selectedId
 
   /** Applies the latest streamed assistant messages at most once per rendered frame. */
@@ -170,6 +173,8 @@ export function useConversationRuntime(
           ) onError(cause)
           return nextSnapshot
         }
+        if (snapshotGateRef.current?.followUp(sessionId, request.needsRefresh))
+          request.needsRefresh = false
       } while (request.needsRefresh && !request.cancelled)
       return nextSnapshot
     })()
@@ -179,6 +184,24 @@ export function useConversationRuntime(
     snapshotRefreshRef.current = request
     return request.promise
   }, [clearLiveMessages, flushLiveUpdates, onError, replayEvent])
+
+  /** Runs an automatic snapshot now, or defers it while the page is hidden. */
+  const scheduleSnapshot = useCallback((sessionId: string): void => {
+    if (snapshotGateRef.current?.schedule(sessionId) === 'deferred') return
+    void refreshSnapshot(sessionId)
+  }, [refreshSnapshot])
+
+  /** On return to a visible page, one catch-up snapshot reconciles deferred updates. */
+  useEffect(() => {
+    const onVisibilityChange = (): void => {
+      if (
+        snapshotGateRef.current?.visibilityChanged(document.hidden, selectedIdRef.current) === 'run'
+      )
+        void refreshSnapshot(selectedIdRef.current)
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [refreshSnapshot])
 
   /** Applies a selected-session Pi event once, preserving stream sequence and replay order. */
   const handlePiEvent = useCallback(
@@ -193,7 +216,10 @@ export function useConversationRuntime(
         )
         const version = ++queueUpdateVersionRef.current
         setPendingSteering((current) => steering.length > current.length ? steering : current)
-        void refreshSnapshot(sessionId).finally(() => {
+        const reconciled = snapshotGateRef.current?.schedule(sessionId) === 'run'
+          ? refreshSnapshot(sessionId)
+          : undefined
+        void (reconciled ?? Promise.resolve()).finally(() => {
           if (version === queueUpdateVersionRef.current && sessionId === selectedIdRef.current)
             setPendingSteering(steering)
         })
@@ -243,7 +269,7 @@ export function useConversationRuntime(
         setToolExecutions((current) =>
           current.map((execution) => execution.id === id ? { ...execution, result } : execution)
         )
-        void refreshSnapshot(sessionId)
+        scheduleSnapshot(sessionId)
       }
       setActivity((current) => {
         const next = activityForPiEvent(current, event)
@@ -284,7 +310,10 @@ export function useConversationRuntime(
       if (event.type === 'message_end' || event.type === 'agent_settled') {
         flushLiveUpdates()
         setToolExecutions(interruptToolCallGeneration)
-        void refreshSnapshot(sessionId).then((nextSnapshot) => {
+        const settledSnapshot = snapshotGateRef.current?.schedule(sessionId) === 'run'
+          ? refreshSnapshot(sessionId)
+          : undefined
+        void settledSnapshot?.then((nextSnapshot) => {
           if (!nextSnapshot || settledRequestDuration === undefined) return
           const requestTimestamp = lastUserTimestamp(nextSnapshot.messages)
           if (requestTimestamp !== undefined)
@@ -294,10 +323,11 @@ export function useConversationRuntime(
         })
       }
     },
-    [flushLiveUpdates, queueLiveMessage, refreshSnapshot],
+    [flushLiveUpdates, queueLiveMessage, refreshSnapshot, scheduleSnapshot],
   )
 
   useEffect(() => {
+    snapshotGateRef.current?.selectionChanged()
     clearLiveMessages()
     appliedPiEventSequenceRef.current = 0
     snapshotSessionIdRef.current = ''
