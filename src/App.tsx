@@ -991,6 +991,12 @@ function LivecraftProjectApp(
     ],
   )
   replayPiEventRef.current = handleManagerPiEvent
+  // The subscription below must not resubscribe when workspace-dependent handlers change
+  // identity: every resubscription reconnects /api/events and replays the event stream.
+  const refreshSessionsRef = useRef<() => void>(() => undefined)
+  refreshSessionsRef.current = refreshSessions
+  const updateSessionRef = useRef(updateSession)
+  updateSessionRef.current = updateSession
 
   useEffect(() =>
     subscribeManagerEvents((managerEvent) => {
@@ -1004,13 +1010,13 @@ function LivecraftProjectApp(
       if (managerEvent.event === 'manager_status' && isManagerRuntimeStatus(managerEvent.data))
         setManagerRuntimeStatus(managerEvent.data)
       if (managerEvent.event === 'session_exited') {
-        updateSession(managerEvent.sessionId, { status: 'exited' })
+        updateSessionRef.current(managerEvent.sessionId, { status: 'exited' })
       } else if (
         managerEvent.event === 'manager_connected' || managerEvent.event === 'session_created'
         || managerEvent.event === 'session_reassigned'
-      ) void refreshSessions()
+      ) void refreshSessionsRef.current()
       if (managerEvent.event === 'pi' && isObject(managerEvent.data))
-        handleManagerPiEvent(
+        replayPiEventRef.current(
           managerEvent.sessionId,
           managerEvent.data,
           managerEvent.sequence,
