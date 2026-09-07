@@ -226,6 +226,8 @@ export interface PromptTemplate {
 }
 
 export interface ConversationMessage extends JsonObject {
+  /** Snapshot entry this message was built from; absent only for legacy or id-less entries. */
+  entryId?: string
   forkEntryId?: string
   /** Reasoning effort in effect when Pi generated an assistant response, stamped from
    * thinking_level_change entries during snapshot assembly; undefined when never switched. */
@@ -261,7 +263,18 @@ export interface SessionSnapshot {
   promptTemplates: PromptTemplate[]
   stats: SessionStats | null
   liveEvents: Array<{ data: JsonObject; sequence: number }>
+  /** Names the returned history for incremental fetches: `<count>:<last entryId>`. */
+  cursor?: string
 }
+
+/** Delta snapshot for a client whose history prefix is still the active chain head. */
+export interface SessionSnapshotDelta extends Omit<SessionSnapshot, 'messages'> {
+  mode: 'delta'
+  appended: ConversationMessage[]
+  cursor: string
+}
+
+export type SessionSnapshotResponse = SessionSnapshot | SessionSnapshotDelta
 
 export interface OpenAiQuotaWindow {
   period: '5h' | '7d'

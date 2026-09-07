@@ -5,9 +5,10 @@ import {
   assistantMessageInEvent,
 } from '../../../shared/assistant-message-stream.ts'
 import { isObject } from '../../../shared/is-object.ts'
-import type { JsonObject, SessionSnapshot } from '../../../shared/types.ts'
+import type { JsonObject, SessionSnapshot, SessionSnapshotResponse } from '../../../shared/types.ts'
 import { activityForPiEvent, type Activity } from './activity.ts'
 import { advanceEventSequence } from './event-sequence.ts'
+import { mergeSnapshotResponse } from './snapshot-merge.ts'
 import { SnapshotGate } from './snapshot-gate.ts'
 import type { LiveMessage } from './message-reconciliation.ts'
 import {
@@ -38,7 +39,7 @@ interface SnapshotRefreshRequest {
   sessionId: string
   needsRefresh: boolean
   cancelled: boolean
-  promise: Promise<SessionSnapshot | undefined>
+  promise: Promise<SessionSnapshotResponse | undefined>
 }
 
 /** Owns the selected conversation snapshot, live stream, replay, tools, and timing state. */
@@ -73,6 +74,7 @@ export function useConversationRuntime(
   const liveUpdateFrameRef = useRef<number | undefined>(undefined)
   const snapshotGateRef = useRef<SnapshotGate | undefined>(undefined)
   snapshotGateRef.current ??= new SnapshotGate(document.hidden)
+  const snapshotCursorRef = useRef('')
   selectedIdRef.current = selectedId
 
   /** Applies the latest streamed assistant messages at most once per rendered frame. */
@@ -111,11 +113,14 @@ export function useConversationRuntime(
   }, [])
 
   /** Synchronizes the selected snapshot and replays newer buffered manager events. */
-  const refreshSnapshot = useCallback((sessionId: string): Promise<SessionSnapshot | undefined> => {
+  const refreshSnapshot = useCallback((
+    sessionId: string,
+  ): Promise<SessionSnapshotResponse | undefined> => {
     if (!sessionId) {
       const current = snapshotRefreshRef.current
       if (current) current.cancelled = true
       snapshotSessionIdRef.current = ''
+      snapshotCursorRef.current = ''
       setSnapshot(emptySnapshot)
       setSnapshotSessionId('')
       return Promise.resolve(undefined)
@@ -132,7 +137,7 @@ export function useConversationRuntime(
       cancelled: false,
     } as SnapshotRefreshRequest
     request.promise = (async () => {
-      let nextSnapshot: SessionSnapshot | undefined
+      let nextSnapshot: SessionSnapshotResponse | undefined
       // Fetch a newly selected session immediately, while retaining debounce for later refreshes.
       let delayNextRefresh = snapshotSessionIdRef.current === sessionId
       do {
@@ -143,21 +148,30 @@ export function useConversationRuntime(
         request.needsRefresh = false
         const version = ++snapshotRefreshVersionRef.current
         try {
-          nextSnapshot = await getSnapshot(sessionId)
+          const since = snapshotCursorRef.current || undefined
+          nextSnapshot = await getSnapshot(
+            sessionId,
+            delayNextRefresh && snapshotSessionIdRef
+                  .current === sessionId
+              ? since
+              : undefined,
+          )
           if (request.cancelled) return nextSnapshot
           if (version !== snapshotRefreshVersionRef.current || sessionId !== selectedIdRef.current)
             return nextSnapshot
           flushLiveUpdates()
           snapshotSessionIdRef.current = sessionId
-          setSnapshot(nextSnapshot)
+          const response = nextSnapshot
+          setSnapshot((current) => mergeSnapshotResponse(current, response))
+          snapshotCursorRef.current = response.cursor ?? ''
           setSnapshotSessionId(sessionId)
-          const latestLiveSequence = nextSnapshot.liveEvents.at(-1)?.sequence ?? 0
+          const latestLiveSequence = response.liveEvents.at(-1)?.sequence ?? 0
           if (latestLiveSequence > appliedPiEventSequenceRef.current) {
             clearLiveMessages()
             setActivity(null)
             setToolExecutions([])
             appliedPiEventSequenceRef.current = 0
-            for (const liveEvent of nextSnapshot.liveEvents) {
+            for (const liveEvent of response.liveEvents) {
               replayEvent(
                 sessionId,
                 liveEvent.data,
@@ -166,6 +180,7 @@ export function useConversationRuntime(
             }
           }
         } catch (cause) {
+          snapshotCursorRef.current = ''
           if (
             !request.cancelled
             && version === snapshotRefreshVersionRef.current
@@ -315,7 +330,10 @@ export function useConversationRuntime(
           : undefined
         void settledSnapshot?.then((nextSnapshot) => {
           if (!nextSnapshot || settledRequestDuration === undefined) return
-          const requestTimestamp = lastUserTimestamp(nextSnapshot.messages)
+          // A delta never contains the settled request's own user message.
+          const requestTimestamp = 'messages' in nextSnapshot
+            ? lastUserTimestamp(nextSnapshot.messages)
+            : undefined
           if (requestTimestamp !== undefined)
             setObservedRequestDurations((current) =>
               new Map(current).set(requestTimestamp, settledRequestDuration)
@@ -328,6 +346,7 @@ export function useConversationRuntime(
 
   useEffect(() => {
     snapshotGateRef.current?.selectionChanged()
+    snapshotCursorRef.current = ''
     clearLiveMessages()
     appliedPiEventSequenceRef.current = 0
     snapshotSessionIdRef.current = ''

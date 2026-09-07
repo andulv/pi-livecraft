@@ -46,7 +46,12 @@ import {
   resolveWorkspaceFilePath,
   WorkspaceFileError,
 } from './workspace-file.ts'
-import { activeSessionMessages, LiveSessionEvents } from './session-snapshot.ts'
+import {
+  activeSessionMessages,
+  LiveSessionEvents,
+  sliceSnapshotDelta,
+  snapshotCursor,
+} from './session-snapshot.ts'
 import { loadPromptTemplates, savePromptTemplate } from './prompt-templates.ts'
 import { responseControlsReport } from '../shared/response-controls.ts'
 import { externalWorkspacePath, openPath } from './system-integration.ts'
@@ -528,6 +533,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   const snapshotMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/snapshot$/)
   if (method === 'GET' && snapshotMatch) {
     const sessionId = decodeURIComponent(snapshotMatch[1])
+    const since = url.searchParams.get('since') ?? ''
     const [state, entries, models, commands, stats, forkMessages, thinkingLevels] = await Promise
       .all([
         piCommand(sessionId, { type: 'get_state' }),
@@ -544,13 +550,37 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         typeof message.entryId === 'string' ? [message.entryId] : []
       ),
     )
+    const messages = activeSessionMessages(
+      arrayData(entries, 'entries'),
+      objectData(entries)?.leafId,
+      forkEntryIds,
+    )
+    const cursor = snapshotCursor(messages)
+    const delta = since === '' ? undefined : sliceSnapshotDelta(messages, since)
+    if (delta?.mode === 'delta') {
+      sendJson(response, 200, {
+        state: objectData(state),
+        models: arrayData(models, 'models'),
+        thinkingLevels: stringArrayData(thinkingLevels, 'levels'),
+        responseControls: responseControlsReport(
+          arrayData(entries, 'entries'),
+          objectData(entries)?.leafId,
+          objectData(state)?.model,
+          commandList.some((command) => command.name === 'livecraft-response-controls'),
+        ),
+        commands: commandList,
+        promptTemplates: await loadPromptTemplates(commandList),
+        stats: objectData(stats),
+        liveEvents: liveSessionEvents.get(sessionId)?.snapshot() ?? [],
+        mode: 'delta',
+        appended: delta.appended,
+        cursor: delta.cursor,
+      })
+      return
+    }
     const snapshot: SessionSnapshot = {
       state: objectData(state),
-      messages: activeSessionMessages(
-        arrayData(entries, 'entries'),
-        objectData(entries)?.leafId,
-        forkEntryIds,
-      ),
+      messages,
       models: arrayData(models, 'models'),
       thinkingLevels: stringArrayData(thinkingLevels, 'levels'),
       responseControls: responseControlsReport(
@@ -563,6 +593,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       promptTemplates: await loadPromptTemplates(commandList),
       stats: objectData(stats),
       liveEvents: liveSessionEvents.get(sessionId)?.snapshot() ?? [],
+      cursor,
     }
     sendJson(response, 200, snapshot)
     return

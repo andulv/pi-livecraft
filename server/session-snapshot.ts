@@ -104,12 +104,16 @@ export function activeSessionMessages(
         if (typeof entry.thinkingLevel === 'string') thinkingLevel = entry.thinkingLevel
         return []
       }
-      return messageFromEntry(entry, forkEntryIds).map((message) =>
-        message.role === 'assistant' && thinkingLevel !== undefined
-          && message.thinkingLevel === undefined
-          ? { ...message, thinkingLevel }
-          : message
-      )
+      return messageFromEntry(entry, forkEntryIds).map((message) => {
+        const stamped = {
+          ...(typeof entry.id === 'string' ? { entryId: entry.id } : {}),
+          ...message,
+        }
+        return message.role === 'assistant' && thinkingLevel !== undefined
+            && message.thinkingLevel === undefined
+          ? { ...stamped, thinkingLevel }
+          : stamped
+      })
     }),
   )
 }
@@ -123,6 +127,34 @@ export function visibleSessionMessages(messages: JsonObject[]): JsonObject[] {
     || (message.role === 'custom' && message.display === true
       && typeof message.customType === 'string')
   )
+}
+
+/** Names the current visible history so a client can request only later messages. */
+export function snapshotCursor(messages: ConversationMessage[]): string {
+  const last = messages.at(-1)
+  return `${messages.length}:${typeof last?.entryId === 'string' ? last.entryId : ''}`
+}
+
+/** Splits a fresh snapshot for a client holding `since` (`<count>:<last entryId>`).
+ *  The cursor is valid only when the exact prefix is still the current active chain:
+ *  compaction, a branch change, or an unknown cursor falls back to a full snapshot. */
+export function sliceSnapshotDelta(
+  messages: ConversationMessage[],
+  since: string,
+): { mode: 'delta'; appended: ConversationMessage[]; cursor: string } | {
+  mode: 'full'
+  cursor: string
+} {
+  const cursor = snapshotCursor(messages)
+  const separator = since.indexOf(':')
+  if (separator < 0) return { mode: 'full', cursor }
+  const count = Number(since.slice(0, separator))
+  const entryId = since.slice(separator + 1)
+  if (!Number.isInteger(count) || count < 0 || count > messages.length || !entryId)
+    return { mode: 'full', cursor }
+  const anchor = messages[count - 1]
+  if (!anchor || anchor.entryId !== entryId) return { mode: 'full', cursor }
+  return { mode: 'delta', appended: messages.slice(count), cursor }
 }
 
 function messageFromEntry(

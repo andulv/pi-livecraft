@@ -22,6 +22,7 @@ import type {
   RecentSession,
   SessionEnvironmentSnapshot,
   SessionSnapshot,
+  SessionSnapshotDelta,
   SessionSummary,
   TerminalInstanceTarget,
   TerminalSessionStatus,
@@ -273,8 +274,16 @@ export async function renameSession(
   })
 }
 
-export async function getSnapshot(sessionId: string): Promise<SessionSnapshot> {
-  return request<SessionSnapshot>(`/api/sessions/${encodeURIComponent(sessionId)}/snapshot`)
+export type SessionSnapshotResponse = SessionSnapshot | SessionSnapshotDelta
+
+export async function getSnapshot(
+  sessionId: string,
+  since?: string,
+): Promise<SessionSnapshotResponse> {
+  const query = since ? `?since=${encodeURIComponent(since)}` : ''
+  return request<SessionSnapshotResponse>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/snapshot${query}`,
+  )
 }
 
 export async function getQuotas(): Promise<QuotaSnapshot> {

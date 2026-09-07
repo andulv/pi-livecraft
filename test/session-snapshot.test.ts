@@ -3,6 +3,8 @@ import test from 'node:test'
 import {
   activeSessionMessages,
   LiveSessionEvents,
+  sliceSnapshotDelta,
+  snapshotCursor,
   visibleSessionMessages,
 } from '../server/session-snapshot.ts'
 
@@ -115,10 +117,16 @@ test('keeps the active conversation before and after compaction', () => {
   ], 'user-2')
 
   assert.deepEqual(messages, [
-    { role: 'user', content: 'Original request' },
-    { role: 'assistant', content: 'Original response' },
-    { role: 'custom', customType: 'compaction', content: 'Summary', display: true },
-    { role: 'user', content: 'Continue' },
+    { entryId: 'user-1', role: 'user', content: 'Original request' },
+    { entryId: 'assistant-1', role: 'assistant', content: 'Original response' },
+    {
+      entryId: 'compact-1',
+      role: 'custom',
+      customType: 'compaction',
+      content: 'Summary',
+      display: true,
+    },
+    { entryId: 'user-2', role: 'user', content: 'Continue' },
   ])
 })
 
@@ -199,9 +207,9 @@ test('marks forkable user messages by entry ID instead of duplicated text', () =
   )
 
   assert.deepEqual(messages, [
-    { role: 'user', content: 'Repeat this' },
-    { role: 'assistant', content: 'Done' },
-    { role: 'user', content: 'Repeat this', forkEntryId: 'user-2' },
+    { entryId: 'user-1', role: 'user', content: 'Repeat this' },
+    { entryId: 'assistant-1', role: 'assistant', content: 'Done' },
+    { entryId: 'user-2', role: 'user', content: 'Repeat this', forkEntryId: 'user-2' },
   ])
 })
 
@@ -218,8 +226,8 @@ test('filters compaction entries without a string summary', () => {
   ], 'user-2')
 
   assert.deepEqual(messages, [
-    { role: 'user', content: 'Hello' },
-    { role: 'user', content: 'World' },
+    { entryId: 'user-1', role: 'user', content: 'Hello' },
+    { entryId: 'user-2', role: 'user', content: 'World' },
   ])
 })
 
@@ -245,4 +253,69 @@ test('keeps visible custom messages out of hidden extension context', () => {
       visible,
     ],
   )
+})
+
+test('stamps each visible message with its snapshot entry id', () => {
+  const messages = activeSessionMessages(
+    [
+      { type: 'message', id: 'e1', message: { role: 'user', content: 'Hello' } },
+      { type: 'thinking_level_change', id: 'e2', parentId: 'e1', thinkingLevel: 'high' },
+      { type: 'message', id: 'e3', parentId: 'e2', message: { role: 'assistant', content: [] } },
+    ],
+    'e3',
+  )
+
+  assert.deepEqual(messages.map(({ entryId }) => entryId), ['e1', 'e3'])
+  assert.equal(snapshotCursor(messages), '2:e3')
+})
+
+test('appends only messages newer than a valid cursor', () => {
+  const messages = activeSessionMessages(
+    [
+      { type: 'message', id: 'e1', message: { role: 'user', content: 'Hello' } },
+      { type: 'message', id: 'e2', parentId: 'e1', message: { role: 'assistant', content: [] } },
+    ],
+    'e2',
+  )
+
+  const delta = sliceSnapshotDelta(messages, '1:e1')
+  assert.equal(delta.mode, 'delta')
+  assert.deepEqual(delta.mode === 'delta' && delta.appended, [messages[1]])
+  assert.equal(delta.cursor, '2:e2')
+})
+
+test('reports an empty delta when the client already holds the full history', () => {
+  const messages = activeSessionMessages(
+    [{ type: 'message', id: 'e1', message: { role: 'user', content: 'Hello' } }],
+    'e1',
+  )
+
+  const delta = sliceSnapshotDelta(messages, snapshotCursor(messages))
+  assert.equal(delta.mode, 'delta')
+  assert.deepEqual(delta.mode === 'delta' && delta.appended, [])
+})
+
+test('falls back to a full snapshot for unknown, moved, or oversized cursors', () => {
+  const messages = activeSessionMessages(
+    [
+      { type: 'message', id: 'e1', message: { role: 'user', content: 'Hello' } },
+      { type: 'message', id: 'e2', parentId: 'e1', message: { role: 'assistant', content: [] } },
+    ],
+    'e2',
+  )
+
+  assert.equal(sliceSnapshotDelta(messages, '2:zzz').mode, 'full')
+  assert.equal(sliceSnapshotDelta(messages, '3:e2').mode, 'full')
+  assert.equal(sliceSnapshotDelta(messages, '1:e2').mode, 'full')
+  assert.equal(sliceSnapshotDelta(messages, 'junk').mode, 'full')
+  assert.equal(sliceSnapshotDelta(messages, '0:').mode, 'full')
+})
+
+test('falls back to a full snapshot after history shrinks behind the cursor', () => {
+  const shrunk = activeSessionMessages(
+    [{ type: 'message', id: 'e2', message: { role: 'assistant', content: [] } }],
+    'e2',
+  )
+
+  assert.equal(sliceSnapshotDelta(shrunk, '2:e2').mode, 'full')
 })
