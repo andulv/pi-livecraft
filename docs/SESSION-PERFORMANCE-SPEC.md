@@ -273,7 +273,18 @@ Proof: tests for relevant, unrelated, and unknown ownership; missing optional da
 of the selected session; and reconnect. With two project tabs, a known unrelated creation
 must not trigger the other project's list scan. Unknown reassignment must still reconcile.
 
-### B4. Cache metadata only with a complete freshness policy
+### B4. Cache metadata only with a complete freshness policy (implemented 2026-09-07)
+
+Implemented per the policy table in
+[`server/features/session-metadata/README.md`](/server/features/session-metadata/README.md):
+models, commands, model-keyed thinking levels, fork messages, and prompt templates are
+cached per session (LRU, 20 sessions, 60 s fallback expiry); state, entries, and stats
+stay fresh. Invalidation covers model change, save-template, session exit/reassignment,
+and manager disconnect/reconnect; loads are combined per key; failures are not cached.
+Measured: `templatesMs` ~0.02 ms on hits and 4 metadata RPCs skipped per warm snapshot
+(20 hits / 5 misses live); diagnostics gained cache hit/miss counters. The warm-delta
+payload still carries metadata (~198 KB) because the response shape is preserved —
+trimming it further is a separate contract change.
 
 Owner: snapshot assembly in `server/backend.ts` and its existing template loader. Start only
 if A shows material metadata cost. Do not cache full history as part of this task.

@@ -85,6 +85,10 @@ export function DiagnosticsWidget() {
                 <code>{snapshot.errors}</code>
                 <span>SSE opens</span>
                 <code>{snapshot.sseOpens}</code>
+                <span>Cache hit</span>
+                <code>{snapshot.cache.hits}</code>
+                <span>Cache miss</span>
+                <code>{snapshot.cache.misses}</code>
               </div>
             </section>
             {snapshot.recentStages.length > 0 && (

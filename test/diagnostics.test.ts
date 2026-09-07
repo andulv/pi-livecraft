@@ -22,9 +22,12 @@ test('counts errors and SSE openings separately from requests', () => {
   diagnostics.error('sessions/:id/snapshot')
   diagnostics.sseOpen()
 
+  diagnostics.cacheHit()
+  diagnostics.cacheMiss()
   const state = diagnostics.snapshotState()
   assert.equal(state.errors, 1)
   assert.equal(state.sseOpens, 1)
+  assert.deepEqual(state.cache, { hits: 1, misses: 1 })
   assert.equal(state.requests.sessions, 1)
   assert.ok(state.recentEvents.some((event) => event.kind === 'error' && !event.ok))
 })

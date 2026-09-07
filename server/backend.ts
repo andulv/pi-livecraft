@@ -35,6 +35,7 @@ import {
   TerminalService,
 } from './features/terminal/session.ts'
 import { DiagnosticsRecorder } from './features/diagnostics/diagnostics.ts'
+import { MetadataCache } from './features/session-metadata/metadata-cache.ts'
 import { openSseStream, parseSseLastEventId } from './sse-response.ts'
 import {
   openVSCodeApplication,
@@ -77,6 +78,7 @@ const distDirectory = fileURLToPath(new URL('../dist/', import.meta.url))
 const quotas = new QuotaService(manager)
 const environment = new EnvironmentService(manager)
 const diagnostics = new DiagnosticsRecorder()
+const metadata = new MetadataCache()
 const browsers = new BrowserService()
 process.once('exit', () => browsers.killSync())
 const terminals = new TerminalService()
@@ -88,8 +90,10 @@ const managerRuntime = new ManagerRuntimeMonitor(manager, (status) => {
 manager.on('event', (event: ManagerEvent) => {
   quotas.receiveManagerEvent(event)
   environment.receiveManagerEvent(event)
-  if (event.event === 'session_exited' || event.event === 'session_reassigned')
+  if (event.event === 'session_exited' || event.event === 'session_reassigned') {
+    metadata.dropSession(event.sessionId)
     liveSessionEvents.delete(event.sessionId)
+  }
   if (event.event === 'pi' && isObject(event.data)) {
     logProviderFailure(event.sessionId, event.data)
     const sequence = ++piEventSequence
@@ -103,12 +107,14 @@ manager.on('event', (event: ManagerEvent) => {
 })
 manager.on('connected', () => {
   managerRuntime.connected()
+  metadata.clear()
   broadcast({ kind: 'event', event: 'manager_connected', sessionId: '' })
   void quotas.restoreFromIdleSession()
   void environment.restoreFromIdleSession()
 })
 manager.on('disconnected', () => {
   managerRuntime.disconnected()
+  metadata.clear()
   broadcast({ kind: 'event', event: 'manager_disconnected', sessionId: '' })
 })
 managerRuntime.start()
@@ -477,7 +483,9 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       throw new HttpError(400, 'Prompt content must contain between 1 and 100,000 characters')
     try {
       const cwd = await resolveWorkingDirectory(body.cwd)
-      sendJson(response, 201, await savePromptTemplate(cwd, body.scope, body.name, body.content))
+      const saved = await savePromptTemplate(cwd, body.scope, body.name, body.content)
+      metadata.invalidatePrefix('templates:')
+      sendJson(response, 201, saved)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'EEXIST')
         throw new HttpError(409, `Prompt “${body.name}” already exists in this location`)
@@ -549,20 +557,51 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     const sessionId = decodeURIComponent(snapshotMatch[1])
     const since = url.searchParams.get('since') ?? ''
     const snapshotStartedAt = performance.now()
-    const [state, entries, models, commands, stats, forkMessages, thinkingLevels] = await Promise
-      .all([
-        piCommand(sessionId, { type: 'get_state' }),
-        piCommand(sessionId, { type: 'get_entries' }),
-        piCommand(sessionId, { type: 'get_available_models' }),
-        piCommand(sessionId, { type: 'get_commands' }),
-        piCommand(sessionId, { type: 'get_session_stats' }),
-        piCommand(sessionId, { type: 'get_fork_messages' }),
-        piCommand(sessionId, { type: 'get_available_thinking_levels' }),
-      ])
+    // State, entries, and stats must stay fresh; models, commands, thinking levels, fork
+    // messages, and templates go through the metadata cache (see its README policy table).
+    const statePromise = piCommand(sessionId, { type: 'get_state' })
+    const entriesPromise = piCommand(sessionId, { type: 'get_entries' })
+    const statsPromise = piCommand(sessionId, { type: 'get_session_stats' })
+    const modelsResult = await metadata.load(
+      `models:${sessionId}`,
+      async () => arrayData(await piCommand(sessionId, { type: 'get_available_models' }), 'models'),
+    )
+    const commandsResult = await metadata.load(
+      `commands:${sessionId}`,
+      async () => arrayData(await piCommand(sessionId, { type: 'get_commands' }), 'commands'),
+    )
+    const forkResult = await metadata.load(
+      `fork:${sessionId}`,
+      async () => arrayData(await piCommand(sessionId, { type: 'get_fork_messages' }), 'messages'),
+    )
+    const state = await statePromise
+    const stateData = objectData(state)
+    const modelId = typeof stateData?.model === 'string' ? stateData.model : ''
+    const thinkingResult = await metadata.load(
+      `thinking:${sessionId}`,
+      async () =>
+        stringArrayData(
+          await piCommand(sessionId, { type: 'get_available_thinking_levels' }),
+          'levels',
+        ),
+      modelId,
+    )
+    for (const result of [modelsResult, commandsResult, forkResult, thinkingResult]) {
+      if (result.cached) diagnostics.cacheHit()
+      else diagnostics.cacheMiss()
+    }
+    const [entries, models, commands, stats, forkMessages, thinkingLevels] = await Promise.all([
+      entriesPromise,
+      modelsResult.value,
+      commandsResult.value,
+      statsPromise,
+      forkResult.value,
+      thinkingResult.value,
+    ])
     const rpcMs = Math.round((performance.now() - snapshotStartedAt) * 100) / 100
-    const commandList = arrayData(commands, 'commands')
+    const commandList = commands
     const forkEntryIds = new Set(
-      arrayData(forkMessages, 'messages').flatMap((message) =>
+      forkMessages.flatMap((message) =>
         typeof message.entryId === 'string' ? [message.entryId] : []
       ),
     )
@@ -574,19 +613,25 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     )
     const buildMs = Math.round((performance.now() - buildStartedAt) * 100) / 100
     const templatesStartedAt = performance.now()
-    const promptTemplates = await loadPromptTemplates(commandList)
+    const templatesResult = await metadata.load(
+      `templates:${sessionId}`,
+      () => loadPromptTemplates(commandList),
+    )
+    if (templatesResult.cached) diagnostics.cacheHit()
+    else diagnostics.cacheMiss()
+    const promptTemplates = templatesResult.value
     const templatesMs = Math.round((performance.now() - templatesStartedAt) * 100) / 100
     const cursor = snapshotCursor(messages)
     const delta = since === '' ? undefined : sliceSnapshotDelta(messages, since)
     if (delta?.mode === 'delta') {
       const bytes = sendJson(response, 200, {
-        state: objectData(state),
-        models: arrayData(models, 'models'),
-        thinkingLevels: stringArrayData(thinkingLevels, 'levels'),
+        state: stateData,
+        models,
+        thinkingLevels,
         responseControls: responseControlsReport(
           arrayData(entries, 'entries'),
           objectData(entries)?.leafId,
-          objectData(state)?.model,
+          stateData?.model,
           commandList.some((command) => command.name === 'livecraft-response-controls'),
         ),
         commands: commandList,
@@ -608,14 +653,14 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       return
     }
     const snapshot: SessionSnapshot = {
-      state: objectData(state),
+      state: stateData,
       messages,
-      models: arrayData(models, 'models'),
-      thinkingLevels: stringArrayData(thinkingLevels, 'levels'),
+      models,
+      thinkingLevels,
       responseControls: responseControlsReport(
         arrayData(entries, 'entries'),
         objectData(entries)?.leafId,
-        objectData(state)?.model,
+        stateData?.model,
         commandList.some((command) => command.name === 'livecraft-response-controls'),
       ),
       commands: commandList,

@@ -307,6 +307,7 @@ export interface DiagnosticsSnapshot {
   errors: number
   sseOpens: number
   snapshots: { full: number; delta: number; fullBytes: number; deltaBytes: number }
+  cache: { hits: number; misses: number }
   recentEvents: DiagnosticEventEntry[]
   recentStages: SnapshotStageEntry[]
 }

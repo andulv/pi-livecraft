@@ -31,6 +31,7 @@ export class DiagnosticsRecorder {
   #errors = 0
   #sseOpens = 0
   #snapshots = { full: 0, delta: 0, fullBytes: 0, deltaBytes: 0 }
+  #cache = { hits: 0, misses: 0 }
 
   /** Counts one API request under its route template. */
   request(route: string): void {
@@ -48,6 +49,15 @@ export class DiagnosticsRecorder {
   sseOpen(): void {
     this.#sseOpens += 1
     this.#push({ kind: 'sse-open', ok: true })
+  }
+
+  /** Counts one metadata cache hit or miss during snapshot assembly. */
+  cacheHit(): void {
+    this.#cache.hits += 1
+  }
+
+  cacheMiss(): void {
+    this.#cache.misses += 1
   }
 
   /** Records one finished snapshot with its stage timings and response size. */
@@ -74,6 +84,7 @@ export class DiagnosticsRecorder {
       errors: this.#errors,
       sseOpens: this.#sseOpens,
       snapshots: { ...this.#snapshots },
+      cache: { ...this.#cache },
       recentEvents: this.#events.slice(-30),
       recentStages: this.#stages.slice(-20),
     }
