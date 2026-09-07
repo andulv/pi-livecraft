@@ -20,6 +20,7 @@ import type {
   PromptTemplate,
   QuotaSnapshot,
   RecentSession,
+  DiagnosticsSnapshot,
   SessionEnvironmentSnapshot,
   SessionSnapshot,
   SessionSnapshotDelta,
@@ -288,6 +289,10 @@ export async function getSnapshot(
 
 export async function getQuotas(): Promise<QuotaSnapshot> {
   return request<QuotaSnapshot>('/api/quotas')
+}
+
+export async function getDiagnostics(): Promise<DiagnosticsSnapshot> {
+  return request<DiagnosticsSnapshot>('/api/diagnostics')
 }
 
 export async function refreshQuotas(sessionId: string, automatic = false): Promise<QuotaSnapshot> {

@@ -1029,11 +1029,8 @@ function LivecraftProjectApp(
     }), [
     clearActivity,
     clearManagerUnavailableToasts,
-    handleManagerPiEvent,
-    refreshSessions,
     resetEventSequence,
     showToast,
-    updateSession,
   ])
 
   // Selected session and loading state
@@ -1491,8 +1488,8 @@ function LivecraftProjectApp(
   // Application layout
   const rightPanelVisible = activeRightWidget === 'index'
     || activeRightWidget === 'quotas' || activeRightWidget === 'environment'
-    || activeRightWidget === 'browser'
-    || activeRightWidget === 'analysis'
+    || activeRightWidget === 'browser' || activeRightWidget === 'analysis'
+    || activeRightWidget === 'diagnostics'
 
   if (projectDiscoveryError) {
     return (

@@ -276,6 +276,41 @@ export interface SessionSnapshotDelta extends Omit<SessionSnapshot, 'messages'> 
 
 export type SessionSnapshotResponse = SessionSnapshot | SessionSnapshotDelta
 
+/** One content-free diagnostics event; routes are templates without identifiers. */
+export interface DiagnosticEventEntry {
+  sequence: number
+  t: number
+  kind: 'request' | 'error' | 'sse-open' | 'snapshot'
+  route?: string
+  durationMs?: number
+  bytes?: number
+  mode?: 'full' | 'delta'
+  ok: boolean
+}
+
+/** Stage timings for one finished snapshot response. */
+export interface SnapshotStageEntry {
+  sequence: number
+  t: number
+  rpcMs: number
+  buildMs: number
+  templatesMs: number
+  totalMs: number
+  bytes: number
+  mode: 'full' | 'delta'
+}
+
+/** Bounded backend diagnostics served by `GET /api/diagnostics`. */
+export interface DiagnosticsSnapshot {
+  uptimeMs: number
+  requests: Record<string, number>
+  errors: number
+  sseOpens: number
+  snapshots: { full: number; delta: number; fullBytes: number; deltaBytes: number }
+  recentEvents: DiagnosticEventEntry[]
+  recentStages: SnapshotStageEntry[]
+}
+
 export interface OpenAiQuotaWindow {
   period: '5h' | '7d'
   remainingPercent: number

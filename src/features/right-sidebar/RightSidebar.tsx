@@ -20,6 +20,7 @@ import { SessionIndexWidget } from '../session-index/SessionIndexWidget.tsx'
 import { SessionAnalysisWidget } from '../session-analysis/SessionAnalysisWidget.tsx'
 import type { SessionAnalysis } from '../session-analysis/session-analysis.ts'
 import { BrowserDebugWidget } from '../browser/BrowserDebugWidget.tsx'
+import { DiagnosticsWidget } from '../diagnostics/DiagnosticsWidget.tsx'
 import { maxRightSidebarWidth, minRightSidebarWidth, type RightWidget } from './right-sidebar.ts'
 import { WidgetLayout } from './WidgetLayout.tsx'
 
@@ -217,6 +218,7 @@ export function RightSidebar({
             {activeWidget === 'browser' && (
               <BrowserDebugWidget onOpenBrowser={onOpenBrowser} workspacePath={workspacePath} />
             )}
+            {activeWidget === 'diagnostics' && <DiagnosticsWidget />}
           </section>
         </div>
       )}
@@ -330,9 +332,40 @@ export function RightSidebar({
               {quotaSummary?.stale && <small>!</small>}
             </button>
           </Tooltip>
+          <Tooltip label='Diagnostics'>
+            <button
+              aria-controls={activeWidget === 'diagnostics' ? 'diagnostics-panel' : undefined}
+              aria-expanded={activeWidget === 'diagnostics'}
+              aria-label={`${activeWidget === 'diagnostics' ? 'Collapse' : 'Expand'} diagnostics`}
+              className='rail-tab'
+              onClick={() => onWidgetSelect('diagnostics')}
+              type='button'
+            >
+              <DiagnosticsIcon />
+            </button>
+          </Tooltip>
         </div>
       </div>
     </aside>
+  )
+}
+
+/** Pulse line marking the diagnostics rail tab. */
+function DiagnosticsIcon() {
+  return (
+    <svg
+      aria-hidden='true'
+      fill='none'
+      height='16'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='1.8'
+      viewBox='0 0 24 24'
+      width='16'
+    >
+      <path d='M3 12h4l2.5-6 4 12 2.5-6h5' />
+    </svg>
   )
 }
 
@@ -386,5 +419,7 @@ function panelLabel(activeWidget: RightWidget | null): string {
     ? 'Provider quotas'
     : activeWidget === 'browser'
     ? 'Browser system'
+    : activeWidget === 'diagnostics'
+    ? 'Diagnostics'
     : 'Session environment'
 }

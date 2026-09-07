@@ -4,6 +4,7 @@ export const rightWidgetDefinitions = [
   { id: 'quotas', label: 'Quotas' },
   { id: 'environment', label: 'Session environment' },
   { id: 'browser', label: 'Browser system' },
+  { id: 'diagnostics', label: 'Diagnostics' },
 ] as const
 
 export type RightWidget = typeof rightWidgetDefinitions[number]['id']

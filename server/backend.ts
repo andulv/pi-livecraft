@@ -34,6 +34,7 @@ import {
   parseTerminalResize,
   TerminalService,
 } from './features/terminal/session.ts'
+import { DiagnosticsRecorder } from './features/diagnostics/diagnostics.ts'
 import { openSseStream, parseSseLastEventId } from './sse-response.ts'
 import {
   openVSCodeApplication,
@@ -75,6 +76,7 @@ let piEventSequence = 0
 const distDirectory = fileURLToPath(new URL('../dist/', import.meta.url))
 const quotas = new QuotaService(manager)
 const environment = new EnvironmentService(manager)
+const diagnostics = new DiagnosticsRecorder()
 const browsers = new BrowserService()
 process.once('exit', () => browsers.killSync())
 const terminals = new TerminalService()
@@ -115,6 +117,7 @@ manager.start()
 const server = createServer((request, response) => {
   void route(request, response).catch((error) => {
     const status = error instanceof HttpError ? error.status : 500
+    diagnostics.error((request.url ?? '').split('?')[0].replace(/sessions\/[^/]+/g, 'sessions/:id'))
     if (!response.headersSent) sendJson(response, status, { error: errorMessage(error) })
     else response.end()
   })
@@ -129,6 +132,11 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   const method = request.method ?? 'GET'
   const url = new URL(request.url ?? '/', `http://${host}`)
 
+  if (method === 'GET' && url.pathname === '/api/diagnostics') {
+    sendJson(response, 200, diagnostics.snapshotState())
+    return
+  }
+
   if (method === 'GET' && url.pathname === '/api/health') {
     sendJson(response, manager.connected ? 200 : 503, {
       ok: true,
@@ -138,6 +146,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   }
 
   if (method === 'GET' && url.pathname === '/api/events') {
+    diagnostics.sseOpen()
     response.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -181,11 +190,13 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   }
 
   if (method === 'GET' && url.pathname === '/api/sessions') {
+    diagnostics.request('sessions')
     sendJson(response, 200, await manager.request({ action: 'list' }))
     return
   }
 
   if (method === 'GET' && url.pathname === '/api/quotas') {
+    diagnostics.request('quotas')
     sendJson(response, 200, await quotas.snapshot())
     return
   }
@@ -210,6 +221,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   }
 
   if (method === 'GET' && url.pathname === '/api/environment') {
+    diagnostics.request('environment')
     const sessionId = url.searchParams.get('sessionId')
     if (!sessionId) throw new HttpError(400, 'A session identifier is required.')
     sendJson(response, 200, await environment.snapshot(sessionId))
@@ -248,6 +260,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   }
 
   if (method === 'GET' && url.pathname === '/api/sessions/recent') {
+    diagnostics.request('sessions/recent')
     const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
     sendJson(response, 200, await listRecentPiSessions(cwd))
     return
@@ -277,6 +290,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   }
 
   if (method === 'GET' && url.pathname === '/api/git') {
+    diagnostics.request('git')
     const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
     sendJson(response, 200, await getGitSnapshot(cwd))
     return
@@ -534,6 +548,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   if (method === 'GET' && snapshotMatch) {
     const sessionId = decodeURIComponent(snapshotMatch[1])
     const since = url.searchParams.get('since') ?? ''
+    const snapshotStartedAt = performance.now()
     const [state, entries, models, commands, stats, forkMessages, thinkingLevels] = await Promise
       .all([
         piCommand(sessionId, { type: 'get_state' }),
@@ -544,21 +559,27 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         piCommand(sessionId, { type: 'get_fork_messages' }),
         piCommand(sessionId, { type: 'get_available_thinking_levels' }),
       ])
+    const rpcMs = Math.round((performance.now() - snapshotStartedAt) * 100) / 100
     const commandList = arrayData(commands, 'commands')
     const forkEntryIds = new Set(
       arrayData(forkMessages, 'messages').flatMap((message) =>
         typeof message.entryId === 'string' ? [message.entryId] : []
       ),
     )
+    const buildStartedAt = performance.now()
     const messages = activeSessionMessages(
       arrayData(entries, 'entries'),
       objectData(entries)?.leafId,
       forkEntryIds,
     )
+    const buildMs = Math.round((performance.now() - buildStartedAt) * 100) / 100
+    const templatesStartedAt = performance.now()
+    const promptTemplates = await loadPromptTemplates(commandList)
+    const templatesMs = Math.round((performance.now() - templatesStartedAt) * 100) / 100
     const cursor = snapshotCursor(messages)
     const delta = since === '' ? undefined : sliceSnapshotDelta(messages, since)
     if (delta?.mode === 'delta') {
-      sendJson(response, 200, {
+      const bytes = sendJson(response, 200, {
         state: objectData(state),
         models: arrayData(models, 'models'),
         thinkingLevels: stringArrayData(thinkingLevels, 'levels'),
@@ -569,12 +590,20 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
           commandList.some((command) => command.name === 'livecraft-response-controls'),
         ),
         commands: commandList,
-        promptTemplates: await loadPromptTemplates(commandList),
+        promptTemplates,
         stats: objectData(stats),
         liveEvents: liveSessionEvents.get(sessionId)?.snapshot() ?? [],
         mode: 'delta',
         appended: delta.appended,
         cursor: delta.cursor,
+      })
+      diagnostics.snapshot({
+        rpcMs,
+        buildMs,
+        templatesMs,
+        totalMs: Math.round((performance.now() - snapshotStartedAt) * 100) / 100,
+        bytes,
+        mode: 'delta',
       })
       return
     }
@@ -590,12 +619,20 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         commandList.some((command) => command.name === 'livecraft-response-controls'),
       ),
       commands: commandList,
-      promptTemplates: await loadPromptTemplates(commandList),
+      promptTemplates,
       stats: objectData(stats),
       liveEvents: liveSessionEvents.get(sessionId)?.snapshot() ?? [],
       cursor,
     }
-    sendJson(response, 200, snapshot)
+    const bytes = sendJson(response, 200, snapshot)
+    diagnostics.snapshot({
+      rpcMs,
+      buildMs,
+      templatesMs,
+      totalMs: Math.round((performance.now() - snapshotStartedAt) * 100) / 100,
+      bytes,
+      mode: 'full',
+    })
     return
   }
 
@@ -952,9 +989,11 @@ function broadcast(event: unknown): void {
   for (const client of eventClients) client.write(frame)
 }
 
-function sendJson(response: ServerResponse, status: number, value: unknown): void {
+function sendJson(response: ServerResponse, status: number, value: unknown): number {
+  const body = JSON.stringify(value)
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' })
-  response.end(JSON.stringify(value))
+  response.end(body)
+  return body.length
 }
 
 /** Maps a file extension to the MIME type served in the HTTP response. */

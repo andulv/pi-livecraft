@@ -9,6 +9,7 @@ This directory contains local product capabilities used by `server/backend.ts`. 
 - [`session-environment/`](/server/features/session-environment/README.md) caches loaded tools and context files and coordinates refreshes through the manager.
 - [`terminal/`](/server/features/terminal/README.md) launches an external terminal application in the workspace directory and owns workspace-scoped embedded shell sessions (PTY + replay buffer) for the viewer-pane Terminal tab.
 - [`vscode/`](/server/features/vscode/README.md) launches a branded VS Code window for a worktree.
+- [`diagnostics/`](/server/features/diagnostics/diagnostics.ts) keeps bounded, content-free backend counters and recent snapshot stages for `GET /api/diagnostics`; its README records the retention, correlation, and overhead policy.
 
 These modules do not own Pi processes. All Pi commands continue through `server/manager-client.ts` to `server/manager.ts`.
 
