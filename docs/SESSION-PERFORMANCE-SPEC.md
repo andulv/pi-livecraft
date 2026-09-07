@@ -379,6 +379,33 @@ performance. Avoid a new incremental index data structure without evidence it is
 - Preserve pre-existing work. Stage and commit only task-owned changes after checks pass.
   Do not commit raw profiles, user data, temporary probes, or unrelated worker changes.
 
+## Close-out validation (2026-09-07)
+
+Validation performed after the B changes; sanitized raw traces stay outside Git.
+
+- **Delta correctness** — unit tests cover append, unchanged history, unknown/moved/oversized
+  cursors, and shrunk (compacted) history. Live: 10 cross-session switches returned full
+  snapshots by design (2 requests each, median visible completion 277 ms); rapid selection
+  (15 clicks) coalesced to 11 snapshots with the correct final state; a warm settle returned
+  a 201 KB delta against a 2.0 MB full baseline. A live backend-restart reconnect test was
+  not run (it kills the viewer browser); reconnect correctness rests on server-side chain
+  validation plus client version rejection.
+- **Repeated measurements** — switch request counts unchanged and clean; warm-settle bytes
+  2.0 MB → ~200 KB; renderer CPU 23–35 % during mixed work (settle renders plus always-on
+  activity animations under software raster remain the dominant residual).
+- **Hidden-active recovery** — verified with the existing running session: zero snapshot
+  requests while the tab was hidden, exactly one catch-up delta (~200 KB) on return,
+  history, session name, and activity state correct.
+- **30-minute growth sample** — 31 minutes of mixed real use plus a 5-minute idle tail:
+  backend/manager/Pi CPU ≤ 0.7 % with flat RSS; app renderer RSS fell 1534 → 893 MB; host
+  CPU 9.9 % average. No growth signature in any Livecraft or Pi process.
+
+Task status: A complete. B1 closed by evidence (no duplicates). B2, delta payloads, and the
+subscription fix done (commits 6f11890, c2a3bec, 88c19e9). B3 deferred (single registered
+project cannot exercise it). B4 deferred → recommended next (delta metadata is now most of
+the remaining warm-settle bytes). B5 owned by the panel worker. Ready for the observability
+step; do not add caching beyond B4 without a new measurement.
+
 ## Handoff to the next two project steps
 
 **Logging and observability:** use the useful measurements from A to define content-free,
