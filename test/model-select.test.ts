@@ -4,6 +4,7 @@ import {
   baseModelKey,
   buildListPriceIndex,
   filterModelGroups,
+  formatContextWindow,
   groupModelOptions,
   modelCostLabel,
   providerDisplayName,
@@ -29,6 +30,7 @@ test('toModelOption flags all-zero cost as subscription and falls back to id for
       id: 'glm-5.2',
       name: 'GLM-5.2',
       provider: 'zai',
+      contextWindow: 128000,
       cost: { input: 0, output: 0 },
     }),
     {
@@ -37,9 +39,12 @@ test('toModelOption flags all-zero cost as subscription and falls back to id for
       provider: 'zai',
       name: 'GLM-5.2',
       cost: { input: 0, output: 0 },
+      contextWindow: 128000,
       subscription: true,
     },
   )
+  assert.equal(formatContextWindow(128000), '128k')
+  assert.equal(formatContextWindow(1_500_000), '1.5m')
   assert.equal(
     toModelOption({
       id: 'claude',
@@ -65,6 +70,7 @@ test('modelCostLabel renders paid, plan-covered, subscription, or nothing', () =
       provider: 'p',
       name: 'A',
       cost: { input: 3, output: 15 },
+      contextWindow: null,
       subscription: false,
     }),
     { kind: 'paid', text: '$3.00 in · $15.00 out' },
@@ -77,6 +83,7 @@ test('modelCostLabel renders paid, plan-covered, subscription, or nothing', () =
       provider: 'openai-codex',
       name: 'GPT-5.2',
       cost: { input: 1.25, output: 10 },
+      contextWindow: null,
       subscription: false,
     }),
     { kind: 'covered', text: '$1.25 in · $10.00 out' },
@@ -88,6 +95,7 @@ test('modelCostLabel renders paid, plan-covered, subscription, or nothing', () =
       provider: 'p',
       name: 'B',
       cost: { input: 0, output: 0 },
+      contextWindow: null,
       subscription: true,
     }),
     { kind: 'subscription' },
@@ -99,6 +107,7 @@ test('modelCostLabel renders paid, plan-covered, subscription, or nothing', () =
       provider: 'p',
       name: 'C',
       cost: null,
+      contextWindow: null,
       subscription: false,
     }),
     null,

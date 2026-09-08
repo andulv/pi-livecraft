@@ -8,6 +8,8 @@ export interface ModelOption {
   provider: string
   name: string
   cost: { input: number; output: number } | null
+  /** Context-window size in tokens, when Pi reports it. */
+  contextWindow: number | null
   /** Coding-plan / subscription models carry all-zero cost, so per-token pricing does not apply. */
   subscription: boolean
 }
@@ -88,6 +90,7 @@ export function toModelOption(model: JsonObject): ModelOption | undefined {
     provider: model.provider,
     name: typeof model.name === 'string' && model.name ? model.name : model.id,
     cost,
+    contextWindow: readContextWindow(model.contextWindow),
     subscription: cost !== null && cost.input === 0 && cost.output === 0,
   }
 }
@@ -205,10 +208,21 @@ function readCost(cost: unknown): { input: number; output: number } | null {
   return { input, output }
 }
 
+function readContextWindow(value: unknown): number | null {
+  const contextWindow = asFiniteNumber(value)
+  return contextWindow !== undefined && contextWindow > 0 ? contextWindow : null
+}
+
 function asFiniteNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
 function formatPrice(value: number): string {
   return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+/** Keeps context-window metadata short enough to share the price line in a model row. */
+export function formatContextWindow(value: number): string {
+  if (value >= 1_000_000) return `${Math.round(value / 100_000) / 10}m`
+  return value >= 1000 ? `${Math.round(value / 1000)}k` : String(value)
 }

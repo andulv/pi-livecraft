@@ -1043,6 +1043,7 @@
 .model-menu-item-copy {
   display: flex;
   min-width: 0;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 1px;
 }
@@ -1051,6 +1052,24 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
+}
+.model-menu-meta {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.model-menu-meta-separator {
+  flex: 0 0 auto;
+  color: var(--subtle);
+}
+.model-menu-context {
+  flex: 0 0 auto;
+  color: var(--secondary);
+  font-size: 10px;
+  font-weight: 650;
 }
 .model-menu-cost,
 .model-menu-sub {
@@ -1071,9 +1090,14 @@
 .model-menu-covered {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 5px;
+  overflow: hidden;
 }
 .model-menu-covered .model-menu-cost {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-decoration: line-through;
   text-decoration-color: var(--danger);
 }

@@ -15,6 +15,7 @@ import {
   buildListPriceIndex,
   FAVORITES_GROUP_KEY,
   filterModelGroups,
+  formatContextWindow,
   groupModelOptions,
   modelCostLabel,
   providerDisplayName,
@@ -376,7 +377,28 @@ export const ModelSelect = memo(function ModelSelect(
 
 function ModelMeta({ listPrices, option }: { listPrices: ListPriceIndex; option: ModelOption }) {
   const label = modelCostLabel(option, listPrices)
-  if (label === null) return null
+  const contextWindow = option.contextWindow
+  const hasContextWindow = contextWindow !== null
+  if (label === null && !hasContextWindow) return null
+  return (
+    <span className='model-menu-meta'>
+      {label !== null && <ModelCostLabel label={label} />}
+      {label !== null && contextWindow !== null && (
+        <span aria-hidden='true' className='model-menu-meta-separator'>·</span>
+      )}
+      {contextWindow !== null && (
+        <small
+          className='model-menu-context'
+          title={`Context window: ${contextWindow.toLocaleString('en-US')} tokens`}
+        >
+          {formatContextWindow(contextWindow)} ctx
+        </small>
+      )}
+    </span>
+  )
+}
+
+function ModelCostLabel({ label }: { label: NonNullable<ReturnType<typeof modelCostLabel>> }) {
   if (label.kind === 'subscription') {
     return <span className='model-menu-sub'>Subscription</span>
   }
