@@ -406,6 +406,31 @@
 .context-danger {
   color: var(--danger);
 }
+/* Context readout: compact two-line block sized to the action row's height —
+   label + tokens on the first line, meter + percent on the second. */
+.composer-context {
+  display: grid;
+  align-content: center;
+  gap: 1px;
+  min-width: 0;
+}
+.composer-context b,
+.composer-context small,
+.composer-context .composer-context-meter {
+  line-height: 1.2;
+}
+.composer-context .composer-context-label {
+  min-width: 0;
+  overflow: hidden;
+}
+.composer-context .composer-context-meter {
+  min-width: 0;
+}
+.composer-context .composer-context-meter progress {
+  flex: 1;
+  width: auto;
+  min-width: 36px;
+}
 .composer-actions {
   display: flex;
   align-items: center;

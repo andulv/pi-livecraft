@@ -20,7 +20,6 @@ All data arrives through props. The Composer never calls the backend directly.
 | `composer.css` | All composer styles |
 | `composer-images.ts` | Image paste, resize, compress (`maxComposerImages` = 4) |
 | `composer-utils.ts` | Label/token formatting, command detection, local `compact`/`name` command fallbacks, draft loading, `isObject` |
-| `prompt-title.ts` | Immediate session title, replaced later by Pi's extension title |
 | `selects/ComposerSelect.tsx` | Generic Radix Select wrapper with tone-based icons |
 | `selects/AgentSelect.tsx` | Agent picker — derives label from options, calls `onAgentChange` |
 | `selects/ModelSelect.tsx` | Model picker — searchable popover with collapsible provider groups, issues RPC `set_model` from selection |
@@ -31,7 +30,7 @@ All data arrives through props. The Composer never calls the backend directly.
 | `selects/BehaviorSelect.tsx` | Steer / Follow-up toggle, only rendered while Pi is running |
 | `status-bar/ChatTopBar.tsx` | Two-line session strip pinned to the top of the chat window: session identity first, then usage stats. Workspace context lives in the sidebar; context usage in `ContextUsage` |
 | `status-bar/SessionInfo.tsx` | Session name and active status dot |
-| `status-bar/SessionStats.tsx` | `SessionStats` renders input/cache/output tokens, message and tool counts, and cost; `ContextUsage` renders context-window pressure in the composer's action row |
+| `status-bar/SessionStats.tsx` | `SessionStats` renders input/cache/output tokens, message and tool counts, and cost; `ContextUsage` renders context-window pressure as a compact two-line block in the composer's action row |
 
 ## Internal state
 

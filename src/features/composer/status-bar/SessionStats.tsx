@@ -54,7 +54,8 @@ export function SessionStats(
   )
 }
 
-/** Displays current context-window pressure; lives in the composer's action row. */
+/** Displays current context-window pressure as a compact two-line block in the
+    composer's action row: label + tokens, meter + percent beneath. */
 export function ContextUsage(
   { contextClass, contextTokens, contextPercent, contextPercentValue }: {
     contextClass: string
@@ -64,18 +65,25 @@ export function ContextUsage(
   },
 ) {
   return (
-    <span className={`composer-context composer-stats ${contextClass}`}>
-      <b>Context</b>
-      <small className='composer-context-tokens'>{contextTokens}</small>
+    <span
+      className={`composer-context composer-stats ${contextClass}`}
+      title={contextPercentValue !== null
+        ? `Context usage: ${contextTokens} (${contextPercent})`
+        : undefined}
+    >
+      <span className='composer-context-label'>
+        <b>Context</b>
+        <small className='composer-context-tokens'>{contextTokens}</small>
+      </span>
       {contextPercentValue !== null && (
-        <>
-          {contextPercent}
+        <span className='composer-context-meter'>
           <progress
             aria-label={`Context usage: ${contextTokens} (${contextPercent})`}
             max={100}
             value={contextPercentValue}
           />
-        </>
+          {contextPercent}
+        </span>
       )}
     </span>
   )
