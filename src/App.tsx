@@ -317,7 +317,7 @@ function LivecraftProjectApp(
       window.localStorage.getItem('pi-livecraft.workspace-sidebar-collapsed'),
     )
   )
-  const [gitSnapshot, setGitSnapshot] = useState<GitSnapshot | null>(null)
+  const [workspaceGit, setWorkspaceGit] = useState<Record<string, GitSnapshot>>({})
   const [vscodeTitleBarColor, setVSCodeTitleBarColor] = useState<string | null>(null)
   const [quotas, setQuotas] = useState<QuotaSnapshot | null>(null)
   const [environment, setEnvironment] = useState<SessionEnvironmentSnapshot | null>(null)
@@ -387,7 +387,7 @@ function LivecraftProjectApp(
 
   // UI and capability synchronization
   const loadingTimerRef = useRef<number>(0)
-  const gitRefreshVersionRef = useRef(0)
+  const gitRefreshVersionsRef = useRef(new Map<string, number>())
   const gitRefreshTimerRef = useRef<number | undefined>(undefined)
   const agentResponsesSentRef = useRef(new Set<string>())
 
@@ -484,7 +484,6 @@ function LivecraftProjectApp(
     }
   }, [showToast])
   const handleWorkspaceSelected = useCallback((): void => {
-    setGitSnapshot(null)
     setOpenFilePaths([])
     setActivePaneView((current) => current?.kind === 'browser' ? current : null)
   }, [])
@@ -712,18 +711,21 @@ function LivecraftProjectApp(
   }, [refreshSessions, removePendingRequest])
 
   // Workspace capabilities
-  /** Refreshes Git state for the current directory. Throws when requested so callers can handle the error. */
+  /** Refreshes Git state for one workspace. Throws when requested so callers can handle the error. */
   const refreshGit = useCallback(async (cwd = workspacePath, notifyOnError = false) => {
     if (gitRefreshTimerRef.current !== undefined) {
       window.clearTimeout(gitRefreshTimerRef.current)
       gitRefreshTimerRef.current = undefined
     }
-    const version = ++gitRefreshVersionRef.current
+    const version = (gitRefreshVersionsRef.current.get(cwd) ?? 0) + 1
+    gitRefreshVersionsRef.current.set(cwd, version)
     try {
       const nextSnapshot = await getGitSnapshot(cwd)
-      if (version === gitRefreshVersionRef.current) setGitSnapshot(nextSnapshot)
+      if (gitRefreshVersionsRef.current.get(cwd) === version) {
+        setWorkspaceGit((current) => ({ ...current, [cwd]: nextSnapshot }))
+      }
     } catch (cause) {
-      if (notifyOnError && version === gitRefreshVersionRef.current) throw cause
+      if (notifyOnError && gitRefreshVersionsRef.current.get(cwd) === version) throw cause
     }
   }, [workspacePath])
   /** Schedules one Git refresh for a burst of completed tools. */
@@ -818,15 +820,21 @@ function LivecraftProjectApp(
   }, [agentBusy, refreshSnapshot, showToast])
 
   // Initial application synchronization
+  /** Every discovered workspace path, stable across renders via the joined key. */
+  const gitWorkspacePaths = projectWorkspaces[project.root]
+    ?.workspaces
+    .map(({ path }) => path)
+    .join('\u0000')
   useEffect(() => {
-    void refreshGit()
-    return () => {
-      if (gitRefreshTimerRef.current !== undefined) {
-        window.clearTimeout(gitRefreshTimerRef.current)
-        gitRefreshTimerRef.current = undefined
-      }
+    const paths = gitWorkspacePaths ? gitWorkspacePaths.split('\u0000') : [workspacePath]
+    for (const path of paths) void refreshGit(path)
+  }, [gitWorkspacePaths, refreshGit, workspacePath])
+  useEffect(() => () => {
+    if (gitRefreshTimerRef.current !== undefined) {
+      window.clearTimeout(gitRefreshTimerRef.current)
+      gitRefreshTimerRef.current = undefined
     }
-  }, [refreshGit])
+  }, [])
 
   /** Refreshes the branded title bar color so the launcher button matches the VS Code window. */
   const refreshVSCodeTitleBarColor = useCallback(async (cwd = workspacePath): Promise<void> => {
@@ -1563,7 +1571,7 @@ function LivecraftProjectApp(
         onSelectSession={setSelectedId}
         onError={(cause) => showToast('error', messageOf(cause))}
         onOpenSettings={() => setSettingsOpen(true)}
-        gitSnapshot={gitSnapshot?.repository ? gitSnapshot : null}
+        workspaceGit={workspaceGit}
         onGitCommit={async (message) => {
           await commitChanges(workspacePath, message)
         }}
@@ -1624,7 +1632,7 @@ function LivecraftProjectApp(
                       onFork={handleForkConversation}
                       onRetry={retryConversationPrompt}
                       pendingSteering={pendingSteering}
-                      repositoryRoot={gitSnapshot?.root}
+                      repositoryRoot={workspaceGit[workspacePath]?.root}
                       scrollToBottomRequest={scrollToBottomRequest}
                       workingDirectory={selectedSession.cwd}
                       toolDurations={observedToolDurations}

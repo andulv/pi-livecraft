@@ -77,7 +77,7 @@ interface WorkspaceSidebarProps {
   onToggleSessionArchive: (target: SessionActionTarget) => void
   onError: (cause: unknown) => void
   onOpenFile: (path: string) => void
-  gitSnapshot: GitSnapshot | null
+  workspaceGit: Record<string, GitSnapshot>
   onGitCommit: (message: string) => Promise<void>
   onGitDiscard: (path?: string) => Promise<void>
   onGitFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
@@ -120,7 +120,7 @@ export function WorkspaceSidebar({
   onToggleSessionArchive,
   onError,
   onOpenFile,
-  gitSnapshot,
+  workspaceGit,
   onGitCommit,
   onGitDiscard,
   onGitFileSelect,
@@ -190,9 +190,11 @@ export function WorkspaceSidebar({
   const currentBranch = selectedWorkspace?.branch
     ?? workspacePath.split(/[\\/]/).filter(Boolean).at(-1)
     ?? workspacePath
+  const selectedGit = workspaceGit[workspacePath]
+  const mainGit = mainWorkspace ? workspaceGit[mainWorkspace.path] : undefined
   const mainWorkspaceCurrent = mainWorkspace?.path === workspacePath
-  const gitDirtyCount = gitSnapshot?.files.length ?? 0
-  const gitUnpushedCount = gitSnapshot?.ahead ?? 0
+  const gitDirtyCount = selectedGit?.files.length ?? 0
+  const gitUnpushedCount = selectedGit?.ahead ?? 0
   const gitChangeCount = gitDirtyCount + gitUnpushedCount
   const contextSessionPath = contextMenu?.target.sessionPath
   const contextSessionPinned = Boolean(
@@ -452,7 +454,7 @@ export function WorkspaceSidebar({
             <strong>{project.name}</strong>
             <span aria-hidden='true' className='sidebar-context-chip-sep'>▸</span>
             <span className='sidebar-context-chip-ws'>{currentBranch}</span>
-            {gitSnapshot && gitSnapshot.files.length > 0 && (
+            {selectedGit && selectedGit.files.length > 0 && (
               <i aria-hidden='true' className='sidebar-context-chip-dot' />
             )}
           </button>
@@ -540,7 +542,7 @@ export function WorkspaceSidebar({
             <span className='workspace-card-path' title={mainWorkspace.path}>
               {mainWorkspace.path}
             </span>
-            {mainWorkspaceCurrent && gitSnapshot && <GitLine snapshot={gitSnapshot} />}
+            {mainGit && <GitLine snapshot={mainGit} />}
           </button>
         </Tooltip>
       )}
@@ -595,7 +597,9 @@ export function WorkspaceSidebar({
                           <span className='workspace-path-detail' title={workspace.path}>
                             {workspace.path}
                           </span>
-                          {selected && gitSnapshot && <GitLine snapshot={gitSnapshot} />}
+                          {workspaceGit[workspace.path] && (
+                            <GitLine snapshot={workspaceGit[workspace.path]} />
+                          )}
                         </span>
                         {workspaceIndicator && (
                           <SessionStatusIndicator status={workspaceIndicator} />
@@ -844,7 +848,7 @@ export function WorkspaceSidebar({
           id='workspace-git-panel'
           role='tabpanel'
         >
-          {gitSnapshot
+          {selectedGit?.repository
             ? (
               <GitWidget
                 onCommit={onGitCommit}
@@ -855,7 +859,7 @@ export function WorkspaceSidebar({
                 onRefresh={onGitRefresh}
                 onReset={onGitReset}
                 onRevert={onGitRevert}
-                snapshot={gitSnapshot}
+                snapshot={selectedGit}
               />
             )
             : <p className='empty-sidebar'>No Git repository in this workspace.</p>}
