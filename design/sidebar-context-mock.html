@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sidebar context — design mock</title>
+    <style>
+    /* Page chrome ------------------------------------------------------- */
+    :root {
+      --canvas: #171c1a;
+      --surface: #1e2422;
+      --surface-raised: #232a27;
+      --sidebar: #1b211f;
+      --ink: #dde3e0;
+      --muted: #8d968f;
+      --subtle: #6b746e;
+      --line: rgba(221, 227, 224, 0.12);
+      --line-strong: rgba(221, 227, 224, 0.22);
+      --accent: #4fb9ab;
+      --accent-hover: #63c6b9;
+      --accent-soft: rgba(79, 185, 171, 0.12);
+      --success: #59ba7c;
+      --warning: #d6aa45;
+      --danger: #e26e63;
+      --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      --mono:
+        ui-monospace,
+        "SFMono-Regular",
+        "JetBrains Mono",
+        Menlo,
+        monospace;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 40px 32px 72px;
+      background: #0d1110;
+      color: var(--ink);
+      font: 14px/1.5 var(--sans);
+    }
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+    .page-head h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+    .page-head h1 em {
+      color: var(--accent);
+      font-style: normal;
+    }
+    .page-head > p {
+      margin: 0 0 28px;
+      max-width: 78ch;
+      color: var(--muted);
+    }
+    .frame-wrap {
+      margin: 0 0 40px;
+    }
+    .frame-label {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+    }
+    .frame-label .n {
+      display: inline-grid;
+      place-items: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font: 650 11px/1 var(--sans);
+      align-self: center;
+    }
+    .frame-label .why {
+      color: var(--subtle);
+      font-weight: 400;
+    }
+    .frame {
+      display: flex;
+      height: 660px;
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--canvas);
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.35);
+    }
+
+    /* App: sidebar ------------------------------------------------------ */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      flex: 0 0 296px;
+      gap: 10px;
+      min-width: 0;
+      padding: 12px 12px 0;
+      border-right: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(79, 185, 171, 0.05), transparent 120px),
+        var(--sidebar);
+    }
+
+    /* Brand / project title row */
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 2px 4px;
+    }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      flex: 0 0 auto;
+      border-radius: 9px;
+      background: var(--accent);
+      color: #0c1512;
+      font: 700 18px/1 var(--sans);
+    }
+    .project-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      color: var(--accent);
+      font-size: 14.5px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .icon-btn {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      flex: 0 0 auto;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 0;
+      background: transparent;
+      color: var(--muted);
+      font: 500 15px/1 var(--sans);
+      cursor: pointer;
+      transition:
+        background 160ms ease,
+        border-color 160ms ease,
+        color 160ms ease;
+    }
+    .icon-btn:hover {
+      border-color: var(--line-strong);
+      background: var(--accent-soft);
+      color: var(--accent-hover);
+    }
+
+    /* Main-workspace card: main keeps its own section above the worktree list.
+       Highlighted (accent) only when it is the current workspace. */
+    .ws-card {
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      padding: 9px 10px 8px;
+      background: var(--surface);
+      cursor: pointer;
+      transition: border-color 160ms ease, background 160ms ease;
+    }
+    .ws-card:hover {
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+    }
+    .ws-card.current {
+      border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+      background: var(--accent-soft);
+    }
+    .ws-card-top {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+    .ws-card-top .branch {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      color: var(--ink);
+      font: 650 12.5px/1.3 var(--mono);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ws-card-top .branch .glyph {
+      color: var(--accent);
+      margin-right: 5px;
+      font-weight: 400;
+    }
+    .pill {
+      display: inline-block;
+      flex: 0 0 auto;
+      border-radius: 6px;
+      padding: 2px 6px;
+      background: color-mix(in srgb, var(--accent) 18%, transparent);
+      color: var(--accent-hover);
+      font: 700 9px/1.3 var(--sans);
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+    .ws-card-path {
+      margin-top: 3px;
+      overflow: hidden;
+      color: var(--muted);
+      font: 10.5px/1.5 var(--mono);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      direction: rtl; /* keep the tail of long paths visible */
+      text-align: left;
+    }
+    .ws-card-git {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .ws-card-git .grow {
+      flex: 1;
+    }
+    .dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+    }
+    .dot.dirty {
+      background: var(--warning);
+    }
+    .dot.clean {
+      background: var(--success);
+    }
+    .dot.running {
+      background: var(--danger);
+      box-shadow: 0 0 0 3px rgba(226, 110, 99, 0.18);
+    }
+    .dot.done {
+      background: var(--success);
+    }
+    .git-changed {
+      color: var(--warning);
+      font-weight: 600;
+    }
+    .git-push {
+      color: var(--accent-hover);
+      font-weight: 600;
+    }
+    .git-ahead {
+      color: var(--accent-hover);
+      font-weight: 600;
+    }
+    .git-behind {
+      color: var(--danger);
+      font-weight: 600;
+    }
+    .git-clean {
+      color: var(--success);
+    }
+    .git-sep {
+      color: var(--subtle);
+    }
+
+    /* Section headings */
+    .heading {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 22px;
+      padding: 4px 6px 0;
+      border-top: 1px solid var(--line);
+      color: var(--subtle);
+      font: 700 10px/1.4 var(--sans);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .heading:first-of-type {
+      border-top: 0;
+    }
+    .heading .spacer {
+      flex: 1;
+    }
+    .heading .icon-btn {
+      width: 22px;
+      height: 22px;
+      font-size: 13px;
+    }
+
+    /* Workspace rows: branch name + path sublabel */
+    .ws-list {
+      display: grid;
+      gap: 3px;
+    }
+    .ws-row {
+      position: relative;
+      display: block;
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 6px 28px 6px 9px;
+      background: transparent;
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+      transition: background 160ms ease, border-color 160ms ease;
+    }
+    .ws-row:hover {
+      border-color: color-mix(in srgb, var(--accent) 32%, var(--line-strong));
+      background: var(--accent-soft);
+    }
+    .ws-row.selected {
+      border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+      background: var(--accent-soft);
+    }
+    .ws-row-main {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+    .ws-row-main .name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      font: 650 12px/1.4 var(--mono);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ws-row-path {
+      overflow: hidden;
+      margin-top: 1px;
+      color: var(--subtle);
+      font: 10.5px/1.45 var(--mono);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      direction: rtl; /* keep the tail of long paths visible */
+      text-align: left;
+    }
+    /* Git summary line: only on the current workspace's representation —
+       the card when main is current, the selected row when a worktree is. */
+    .ws-row-git {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 5px;
+      padding-top: 5px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 10.5px;
+      white-space: nowrap;
+    }
+    .ws-row.mini {
+      padding-right: 9px;
+    }
+    .ws-row-status {
+      position: absolute;
+      top: 50%;
+      right: 8px;
+      transform: translateY(-50%);
+    }
+    .ws-row-actions {
+      position: absolute;
+      top: 50%;
+      right: 5px;
+      display: none;
+      transform: translateY(-50%);
+    }
+    .ws-row:hover .ws-row-status {
+      display: none;
+    }
+    .ws-row:hover .ws-row-actions {
+      display: block;
+    }
+    .mini-actions {
+      display: grid;
+      place-items: center;
+      width: 20px;
+      height: 20px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .mini-actions:hover {
+      background: var(--accent-soft);
+      color: var(--accent-hover);
+    }
+
+    /* Tabs + session list (unchanged behaviour, shown for context) */
+    .tabs {
+      display: flex;
+      gap: 3px;
+      margin-top: 2px;
+    }
+    .tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 25px;
+      border: 1px solid var(--line-strong);
+      border-bottom: 0;
+      border-radius: 7px 7px 0 0;
+      padding: 0 9px;
+      background: var(--surface);
+      color: var(--muted);
+      font: 650 10px/1 var(--sans);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .tab.active {
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+      background: var(--accent-soft);
+      color: var(--accent-hover);
+    }
+    .tab .badge {
+      display: inline-grid;
+      place-items: center;
+      min-width: 15px;
+      height: 15px;
+      border-radius: 8px;
+      padding: 0 4px;
+      background: rgba(221, 227, 224, 0.09);
+      color: var(--muted);
+      font: 650 10px/1 var(--sans);
+    }
+    .tab.active .badge {
+      background: rgba(79, 185, 171, 0.18);
+      color: var(--accent-hover);
+    }
+    .tab-spacer {
+      flex: 1;
+    }
+    .tab-ghost {
+      border: 0;
+      background: transparent;
+    }
+
+    .panel {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      min-height: 0;
+      border: 1px solid
+        color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+      border-bottom: 0;
+      border-radius: 10px 10px 0 0;
+      padding: 6px;
+      background: color-mix(in srgb, var(--surface) 55%, var(--canvas));
+      overflow: hidden;
+    }
+    .sess-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 7px;
+      padding: 6px 8px;
+      cursor: pointer;
+    }
+    .sess-row:hover {
+      background: var(--accent-soft);
+    }
+    .sess-row.selected {
+      border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+      background: var(--accent-soft);
+      padding: 5px 7px;
+    }
+    .sess-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sess-time {
+      flex: 0 0 auto;
+      color: var(--subtle);
+      font-size: 10.5px;
+      font-variant-numeric: tabular-nums;
+    }
+    .pinned-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 8px;
+      border-radius: 7px;
+      cursor: pointer;
+    }
+    .pinned-row:hover {
+      background: var(--accent-soft);
+    }
+    .pinned-row .sess-name {
+      color: var(--ink);
+    }
+    .pin-icon {
+      color: var(--secondary, #9d91d4);
+      font-size: 11px;
+    }
+
+    /* App: chat side ---------------------------------------------------- */
+    .chat {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      min-width: 0;
+      background: var(--canvas);
+    }
+    /* Two-line session bar: identity on line 1, usage on line 2.
+       Context is not here — it moved to the composer statusline. */
+    .topbar {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 0 0 auto;
+      padding: 7px 14px 6px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .tb-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .tb-name .dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      background: var(--success);
+      box-shadow: 0 0 0 3px rgba(89, 186, 124, 0.16);
+    }
+    .tb-name .sess-title {
+      min-width: 0;
+      overflow: hidden;
+      font-size: 12.5px;
+      font-weight: 650;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tb-stats {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .tb-stats b {
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .tb-stats .dim {
+      color: var(--subtle);
+    }
+    .chat-body {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      color: var(--subtle);
+    }
+    .chat-body .big-mark {
+      display: grid;
+      place-items: center;
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #d98e4a, #b96f33);
+      color: #17110a;
+      font: 700 26px/1 var(--sans);
+    }
+    .chat-body h3 {
+      margin: 6px 0 0;
+      font-size: 16px;
+      color: var(--ink);
+    }
+    .chat-body p {
+      margin: 0;
+      max-width: 34ch;
+      text-align: center;
+      font-size: 12.5px;
+    }
+    .skeleton {
+      width: min(560px, 78%);
+      display: grid;
+      gap: 10px;
+    }
+    .skeleton i {
+      display: block;
+      height: 10px;
+      border-radius: 5px;
+      background: rgba(221, 227, 224, 0.05);
+    }
+    .skeleton i:nth-child(1) {
+      width: 88%;
+    }
+    .skeleton i:nth-child(2) {
+      width: 72%;
+      margin-left: 12%;
+    }
+    .skeleton i:nth-child(3) {
+      width: 80%;
+    }
+    .skeleton i:nth-child(4) {
+      width: 46%;
+      margin-left: 12%;
+    }
+
+    /* Composer + its statusline ------------------------------------ */
+    .composer-wrap {
+      flex: 0 0 auto;
+      padding: 10px 14px;
+    }
+    .composer {
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+    }
+    .composer-input {
+      min-height: 42px;
+      padding: 10px 12px 2px;
+      color: var(--ink);
+      font-size: 12.5px;
+    }
+    .composer-input .ph {
+      color: var(--subtle);
+    }
+    .composer-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-top: 1px solid var(--line);
+      padding: 6px 8px;
+    }
+    .tool-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 26px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 0 9px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      cursor: pointer;
+      transition: border-color 160ms ease, color 160ms ease;
+    }
+    .tool-chip:hover {
+      border-color: var(--accent);
+      color: var(--accent-hover);
+    }
+    .tool-spacer {
+      flex: 1;
+    }
+    /* Context usage joins the existing bottom row — no extra strip, no added height.
+       Right-aligned next to stop/send; degrades to the bare percentage on narrow panes. */
+    .ctx-inline {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--subtle);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .ctx-inline b {
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .sl-bar {
+      width: 56px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(221, 227, 224, 0.12);
+      overflow: hidden;
+    }
+    .sl-bar i {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+    }
+    .stop-btn {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 26px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--danger);
+      color: #1a0e0c;
+      font-size: 10px;
+      cursor: pointer;
+    }
+    .send-btn {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 26px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #0c1512;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    /* Context usage lives in the composer toolbar now; the narrow pane shows
+       the compressed form. */
+    .chat.narrow {
+      flex: 0 0 420px;
+      height: 100%;
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    /* Frame 2: collapsed ------------------------------------------------- */
+    .collapsed-stage {
+      position: relative;
+      flex: 1;
+    }
+    .collapse-cluster {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .expand-btn {
+      display: grid;
+      place-items: center;
+      width: 29px;
+      height: 29px;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 15px;
+      cursor: pointer;
+      transition: background 160ms ease;
+    }
+    .expand-btn:hover {
+      background: color-mix(in srgb, var(--accent) 22%, transparent);
+    }
+    .ctx-chip {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      max-width: 380px;
+      height: 29px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      padding: 0 11px;
+      background: var(--surface);
+      cursor: pointer;
+      transition: border-color 160ms ease, background 160ms ease;
+    }
+    .ctx-chip:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .ctx-chip .proj {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 12px;
+    }
+    .ctx-chip .sep {
+      color: var(--subtle);
+      font-size: 10px;
+    }
+    .ctx-chip .ws {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--muted);
+      font: 500 11.5px/1 var(--mono);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ctx-chip .dot {
+      width: 6px;
+      height: 6px;
+    }
+    .collapse-hint {
+      position: absolute;
+      top: 54px;
+      left: 14px;
+      max-width: 420px;
+      color: var(--subtle);
+      font-size: 11.5px;
+      line-height: 1.6;
+    }
+    .collapse-hint b {
+      color: var(--muted);
+    }
+
+    /* Details section ---------------------------------------------------- */
+    .details {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 6px;
+    }
+    .detail-card {
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      padding: 16px 18px;
+      background: #12171533;
+    }
+    .detail-card h2 {
+      margin: 0 0 4px;
+      font-size: 13.5px;
+      font-weight: 650;
+    }
+    .detail-card > p {
+      margin: 0 0 14px;
+      color: var(--subtle);
+      font-size: 12px;
+    }
+    .variant-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .variant {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .variant > small {
+      flex: 0 0 118px;
+      color: var(--subtle);
+      font-size: 11px;
+    }
+    .ws-card.mini {
+      flex: 1;
+      padding: 7px 9px 6px;
+    }
+    .ws-card.mini .ws-card-git {
+      margin-top: 4px;
+      padding-top: 4px;
+    }
+    .state-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .notes {
+      margin: 0;
+      padding: 0 0 0 18px;
+      color: var(--muted);
+      font-size: 12.5px;
+      display: grid;
+      gap: 8px;
+    }
+    .notes b {
+      color: var(--ink);
+    }
+    .notes code {
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 0 4px;
+      background: var(--surface);
+      font: 11px/1.5 var(--mono);
+      color: var(--accent-hover);
+    }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="page-head">
+        <h1>
+          Move <em>project · workspace · git</em> context into the left
+          sidebar
+        </h1>
+        <p>
+          The top status bar currently mixes slow-changing workspace context
+          (project, workspace, git) with fast-changing session data. Proposal:
+          the sidebar — which has generous vertical space — becomes the home
+          of workspace context; the top bar keeps only session state on two
+          lines, and context usage joins the composer's existing bottom toolbar
+          row — no added chrome. The main workspace gets its own card; the
+          list below holds worktrees only. All colours below map to existing
+          theme tokens, so both themes work unchanged.
+        </p>
+      </header>
+
+      <!-- ══════════════════════════ 1 · EXPANDED ══════════════════════════ -->
+      <section class="frame-wrap">
+        <div class="frame-label">
+          <span class="n">1</span> Expanded — main workspace card, worktrees
+          listed below
+          <span class="why"
+          >master lives in the card, never twice; top bar drops from two rows to
+            one</span>
+        </div>
+        <div class="frame">
+          <aside class="sidebar">
+            <!-- Project title row (was: π Livecraft + project + gear + collapse) -->
+            <div class="brand-row">
+              <button class="brand-mark" title="Projects overview">π</button>
+              <strong class="project-name">catheder-dev</strong>
+              <button class="icon-btn" title="Settings">⚙</button>
+              <button class="icon-btn" title="Collapse sidebar">«</button>
+            </div>
+
+            <!-- Main-workspace card: main's own section. Not highlighted here
+             because a worktree is the current workspace. -->
+            <div
+              class="ws-card"
+              title="Main workspace — ~/source/agent/catheder-dev"
+            >
+              <div class="ws-card-top">
+                <span class="branch"><span class="glyph">⎇</span>master</span>
+                <span class="pill">main</span>
+              </div>
+              <div class="ws-card-path">&lrm;~/source/agent/catheder-dev</div>
+              <div class="ws-card-git">
+                <span class="dot clean"></span>
+                <span class="git-clean">clean</span>
+              </div>
+            </div>
+
+            <div class="heading">Pinned sessions</div>
+            <div class="pinned-row">
+              <span class="dot clean" style="opacity: 0.55"></span>
+              <span class="sess-name"
+              >catheder-dev issue/plans/worktree management</span>
+              <span class="pin-icon">📌</span>
+            </div>
+
+            <div class="heading">
+              Worktrees
+              <span class="spacer"></span>
+              <button class="icon-btn" title="Refresh worktrees">⟳</button>
+            </div>
+            <div class="ws-list">
+              <div
+                class="ws-row"
+                title="~/source/agent/catheder-dev/.worktrees/css-cleanup"
+              >
+                <div class="ws-row-main">
+                  <span class="name">css-cleanup</span>
+                </div>
+                <div class="ws-row-path">
+                  &lrm;~/source/agent/catheder-dev/.worktrees/css-cleanup
+                </div>
+                <span class="ws-row-actions"><button class="mini-actions">
+                    …
+                  </button></span>
+              </div>
+              <div
+                class="ws-row selected"
+                title="~/source/agent/catheder-dev/.worktrees/plan154-xberg-document-extraction"
+              >
+                <div class="ws-row-main">
+                  <span class="name">plan154-xberg-document-extraction</span>
+                </div>
+                <div class="ws-row-path">
+                  &lrm;~/source/agent/catheder-dev/.worktrees/plan154-xberg-document-extraction
+                </div>
+                <div class="ws-row-git">
+                  <span class="dot dirty"></span>
+                  <span class="git-changed">3 changed</span>
+                  <span class="git-sep">·</span>
+                  <span class="git-push">↑ 71</span>
+                  <span class="git-sep">·</span>
+                  <span>vs master <span class="git-ahead">+2</span> <span
+                      class="git-behind"
+                    >−1</span></span>
+                </div>
+                <span class="ws-row-status"><span
+                    class="dot running"
+                  ></span></span>
+                <span class="ws-row-actions"><button class="mini-actions">
+                    …
+                  </button></span>
+              </div>
+              <div
+                class="ws-row"
+                title="~/source/agent/catheder-dev/.worktrees/plan178-shared-file-explorer-viewer"
+              >
+                <div class="ws-row-main">
+                  <span class="name">plan178-shared-file-explorer-viewer</span>
+                </div>
+                <div class="ws-row-path">
+                  &lrm;~/source/agent/catheder-dev/.worktrees/plan178-shared-file-explorer-viewer
+                </div>
+                <span class="ws-row-actions"><button class="mini-actions">
+                    …
+                  </button></span>
+              </div>
+            </div>
+
+            <div class="tabs">
+              <button class="tab active">
+                Sessions <span class="badge">15</span>
+              </button>
+              <button class="tab">Files</button>
+              <button class="tab">Git <span class="badge">74</span></button>
+              <span class="tab-spacer"></span>
+              <button class="tab tab-ghost" title="Session list options">
+                …
+              </button>
+              <button class="tab tab-ghost" title="Refresh sessions">
+                ⟳
+              </button>
+              <button class="tab tab-ghost" title="New session">＋</button>
+            </div>
+            <div class="panel">
+              <div class="sess-row selected">
+                <span class="dot running"></span>
+                <span class="sess-name"
+                >We have now merged plan182 and 184…</span>
+                <span class="sess-time">Sep 8 11:26</span>
+                <span class="sess-time">Sep 8 12:03</span>
+              </div>
+              <div class="sess-row">
+                <span class="dot" style="background: var(--subtle)"></span>
+                <span class="sess-name">Plan182</span>
+                <span class="sess-time">Sep 7 15:30</span>
+                <span class="sess-time">Sep 7 17:21</span>
+              </div>
+              <div class="sess-row">
+                <span class="dot" style="background: var(--subtle)"></span>
+                <span class="sess-name"
+                >Plan179 - Chat compaction is now…</span>
+                <span class="sess-time">Sep 7 13:54</span>
+                <span class="sess-time">Sep 7 15:23</span>
+              </div>
+              <div class="sess-row">
+                <span class="dot" style="background: var(--subtle)"></span>
+                <span class="sess-name">In our filespaces we use Muddy…</span>
+                <span class="sess-time">Sep 5 00:41</span>
+                <span class="sess-time">Sep 5 00:57</span>
+              </div>
+              <div class="sess-row">
+                <span class="dot" style="background: var(--subtle)"></span>
+                <span class="sess-name"
+                >Presentation of tool calls/results</span>
+                <span class="sess-time">Sep 4 21:25</span>
+                <span class="sess-time">Sep 4 23:46</span>
+              </div>
+            </div>
+          </aside>
+
+          <div class="chat">
+            <!-- Two-line session bar: identity, then usage -->
+            <div class="topbar">
+              <div class="tb-name">
+                <span class="dot"></span>
+                <span class="sess-title"
+                >We have now merged plan182 and 184…</span>
+              </div>
+              <div class="tb-stats">
+                <span>In <b>3.4m</b> <span class="dim">(cache 94%)</span></span>
+                <span>Out <b>7k</b></span>
+                <span>Messages <b>U 3</b> <b>A 48</b></span>
+                <span>Tools <b>64</b></span>
+                <span>Cost <b>$2.79</b></span>
+              </div>
+            </div>
+            <div class="chat-body">
+              <div class="skeleton"><i></i><i></i><i></i><i></i></div>
+            </div>
+            <div class="composer-wrap">
+              <div class="composer">
+                <div class="composer-input">
+                  <span class="ph"
+                  >Send a message or type / for commands…</span>
+                </div>
+                <div class="composer-toolbar">
+                  <button class="tool-chip">
+                    ⛁ Z.AI · GLM-5.3-Flash ▾
+                  </button>
+                  <button class="tool-chip">✦ Max ▾</button>
+                  <button class="tool-chip">Prompts</button>
+                  <button class="tool-chip">Steer</button>
+                  <button class="tool-chip">Improve</button>
+                  <span class="tool-spacer"></span>
+                  <span class="ctx-inline" title="Context window usage">Context
+                    <b>105k/272k</b>
+                    <span class="sl-bar"><i style="width: 38%"></i></span>
+                    <span>38%</span>
+                  </span>
+                  <button class="stop-btn" title="Stop">■</button>
+                  <button class="send-btn" title="Send">➤</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════ 2 · COLLAPSED ═════════════════════════ -->
+      <section class="frame-wrap">
+        <div class="frame-label">
+          <span class="n">2</span> Collapsed — context chip replaces the lone
+          toggle
+          <span class="why"
+          >project ▸ workspace always visible, one click back</span>
+        </div>
+        <div class="frame">
+          <div class="collapsed-stage">
+            <div class="collapse-cluster">
+              <button class="expand-btn" title="Expand sidebar">»</button>
+              <button
+                class="ctx-chip"
+                title="catheder-dev — ~/source/agent/catheder-dev/.worktrees/plan154-xberg-document-extraction"
+              >
+                <span class="proj">catheder-dev</span>
+                <span class="sep">▸</span>
+                <span class="ws">plan154-xberg-document-extraction</span>
+                <span class="dot dirty" title="Uncommitted changes"></span>
+              </button>
+            </div>
+            <p class="collapse-hint">
+              The chip shows <b>project ▸ current workspace branch</b>,
+              truncated with a tooltip carrying the full path. A tiny dot
+              appears only when the working tree is dirty. Clicking the chip or
+              the » button expands the sidebar.
+            </p>
+            <div class="chat-body">
+              <div>
+                <div class="big-mark" style="margin: 0 auto">π</div>
+                <h3 style="text-align: center">Session ready</h3>
+                <p style="text-align: center; color: var(--subtle)">
+                  Send a message or use a command from your Pi installation.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════ 3 · NARROW CHAT ══════════════════════ -->
+      <section class="frame-wrap">
+        <div class="frame-label">
+          <span class="n">3</span> Narrow chat pane
+          <span class="why"
+          >file preview / right sidebar open — the two lines absorb the
+            squeeze; the statusline is width-immune</span>
+        </div>
+        <div
+          class="frame"
+          style="height: 460px; padding: 22px; justify-content: center"
+        >
+          <div class="chat narrow">
+            <div class="topbar">
+              <div class="tb-name">
+                <span class="dot"></span>
+                <span class="sess-title"
+                >We have now merged plan182 and 184…</span>
+              </div>
+              <div class="tb-stats">
+                <span>In <b>3.4m</b> <span class="dim">(cache 94%)</span></span>
+                <span>Out <b>7k</b></span>
+                <span>Messages <b>U 3</b> <b>A 48</b></span>
+                <span>Tools <b>64</b></span>
+                <span>Cost <b>$2.79</b></span>
+              </div>
+            </div>
+            <div class="chat-body">
+              <div class="skeleton"><i></i><i></i><i></i></div>
+            </div>
+            <div class="composer-wrap">
+              <div class="composer">
+                <div class="composer-input">
+                  <span class="ph">Send a message…</span>
+                </div>
+                <div class="composer-toolbar">
+                  <button class="tool-chip">GLM-5.3-Flash ▾</button>
+                  <button class="tool-chip">✦ Max</button>
+                  <span class="tool-spacer"></span>
+                  <span class="ctx-inline" title="Context window usage">Context
+                    <b>38%</b></span>
+                  <button class="send-btn" title="Send">➤</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════ 4 · DETAILS ═══════════════════════════ -->
+      <div class="details">
+        <section class="detail-card">
+          <h2>Where the git summary lives</h2>
+          <p>
+            It always sits with the current workspace's representation: the card
+            when main is current, the selected worktree row otherwise. The GIT
+            tab stays the place for detail.
+          </p>
+          <div class="variant-row">
+            <div class="variant">
+              <small>Main current</small>
+              <div class="ws-card mini current">
+                <div class="ws-card-top">
+                  <span class="branch"><span class="glyph"
+                    >⎇</span>master</span><span class="pill">main</span>
+                </div>
+                <div class="ws-card-git">
+                  <span class="dot dirty"></span><span class="git-changed"
+                  >3 changed</span><span class="git-sep">·</span><span
+                    class="git-push"
+                  >↑ 71</span>
+                </div>
+              </div>
+            </div>
+            <div class="variant">
+              <small>Worktree current</small>
+              <div class="ws-row mini selected">
+                <div class="ws-row-main">
+                  <span class="name">plan182-xberg-document-extraction</span>
+                </div>
+                <div class="ws-row-path">
+                  &lrm;~/source/agent/catheder-dev/.worktrees/plan182-xberg-document-extraction
+                </div>
+                <div class="ws-row-git">
+                  <span class="dot dirty"></span><span class="git-changed"
+                  >3 changed</span><span class="git-sep">·</span><span>vs
+                    master <span class="git-ahead">+2</span> <span
+                      class="git-behind"
+                    >−1</span></span>
+                </div>
+              </div>
+            </div>
+            <div class="variant">
+              <small>Main, clean</small>
+              <div class="ws-card mini current">
+                <div class="ws-card-top">
+                  <span class="branch"><span class="glyph"
+                    >⎇</span>master</span><span class="pill">main</span>
+                </div>
+                <div class="ws-card-git">
+                  <span class="dot clean"></span><span class="git-clean"
+                  >clean</span><span class="grow"></span><span class="git-sep"
+                  >in sync</span>
+                </div>
+              </div>
+            </div>
+            <div class="variant">
+              <small>No git repo</small>
+              <div class="ws-card mini">
+                <div class="ws-card-top">
+                  <span class="branch" style="color: var(--muted)"
+                  >no repository</span>
+                </div>
+                <div class="ws-card-git">
+                  <span class="git-sep"
+                  >path and session indicator still shown</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-card">
+          <h2>Decisions &amp; behaviour notes</h2>
+          <p>What moved, what stayed, and why.</p>
+          <ol class="notes">
+            <li>
+              <b>Top bar = session only, two lines.</b> Line 1: status dot +
+              session name (the compacting state replaces this line while
+              running). Line 2: usage stats, ellipsizing gracefully when the
+              pane narrows. Context left the bar entirely.
+            </li>
+            <li>
+              <b>Context lives in the composer's existing bottom row.</b>
+              Right-aligned beside stop/send: <code>Context 105k/272k</code> +
+              meter + %. No separate strip and no added height — the row and
+              its divider already exist. On narrow panes it shrinks to the bare
+              percentage (frame 3).
+            </li>
+            <li>
+              <b>Main workspace has its own card.</b> Branch, path, and git
+              summary — a stable section that never duplicates a list row.
+              Highlighted only when main is the current workspace; clicking it
+              selects main.
+            </li>
+            <li>
+              <b>The list is worktrees only.</b> Each row: branch name, path
+              sublabel (leading ellipsis keeps the tail visible). The <b
+              >selected worktree carries the git summary line</b> — the
+              snapshot already follows the selection, so at-a-glance git always
+              sits next to “you are here”. With no worktrees the section
+              hides entirely.
+            </li>
+            <li>
+              <b>Per-workspace session dots stay</b> on the row's right edge;
+              the <code>…</code> actions button appears on hover in the same
+              slot (no layout shift).
+            </li>
+            <li>
+              <b>Collapsed keeps identity.</b> The floating chip shows <code
+              >project ▸ branch</code> plus a dirty dot; full path lives in
+              the tooltip. Nothing else changes about collapse behaviour.
+            </li>
+            <li>
+              <b>No new data required.</b> Everything shown already exists:
+              <code>gitSnapshot</code> (already scoped to the selected
+              workspace), <code>projectDetails.workspaces</code>, <code
+              >session.cwd</code>. Colours reuse <code
+              >--accent/--success/--warning</code> tokens, so light theme needs
+              no separate palette.
+            </li>
+          </ol>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>

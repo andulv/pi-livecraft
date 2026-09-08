@@ -183,6 +183,14 @@ export function WorkspaceSidebar({
   const workspaces = useMemo(() => projectDetails?.workspaces ?? [], [projectDetails])
   const selectedWorkspace = workspaces.find(({ path }) => path === workspacePath)
   const selectedWorkspaceLabel = selectedWorkspace?.branch ?? workspacePath
+  const mainWorkspace = workspaces.find(({ main }) => main)
+  const worktrees = [...workspaces]
+    .filter(({ main }) => !main)
+    .sort((left, right) => compareWorkspaces(left, right, recentSessions, sentSessions))
+  const currentBranch = selectedWorkspace?.branch
+    ?? workspacePath.split(/[\\/]/).filter(Boolean).at(-1)
+    ?? workspacePath
+  const mainWorkspaceCurrent = mainWorkspace?.path === workspacePath
   const gitDirtyCount = gitSnapshot?.files.length ?? 0
   const gitUnpushedCount = gitSnapshot?.ahead ?? 0
   const gitChangeCount = gitDirtyCount + gitUnpushedCount
@@ -434,6 +442,21 @@ export function WorkspaceSidebar({
             <SidebarToggleIcon collapsed />
           </button>
         </Tooltip>
+        <Tooltip label={`${project.name} — ${workspacePath}`}>
+          <button
+            aria-label={`Expand session sidebar: ${project.name}, ${currentBranch}`}
+            className='sidebar-context-chip'
+            onClick={onToggleCollapsed}
+            type='button'
+          >
+            <strong>{project.name}</strong>
+            <span aria-hidden='true' className='sidebar-context-chip-sep'>▸</span>
+            <span className='sidebar-context-chip-ws'>{currentBranch}</span>
+            {gitSnapshot && gitSnapshot.files.length > 0 && (
+              <i aria-hidden='true' className='sidebar-context-chip-dot' />
+            )}
+          </button>
+        </Tooltip>
       </div>
       <div
         aria-label='Resize session sidebar'
@@ -454,13 +477,12 @@ export function WorkspaceSidebar({
               aria-expanded={brandMenuOpen}
               aria-haspopup='menu'
               aria-label='Projects overview menu'
-              className='brand-signature brand-menu-trigger'
+              className='brand-menu-trigger'
               onClick={() => setBrandMenuOpen((open) => !open)}
               ref={brandMenuTriggerRef}
               type='button'
             >
               <span aria-hidden='true' className='brand-mark'>π</span>
-              <small>Livecraft</small>
             </button>
           </Tooltip>
           {brandMenuOpen && (
@@ -501,7 +523,28 @@ export function WorkspaceSidebar({
           </button>
         </Tooltip>
       </div>
-      <section className='project-list' aria-label={`${project.name} workspaces`}>
+      {mainWorkspace && (
+        <Tooltip label={`${mainWorkspace.branch ?? mainWorkspace.path} — ${mainWorkspace.path}`}>
+          <button
+            aria-current={mainWorkspaceCurrent ? 'page' : undefined}
+            className={`workspace-card${mainWorkspaceCurrent ? ' current' : ''}`}
+            onClick={() =>
+              onSelectWorkspace(mainWorkspace.path)}
+            type='button'
+          >
+            <span className='workspace-card-head'>
+              <span aria-hidden='true' className='workspace-card-glyph'>⎇</span>
+              <span className='workspace-card-branch'>{mainWorkspace.branch ?? 'main'}</span>
+              <span className='workspace-card-pill'>Main</span>
+            </span>
+            <span className='workspace-card-path' title={mainWorkspace.path}>
+              {mainWorkspace.path}
+            </span>
+            {mainWorkspaceCurrent && gitSnapshot && <GitLine snapshot={gitSnapshot} />}
+          </button>
+        </Tooltip>
+      )}
+      <section className='project-list' aria-label={`${project.name} worktrees`}>
         <div className='project-item'>
           {resolvedPinnedSessions.length > 0 && (
             <PinnedSessionList
@@ -515,60 +558,68 @@ export function WorkspaceSidebar({
               sessions={sessions}
             />
           )}
-          <div className='sidebar-section-heading sidebar-list-heading'>
-            <span>Workspaces</span>
-            <Tooltip label='Refresh workspaces'>
-              <button
-                aria-label='Refresh workspaces'
-                className='new-session refresh-sessions'
-                onClick={onRefreshWorkspaces}
-                type='button'
-              >
-                <RefreshIcon />
-              </button>
-            </Tooltip>
-          </div>
-          <div className='project-workspaces'>
-            {[...workspaces]
-              .sort((left, right) => compareWorkspaces(left, right, recentSessions, sentSessions))
-              .map((workspace) => {
-                const workspaceIndicator = aggregateSessionIndicator(
-                  sessions.filter(({ cwd }) => cwd === workspace.path),
-                  selectedId,
-                  compactingSessionIds,
-                  completedSessionIds,
-                )
-                return (
-                  <div className='workspace-row' key={workspace.path}>
-                    <button
-                      aria-current={workspace.path === workspacePath ? 'page' : undefined}
-                      className={`workspace-path${
-                        workspace.path === workspacePath ? ' selected' : ''
-                      }`}
-                      onClick={() => onSelectWorkspace(workspace.path)}
-                      type='button'
-                    >
-                      <div className='workspace-path-copy'>
-                        <span>{workspace.main ? 'Main workspace' : 'Worktree'}</span>
-                        <strong>{workspace.branch ?? workspace.path}</strong>
-                      </div>
-                      {workspaceIndicator && <SessionStatusIndicator status={workspaceIndicator} />}
-                    </button>
-                    <Tooltip label={`Workspace actions for ${workspace.branch ?? workspace.path}`}>
+          {worktrees.length > 0 && (
+            <>
+              <div className='sidebar-section-heading sidebar-list-heading'>
+                <span>Worktrees</span>
+                <Tooltip label='Refresh worktrees'>
+                  <button
+                    aria-label='Refresh worktrees'
+                    className='new-session refresh-sessions'
+                    onClick={onRefreshWorkspaces}
+                    type='button'
+                  >
+                    <RefreshIcon />
+                  </button>
+                </Tooltip>
+              </div>
+              <div className='project-workspaces'>
+                {worktrees.map((workspace) => {
+                  const workspaceIndicator = aggregateSessionIndicator(
+                    sessions.filter(({ cwd }) => cwd === workspace.path),
+                    selectedId,
+                    compactingSessionIds,
+                    completedSessionIds,
+                  )
+                  const selected = workspace.path === workspacePath
+                  return (
+                    <div className='workspace-row' key={workspace.path}>
                       <button
-                        aria-haspopup='menu'
-                        aria-label={`Workspace actions for ${workspace.branch ?? workspace.path}`}
-                        className='session-actions workspace-actions'
-                        onClick={(event) => openWorkspaceMenu(workspace, event)}
+                        aria-current={selected ? 'page' : undefined}
+                        className={`workspace-path${selected ? ' selected' : ''}`}
+                        onClick={() => onSelectWorkspace(workspace.path)}
                         type='button'
                       >
-                        …
+                        <span className='workspace-path-copy'>
+                          <strong>{workspace.branch ?? workspace.path}</strong>
+                          <span className='workspace-path-detail' title={workspace.path}>
+                            {workspace.path}
+                          </span>
+                          {selected && gitSnapshot && <GitLine snapshot={gitSnapshot} />}
+                        </span>
+                        {workspaceIndicator && (
+                          <SessionStatusIndicator status={workspaceIndicator} />
+                        )}
                       </button>
-                    </Tooltip>
-                  </div>
-                )
-              })}
-          </div>
+                      <Tooltip
+                        label={`Workspace actions for ${workspace.branch ?? workspace.path}`}
+                      >
+                        <button
+                          aria-haspopup='menu'
+                          aria-label={`Workspace actions for ${workspace.branch ?? workspace.path}`}
+                          className='session-actions workspace-actions'
+                          onClick={(event) => openWorkspaceMenu(workspace, event)}
+                          type='button'
+                        >
+                          …
+                        </button>
+                      </Tooltip>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </div>
       </section>
       <div className='sidebar-section-heading sidebar-list-heading workspace-view-heading'>
@@ -859,6 +910,28 @@ export function WorkspaceSidebar({
         />
       )}
     </aside>
+  )
+}
+
+/** Compact working-tree summary for the selected workspace; the sidebar card
+    shows it while main is selected, the selected worktree row otherwise. */
+function GitLine({ snapshot }: { snapshot: GitSnapshot }) {
+  const clean = snapshot.files.length === 0
+  return (
+    <span className='git-line'>
+      <i aria-hidden='true' className={`git-line-dot ${clean ? 'clean' : 'dirty'}`} />
+      <span className={clean ? 'git-clean' : 'git-changed'}>
+        {clean ? 'Clean' : `${snapshot.files.length} changed`}
+      </span>
+      {snapshot.ahead > 0 && <span className='git-ahead'>↑ {snapshot.ahead}</span>}
+      {snapshot.worktree && snapshot.baseBranch && (
+        <span className='git-divergence'>
+          vs {snapshot.baseBranch}
+          <b className='ahead'>+{snapshot.baseAhead}</b>
+          <b className='behind'>−{snapshot.baseBehind}</b>
+        </span>
+      )}
+    </span>
   )
 }
 

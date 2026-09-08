@@ -29,9 +29,9 @@ All data arrives through props. The Composer never calls the backend directly.
 | `selects/SummarySelect.tsx` | Reasoning summary — per-session override sent through the `/livecraft-response-controls` extension command, shown only for supported models |
 | `selects/PromptSelect.tsx` | Prompt templates — previews, inserts, and saves Pi-discovered templates |
 | `selects/BehaviorSelect.tsx` | Steer / Follow-up toggle, only rendered while Pi is running |
-| `status-bar/ChatTopBar.tsx` | Two-line status strip pinned to the top of the chat window: project/workspace/path/Git context first, then session identity and usage |
-| `status-bar/SessionInfo.tsx` | Labelled session name and active status dot |
-| `status-bar/SessionStats.tsx` | Input/cache/output tokens, message and tool counts, cost, and context usage |
+| `status-bar/ChatTopBar.tsx` | Two-line session strip pinned to the top of the chat window: session identity first, then usage stats. Workspace context lives in the sidebar; context usage in `ContextUsage` |
+| `status-bar/SessionInfo.tsx` | Session name and active status dot |
+| `status-bar/SessionStats.tsx` | `SessionStats` renders input/cache/output tokens, message and tool counts, and cost; `ContextUsage` renders context-window pressure in the composer's action row |
 
 ## Internal state
 

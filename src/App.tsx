@@ -1604,19 +1604,6 @@ function LivecraftProjectApp(
           ? (
             <>
               <ChatTopBar
-                projectName={project.name}
-                workspaceName={workspaceName}
-                git={gitSnapshot?.repository
-                  ? {
-                    ahead: gitSnapshot.ahead,
-                    baseAhead: gitSnapshot.baseAhead,
-                    baseBehind: gitSnapshot.baseBehind,
-                    baseBranch: gitSnapshot.baseBranch,
-                    branch: gitSnapshot.branch ?? 'HEAD',
-                    changedFiles: gitSnapshot.files.length,
-                    worktree: gitSnapshot.worktree,
-                  }
-                  : null}
                 running={selectedSession.status === 'running'}
                 session={selectedSession}
                 stats={snapshot.stats}

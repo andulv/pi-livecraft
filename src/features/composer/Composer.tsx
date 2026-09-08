@@ -19,6 +19,7 @@ import type {
 import { maxComposerImages, prepareComposerImage, type ComposerImage } from './composer-images.ts'
 import {
   ensureLocalCommands,
+  formatSessionStats,
   isCommandDraft,
   isCompactCommandDraft,
   isNameCommandDraft,
@@ -34,6 +35,7 @@ import { SummarySelect } from './selects/SummarySelect.tsx'
 import { ThinkingSelect } from './selects/ThinkingSelect.tsx'
 import { VerbositySelect } from './selects/VerbositySelect.tsx'
 import { ComposerSelect } from './selects/ComposerSelect.tsx'
+import { ContextUsage } from './status-bar/SessionStats.tsx'
 
 /** Static options for the Improve-prompt dropdown; hoisted to a module constant so the select never re-renders for it. */
 const improveOptions = [
@@ -156,6 +158,12 @@ export const Composer = memo(function Composer({
   const responseControls = snapshot.responseControls
   const verbosity = responseControls?.verbosity ?? 'default'
   const summary = responseControls?.summary ?? 'default'
+  const {
+    contextClass,
+    contextPercent,
+    contextPercentValue,
+    contextTokens,
+  } = formatSessionStats(snapshot.stats)
   // Keep a ref to the latest draft so stable callbacks can read it without re-creating on every keystroke.
   const messageRef = useRef(message)
   messageRef.current = message
@@ -662,6 +670,12 @@ export const Composer = memo(function Composer({
             </Tooltip>
           </div>
           <div className='composer-primary-actions'>
+            <ContextUsage
+              contextClass={contextClass}
+              contextPercent={contextPercent}
+              contextPercentValue={contextPercentValue}
+              contextTokens={contextTokens}
+            />
             <span className='composer-stop-slot'>
               {running && (
                 <Tooltip label='Stop generation'>

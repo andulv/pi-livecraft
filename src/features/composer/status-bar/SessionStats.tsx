@@ -1,13 +1,9 @@
-/** Displays cumulative session usage and current context pressure. */
+/** Displays cumulative session usage. Context pressure lives in ContextUsage. */
 export function SessionStats(
   {
     assistantMessages,
     cachePercent,
     cost,
-    contextClass,
-    contextTokens,
-    contextPercent,
-    contextPercentValue,
     inputTokens,
     outputTokens,
     toolCalls,
@@ -16,10 +12,6 @@ export function SessionStats(
     assistantMessages: string
     cachePercent: string
     cost: string
-    contextClass: string
-    contextTokens: string
-    contextPercent: string
-    contextPercentValue: number | null
     inputTokens: string
     outputTokens: string
     toolCalls: string
@@ -58,20 +50,33 @@ export function SessionStats(
         <b>Cost</b>
         {cost}
       </span>
-      <span className={contextClass}>
-        <b>Context</b>
-        <small className='composer-context-tokens'>{contextTokens}</small>
-        {contextPercentValue !== null && (
-          <>
-            {contextPercent}
-            <progress
-              aria-label={`Context usage: ${contextTokens} (${contextPercent})`}
-              max={100}
-              value={contextPercentValue}
-            />
-          </>
-        )}
-      </span>
     </div>
+  )
+}
+
+/** Displays current context-window pressure; lives in the composer's action row. */
+export function ContextUsage(
+  { contextClass, contextTokens, contextPercent, contextPercentValue }: {
+    contextClass: string
+    contextTokens: string
+    contextPercent: string
+    contextPercentValue: number | null
+  },
+) {
+  return (
+    <span className={`composer-context composer-stats ${contextClass}`}>
+      <b>Context</b>
+      <small className='composer-context-tokens'>{contextTokens}</small>
+      {contextPercentValue !== null && (
+        <>
+          {contextPercent}
+          <progress
+            aria-label={`Context usage: ${contextTokens} (${contextPercent})`}
+            max={100}
+            value={contextPercentValue}
+          />
+        </>
+      )}
+    </span>
   )
 }

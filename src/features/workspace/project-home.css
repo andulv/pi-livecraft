@@ -199,9 +199,6 @@
   border-top: 2px solid var(--project-color);
   border-bottom: 2px solid var(--project-color);
 }
-.project-themed .chat-topbar-session {
-  border-top-color: var(--project-color);
-}
 @media (max-width: 600px) {
   .project-home {
     padding: 20px 14px;
