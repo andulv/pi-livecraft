@@ -10,7 +10,7 @@ observability handoff; nothing here logs payloads, prompts, session ids, or path
   snapshot totals (full/delta counts and byte totals), and the last stage timings per
   snapshot (RPC wait, active-message build, template reads, total, bytes, mode).
 - **Retention:** ring buffers in memory only — 100 recent events, 50 recent snapshot
-  stages, monotonic counters. Nothing is persisted; a backend restart starts empty.
+  stages, monotonic counters. Nothing is persisted; a backend restart starts empty. Its persistent companion is the [app log](/server/features/app-log/README.md), which survives restarts.
 - **Correlation:** each event and stage carries a monotonic `sequence` and wall-clock `t`.
   No cross-request correlation ids beyond that.
 - **Overhead:** one `Date.now()` plus counter arithmetic per request; serialization only

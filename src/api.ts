@@ -5,6 +5,8 @@ import type {
 import type {
   BrowserInputEvent,
   BrowserInstanceTarget,
+  ClientLogRequestBody,
+  ClientLogSource,
   BrowserSessionStatus,
   BrowserSystemDebugSnapshot,
   BrowserViewport,
@@ -71,7 +73,10 @@ export function subscribeManagerEvents(
     const event = parseManagerEvent(data)
     if (event) onEvent(event)
   }
-  source.onerror = onError
+  source.onerror = () => {
+    void postClientLog('sse-drop', 'manager event stream error')
+    onError()
+  }
   return () => source.close()
 }
 
@@ -513,6 +518,9 @@ export function subscribeBrowserEvents(
       handlers.onStatus?.(value as unknown as BrowserSessionStatus)
     }
   })
+  source.onerror = () => {
+    void postClientLog('sse-drop', 'browser stream error')
+  }
   return () => source.close()
 }
 
@@ -589,9 +597,11 @@ export function subscribeTerminalOutput(
     })
     source.onerror = () => {
       if (source && source.readyState === EventSource.CLOSED) {
+        void postClientLog('sse-drop', 'terminal stream closed')
         source.close()
         source = null
         reopenTimer = setTimeout(open, 500)
+        void postClientLog('sse-reopen', 'terminal stream reopen scheduled')
       }
     }
   }
@@ -660,20 +670,49 @@ export async function sendPiCommand(sessionId: string, command: JsonObject): Pro
 const inflightGet = new Map<string, Promise<unknown>>()
 
 async function performRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    headers: typeof init?.body === 'string'
-      ? { 'Content-Type': 'application/json', ...init.headers }
-      : init?.headers,
-  })
+  let response: Response
+  try {
+    response = await fetch(path, {
+      ...init,
+      headers: typeof init?.body === 'string'
+        ? { 'Content-Type': 'application/json', ...init.headers }
+        : init?.headers,
+    })
+  } catch (error) {
+    // Network failure: the backend is unreachable, so the report itself will be
+    // dropped; the throw preserves the caller's error handling.
+    void postClientLog(
+      'fetch-failure',
+      `network error: ${error instanceof Error ? error.message : String(error)}`,
+    )
+    throw error
+  }
   const value: unknown = await response.json()
   if (!response.ok) {
+    // Only unexpected server failures are instability; 4xx is user-visible validation.
+    if (response.status >= 500) void postClientLog('fetch-failure', `HTTP ${response.status}`)
     const message = isObject(value) && typeof value.error === 'string'
       ? value.error
       : `Request failed (${response.status})`
     throw new Error(message)
   }
   return value as T
+}
+
+/** Posts one bounded client entry to the backend app log; failures are silent by design. */
+export async function postClientLog(source: ClientLogSource, message: string): Promise<void> {
+  try {
+    // Raw fetch, not request(): reporting must not recurse through failure reporting.
+    await fetch('/api/client-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(
+        { source, message: message.slice(0, 500) } satisfies ClientLogRequestBody,
+      ),
+    })
+  } catch {
+    // An unreachable backend drops the entry; the next successful report covers the gap.
+  }
 }
 
 /** Fetches a resource, sharing concurrent identical GET requests so duplicated

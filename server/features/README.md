@@ -2,6 +2,7 @@
 
 This directory contains local product capabilities used by `server/backend.ts`. The backend remains the sole HTTP routing and validation boundary; feature modules implement behavior and persistence without defining routes.
 
+- [`app-log/`](/server/features/app-log/README.md) owns the persistent JSONL app log for post-hoc stability analysis and the client error reporting endpoint contract.
 - [`browser/`](/server/features/browser/README.md) owns workspace-scoped livecast Chrome instances and their CDP endpoints for agent tooling.
 - [`extension-settings/`](/server/features/extension-settings/README.md) reads and writes the settings document that Pi extensions publish to Pi's agent directory.
 - [`git/`](/server/features/git/README.md) reads and mutates the selected repository.

@@ -426,6 +426,11 @@ reconnects. Define retention, correlation, and overhead before permanent instrum
 **Stability:** extend regression coverage with longer runs, repeated switches, reconnects,
 failed requests, and listener/cache cleanup. Carry forward any unexplained growth with its
 reproduction steps. Fault injection that disrupts live services needs separate approval.
+Stability work runs from real-life evidence: the persistent app log
+([`server/features/app-log/`](/server/features/app-log/README.md), implemented 2026-09-07)
+records crashes, restarts, failed requests, and client-side connection errors during
+normal use; simulated heavy usage stays deferred until real logs demand it. The log file
+grows without rotation by explicit decision.
 
 ## Related contracts
 

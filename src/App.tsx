@@ -49,6 +49,7 @@ import { ToastStack, type Toast } from './features/notifications/ToastStack.tsx'
 import { sessionActivity, type PiConnection } from './features/conversation/activity.ts'
 import { Conversation } from './features/conversation/Conversation.tsx'
 import { useConversationRuntime } from './features/conversation/useConversationRuntime.ts'
+import { useClientErrorLog } from './features/diagnostics/useClientErrorLog.ts'
 import { AskUserQuestionDialog, ExtensionDialog } from './features/dialogs/Dialogs.tsx'
 import {
   isAgentSelector,
@@ -170,6 +171,7 @@ function VSCodeIcon() {
 }
 /** Routes between the project registry and one URL-addressable Livecraft project. */
 function App() {
+  useClientErrorLog()
   const [projectId, setProjectId] = useState(() =>
     projectIdFromLocation(window.location.pathname, window.location.search)
   )

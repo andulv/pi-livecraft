@@ -54,11 +54,13 @@ import {
   sliceSnapshotDelta,
   snapshotCursor,
 } from './session-snapshot.ts'
+import { AppLog, slowSnapshotThresholdMs } from './features/app-log/app-log.ts'
 import { loadPromptTemplates, savePromptTemplate } from './prompt-templates.ts'
 import { responseControlsReport } from '../shared/response-controls.ts'
 import { externalWorkspacePath, openPath } from './system-integration.ts'
 import { expandHomePath } from './home-path.ts'
 import type {
+  ClientLogRequestBody,
   DirectoryListing,
   JsonObject,
   ManagerEvent,
@@ -78,11 +80,19 @@ const distDirectory = fileURLToPath(new URL('../dist/', import.meta.url))
 const quotas = new QuotaService(manager)
 const environment = new EnvironmentService(manager)
 const diagnostics = new DiagnosticsRecorder()
+const appLog = new AppLog(fileURLToPath(new URL('../pi-livecraft-app.log', import.meta.url)))
+appLog.boot(process.pid)
 const metadata = new MetadataCache()
 const browsers = new BrowserService()
-process.once('exit', () => browsers.killSync())
+process.once('exit', () => {
+  appLog.shutdown('exit')
+  browsers.killSync()
+})
 const terminals = new TerminalService()
-process.once('exit', () => terminals.killSync())
+process.once('exit', () => {
+  appLog.shutdown('exit')
+  terminals.killSync()
+})
 const managerRuntime = new ManagerRuntimeMonitor(manager, (status) => {
   broadcast({ kind: 'event', event: 'manager_status', sessionId: '', data: status })
 })
@@ -106,6 +116,7 @@ manager.on('event', (event: ManagerEvent) => {
   broadcast(event)
 })
 manager.on('connected', () => {
+  appLog.manager('connected')
   managerRuntime.connected()
   metadata.clear()
   broadcast({ kind: 'event', event: 'manager_connected', sessionId: '' })
@@ -113,6 +124,7 @@ manager.on('connected', () => {
   void environment.restoreFromIdleSession()
 })
 manager.on('disconnected', () => {
+  appLog.manager('disconnected')
   managerRuntime.disconnected()
   metadata.clear()
   broadcast({ kind: 'event', event: 'manager_disconnected', sessionId: '' })
@@ -120,10 +132,23 @@ manager.on('disconnected', () => {
 managerRuntime.start()
 manager.start()
 
+// Logging the fault keeps the terminal stack trace and the crash-restart behavior
+// unchanged; the marker lets the next boot report the run as ended abruptly.
+process.on('uncaughtException', (error: unknown) => {
+  appLog.uncaught('uncaughtException', error)
+  appLog.shutdown('crash')
+  throw error
+})
+process.on('unhandledRejection', (reason: unknown) => {
+  appLog.uncaught('unhandledRejection', reason)
+})
+
 const server = createServer((request, response) => {
   void route(request, response).catch((error) => {
     const status = error instanceof HttpError ? error.status : 500
-    diagnostics.error((request.url ?? '').split('?')[0].replace(/sessions\/[^/]+/g, 'sessions/:id'))
+    const route = (request.url ?? '').split('?')[0].replace(/sessions\/[^/]+/g, 'sessions/:id')
+    diagnostics.error(route)
+    appLog.requestError(route, status)
     if (!response.headersSent) sendJson(response, status, { error: errorMessage(error) })
     else response.end()
   })
@@ -139,7 +164,17 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   const url = new URL(request.url ?? '/', `http://${host}`)
 
   if (method === 'GET' && url.pathname === '/api/diagnostics') {
+    diagnostics.request('diagnostics')
     sendJson(response, 200, diagnostics.snapshotState())
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/client-log') {
+    diagnostics.request('client-log')
+    const body = await readJsonBody(request)
+    if (!isClientLogBody(body))
+      throw new HttpError(400, 'Client log needs a known source and a message')
+    sendJson(response, 202, { logged: appLog.client(body) })
     return
   }
 
@@ -153,6 +188,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
 
   if (method === 'GET' && url.pathname === '/api/events') {
     diagnostics.sseOpen()
+    appLog.sseOpen()
     response.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -642,14 +678,16 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         appended: delta.appended,
         cursor: delta.cursor,
       })
+      const deltaTotalMs = Math.round((performance.now() - snapshotStartedAt) * 100) / 100
       diagnostics.snapshot({
         rpcMs,
         buildMs,
         templatesMs,
-        totalMs: Math.round((performance.now() - snapshotStartedAt) * 100) / 100,
+        totalMs: deltaTotalMs,
         bytes,
         mode: 'delta',
       })
+      if (deltaTotalMs >= slowSnapshotThresholdMs) appLog.slowSnapshot('delta', deltaTotalMs, bytes)
       return
     }
     const snapshot: SessionSnapshot = {
@@ -670,14 +708,16 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       cursor,
     }
     const bytes = sendJson(response, 200, snapshot)
+    const fullTotalMs = Math.round((performance.now() - snapshotStartedAt) * 100) / 100
     diagnostics.snapshot({
       rpcMs,
       buildMs,
       templatesMs,
-      totalMs: Math.round((performance.now() - snapshotStartedAt) * 100) / 100,
+      totalMs: fullTotalMs,
       bytes,
       mode: 'full',
     })
+    if (fullTotalMs >= slowSnapshotThresholdMs) appLog.slowSnapshot('full', fullTotalMs, bytes)
     return
   }
 
@@ -1059,6 +1099,23 @@ function isModelBody(value: unknown): { provider: string; modelId: string } | un
 }
 
 /** Logs only the safe summary Pi stores for an unsuccessful provider response. */
+/** Validates the client-log body without trusting client input. */
+function isClientLogBody(body: unknown): body is ClientLogRequestBody {
+  if (!isObject(body)) return false
+  const knownSources = [
+    'window-error',
+    'unhandled-rejection',
+    'fetch-failure',
+    'sse-drop',
+    'sse-reopen',
+  ]
+  return typeof body.source === 'string'
+    && knownSources.includes(body.source)
+    && typeof body.message === 'string'
+    && body.message.trim() !== ''
+    && body.message.length <= 500
+}
+
 function logProviderFailure(sessionId: string, event: JsonObject): void {
   if (event.type !== 'message_end' || !isObject(event.message)) return
   const failure = providerFailure(event.message)

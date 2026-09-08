@@ -301,6 +301,19 @@ export interface SnapshotStageEntry {
 }
 
 /** Bounded backend diagnostics served by `GET /api/diagnostics`. */
+/** Sources of client-reported entries in the persistent app log. */
+export type ClientLogSource =
+  | 'window-error'
+  | 'unhandled-rejection'
+  | 'fetch-failure'
+  | 'sse-drop'
+  | 'sse-reopen'
+
+export interface ClientLogRequestBody {
+  source: ClientLogSource
+  message: string
+}
+
 export interface DiagnosticsSnapshot {
   uptimeMs: number
   requests: Record<string, number>
