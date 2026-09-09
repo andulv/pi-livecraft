@@ -132,6 +132,15 @@ manager.on('disconnected', () => {
 managerRuntime.start()
 manager.start()
 
+// Default signal death skips 'exit' handlers, so clean stops must write their marker
+// here; afterwards 'unknown' really means an abnormal end (SIGKILL, OOM, hard crash).
+const stopForSignal = (): void => {
+  appLog.shutdown('exit')
+  process.exit(0)
+}
+process.on('SIGINT', stopForSignal)
+process.on('SIGTERM', stopForSignal)
+
 // Logging the fault keeps the terminal stack trace and the crash-restart behavior
 // unchanged; the marker lets the next boot report the run as ended abruptly.
 process.on('uncaughtException', (error: unknown) => {
