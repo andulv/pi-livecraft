@@ -71,7 +71,15 @@ const DefaultMessageCard = memo(
             className='message-time'
             dateTime={time.toISOString()}
           >
-            {time.toLocaleTimeString(navigator.language, { hour: '2-digit', minute: '2-digit' })}
+            {time.toLocaleString(navigator.language, {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })}
           </time>
         )}
       </article>

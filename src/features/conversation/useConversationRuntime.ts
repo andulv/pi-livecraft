@@ -330,10 +330,10 @@ export function useConversationRuntime(
           : undefined
         void settledSnapshot?.then((nextSnapshot) => {
           if (!nextSnapshot || settledRequestDuration === undefined) return
-          // A delta never contains the settled request's own user message.
           const requestTimestamp = 'messages' in nextSnapshot
             ? lastUserTimestamp(nextSnapshot.messages)
-            : undefined
+            : lastUserTimestamp(nextSnapshot.appended)
+              ?? lastUserTimestamp(liveMessagesRef.current.map(({ message }) => message))
           if (requestTimestamp !== undefined)
             setObservedRequestDurations((current) =>
               new Map(current).set(requestTimestamp, settledRequestDuration)

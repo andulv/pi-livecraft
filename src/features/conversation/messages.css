@@ -64,7 +64,7 @@
 .turn-usage {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px 0;
+  gap: 4px 8px;
   margin: 11px 0 13px;
   padding-bottom: 14px;
   border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
@@ -78,11 +78,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.turn-usage > :not(:last-child)::after {
-  margin-right: 8px;
-  color: var(--subtle);
-  content: ",";
 }
 .message-time {
   display: block;
