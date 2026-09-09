@@ -8,6 +8,7 @@ import { isObject } from '../../../shared/is-object.ts'
 import type { JsonObject, SessionSnapshot, SessionSnapshotResponse } from '../../../shared/types.ts'
 import { activityForPiEvent, type Activity } from './activity.ts'
 import { advanceEventSequence } from './event-sequence.ts'
+import { addMessageUsage, messageUsage } from './message-usage.ts'
 import { mergeSnapshotResponse } from './snapshot-merge.ts'
 import { SnapshotGate } from './snapshot-gate.ts'
 import type { LiveMessage } from './message-reconciliation.ts'
@@ -315,7 +316,15 @@ export function useConversationRuntime(
           liveMessageIndexRef.current
         ]
         const message = assistantMessageAfterEvent(live?.message ?? null, event)
-        if (message) queueLiveMessage(message)
+        if (message) {
+          queueLiveMessage(message)
+          const usage = messageUsage(message)
+          if (usage)
+            setSnapshot((current) => ({
+              ...current,
+              stats: addMessageUsage(current.stats, usage),
+            }))
+        }
       }
       const settledRequestDuration = event
               .type === 'agent_settled' && requestStartedAtRef.current !== undefined

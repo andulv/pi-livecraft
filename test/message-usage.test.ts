@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  addMessageUsage,
   formatCachePercent,
   formatInputTokens,
   formatTurnCost,
@@ -32,6 +33,24 @@ test('extracts per-response cost and token counters from Pi usage', () => {
   assert.equal(formatCachePercent(usage!), '44.4%')
   assert.equal(formatTurnDuration(92_000), '1m32s')
   assert.equal(formatTurnDuration(3_723_000), '1h2m3s')
+})
+
+test('adds completed response usage to cumulative session stats', () => {
+  assert.deepEqual(
+    addMessageUsage({ cost: 1, tokens: { input: 100, output: 20 } }, {
+      cacheMiss: 30,
+      cacheRead: 40,
+      cacheWrite: 5,
+      cost: 0.25,
+      output: 10,
+    }),
+    {
+      assistantMessages: 1,
+      totalMessages: 1,
+      cost: 1.25,
+      tokens: { input: 130, output: 30, cacheRead: 40, cacheWrite: 5 },
+    },
+  )
 })
 
 test('keeps usage separate for each agentic turn', () => {

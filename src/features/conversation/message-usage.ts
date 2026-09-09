@@ -1,4 +1,4 @@
-import type { JsonObject } from '../../../shared/types.ts'
+import type { JsonObject, SessionStats } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
 import { toolCallsInMessage } from './tool-protocol.ts'
 
@@ -8,6 +8,24 @@ export interface MessageUsage {
   cacheWrite: number
   cost: number
   output: number
+}
+
+/** Adds one completed assistant response to cumulative session totals. */
+export function addMessageUsage(stats: SessionStats | null, usage: MessageUsage): SessionStats {
+  const tokens = stats?.tokens
+  return {
+    ...stats,
+    assistantMessages: (stats?.assistantMessages ?? 0) + 1,
+    totalMessages: (stats?.totalMessages ?? 0) + 1,
+    cost: (stats?.cost ?? 0) + usage.cost,
+    tokens: {
+      ...tokens,
+      input: (tokens?.input ?? 0) + usage.cacheMiss,
+      output: (tokens?.output ?? 0) + usage.output,
+      cacheRead: (tokens?.cacheRead ?? 0) + usage.cacheRead,
+      cacheWrite: (tokens?.cacheWrite ?? 0) + usage.cacheWrite,
+    },
+  }
 }
 
 /** Extracts final counters associated with a Pi response or tool result. */
