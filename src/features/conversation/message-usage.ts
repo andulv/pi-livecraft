@@ -40,6 +40,15 @@ export function formatTokens(value: number): string {
   return value >= 1000 ? `${Math.round(value / 1000)}k` : String(value)
 }
 
+export function formatInputTokens(usage: MessageUsage): string {
+  return formatTokens(usage.cacheMiss + usage.cacheRead + usage.cacheWrite)
+}
+
+export function formatCachePercent(usage: MessageUsage): string {
+  const input = usage.cacheMiss + usage.cacheRead + usage.cacheWrite
+  return `${input > 0 ? Math.round(usage.cacheRead / input * 1_000) / 10 : 0}%`
+}
+
 /** Associates each agent turn with the billed counters from its assistant response.
  * When resolvedCallIds is provided, only returns usage for messages whose tool calls
  * have all been resolved (result received). */

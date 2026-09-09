@@ -10,7 +10,13 @@ import {
   reasoningTextForDisplay,
   type ProviderError,
 } from './message-display.ts'
-import { formatTokens, formatTurnCost, type MessageUsage } from './message-usage.ts'
+import {
+  formatCachePercent,
+  formatInputTokens,
+  formatTokens,
+  formatTurnCost,
+  type MessageUsage,
+} from './message-usage.ts'
 
 /** Renders a visible protocol message with the default or custom presentation. */
 export const MessageCard = memo(
@@ -130,50 +136,35 @@ function DefaultCustomMessage({ message }: { message: JsonObject & { customType?
 
 /** Displays counters billed by Pi for a completed assistant response. */
 export function TurnUsage(
-  { model, thinkingLevel, turnNumber, usage }: {
+  { model, thinkingLevel, timestamp, turnNumber, usage }: {
     model?: string
     thinkingLevel?: string
+    timestamp?: number
     turnNumber?: number
     usage: MessageUsage
   },
 ) {
+  const time = timestamp === undefined ? null : new Date(timestamp)
+  const validTime = time && !Number.isNaN(time.getTime()) ? time : null
   return (
-    <dl className='turn-usage'>
-      {turnNumber !== undefined && (
-        <div>
-          <dt>Turn</dt>
-          <dd>{turnNumber}</dd>
-        </div>
+    <div className='turn-usage'>
+      {validTime && (
+        <time dateTime={validTime.toISOString()}>
+          {validTime.toLocaleTimeString(navigator.language, { hour: '2-digit', minute: '2-digit' })}
+        </time>
       )}
+      {turnNumber !== undefined && <span>Turn {turnNumber}</span>}
       {model && (
-        <div>
-          <dt>Model</dt>
-          <dd>{model}</dd>
-        </div>
+        <span>
+          Model: {model}
+          {thinkingLevel && ` (${thinkingLevel})`}
+        </span>
       )}
-      {thinkingLevel && (
-        <div>
-          <dt>Thinking</dt>
-          <dd>{thinkingLevel}</dd>
-        </div>
-      )}
-      <div>
-        <dt>Cost</dt>
-        <dd>{formatTurnCost(usage.cost)}</dd>
-      </div>
-      <div>
-        <dt>Cache read</dt>
-        <dd>{formatTokens(usage.cacheRead)}</dd>
-      </div>
-      <div>
-        <dt>Cache miss</dt>
-        <dd>{formatTokens(usage.cacheMiss)}</dd>
-      </div>
-      <div>
-        <dt>Output</dt>
-        <dd>{formatTokens(usage.output)}</dd>
-      </div>
-    </dl>
+      {!model && thinkingLevel && <span>Thinking: {thinkingLevel}</span>}
+      <span>In {formatInputTokens(usage)} ({formatCachePercent(usage)} cached)</span>
+      <span>Out {formatTokens(usage.output)}</span>
+      <span>Cost: {formatTurnCost(usage.cost)}</span>
+    </div>
   )
 }
 

@@ -431,6 +431,9 @@ export function Conversation(
                     thinkingLevel={typeof message.thinkingLevel === 'string'
                       ? message.thinkingLevel
                       : undefined}
+                    timestamp={typeof message.timestamp === 'number'
+                      ? message.timestamp
+                      : undefined}
                     turnNumber={turnNumbers.get(index)}
                     usage={usage}
                   />

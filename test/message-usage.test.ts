@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  formatCachePercent,
+  formatInputTokens,
   formatTurnCost,
   messageUsage,
   turnUsageByMessage,
@@ -25,6 +27,8 @@ test('extracts per-response cost and token counters from Pi usage', () => {
     output: 678,
   })
   assert.equal(formatTurnCost(usage?.cost ?? 0), '$0.0011')
+  assert.equal(formatInputTokens(usage!), '22k')
+  assert.equal(formatCachePercent(usage!), '44.4%')
 })
 
 test('keeps usage separate for each agentic turn', () => {
