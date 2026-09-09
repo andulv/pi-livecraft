@@ -23,6 +23,7 @@ import {
 import { readPinnedSessions, togglePinnedSession, writePinnedSessions } from './pinned-sessions.ts'
 import { recentWorkspaces } from './recent-workspaces.ts'
 import type { Project } from './projects.ts'
+import { fallbackSessionTitle } from '../../../shared/session-title.ts'
 import {
   newestWorkspaceSession,
   nextActiveSessionId,
@@ -518,6 +519,20 @@ export function useWorkspaceSessions(
     )
   }, [])
 
+  /** Titles an unnamed session from its first successful user message, using the
+   *  same rule as the persisted-session scan so the row is stable across refreshes. */
+  const titleSessionFromPrompt = useCallback(
+    (sessionId: string, message: string): void => {
+      const session = sessionsRef.current.find((entry) => entry.id === sessionId)
+      if (!session || session.name !== 'New session') return
+      const trimmed = message.trim()
+      if (!trimmed || trimmed.startsWith('/')) return
+      const title = fallbackSessionTitle(trimmed)
+      if (title) renameSession(sessionId, title)
+    },
+    [renameSession],
+  )
+
   /** Renames through the persisted-session RPC so the name survives new browser tabs. */
   const renameManagedSession = useCallback(
     async (target: SessionActionTarget, name: string): Promise<void> => {
@@ -627,6 +642,7 @@ export function useWorkspaceSessions(
     selectWorkspace,
     startAndSelectSession,
     startNewSession,
+    titleSessionFromPrompt,
     toggleProjectPin,
     toggleSessionArchive,
     updateSession,

@@ -3,6 +3,7 @@ import { homedir } from 'node:os'
 import { isAbsolute, join, relative, sep } from 'node:path'
 import type { RecentSession } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
+import { fallbackSessionTitle } from '../shared/session-title.ts'
 
 const sessionDirectory = resolvePiSessionDirectory(process.env, homedir())
 
@@ -172,7 +173,7 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
       hasMessage = true
       if (prompt === undefined && isObject(value.message) && value.message.role === 'user') {
         const content = textContent(value.message.content)
-        if (content && !content.startsWith('/')) prompt = shortenPrompt(content)
+        if (content && !content.startsWith('/')) prompt = fallbackSessionTitle(content)
       }
       if (typeof value.timestamp === 'string') {
         const timestamp = Date.parse(value.timestamp)
@@ -319,11 +320,6 @@ function textContent(content: unknown): string | undefined {
     .join(' ')
     .trim()
   return text || undefined
-}
-
-function shortenPrompt(prompt: string): string {
-  const words = prompt.split(/\s+/)
-  return words.length > 8 ? `${words.slice(0, 8).join(' ')}…` : prompt
 }
 function isNotFound(error: unknown): boolean {
   return isObject(error) && error.code === 'ENOENT'
