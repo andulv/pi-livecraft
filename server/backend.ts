@@ -1124,6 +1124,7 @@ function logProviderFailure(sessionId: string, event: JsonObject): void {
   console.error(
     `Pi provider request failed (session ${sessionId}${model}): ${logLine(failure.errorMessage)}`,
   )
+  appLog.providerFailure(failure.model ?? '', failure.errorMessage)
 }
 
 /** Keeps provider-controlled error text to one readable log line. */

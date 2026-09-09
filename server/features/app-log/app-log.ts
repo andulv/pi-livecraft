@@ -101,6 +101,14 @@ export class AppLog {
     this.#write('sse-open', {})
   }
 
+  /**
+   * Records a Pi provider request failure (the usual cause of silent stalls that show
+   * as "getting things moving"). No session identifier; error text is truncated.
+   */
+  providerFailure(model: string, message: string): void {
+    this.#write('provider-failure', { model, message: truncate(message, appLogMaxMessageLength) })
+  }
+
   /** Records one snapshot slower than `slowSnapshotThresholdMs`. */
   slowSnapshot(mode: 'full' | 'delta', totalMs: number, bytes: number): void {
     this.#write('slow-snapshot', { mode, totalMs, bytes })
