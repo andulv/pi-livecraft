@@ -35,8 +35,8 @@ export function compareWorkspaces(
  * Adds pending sessions and orders the visible list by latest activity.
  *
  * Subagent runs persist ordinary sessions and are frequent enough to crowd the
- * list out, so they stay hidden unless explicitly requested; their tool call
- * card is the primary way in.
+ * list out. The ordinary list and opt-in subagent list are disjoint; the tool
+ * call card remains the primary way into a child session.
  */
 export function sidebarSessions(
   recentSessions: RecentSession[],
@@ -51,7 +51,7 @@ export function sidebarSessions(
   )
   return [...pending, ...recentSessions]
     .filter(({ cwd }) => cwd === workspacePath)
-    .filter(({ name }) => showSubagentSessions || !isSubagentSessionName(name))
+    .filter(({ name }) => isSubagentSessionName(name) === showSubagentSessions)
     .sort((left, right) => right.updatedAt - left.updatedAt)
 }
 

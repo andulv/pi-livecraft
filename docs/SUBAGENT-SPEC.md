@@ -90,13 +90,16 @@ That is acceptable — and useful for continuing a research thread by hand — b
 it is not a passive inspection.
 
 **D4 — Subagent sessions are filtered out of the recent list by default.**
-`repo_explore_ff` is called constantly; unfiltered, every run would sort to the
-top of a list that keeps only the newest 60 scanned and top 30 returned, and
-would push real sessions out. `sidebarSessions`
-(`src/features/workspace/sidebar-sessions.ts`) drops sessions whose name starts
-with the `subagent/` prefix unless a **Show subagent sessions** toggle is on,
-mirroring the existing "Show archived items" control in
-`WorkspaceSidebar.tsx`. The tool card link remains the primary route in.
+Frequent research runs must not crowd ordinary sessions out. The backend scans
+metadata in batches until it has 60 ordinary candidates (or exhausts the
+workspace), returning up to 30 ordinary sessions and 30 subagent sessions with
+separate budgets. `sidebarSessions`
+(`src/features/workspace/sidebar-sessions.ts`) excludes names beginning with
+`subagent/` from the ordinary list. **View subagents only** in the session list
+options switches to a separate, disjoint Subagents view rather than mixing
+children into the ordinary list. The tool card link remains the primary route
+in. Recognition is name-based: manually renaming a child without the prefix
+makes it an ordinary session; older unmarked runs cannot be identified reliably.
 
 **D5 — One agent profile in code, shaped for more later.** V1 ships exactly one
 profile — the research assistant — as a constant in the new extension holding
@@ -133,9 +136,9 @@ The allowlist is `fffind, ffgrep, read, bash`. `bash` is present because the
 internet transport is the `ketch` CLI, not a search extension; the prompt
 restricts it to `ketch`. No file-mutating tool is in the allowlist, so `edit`,
 `write`, and `apply_patch` are unavailable regardless of what the prompt says.
-That is the honest boundary in this version: mutation is impossible, while
-"shell only for search" is prompt discipline. Later profiles widen the
-allowlist rather than the mechanism.
+This is not a read-only sandbox: bash can mutate files or run arbitrary commands.
+Both "read-only" and "shell only for search" depend on prompt discipline. Later
+profiles widen the allowlist rather than the mechanism.
 
 **D8 — Cancel kills the child immediately.** On parent abort (`signal`) or
 timeout, the child's process group is terminated at once, evidence collected so
@@ -223,7 +226,7 @@ be ignored unless the workspace is already trusted; this version does not pass
 Settings (existing extension-settings mechanism, same shape as
 `repo-explore-ff` today): model, thinking level (default `off`), default
 effort, timeout override, max output chars (default 30 000), fff extension
-path, search extension path, pi executable.
+path, pi executable.
 
 System prompt: the research brief discipline — direct answer first; findings
 with sources (URLs, or `file:line` for repo evidence); explicit confidence and
@@ -236,7 +239,7 @@ preset's guidance and budget are appended per call, as `repo_explore_ff` did.
 |---|---|
 | Parent tool card | Default view. Live progress line (current tool, count vs budget) and an **Open subagent session** action once the run has a session. |
 | Conversation view | Full child transcript, tool calls and costs, opened from the card. Opening resumes the session live (D3). |
-| Recent sessions | Hidden behind the **Show subagent sessions** toggle in the session list options menu; identified by the `subagent/` name prefix. |
+| Recent sessions | Excluded from the ordinary list; **View subagents only** selects the separate debug list, identified by the `subagent/` name prefix. |
 | Manager list | Listed only if the user opens the child session, at which point it is an ordinary session. |
 | Quota / session analysis widgets | Unchanged; they do not aggregate child spend. |
 
@@ -276,8 +279,10 @@ Remaining work:
    it needs an explicit go-ahead. `image-analysis` is cleared to go;
    `repo_explore_ff` stays until the research subagent is confirmed in daily
    use.
-2. **Verify in the running app** via the livecraft-browser skill: live card,
-   open-session action, and the filtered recent list.
+2. **Close the debug-link gap**: the current card action is available only after
+   a successful result, not during a live run or after timeout/cancellation.
+   Those runs still persist and can be opened through the Subagents list.
+   The spec's early session-path updates remain unimplemented.
 
 ## Future (not in this version)
 

@@ -177,10 +177,6 @@ export function applySubagentEvent(
     }
     return 'tool'
   }
-  if (event.type === 'message_update') {
-    applyUsage(stream, event.usage)
-    return undefined
-  }
   if (
     event.type === 'message_end' && isObject(event.message) && event.message.role === 'assistant'
   ) {
@@ -192,14 +188,10 @@ export function applySubagentEvent(
   return undefined
 }
 
-/**
- * Usage is cumulative per message, so the latest report for the current message
- * replaces nothing: totals are summed at `message_end` only, and interim
- * `message_update` values keep the live counter roughly current.
- */
+/** Sum completed assistant messages only; streaming usage is cumulative per message. */
 function applyUsage(stream: SubagentStream, usage: unknown): void {
   if (!isObject(usage)) return
-  if (typeof usage.totalTokens === 'number') stream.totalTokens = usage.totalTokens
+  if (typeof usage.totalTokens === 'number') stream.totalTokens += usage.totalTokens
   const cost = usage.cost
   if (isObject(cost) && typeof cost.total === 'number') stream.costUsd += cost.total
 }
@@ -244,6 +236,7 @@ export async function findSubagentSessionPath(
  * the child had already produced; the persisted session keeps the rest.
  */
 export function runSubagentChild(options: SubagentChildOptions): Promise<SubagentChildResult> {
+  if (options.signal?.aborted) return Promise.reject(new Error('Subagent cancelled.'))
   const args = subagentChildArguments(options)
   const startedAt = Date.now()
 
@@ -302,7 +295,7 @@ export function runSubagentChild(options: SubagentChildOptions): Promise<Subagen
     }
 
     const emitProgress = (text: string, immediate = false): void => {
-      if (!options.onProgress) return
+      if (settled || !options.onProgress) return
       const elapsed = Date.now() - lastProgressAt
       if (immediate || elapsed >= PROGRESS_THROTTLE_MS) {
         if (progressTimer) clearTimeout(progressTimer)
@@ -382,7 +375,7 @@ export function runSubagentChild(options: SubagentChildOptions): Promise<Subagen
       for (const line of lines) processLine(line)
     })
     child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString()
+      stderr = (stderr + chunk.toString()).slice(-MAX_RAW_EVENT_TAIL_CHARS)
     })
     child.on('error', (error) => finish(() => reject(error)))
     child.on('close', (code) => {
@@ -392,7 +385,7 @@ export function runSubagentChild(options: SubagentChildOptions): Promise<Subagen
       finish(() =>
         resolvePromise({
           code,
-          text: stream.output || rawEventTail,
+          text: stream.output,
           stderr,
           sessionId: stream.sessionId,
           turnCount: stream.turnCount,
@@ -403,6 +396,8 @@ export function runSubagentChild(options: SubagentChildOptions): Promise<Subagen
         })
       )
     })
+    // The parent may have aborted between the pre-spawn check and listener setup.
+    if (options.signal?.aborted) onAbort()
   })
 }
 

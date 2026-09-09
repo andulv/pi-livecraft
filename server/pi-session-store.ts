@@ -3,6 +3,7 @@ import { homedir } from 'node:os'
 import { isAbsolute, join, relative, sep } from 'node:path'
 import type { RecentSession } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
+import { isSubagentSessionName } from '../shared/subagent-session.ts'
 import { fallbackSessionTitle } from '../shared/session-title.ts'
 import { workspaceSessionFolderName } from '../shared/pi-session-paths.ts'
 
@@ -66,18 +67,30 @@ export async function listRecentPiSessions(
   const withMtime = await Promise.all(
     paths.map(async (path) => ({ path, mtime: (await stat(path)).mtimeMs })),
   )
-  const candidates = withMtime
-    .sort((a, b) => b.mtime - a.mtime)
-    .slice(0, MAX_SESSIONS * 2)
+  const candidates = withMtime.sort((a, b) => b.mtime - a.mtime)
+  const ordinary: RecentSession[] = []
+  const subagents: RecentSession[] = []
+  const batchSize = MAX_SESSIONS * 2
+  // Hidden child runs must not consume the ordinary-session scan or result budget.
+  // Read metadata in bounded batches, continuing past bursts of research runs.
+  for (let offset = 0; offset < candidates.length; offset += batchSize) {
+    const batch = await Promise.all(
+      candidates
+        .slice(offset, offset + batchSize)
+        .map(({ path, mtime }) => readPiSession(path, mtime)),
+    )
+    for (const session of batch) {
+      if (session?.cwd !== cwd) continue
+      const group = isSubagentSessionName(session.name) ? subagents : ordinary
+      group.push(session)
+    }
+    if (ordinary.length >= batchSize) break
+  }
 
-  const sessions = await Promise.all(
-    candidates.map(({ path, mtime }) => readPiSession(path, mtime)),
-  )
-
-  return sessions
-    .filter((session): session is RecentSession => session?.cwd === cwd)
+  const newest = (sessions: RecentSession[]): RecentSession[] =>
+    sessions.sort((left, right) => right.updatedAt - left.updatedAt).slice(0, MAX_SESSIONS)
+  return [...newest(ordinary), ...newest(subagents)]
     .sort((left, right) => right.updatedAt - left.updatedAt)
-    .slice(0, MAX_SESSIONS)
 }
 
 /** Verifies that a file belongs to the Pi session directory before loading its metadata. */

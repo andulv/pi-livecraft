@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, realpath, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, realpath, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import test from 'node:test'
@@ -36,6 +36,29 @@ test('resolves Pi session storage with Pi environment precedence', () => {
     resolvePiSessionDirectory({}, homeDirectory),
     join(homeDirectory, '.pi', 'agent', 'sessions'),
   )
+})
+
+test('a burst of subagents cannot crowd ordinary sessions out of the recent list', async () => {
+  const { directory, workspace } = await fixture()
+  const sessions = workspaceSessionDir(workspace, directory)
+  await mkdir(sessions, { recursive: true })
+  await Promise.all(Array.from({ length: 100 }, async (_, index) => {
+    const child = index >= 30
+    const path = join(sessions, `${index}.jsonl`)
+    await writeSession(
+      path,
+      workspace,
+      String(index),
+      child
+        ? `subagent/research: task ${index}`
+        : `User session ${index}`,
+    )
+    // All 70 children are newer, exceeding both the old scan and result caps.
+    await utimes(path, index + 1, index + 1)
+  }))
+  const recent = await listRecentPiSessions(workspace, directory)
+  assert.equal(recent.filter(({ name }) => name.startsWith('User session ')).length, 30)
+  assert.equal(recent.filter(({ name }) => name.startsWith('subagent/')).length, 30)
 })
 
 test('encodes the workspace folder name the way Pi does', () => {

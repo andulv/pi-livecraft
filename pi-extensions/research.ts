@@ -77,8 +77,8 @@ const EFFORT_PRESETS: Record<
  * changes this constant and the tools allowlist rather than the mechanism.
  *
  * `bash` is present because the internet-retrieval CLI is the search transport.
- * No file-mutating tool is in the allowlist, so the allowlist — not the prompt —
- * is what keeps a run from editing the workspace.
+ * Dedicated editing tools are absent, but bash can still mutate files. Read-only
+ * behavior is prompt discipline, not a sandbox or an enforced security boundary.
  */
 const RESEARCH_TOOLS = ['fffind', 'ffgrep', 'read', 'bash']
 
@@ -340,6 +340,9 @@ Hard ceiling: ${preset.hardToolCalls} tool calls. Further calls are blocked; if 
 
       if (result.code !== 0)
         throw new Error(brief || `Research subagent failed with exit code ${result.code}.`)
+
+      if (!result.text.trim())
+        throw new Error(result.stderr.trim() || 'Research subagent completed without a report.')
 
       const header = `Research subagent [${effort}] · ${
         Math.round(result.elapsedMs / 1000)

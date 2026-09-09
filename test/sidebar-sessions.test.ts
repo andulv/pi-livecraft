@@ -44,7 +44,7 @@ test('uses persisted order once the sent session is returned', () => {
   ])
 })
 
-test('hides subagent runs until they are explicitly requested', () => {
+test('keeps ordinary and subagent session views disjoint, including pending runs', () => {
   const subagent: RecentSession = {
     ...persisted,
     id: 'subagent-id',
@@ -56,8 +56,9 @@ test('hides subagent runs until they are explicitly requested', () => {
   assert.deepEqual(sidebarSessions([subagent, persisted], '/workspace'), [persisted])
   assert.deepEqual(sidebarSessions([subagent, persisted], '/workspace', [], true), [
     subagent,
-    persisted,
   ])
+  assert.deepEqual(sidebarSessions([persisted], '/workspace', [subagent]), [persisted])
+  assert.deepEqual(sidebarSessions([persisted], '/workspace', [subagent], true), [subagent])
 })
 
 test('reports latest workspace activity from persisted and optimistic sessions', () => {

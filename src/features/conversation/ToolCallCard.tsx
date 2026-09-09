@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { isObject } from '../../../shared/is-object.ts'
 import { resolveFileIcon } from '../../../shared/file-icon.ts'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import { CopyButton } from './CopyButton.tsx'
@@ -289,7 +290,10 @@ export const ToolCallCard = memo(function ToolCallCard({
         )}
         {sessionPath && onOpenSubagentSession && (
           <OpenSubagentSessionButton
-            cwd={workingDirectory}
+            cwd={isObject(resultDetails) && typeof resultDetails.cwd === 'string'
+                && resultDetails.cwd.trim()
+              ? resultDetails.cwd
+              : workingDirectory}
             onError={onError}
             onOpenSession={onOpenSubagentSession}
             sessionPath={sessionPath}

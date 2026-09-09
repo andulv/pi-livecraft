@@ -385,6 +385,7 @@ export function WorkspaceSidebar({
     setStartingNewSession(true)
     try {
       await onNewSession()
+      setShowSubagentSessions(false)
     } catch (cause) {
       onError(cause)
     } finally {
@@ -639,7 +640,7 @@ export function WorkspaceSidebar({
             title={workspacePath}
             type='button'
           >
-            Sessions
+            {showSubagentSessions ? 'Subagents' : 'Sessions'}
             {visibleSessions.length > 0 && <small>{visibleSessions.length}</small>}
           </button>
           <button
@@ -708,7 +709,7 @@ export function WorkspaceSidebar({
                     type='checkbox'
                     onChange={(event) => setShowSubagentSessions(event.target.checked)}
                   />
-                  Show subagent sessions
+                  View subagents only
                 </label>
               </div>
             )}
@@ -745,7 +746,11 @@ export function WorkspaceSidebar({
           role='tabpanel'
         >
           <nav
-            aria-label={showArchivedSessions ? 'Pi sessions' : 'Recent Pi sessions'}
+            aria-label={showSubagentSessions
+              ? 'Subagent sessions'
+              : showArchivedSessions
+              ? 'Pi sessions'
+              : 'Recent Pi sessions'}
             className='session-list'
           >
             {isRefreshing && visibleSessions.length === 0 && (
@@ -833,7 +838,9 @@ export function WorkspaceSidebar({
             })}
             {visibleSessions.length === 0 && !isRefreshing && (
               <p className='empty-sidebar'>
-                {showArchivedSessions
+                {showSubagentSessions
+                  ? 'No subagent sessions in this directory.'
+                  : showArchivedSessions
                   ? 'No archived sessions in this directory.'
                   : 'No Pi sessions in this directory.'}
               </p>

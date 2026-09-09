@@ -1,9 +1,10 @@
-import { deepEqual, equal, ok } from 'node:assert/strict'
+import { deepEqual, equal, ok, rejects } from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   applySubagentEvent,
   createSubagentStream,
   progressText,
+  runSubagentChild,
   subagentChildArguments,
 } from '../pi-extensions/subagent-child.ts'
 
@@ -102,6 +103,40 @@ test('the event stream yields the session id, counters, usage, and the answer', 
   equal(stream.costUsd, 0.000051)
   equal(stream.output, 'The store scans one workspace folder.')
   ok(stream.evidence.includes('server/pi-session-store.ts:50'), 'tool evidence is retained')
+})
+
+test('usage sums completed turns without counting cumulative streaming updates twice', () => {
+  const stream = createSubagentStream()
+  for (const totalTokens of [673, 2000]) {
+    const usage = { totalTokens, cost: { total: 0.125 } }
+    applySubagentEvent(stream, JSON.stringify({ type: 'message_update', usage }))
+    applySubagentEvent(
+      stream,
+      JSON.stringify({
+        type: 'message_end',
+        message: { role: 'assistant', content: [], usage },
+      }),
+    )
+  }
+  equal(stream.totalTokens, 2673)
+  equal(stream.costUsd, 0.25)
+})
+
+test('an already cancelled call never attempts to spawn a child', async () => {
+  await rejects(
+    runSubagentChild({
+      ...baseOptions,
+      piExecutable: '/nonexistent-pi-subagent',
+      cwd: process.cwd(),
+      effort: 'quick',
+      softToolCalls: 6,
+      hardToolCalls: 8,
+      timeoutMs: 1000,
+      maxOutputChars: 1000,
+      signal: AbortSignal.abort(),
+    }),
+    /Subagent cancelled/,
+  )
 })
 
 test('malformed and unrelated lines are ignored', () => {
