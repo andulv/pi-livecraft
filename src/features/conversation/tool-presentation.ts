@@ -388,6 +388,17 @@ export function toolWriteContent(args: unknown): string | null {
     : null
 }
 
+/**
+ * Returns the session file a subagent run persisted, reported by the `research`
+ * tool in its result details, or null when the run never reached a session.
+ */
+export function subagentSessionPath(details: unknown): string | null {
+  return isObject(details) && typeof details.sessionPath === 'string'
+      && details.sessionPath.length > 0
+    ? details.sessionPath
+    : null
+}
+
 /** Removes executable HTML hooks before rendering a sandboxed preview. */
 export function stripScripts(html: string): string {
   return html

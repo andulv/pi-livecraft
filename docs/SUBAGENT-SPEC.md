@@ -1,7 +1,9 @@
 # Subagent sessions specification
 
-A specification and task plan, not a guide. This describes the first, minimal
-version of real subagents in Pi Livecraft. It has not been implemented yet.
+The design record for subagents in Pi Livecraft. The first version described
+here is implemented: `pi-extensions/research.ts` owns the tool and the agent
+profile, `pi-extensions/subagent-child.ts` runs the child, and the parent's tool
+call card carries live progress plus an action that opens the child session.
 
 ## Summary
 
@@ -23,8 +25,8 @@ view on demand. No new endpoints, no manager changes, no protocol changes.
 
 ## Requirements
 
-- One tool, `research`, with a task plus effort control; quick calls land in
-  1–30 s, deep research may run for minutes.
+- One tool, `research`, with a task plus effort control; quick calls normally
+  land in 15–45 s, deep research may run for minutes.
 - The calling model must understand, from the tool description alone, what each
   effort costs in wall time and scope, and be able to pick deliberately.
 - Live view of what the subagent is doing in the tool card, and a full
@@ -105,21 +107,35 @@ discovery, no catalogs, no recursion in v1.
 
 **D6 — Effort presets are the caller's contract.** Every call carries
 `effort: quick | standard | deep`, mapping to a timeout plus soft/hard
-tool-call budgets enforced by `budget-guard` (soft target = stop expanding and
-synthesize; hard ceiling = calls blocked, child must synthesize). The tool
-description states wall-time and scope expectations per effort so the calling
-model picks deliberately. Per-call `timeoutMs` and `model` overrides remain.
+tool-call budgets enforced by `subagent-budget-guard.ts` (soft target = stop
+expanding and synthesize; hard ceiling = calls blocked, child must synthesize).
+The tool description states wall-time and scope expectations per effort so the
+calling model picks deliberately. Per-call `timeoutMs` and `model` overrides
+remain.
+
+The timeouts are ceilings measured against the configured model, not targets: a
+four-call `quick` run on `glm-5.3-flash` took about 50 s, so the quick ceiling
+is 90 s rather than the 45 s `repo_explore_ff` used with a faster, text-only
+model.
 
 Honest limitation: a blocking tool call gives the *calling model* no mid-flight
 status — progress updates reach the UI, not the model. So the caller's control
 is entirely up-front: effort, timeout, and a description precise enough to
 choose correctly. Background runs with a polling tool are deferred (Future).
 
-**D7 — Read-only is enforced by argv, not by prompt wording.** The child runs
-with `--no-extensions` plus an explicit `--extension` list and a `--tools`
-allowlist containing only read tools. `--no-extensions` is also the recursion
-and configuration guard: without it the child inherits the user's global
-extension list from `~/.pi/agent/settings.json`.
+**D7 — Capability is declared in the profile and enforced by argv.** The child
+runs with `--no-extensions` plus an explicit `--extension` list and a `--tools`
+allowlist. `--no-extensions` is also the recursion and configuration guard:
+without it the child inherits the user's global extension list from
+`~/.pi/agent/settings.json`, including this extension.
+
+The allowlist is `fffind, ffgrep, read, bash`. `bash` is present because the
+internet transport is the `ketch` CLI, not a search extension; the prompt
+restricts it to `ketch`. No file-mutating tool is in the allowlist, so `edit`,
+`write`, and `apply_patch` are unavailable regardless of what the prompt says.
+That is the honest boundary in this version: mutation is impossible, while
+"shell only for search" is prompt discipline. Later profiles widen the
+allowlist rather than the mechanism.
 
 **D8 — Cancel kills the child immediately.** On parent abort (`signal`) or
 timeout, the child's process group is terminated at once, evidence collected so
@@ -140,6 +156,9 @@ frontend gains one tool-call presentation and one list filter.
 research(task, effort?, images?, cwd?, model?, timeoutMs?) → research brief
 ```
 
+Default model: `openrouter/z-ai/glm-5.3-flash` — vision-capable, 1M context, and
+cheap enough that a bounded run costs fractions of a cent.
+
 | Parameter | Type | Default | Notes |
 |---|---|---|---|
 | `task` | string | required | What to find, summarize, or research. Also forms the child session name. |
@@ -151,16 +170,22 @@ research(task, effort?, images?, cwd?, model?, timeoutMs?) → research brief
 
 Default presets (tunable via settings):
 
-| Effort | Timeout | Tool calls (soft/hard) | Expected use |
+| Effort | Timeout ceiling | Tool calls (soft/hard) | Expected use |
 |---|---|---|---|
-| `quick` | 45 s | 6 / 8 | A known file/symbol lookup, a one-page summary, a single image analysis. |
-| `standard` | 120 s | 12 / 16 | Map one feature across files; a focused web search with sources. |
-| `deep` | 480 s | 24 / 32 | Multi-angle research, cross-referenced repo + web audits, long synthesis. |
+| `quick` | 90 s | 6 / 8 | A known file/symbol lookup, a one-page summary, a single image analysis. |
+| `standard` | 240 s | 12 / 16 | Map one feature across files; a focused web search with sources. |
+| `deep` | 600 s | 24 / 32 | Multi-angle research, cross-referenced repo + web audits, long synthesis. |
 
-Result: the research brief, preceded by a one-line run header with child
-session id, effort, elapsed time, tool calls used vs budget, and tokens/cost.
-Child usage is **not** part of the parent session's stats or the quota widget;
-the header and the persisted child session are how subagent spend is seen.
+Result: the research brief, preceded by a one-line run header with effort,
+elapsed time, tool calls used, tokens, cost, and the child session file.
+
+Cost accounting decision: per call and per session only. The header reports what
+one call cost, and the persisted child session holds the authoritative record
+for later analysis, but nothing aggregates subagent spend into the parent's
+stats or the quota widget. That answers "what did this call cost" and "what has
+this run spent" by inspection. If totals across many runs become a real
+question, the session-analysis widget is where to add them (Future), because it
+already aggregates per-turn cost.
 
 ### Child invocation
 
@@ -168,25 +193,32 @@ the header and the persisted child session are how subagent spend is seen.
 pi --no-extensions --no-skills --no-prompt-templates --no-themes
    --mode json
    --name "subagent/research: <task, truncated>"
-   --extension <fff extension> --extension <budget-guard> --extension npm:pi-gpt-search
+   --extension <fff extension> --extension <subagent-budget-guard>
    --fff-mode tools-only
-   --tools fffind,ffgrep,read,codex-research,codex-search
+   --tools fffind,ffgrep,read,bash
    --system-prompt <profile prompt + effort guidance + budgets>
    [--model <model>] --thinking <level>
    --print "<@image ...> <task>"
 ```
 
-Deliberate differences from `repo_explore_ff`'s argv
-(`../pi-extensions/repo-explore-ff/index.ts:369-412`): no `--no-session` (D2),
-`--name` added (D2), search extension and its tools added (D5), images
-appended to the prompt as `@path` (the `analyze_image` mechanism,
-`../pi-extensions/image-analysis/index.ts:151-165`).
+Deliberate differences from `repo_explore_ff`'s argv: no `--no-session` (D2),
+`--name` added (D2), `bash` in the allowlist for `ketch` (D7), images appended
+to the prompt as `@path` (the `analyze_image` mechanism). The tool-call budget
+reaches the child through `PI_SUBAGENT_SOFT_TOOL_CALLS` and
+`PI_SUBAGENT_HARD_TOOL_CALLS`.
+
+No search extension is loaded: the `ketch` CLI covers search, scraping, code,
+and documentation lookup through one transport, so the child needs no extension
+for it. Skills are disabled and the ketch usage a skill would supply is stated
+directly in the profile prompt instead — loading a skill alongside `--no-skills`
+could not be verified, and inlining removes the ambiguity.
 
 `--no-context-files` is **not** passed: the workspace `AGENTS.md` is cheap
 context that improves repo answers. Note that non-interactive modes never
 prompt for trust and fall back to `defaultProjectTrust`
 (`docs/security.md` in the installed Pi docs), so project-level resources may
-be ignored unless the workspace is already trusted; v1 does not pass `-a`.
+be ignored unless the workspace is already trusted; this version does not pass
+`-a`.
 
 Settings (existing extension-settings mechanism, same shape as
 `repo-explore-ff` today): model, thinking level (default `off`), default
@@ -202,52 +234,55 @@ preset's guidance and budget are appended per call, as `repo_explore_ff` did.
 
 | Surface | Behavior |
 |---|---|
-| Parent tool card | Default view. Live progress line (step, tool count vs budget, elapsed, tokens) and an **Open subagent session** action. |
+| Parent tool card | Default view. Live progress line (current tool, count vs budget) and an **Open subagent session** action once the run has a session. |
 | Conversation view | Full child transcript, tool calls and costs, opened from the card. Opening resumes the session live (D3). |
-| Recent sessions | Hidden behind the **Show subagent sessions** toggle; identified by the `subagent/` name prefix. |
+| Recent sessions | Hidden behind the **Show subagent sessions** toggle in the session list options menu; identified by the `subagent/` name prefix. |
 | Manager list | Listed only if the user opens the child session, at which point it is an ordinary session. |
-| Quota / session analysis widgets | Unchanged; they do not aggregate child spend in v1. |
+| Quota / session analysis widgets | Unchanged; they do not aggregate child spend. |
 
 Not built in v1: nesting the child under the parent in the session list,
 cross-session cost aggregation, streaming the child's transcript into the
 parent card beyond the progress line, background/async runs, parallel or
 chained subagents, a read-only session viewer.
 
-## Task plan
+## Implementation
 
-1. **Port the extension helpers into this repo**: `budget-guard` as
-   `pi-extensions/budget-guard.ts`, and the settings helper that
-   `repo-explore-ff` imports from `../pi-extensions/shared/extension-config.ts`
-   (`publishExtensionSettings`, `effectiveSettings`, value accessors) — no
-   equivalent exists in `shared/` today. Focused test for the budget guard.
-2. **Write `pi-extensions/research.ts`**: the `research` tool, the research
-   profile constant (D5), and the child runner — argument assembly, JSON event
-   parsing (session header id, turns, tool counts, usage, final text), progress
-   throttling, cancel/timeout with immediate process-group kill and
-   partial-evidence recovery, output cap. Reuse the runner structure from
-   `repo-explore-ff`; change only what D2/D5/D7/D8 require. Focused tests for
-   argument assembly, session-id extraction, and event extraction, following
-   `test/ask-user-question.test.ts` as the pi-extension test pattern.
-3. **Register in `server/pi-process.ts`** persistent-session arguments.
-4. **Declare settings** for model/effort/timeout/paths through the extension
-   settings mechanism.
-5. **Frontend, minimal**: a tool-call presentation
-   (`docs/HOW-TO-TOOL-PRESENTATION.md`) exposing the **Open subagent session**
-   action, and the `subagent/` filter plus toggle in
-   `src/features/workspace/sidebar-sessions.ts` / `WorkspaceSidebar.tsx`.
-6. **Retire the old tools**: remove the `repo-explore-ff` and `image-analysis`
-   extensions and their settings after the replacement is verified, and update
-   `AGENTS.md` tool-discipline wording plus any doc or skill referencing
-   `repo_explore_ff` / `analyze_image`. This deletes files outside the repo —
-   do it only with the user's explicit go-ahead.
-7. **Validation**: `npm run typecheck`, `npm run lint`, focused tests; one
-   manual end-to-end call verified in the running app (live card, open-session
-   action, filtered recent list) via the livecraft-browser skill.
+| File | Role |
+|---|---|
+| `pi-extensions/research.ts` | Tool contract, research profile, effort presets, published settings. |
+| `pi-extensions/subagent-child.ts` | Child argv, JSON event stream, progress, cancel/timeout, session-file lookup. |
+| `pi-extensions/subagent-budget-guard.ts` | Hard tool-call ceiling inside the child. |
+| `pi-extensions/extension-settings-store.ts` | Extension-side publishing and per-call resolution of settings. |
+| `shared/subagent-session.ts` | The `subagent/` naming rule, shared by producer and session list. |
+| `shared/pi-session-paths.ts` | Workspace session folder rule, shared with `server/pi-session-store.ts`. |
+| `server/pi-process.ts` | Loads the extension into persistent sessions. |
+| `src/features/conversation/OpenSubagentSessionButton.tsx` | Opens the child session from the tool card. |
+| `src/features/workspace/sidebar-sessions.ts` | Filters subagent runs out of the session list by default. |
+
+The child session file is located from the parent's own session file
+(`ctx.sessionManager.getSessionFile()`) plus the workspace folder rule, which is
+the one place the storage root is known without duplicating Pi's environment
+resolution.
+
+Tests: `test/subagent-child.test.ts` (argv assembly, event extraction, progress)
+and the subagent case in `test/sidebar-sessions.test.ts`.
+
+Remaining work:
+
+1. **Retire the old tools**: remove the `repo-explore-ff` and `image-analysis`
+   extensions and their settings once the replacement has proved itself, and
+   update `AGENTS.md` tool-discipline wording plus any doc or skill referencing
+   `repo_explore_ff` / `analyze_image`. This deletes files outside the repo, so
+   it needs an explicit go-ahead. `image-analysis` is cleared to go;
+   `repo_explore_ff` stays until the research subagent is confirmed in daily
+   use.
+2. **Verify in the running app** via the livecraft-browser skill: live card,
+   open-session action, and the filtered recent list.
 
 ## Future (not in this version)
 
-- Additional profiles: temp-file scratch space, report writing, shell access —
-  added as capability declarations on the profile constant (D5).
+- Additional profiles: temp-file scratch space, report writing, wider shell
+  access — added as capability declarations on the profile constant (D5).
 - Background subagents with a status/poll tool, so a calling model can abandon
   a long run (the gap named in D6).
 - Cross-session cost aggregation, so subagent spend appears in the session

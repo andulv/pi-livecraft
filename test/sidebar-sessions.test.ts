@@ -44,6 +44,22 @@ test('uses persisted order once the sent session is returned', () => {
   ])
 })
 
+test('hides subagent runs until they are explicitly requested', () => {
+  const subagent: RecentSession = {
+    ...persisted,
+    id: 'subagent-id',
+    name: 'subagent/research: map the session store',
+    sessionPath: '/sessions/subagent.jsonl',
+    updatedAt: 999,
+  }
+
+  assert.deepEqual(sidebarSessions([subagent, persisted], '/workspace'), [persisted])
+  assert.deepEqual(sidebarSessions([subagent, persisted], '/workspace', [], true), [
+    subagent,
+    persisted,
+  ])
+})
+
 test('reports latest workspace activity from persisted and optimistic sessions', () => {
   assert.equal(
     workspaceActivity('/workspace', [{ ...persisted, updatedAt: 100 }], [

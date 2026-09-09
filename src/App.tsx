@@ -1637,6 +1637,8 @@ function LivecraftProjectApp(
                       navigationRequest={conversationNavigation}
                       onError={handleConversationError}
                       onFork={handleForkConversation}
+                      onOpenSubagentSession={(cwd, sessionPath) =>
+                        openPinnedSession({ cwd, sessionPath })}
                       onRetry={retryConversationPrompt}
                       pendingSteering={pendingSteering}
                       repositoryRoot={workspaceGit[workspacePath]?.root}

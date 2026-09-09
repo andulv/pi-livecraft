@@ -4,6 +4,7 @@ import { isAbsolute, join, relative, sep } from 'node:path'
 import type { RecentSession } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 import { fallbackSessionTitle } from '../shared/session-title.ts'
+import { workspaceSessionFolderName } from '../shared/pi-session-paths.ts'
 
 const sessionDirectory = resolvePiSessionDirectory(process.env, homedir())
 
@@ -16,6 +17,11 @@ export function resolvePiSessionDirectory(
     ?? (environment.PI_CODING_AGENT_DIR
       ? join(environment.PI_CODING_AGENT_DIR, 'sessions')
       : join(homeDirectory, '.pi', 'agent', 'sessions'))
+}
+
+/** Absolute path of the folder Pi uses for one workspace's sessions. */
+export function workspaceSessionDir(cwd: string, baseDir: string): string {
+  return join(baseDir, workspaceSessionFolderName(cwd))
 }
 
 interface PiSessionHeader {
@@ -39,16 +45,6 @@ interface SessionTailScan {
   earliestMessageAt: number | undefined
   /** Whether the scan covered every byte after the head chunk (no early stop). */
   reachedHead: boolean
-}
-
-/**
- * Pi stores sessions in a deterministic subfolder named after the workspace path:
- * the leading separator is dropped and each remaining separator becomes `-`.
- * Exported so tests can place fixtures exactly where Pi would store them.
- */
-export function workspaceSessionDir(cwd: string, baseDir: string): string {
-  const segments = cwd.split(/[/\\]+/).filter(Boolean)
-  return join(baseDir, `--${segments.join('-')}--`)
 }
 
 /** Reads the metadata for the most recent sessions in a single workspace folder. */

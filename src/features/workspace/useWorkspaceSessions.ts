@@ -468,8 +468,14 @@ export function useWorkspaceSessions(
       )
   }, [archivedSessionPaths])
 
-  /** Opens a pin from any workspace while preserving the explicit target over auto-selection. */
-  const openPinnedSession = useCallback(async (recent: RecentSession): Promise<void> => {
+  /**
+   * Opens a persisted session from any workspace while preserving the explicit
+   * target over auto-selection. Only the location is needed, so a pinned row and
+   * a subagent tool call card can both open one.
+   */
+  const openPinnedSession = useCallback(async (
+    recent: Pick<RecentSession, 'cwd' | 'sessionPath'>,
+  ): Promise<void> => {
     const active = sessionsRef.current.find((session) =>
       session.sessionPath === recent.sessionPath && session.status !== 'exited'
     )

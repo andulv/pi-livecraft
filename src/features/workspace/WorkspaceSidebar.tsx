@@ -139,6 +139,7 @@ export function WorkspaceSidebar({
   const [brandMenuOpen, setBrandMenuOpen] = useState(false)
   const [sessionListMenuOpen, setSessionListMenuOpen] = useState(false)
   const [showArchivedSessions, setShowArchivedSessions] = useState(false)
+  const [showSubagentSessions, setShowSubagentSessions] = useState(false)
   const [startingNewSession, setStartingNewSession] = useState(false)
   const [openWorkspacePanel, setOpenWorkspacePanel] = useState<WorkspacePanel>('sessions')
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
@@ -166,7 +167,7 @@ export function WorkspaceSidebar({
   )
   const visibleSessions = useMemo(
     () =>
-      sidebarSessions(recentSessions, workspacePath, sentSessions)
+      sidebarSessions(recentSessions, workspacePath, sentSessions, showSubagentSessions)
         .filter(({ sessionPath }) => !pinnedSessionPaths.has(sessionPath))
         .filter(({ sessionPath }) =>
           showArchivedSessions || !archivedSessionPathSet.has(sessionPath)
@@ -177,6 +178,7 @@ export function WorkspaceSidebar({
       recentSessions,
       sentSessions,
       showArchivedSessions,
+      showSubagentSessions,
       workspacePath,
     ],
   )
@@ -699,6 +701,14 @@ export function WorkspaceSidebar({
                     onChange={(event) => setShowArchivedSessions(event.target.checked)}
                   />
                   Show archived items
+                </label>
+                <label>
+                  <input
+                    checked={showSubagentSessions}
+                    type='checkbox'
+                    onChange={(event) => setShowSubagentSessions(event.target.checked)}
+                  />
+                  Show subagent sessions
                 </label>
               </div>
             )}

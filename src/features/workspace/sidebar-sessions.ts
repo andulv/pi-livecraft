@@ -1,4 +1,5 @@
 import type { GitWorkspace, RecentSession, SessionSummary } from '../../../shared/types.ts'
+import { isSubagentSessionName } from '../../../shared/subagent-session.ts'
 
 export interface SessionActionTarget {
   cwd: string
@@ -30,11 +31,18 @@ export function compareWorkspaces(
     - workspaceActivity(left.path, recentSessions, sentSessions)
 }
 
-/** Adds pending sessions and orders the visible list by latest activity. */
+/**
+ * Adds pending sessions and orders the visible list by latest activity.
+ *
+ * Subagent runs persist ordinary sessions and are frequent enough to crowd the
+ * list out, so they stay hidden unless explicitly requested; their tool call
+ * card is the primary way in.
+ */
 export function sidebarSessions(
   recentSessions: RecentSession[],
   workspacePath: string,
   sentSessions: RecentSession[] = [],
+  showSubagentSessions = false,
 ): RecentSession[] {
   const recentIds = new Set(recentSessions.map((session) => session.id))
   const recentPaths = new Set(recentSessions.map((session) => session.sessionPath))
@@ -43,6 +51,7 @@ export function sidebarSessions(
   )
   return [...pending, ...recentSessions]
     .filter(({ cwd }) => cwd === workspacePath)
+    .filter(({ name }) => showSubagentSessions || !isSubagentSessionName(name))
     .sort((left, right) => right.updatedAt - left.updatedAt)
 }
 

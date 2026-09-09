@@ -53,6 +53,7 @@ export function Conversation(
     workingDirectory,
     onError,
     onFork,
+    onOpenSubagentSession,
     onRetry,
   }: {
     activity: Activity | null
@@ -70,6 +71,8 @@ export function Conversation(
     workingDirectory: string
     onError: (cause: unknown) => void
     onFork: (entryId: string) => Promise<boolean>
+    /** Opens the session a subagent run persisted, from its tool call card. */
+    onOpenSubagentSession?: (cwd: string, sessionPath: string) => Promise<void>
     onRetry?: (prompt: string) => Promise<void>
   },
 ) {
@@ -425,6 +428,7 @@ export function Conversation(
                       key={call.id}
                       name={call.name}
                       onError={onError}
+                      onOpenSubagentSession={onOpenSubagentSession}
                       partialResultContent={execution?.partialResult?.content}
                       repositoryRoot={repositoryRoot}
                       resultContent={result?.content}
@@ -495,6 +499,7 @@ export function Conversation(
                       .call
                       .name}
                     onError={onError}
+                    onOpenSubagentSession={onOpenSubagentSession}
                     partialResultContent={execution?.partialResult?.content}
                     repositoryRoot={repositoryRoot}
                     resultContent={result?.content}
@@ -526,6 +531,7 @@ export function Conversation(
               key={execution.id}
               name={execution.name}
               onError={onError}
+              onOpenSubagentSession={onOpenSubagentSession}
               partialResultContent={execution.partialResult?.content}
               repositoryRoot={repositoryRoot}
               resultContent={execution.result?.content}
