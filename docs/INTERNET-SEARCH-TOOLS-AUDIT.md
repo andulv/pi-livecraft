@@ -127,6 +127,90 @@ The Pi package catalog currently lists many alternatives, including `pi-web-sear
 5. **First cleanup target:** remove the deprecated `web` alias from the active tool surface. It adds no capability over `codex-research` and emits a warning on every use.
 6. **Before editing settings:** verify the `tools.json` discrepancy in a fresh Pi session and measure actual system-context contribution from package skills/tool schemas. The Ketch skill is useful routing guidance, but its full text is additional persistent context.
 
+## Context-cost follow-up
+
+A clean, non-project Pi process was started with the installed user packages and a temporary read-only introspection extension. It reported 20 registered tools, of which all eight internet tools were active. The measurements below use Pi's own tool metadata and JSON serialization; provider serialization adds some wrapper overhead.
+
+| Persistent contribution | Measured characters |
+|---|---:|
+| Eight internet tool definitions (`ketch_*`, `codex-*`, `web`) | 10,054 |
+| Their active `promptGuidelines` | 4,566 |
+| Ketch skill catalogue entry (name + description) | 433 |
+| **Search-specific subtotal** | **15,053** |
+
+The assembled system prompt in that clean process was 9,318 characters before tool schemas; internet-tool guidelines alone were 49% of it. Adding the separately transmitted tool definitions gives about 19,372 characters of system prompt plus schemas, of which roughly 15,053 are attributable to internet search. A tokenizer-dependent estimate is approximately 3,500–4,500 tokens paid on every model request even when no search occurs.
+
+The current instructions duplicate routing at several levels:
+
+- tool descriptions and JSON schemas;
+- 4,566 characters of active tool-specific guidelines;
+- the always-visible Ketch skill description;
+- the full Ketch skill after it is loaded;
+- overlapping Codex research workflow instructions;
+- the deprecated `web` definition, which duplicates `codex-research` almost exactly.
+
+Pi's native dynamic-tool support is directly applicable. An extension may register tools but keep them inactive, leaving one small loader active. When the loader adds tools, GPT-5.4+ receives them through OpenAI's native deferred tool-search representation. Other providers, including GLM unless its endpoint gains equivalent support, receive the newly active definitions normally on the next request. Inactive tools do not contribute their schemas or active-only guidelines.
+
+## Subscription-backed options
+
+### OpenAI/Codex
+
+Official Codex documentation says local Codex chats include first-party hosted web search, cached by default and optionally live. That capability belongs to the Codex runtime. It is not automatically exposed as a callable tool inside Pi merely because Pi uses an `openai-codex` model.
+
+The installed `pi-gpt-search` does expose it to Pi, but the package documents that it was extracted from Codex's standalone search endpoint. This creates a maintenance and policy risk compared with a documented integration surface. Its `web` alias is also already deprecated. I would not make this package the long-term foundation.
+
+### Z.AI/GLM Coding Plan
+
+Z.AI officially includes remote **Web Search MCP** and **Web Reader MCP** services in every Coding Plan. They use the existing Coding Plan API key and are explicitly documented for MCP-compatible clients. A live, credential-safe smoke test confirmed this account's entitlement:
+
+- `web_search_prime` advertised search query, domain, recency, summary-size, and region parameters; a live query returned cited URL/title/summary records.
+- `webReader` advertised URL, timeout, cache, Markdown/text, image, and link options. The server initialized and advertised the tool successfully; the minimal `example.com` call returned no text block, so extraction quality still needs a representative-page acceptance test before relying on it exclusively.
+
+This is the simplest supported subscription path because it needs one existing credential and no new search-vendor account. The MCP adapter is already installed and current.
+
+## Recommended target design
+
+### Recommendation: one progressive-disclosure internet capability
+
+Build a very small local Pi package, tentatively `livecraft-internet`, containing:
+
+1. **One skill: `internet-research`.** Its always-visible description should be one or two sentences. The loaded `SKILL.md` owns all routing, citation, trust, bounding, and fallback instructions. Detailed provider notes belong in skill references, not global agent instructions.
+2. **One always-active loader tool: `load_internet_tools`.** It accepts a capability such as `search`, `read`, or `deep-research` and additively activates only the required dormant tools with `pi.setActiveTools()`.
+3. **Two normal dormant tools:** `web_search` and `web_read`. Keep names and parameters provider-neutral. Most work needs only these two. Domain and recency filters belong on search; URL, format, character bound, and optional link extraction belong on read.
+4. **No permanent provider-routing prose.** The skill selects defaults and explains exceptional overrides only after internet work is requested.
+
+The persistent 90%-case cost then becomes only the short skill catalogue entry plus the small loader schema—likely hundreds of characters instead of about 15,000. Once loaded, the model gets only the one or two schemas it needs.
+
+### Backend policy
+
+Use a deliberately short routing policy:
+
+1. **Primary: Z.AI Web Search MCP + Web Reader MCP.** These are official Coding Plan benefits, cover the common search/read pair, and reuse one existing credential.
+2. **Fallback: Ketch, narrowly configured.** Keep Ketch available initially for retrieval failures, bounded crawling, public-code search, and provider comparison. Use its already-working Brave default and grep.app/Sourcegraph surfaces; do not add Context7, GitHub, Firecrawl, browser, or more keys unless a measured need appears.
+3. **OpenAI/Codex: optional, not default.** Remove `pi-gpt-search` from the normal runtime. Reconsider OpenAI when Pi has a documented first-party way to expose provider-hosted search, or when a maintained extension uses an official supported interface. Codex CLI search can remain a manual/operator fallback, not an always-present Pi tool.
+
+Provider selection should normally be hidden. An advanced `provider: auto | zai | ketch` option can exist for diagnosis and comparisons, but agents should use `auto` unless the user asks for a provider or the primary fails. Do not expose every backend Ketch knows about in the common schema.
+
+### Why not the obvious alternatives?
+
+- **Ketch alone:** operationally solid and broad, but five permanent tools plus extensive instructions caused much of the measured clutter; it also introduces independent provider configuration beyond the subscriptions.
+- **`pi-gpt-search` alone:** only one credential and good iterative research, but it lacks a supported general reader/crawler and depends on an extracted endpoint.
+- **Generic MCP alone:** the adapter is maintainable and context-efficient relative to direct MCP tools, but its generic `mcp`/`mcpScript` schemas and discovery workflow are unnecessary complexity for every non-search turn. Keep `mcpScript` disabled for this use case.
+- **`pi-web-access`:** it offers two friendly tools and Codex-auth reuse, but its very large provider/fallback matrix is the opposite of the desired human simplicity.
+- **A single giant `internet` tool with an `action` union:** fewer tool names, but a larger always-on schema and weaker argument clarity. A tiny loader plus two focused dormant tools provides better progressive disclosure.
+
+## Proposed implementation sequence
+
+No settings were changed during this audit. If this direction is accepted:
+
+1. **Immediate no-risk cleanup:** disable the deprecated `web` alias and `mcpScript`; remove unavailable Context7/GitHub/browser guidance from global instructions.
+2. **Add the dynamic gate:** register existing internet tools but make all of them inactive at session start; keep only `load_internet_tools` active. This proves the context reduction before changing providers.
+3. **Configure the two official Z.AI MCP servers** through `pi-mcp-adapter`, using an environment/credential command reference rather than storing a plaintext key in project files.
+4. **Expose provider-neutral `web_search` and `web_read`** behind the loader, backed by Z.AI first and bounded Ketch fallback.
+5. **Remove `pi-gpt-search`** after side-by-side acceptance tests confirm search quality, recency, domain filtering, citations, reader output, cancellation, and failure fallback.
+6. **Trim global developer instructions** to one rule: load `internet-research` for current/external facts or URL retrieval. Move the present search workflow and provider-specific rules into the skill.
+7. **Measure again** with `getAllTools()`, `getActiveTools()`, and `getSystemPrompt()`. Acceptance target: no internet execution tools active before the skill/loader path, and under 1,000 persistent search-related characters.
+
 ## Sources
 
 - Pi user settings and package installation: `/home/anders/.pi/agent/settings.json`, `/home/anders/.pi/agent/tools.json`
@@ -136,4 +220,10 @@ The Pi package catalog currently lists many alternatives, including `pi-web-sear
 - `pi-gpt-search` repository: https://github.com/mateusdcc/pi-gpt-search
 - `pi-ketch` repository: https://github.com/sovorn-c/pi-ketch
 - Ketch project: https://github.com/1broseidon/ketch
+- OpenAI Codex web search: https://developers.openai.com/codex/web-search
+- OpenAI Codex configuration: https://developers.openai.com/codex/config-basic
+- Z.AI Coding Plan quick start: https://docs.z.ai/devpack/quick-start
+- Z.AI Coding Plan FAQ: https://docs.z.ai/devpack/faq
+- Z.AI Web Search MCP: https://docs.z.ai/devpack/mcp/search-mcp-server
+- Z.AI Web Reader MCP: https://docs.z.ai/devpack/mcp/reader-mcp-server
 - Alternative package catalog search: https://pi.dev/packages
