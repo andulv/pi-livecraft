@@ -158,6 +158,7 @@ export function TurnUsage(
   const validTime = time && !Number.isNaN(time.getTime()) ? time : null
   return (
     <div className='turn-usage'>
+      {turnNumber !== undefined && <span>#{turnNumber}</span>}
       {validTime && (
         <time dateTime={validTime.toISOString()}>
           {validTime.toLocaleTimeString(navigator.language, {
@@ -168,7 +169,6 @@ export function TurnUsage(
           {turnDurationMs !== undefined && ` (+${formatTurnDuration(turnDurationMs)})`}
         </time>
       )}
-      {turnNumber !== undefined && <span>Turn {turnNumber}</span>}
       {model && (
         <span>
           Model: {model}
