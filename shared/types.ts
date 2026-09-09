@@ -354,6 +354,14 @@ export interface CopilotQuotaWindow {
   resetsAt?: number
 }
 
+/** One subscription usage window returned by Anthropic's OAuth usage service. */
+export interface AnthropicQuotaWindow {
+  kind: 'five-hour' | 'weekly' | 'weekly-model'
+  label: string
+  usedPercent: number
+  resetsAt?: number
+}
+
 /**
  * One Coding Plan quota window from Z.AI (GLM). Session and weekly are percentage-used;
  * web-searches is a used/limit count. Absent fields are omitted, never zero-filled.
@@ -393,6 +401,7 @@ export type GlmQuotaSnapshot = QuotaProviderSnapshot<GlmQuotaWindow> & {
 
 export interface QuotaSnapshot {
   openai: OpenAiQuotaSnapshot
+  anthropic: QuotaProviderSnapshot<AnthropicQuotaWindow>
   copilot: QuotaProviderSnapshot<CopilotQuotaWindow>
   glm: GlmQuotaSnapshot
   refreshing: boolean
@@ -409,8 +418,8 @@ export interface QuotaReport {
   refreshedAt: number
   openai: OpenAiQuotaReport
   copilot: QuotaProviderReport<CopilotQuotaWindow>
-  // Optional so reports from Pi sessions running an older extension (without GLM)
-  // still validate instead of dropping the OpenAI/Copilot readings.
+  // Optional so reports from Pi sessions running older extensions still validate.
+  anthropic?: QuotaProviderReport<AnthropicQuotaWindow>
   glm?: GlmQuotaReport
 }
 

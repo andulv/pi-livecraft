@@ -3,7 +3,7 @@
 These extensions are loaded into every persistent Pi session started by Pi Livecraft. Disposable isolated prompts disable extensions unless their caller explicitly supplies paths:
 
 - `ask-user-question.ts` registers the structured questionnaire tool and bridges its versioned payload through Pi's extension UI protocol.
-- `quotas.ts` registers the private `/livecraft-quotas` command and publishes normalized provider usage through a versioned status payload.
+- `quotas.ts` registers the private `/livecraft-quotas` command and publishes normalized OpenAI, Anthropic, Copilot, and Z.AI usage through a versioned status payload.
 - `response-controls.ts` registers the private `/livecraft-response-controls` command, persists per-session Responses-API verbosity and reasoning-summary overrides as session entries, and injects them into provider requests for supported GPT-5.x models.
 - `session-environment.ts` registers the private `/livecraft-environment` command and publishes loaded tools, context files, and the assembled system prompt with owner-marked sections (char offsets into the text) through a versioned status payload.
 

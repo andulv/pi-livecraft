@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   glmBusinessError,
+  parseAnthropicUsage,
   parseCopilotUsage,
   parseGlmResets,
   parseGlmUsage,
@@ -108,6 +109,37 @@ test('reads Z.AI reset cards from the ZCode status response', () => {
   )
   assert.deepEqual(parseGlmResets({ code: 0, data: {} }), undefined)
   assert.deepEqual(parseGlmResets('nope'), undefined)
+})
+
+test('normalizes Claude subscription quota windows', () => {
+  assert.deepEqual(
+    parseAnthropicUsage({
+      five_hour: { utilization: 12.5, resets_at: '2030-01-01T05:00:00Z' },
+      seven_day: { utilization: 34, resets_at: '2030-01-07T00:00:00Z' },
+      seven_day_sonnet: { utilization: 7, resets_at: '2030-01-06T00:00:00Z' },
+      seven_day_opus: null,
+    }),
+    [
+      {
+        kind: 'five-hour',
+        label: '5-hour window',
+        usedPercent: 12.5,
+        resetsAt: Date.parse('2030-01-01T05:00:00Z'),
+      },
+      {
+        kind: 'weekly',
+        label: 'Weekly — all models',
+        usedPercent: 34,
+        resetsAt: Date.parse('2030-01-07T00:00:00Z'),
+      },
+      {
+        kind: 'weekly-model',
+        label: 'Weekly — Sonnet',
+        usedPercent: 7,
+        resetsAt: Date.parse('2030-01-06T00:00:00Z'),
+      },
+    ],
+  )
 })
 
 test('keeps only finite monthly Copilot quotas', () => {
@@ -244,6 +276,14 @@ test('shows the primary quota for the provider selected by the model', () => {
       }],
       stale: false,
     },
+    anthropic: {
+      data: [{
+        kind: 'five-hour' as const,
+        label: '5-hour window',
+        usedPercent: 18.4,
+      }],
+      stale: false,
+    },
     copilot: { data: [{ name: 'Premium interactions', used: 75, limit: 300 }], stale: true },
     glm: {
       data: [
@@ -259,12 +299,17 @@ test('shows the primary quota for the provider selected by the model', () => {
   assert.equal(quotaProviderForModel('openai-codex'), 'openai')
   assert.equal(quotaProviderForModel('github-copilot'), 'copilot')
   assert.equal(quotaProviderForModel('zai'), 'glm')
-  assert.equal(quotaProviderForModel('anthropic'), undefined)
+  assert.equal(quotaProviderForModel('anthropic'), 'anthropic')
   const formattedPercent = new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 })
   assert.deepEqual(railQuota(quotas, 'openai'), {
     label: `OpenAI Codex quota: ${formattedPercent.format(25.4)} % used`,
     stale: false,
     value: '25%',
+  })
+  assert.deepEqual(railQuota(quotas, 'anthropic'), {
+    label: `Anthropic Claude quota: ${formattedPercent.format(18.4)} % used`,
+    stale: false,
+    value: '18%',
   })
   assert.deepEqual(railQuota(quotas, 'copilot'), {
     label: `GitHub Copilot quota: ${formattedPercent.format(25)} % used`,
@@ -365,6 +410,37 @@ test('replaces banked resets on each successful OpenAI refresh', () => {
   assert.deepEqual(cache.snapshot(false).openai.resets, { availableCount: 0 })
 })
 
+test('carries Claude subscription windows through the quota snapshot', () => {
+  const cache = new QuotaCache()
+  cache.receiveManagerEvent(statusEvent({
+    protocol: 'pi-livecraft.quotas',
+    version: 1,
+    refreshedAt: 250,
+    openai: { ok: true, data: [] },
+    anthropic: {
+      ok: true,
+      data: [{
+        kind: 'five-hour',
+        label: '5-hour window',
+        usedPercent: 12.5,
+        resetsAt: 1_800_000_000_000,
+      }],
+    },
+    copilot: { ok: true, data: [] },
+  }))
+
+  assert.deepEqual(cache.snapshot(false).anthropic, {
+    data: [{
+      kind: 'five-hour',
+      label: '5-hour window',
+      usedPercent: 12.5,
+      resetsAt: 1_800_000_000_000,
+    }],
+    updatedAt: 250,
+    stale: false,
+  })
+})
+
 test('carries Z.AI reset cards through the GLM snapshot', () => {
   const cache = new QuotaCache()
   cache.receiveManagerEvent(statusEvent({
@@ -422,7 +498,7 @@ test('parses the GLM quota report alongside OpenAI and Copilot', () => {
   })
 })
 
-test('keeps OpenAI and Copilot readings when a report omits the GLM section', () => {
+test('keeps older reports that omit Anthropic and GLM sections', () => {
   const cache = new QuotaCache()
   cache.receiveManagerEvent(statusEvent({
     protocol: 'pi-livecraft.quotas',
@@ -432,6 +508,7 @@ test('keeps OpenAI and Copilot readings when a report omits the GLM section', ()
     copilot: { ok: true, data: [] },
   }))
 
+  assert.deepEqual(cache.snapshot(false).anthropic, { data: [], stale: false })
   assert.deepEqual(cache.snapshot(false).glm, { data: [], stale: false })
   assert.equal(cache.snapshot(false).openai.data[0].remainingPercent, 80)
 })

@@ -1,4 +1,5 @@
 import type {
+  AnthropicQuotaWindow,
   CopilotQuotaWindow,
   GlmQuotaResets,
   GlmQuotaWindow,
@@ -113,6 +114,34 @@ export function parseOpenAiUsage(value: unknown): OpenAiQuotaWindow[] {
     .filter((window, index, windows) =>
       windows.findIndex(({ period }) => period === window.period) === index
     )
+}
+
+/** Extracts only the subscription windows actually returned by Anthropic. */
+export function parseAnthropicUsage(value: unknown): AnthropicQuotaWindow[] {
+  const root = object(value)
+  if (!root) return []
+  const windows: AnthropicQuotaWindow[] = []
+  const addWindow = (
+    key: string,
+    kind: AnthropicQuotaWindow['kind'],
+    label: string,
+  ): void => {
+    const window = object(root[key])
+    const usedPercent = numberField(window, 'utilization')
+    if (usedPercent === undefined) return
+    const resetsAt = dateValue(window?.resets_at)
+    windows.push({
+      kind,
+      label,
+      usedPercent: clamp(usedPercent),
+      ...(resetsAt ? { resetsAt } : {}),
+    })
+  }
+  addWindow('five_hour', 'five-hour', '5-hour window')
+  addWindow('seven_day', 'weekly', 'Weekly — all models')
+  addWindow('seven_day_sonnet', 'weekly-model', 'Weekly — Sonnet')
+  addWindow('seven_day_opus', 'weekly-model', 'Weekly — Opus')
+  return windows
 }
 
 /** Extracts monthly quota buckets from GitHub Copilot's opaque quota response. */

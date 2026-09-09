@@ -1,5 +1,6 @@
 import { isObject } from '../../../shared/is-object.ts'
 import type {
+  AnthropicQuotaWindow,
   CopilotQuotaWindow,
   GlmQuotaReport,
   GlmQuotaResets,
@@ -21,6 +22,7 @@ const emptyProvider = <T>(): QuotaProviderSnapshot<T> => ({ data: [], stale: fal
 /** Keeps each provider's last valid snapshot when the next one fails. */
 export class QuotaCache {
   #openai: OpenAiQuotaSnapshot = emptyProvider<OpenAiQuotaWindow>()
+  #anthropic = emptyProvider<AnthropicQuotaWindow>()
   #copilot = emptyProvider<CopilotQuotaWindow>()
   #glm: GlmQuotaSnapshot = emptyProvider<GlmQuotaWindow>()
   #refreshing = false
@@ -29,6 +31,7 @@ export class QuotaCache {
   snapshot(sessionRequired: boolean): QuotaSnapshot {
     return {
       openai: this.#openai,
+      anthropic: this.#anthropic,
       copilot: this.#copilot,
       glm: this.#glm,
       refreshing: this.#refreshing,
@@ -71,6 +74,8 @@ export class QuotaCache {
     const report = parseQuotaReport(parsed)
     if (!report) return false
     this.#openai = mergeOpenAi(this.#openai, report.openai, report.refreshedAt)
+    if (report.anthropic)
+      this.#anthropic = mergeProvider(this.#anthropic, report.anthropic, report.refreshedAt)
     this.#copilot = mergeProvider(this.#copilot, report.copilot, report.refreshedAt)
     if (report.glm) this.#glm = mergeGlm(this.#glm, report.glm, report.refreshedAt)
     this.#refreshing = false
@@ -121,6 +126,7 @@ function parseQuotaReport(value: unknown): QuotaReport | undefined {
     || !finiteNumber(report.refreshedAt)
   ) return undefined
   const openai = parseOpenAiReport(report.openai)
+  const anthropic = parseProvider(report.anthropic, parseAnthropicWindow)
   const copilot = parseProvider(report.copilot, parseCopilotWindow)
   if (!openai || !copilot) return undefined
   const glm = parseGlmReport(report.glm)
@@ -130,6 +136,7 @@ function parseQuotaReport(value: unknown): QuotaReport | undefined {
     refreshedAt: report.refreshedAt,
     openai,
     copilot,
+    ...(anthropic ? { anthropic } : {}),
     ...(glm ? { glm } : {}),
   }
 }
@@ -202,6 +209,22 @@ function parseOpenAiWindow(value: unknown): OpenAiQuotaWindow | undefined {
   return {
     period: window.period,
     remainingPercent: Math.min(100, Math.max(0, window.remainingPercent)),
+    ...(resetsAt ? { resetsAt } : {}),
+  }
+}
+
+function parseAnthropicWindow(value: unknown): AnthropicQuotaWindow | undefined {
+  const window = object(value)
+  if (
+    !window || (window.kind !== 'five-hour' && window.kind !== 'weekly'
+      && window.kind !== 'weekly-model')
+    || typeof window.label !== 'string' || !finiteNumber(window.usedPercent)
+  ) return undefined
+  const resetsAt = finiteNumber(window.resetsAt) ? window.resetsAt : undefined
+  return {
+    kind: window.kind,
+    label: window.label.slice(0, 80),
+    usedPercent: Math.min(100, Math.max(0, window.usedPercent)),
     ...(resetsAt ? { resetsAt } : {}),
   }
 }

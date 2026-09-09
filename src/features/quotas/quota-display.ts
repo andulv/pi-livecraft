@@ -1,6 +1,6 @@
 import type { QuotaSnapshot } from '../../../shared/types.ts'
 
-export type QuotaProvider = 'openai' | 'copilot' | 'glm'
+export type QuotaProvider = 'openai' | 'anthropic' | 'copilot' | 'glm'
 
 export interface RailQuota {
   label: string
@@ -120,6 +120,7 @@ export function quotaUsagePace(usedPercent: number, periodPercent: number): Quot
 
 export function quotaProviderForModel(provider: unknown): QuotaProvider | undefined {
   if (provider === 'openai-codex') return 'openai'
+  if (provider === 'anthropic') return 'anthropic'
   if (provider === 'github-copilot') return 'copilot'
   if (provider === 'zai') return 'glm'
   return undefined
@@ -139,6 +140,17 @@ export function railQuota(
       label: `OpenAI Codex quota: ${formatPercent(usedPercent)} used`,
       stale: quotas.openai.stale,
       value: `${Math.round(Math.max(0, Math.min(100, usedPercent)))}%`,
+    }
+  }
+
+  if (provider === 'anthropic') {
+    const window = quotas.anthropic.data.find(({ kind }) => kind === 'five-hour')
+      ?? quotas.anthropic.data[0]
+    if (!window) return undefined
+    return {
+      label: `Anthropic Claude quota: ${formatPercent(window.usedPercent)} used`,
+      stale: quotas.anthropic.stale,
+      value: `${Math.round(Math.max(0, Math.min(100, window.usedPercent)))}%`,
     }
   }
 

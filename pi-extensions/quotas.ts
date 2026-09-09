@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { isObject } from '../shared/is-object.ts'
 import {
   glmBusinessError,
+  parseAnthropicUsage,
   parseCopilotUsage,
   parseGlmResets,
   parseGlmUsage,
@@ -16,6 +17,7 @@ import {
 } from '../shared/quota-parsers.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type {
+  AnthropicQuotaWindow,
   CopilotQuotaWindow,
   GlmQuotaReport,
   GlmQuotaResets,
@@ -72,8 +74,9 @@ export default function registerQuotas(pi: ExtensionAPI): void {
 }
 
 async function publishQuotaReport(ctx: ExtensionContext): Promise<QuotaReport> {
-  const [openai, copilot, glm] = await Promise.all([
+  const [openai, anthropic, copilot, glm] = await Promise.all([
     fetchOpenAiQuotas(ctx),
+    fetchAnthropicQuotas(ctx),
     fetchCopilotQuotas(ctx),
     fetchGlmQuotas(ctx),
   ])
@@ -82,6 +85,7 @@ async function publishQuotaReport(ctx: ExtensionContext): Promise<QuotaReport> {
     version: 1,
     refreshedAt: Date.now(),
     openai,
+    anthropic,
     copilot,
     glm,
   }
@@ -173,6 +177,26 @@ async function consumeOpenAiReset(ctx: ExtensionContext): Promise<string> {
     return `error: Unexpected response from the reset endpoint${code ? ` (${code})` : ''}.`
   } catch (error) {
     return `error: ${fetchError(error, 'Unable to redeem the banked reset.')}`
+  }
+}
+
+/** Reads Claude subscription windows with Pi's resolved Anthropic OAuth token. */
+async function fetchAnthropicQuotas(
+  ctx: ExtensionContext,
+): Promise<QuotaProviderReport<AnthropicQuotaWindow>> {
+  try {
+    const auth = await ctx.modelRegistry.getProviderAuth('anthropic')
+    const token = auth?.auth.apiKey
+    if (!token) return failure('Claude Pro connection is unavailable in Pi.')
+    const data = await fetchJson('https://api.anthropic.com/api/oauth/usage', {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'oauth-2025-04-20',
+    })
+    return { ok: true, data: parseAnthropicUsage(data) }
+  } catch (error) {
+    return failure(fetchError(error, 'Unable to fetch Claude Pro quotas.'))
   }
 }
 

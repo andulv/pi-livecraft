@@ -5,6 +5,7 @@ The quotas widget gives a quick answer to a practical question: how much of the 
 ## What it shows
 
 - OpenAI Codex five-hour and seven-day windows, with used percentage, elapsed-period progress, and reset time;
+- Anthropic Claude Pro five-hour, weekly all-model, and provider-returned model-specific weekly windows, read through Pi's Anthropic OAuth connection;
 - banked OpenAI resets — how many are available, when the soonest expires, and a confirmed "Use reset" action that redeems one through the extension's `/livecraft-quotas-reset` command (irreversible; requires an open session);
 - Z.AI reset cards per quota window when ZCode is signed in on this machine — count, soonest expiry, and a confirmed "Use reset" action routed through the same command (irreversible; requires an open session);
 - GitHub Copilot usage categories, with used and total values, elapsed calendar-month progress, and reset times when available;
@@ -20,7 +21,7 @@ The widget never invents a missing limit or treats absent data as zero. An open 
 
 The refresh button asks Pi for a new provider report and remains disabled while that request is running. The backend deduplicates concurrent refreshes and restores cached readings after its own restart.
 
-For the rail summary, Codex prefers its five-hour window. GLM shows its five-hour and weekly usage together when both are available. Copilot uses the first quota category returned by its provider report. The percentage is expressed as used quota. A stale rail value carries an additional warning marker.
+For the rail summary, Codex and Claude prefer their five-hour windows. GLM shows its five-hour and weekly usage together when both are available. Copilot uses the first quota category returned by its provider report. The percentage is expressed as used quota. A stale rail value carries an additional warning marker.
 
 ## Ownership and data flow
 
