@@ -49,6 +49,15 @@ export function formatCachePercent(usage: MessageUsage): string {
   return `${input > 0 ? Math.round(usage.cacheRead / input * 1_000) / 10 : 0}%`
 }
 
+export function formatTurnDuration(durationMs: number): string {
+  let seconds = Math.max(0, Math.round(durationMs / 1000))
+  const hours = Math.floor(seconds / 3600)
+  seconds %= 3600
+  const minutes = Math.floor(seconds / 60)
+  seconds %= 60
+  return `${hours > 0 ? `${hours}h` : ''}${minutes > 0 ? `${minutes}m` : ''}${seconds}s`
+}
+
 /** Associates each agent turn with the billed counters from its assistant response.
  * When resolvedCallIds is provided, only returns usage for messages whose tool calls
  * have all been resolved (result received). */

@@ -523,6 +523,7 @@ function LivecraftProjectApp(
     sentSessions,
     sessionLoadError,
     sessions,
+    titleSessionFromPrompt,
     setSelectedId,
     selectWorkspace,
     startAndSelectSession: startWorkspaceSession,
@@ -1112,7 +1113,10 @@ function LivecraftProjectApp(
       const optimisticId = !isSteering && !isCommand ? addOptimisticUserMessage(message) : undefined
       try {
         await sendPiCommand(selectedId, command)
-        if (!isCommand) retainNewSession(selectedId)
+        if (!isCommand) {
+          retainNewSession(selectedId)
+          titleSessionFromPrompt(selectedId, message)
+        }
         setScrollToBottomRequest((current) => current + 1)
       } catch (cause) {
         if (optimisticId) removeLiveMessage(optimisticId)
@@ -1128,6 +1132,7 @@ function LivecraftProjectApp(
       retainNewSession,
       selectedId,
       selectedSessionStatus,
+      titleSessionFromPrompt,
     ],
   )
   const handleComposerAbort = useCallback(() => sendPiCommand(selectedId, { type: 'abort' }), [
@@ -1635,6 +1640,7 @@ function LivecraftProjectApp(
                       onRetry={retryConversationPrompt}
                       pendingSteering={pendingSteering}
                       repositoryRoot={workspaceGit[workspacePath]?.root}
+                      requestDurations={observedRequestDurations}
                       scrollToBottomRequest={scrollToBottomRequest}
                       workingDirectory={selectedSession.cwd}
                       toolDurations={observedToolDurations}

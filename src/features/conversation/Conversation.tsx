@@ -47,6 +47,7 @@ export function Conversation(
     pendingSteering,
     repositoryRoot,
     scrollToBottomRequest,
+    requestDurations,
     toolDurations,
     toolExecutions,
     workingDirectory,
@@ -62,6 +63,7 @@ export function Conversation(
     navigationRequest?: { id: number; target: ConversationNavigationTarget }
     pendingSteering: string[]
     repositoryRoot?: string | null
+    requestDurations: ReadonlyMap<number, number>
     scrollToBottomRequest: number
     toolDurations: ReadonlyMap<string, number>
     toolExecutions: ToolExecution[]
@@ -343,6 +345,15 @@ export function Conversation(
     if (event.deltaY < 0) markUpwardScrollIntent()
   }
 
+  function userTimestampBefore(messages: JsonObject[], index: number): number | undefined {
+    for (let messageIndex = index - 1; messageIndex >= 0; messageIndex -= 1) {
+      const message = messages[messageIndex]
+      if (message.role !== 'user') continue
+      return typeof message.timestamp === 'number' ? message.timestamp : undefined
+    }
+    return undefined
+  }
+
   function handleConversationKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
     if (['ArrowUp', 'PageUp', 'Home'].includes(event.key) || (event.key === ' ' && event.shiftKey))
       markUpwardScrollIntent()
@@ -381,6 +392,7 @@ export function Conversation(
             const index = entry.historyIndex
             const calls = showToolCalls ? toolCallsInMessage(message) : []
             const usage = usagesByMessage.get(index)
+            const requestTimestamp = userTimestampBefore(allMessages, index)
             const messageVisible = isRenderableMessage(message)
             if (!messageVisible && calls.length === 0) return null
             return (
@@ -434,6 +446,9 @@ export function Conversation(
                     timestamp={typeof message.timestamp === 'number'
                       ? message.timestamp
                       : undefined}
+                    turnDurationMs={requestTimestamp === undefined
+                      ? undefined
+                      : requestDurations.get(requestTimestamp)}
                     turnNumber={turnNumbers.get(index)}
                     usage={usage}
                   />

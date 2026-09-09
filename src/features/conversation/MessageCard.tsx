@@ -15,6 +15,7 @@ import {
   formatInputTokens,
   formatTokens,
   formatTurnCost,
+  formatTurnDuration,
   type MessageUsage,
 } from './message-usage.ts'
 
@@ -136,10 +137,11 @@ function DefaultCustomMessage({ message }: { message: JsonObject & { customType?
 
 /** Displays counters billed by Pi for a completed assistant response. */
 export function TurnUsage(
-  { model, thinkingLevel, timestamp, turnNumber, usage }: {
+  { model, thinkingLevel, timestamp, turnDurationMs, turnNumber, usage }: {
     model?: string
     thinkingLevel?: string
     timestamp?: number
+    turnDurationMs?: number
     turnNumber?: number
     usage: MessageUsage
   },
@@ -150,7 +152,12 @@ export function TurnUsage(
     <div className='turn-usage'>
       {validTime && (
         <time dateTime={validTime.toISOString()}>
-          {validTime.toLocaleTimeString(navigator.language, { hour: '2-digit', minute: '2-digit' })}
+          {validTime.toLocaleTimeString(navigator.language, {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          })}
+          {turnDurationMs !== undefined && ` (+${formatTurnDuration(turnDurationMs)})`}
         </time>
       )}
       {turnNumber !== undefined && <span>Turn {turnNumber}</span>}

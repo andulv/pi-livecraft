@@ -4,6 +4,7 @@ import {
   formatCachePercent,
   formatInputTokens,
   formatTurnCost,
+  formatTurnDuration,
   messageUsage,
   turnUsageByMessage,
 } from '../src/features/conversation/message-usage.ts'
@@ -29,6 +30,8 @@ test('extracts per-response cost and token counters from Pi usage', () => {
   assert.equal(formatTurnCost(usage?.cost ?? 0), '$0.0011')
   assert.equal(formatInputTokens(usage!), '22k')
   assert.equal(formatCachePercent(usage!), '44.4%')
+  assert.equal(formatTurnDuration(92_000), '1m32s')
+  assert.equal(formatTurnDuration(3_723_000), '1h2m3s')
 })
 
 test('keeps usage separate for each agentic turn', () => {
