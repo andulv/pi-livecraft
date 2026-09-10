@@ -64,11 +64,11 @@
 .turn-usage {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 8px;
-  margin: 11px 0 13px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
-  color: var(--ink);
+  gap: 3px 8px;
+  margin: 8px 0 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 40%, transparent);
+  color: var(--muted);
   font: 10px ui-monospace, monospace;
   animation: turn-usage-fade-in 300ms ease-out both;
 }
