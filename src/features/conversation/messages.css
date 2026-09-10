@@ -65,12 +65,19 @@
   display: flex;
   flex-wrap: wrap;
   gap: 3px 8px;
-  margin: 8px 0 10px;
+  margin: 4px 0 8px;
   padding-bottom: 10px;
   border-bottom: 1px solid color-mix(in srgb, var(--line) 40%, transparent);
   color: var(--muted);
   font: 10px ui-monospace, monospace;
   animation: turn-usage-fade-in 300ms ease-out both;
+}
+/* The block directly above the turn footer belongs to the same turn, so it
+   sits closer than the usual inter-item gap (whose margin would otherwise win
+   the collapse). */
+.message:has(+ .turn-usage),
+.tool-call:has(+ .turn-usage) {
+  margin-bottom: 10px;
 }
 .turn-usage > span,
 .turn-usage > time {
