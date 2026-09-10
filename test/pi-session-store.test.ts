@@ -61,6 +61,30 @@ test('a burst of subagents cannot crowd ordinary sessions out of the recent list
   assert.equal(recent.filter(({ name }) => name.startsWith('subagent/')).length, 30)
 })
 
+test('extracts and hides the persisted subagent owner marker', async () => {
+  const { directory, workspace } = await fixture()
+  const sessions = workspaceSessionDir(workspace, directory)
+  await mkdir(sessions, { recursive: true })
+  await writeSession(
+    join(sessions, 'child.jsonl'),
+    workspace,
+    'child-id',
+    'subagent/owner-id/research: inspect the session list',
+  )
+
+  assert.deepEqual(await listRecentPiSessions(workspace, directory), [
+    {
+      id: 'child-id',
+      cwd: await realpath(workspace),
+      name: 'subagent/research: inspect the session list',
+      sessionPath: await realpath(join(sessions, 'child.jsonl')),
+      parentSessionId: 'owner-id',
+      firstMessageAt: 1784451600000,
+      updatedAt: 1784451600000,
+    },
+  ])
+})
+
 test('encodes the workspace folder name the way Pi does', () => {
   const base = join('data', 'pi-sessions')
   // Absolute path: the leading separator is dropped and each remaining separator becomes `-`.

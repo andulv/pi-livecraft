@@ -44,21 +44,44 @@ test('uses persisted order once the sent session is returned', () => {
   ])
 })
 
-test('keeps ordinary and subagent session views disjoint, including pending runs', () => {
+test('includes owned subagents directly below their owner when requested', () => {
   const subagent: RecentSession = {
     ...persisted,
     id: 'subagent-id',
     name: 'subagent/research: map the session store',
+    parentSessionId: persisted.id,
     sessionPath: '/sessions/subagent.jsonl',
     updatedAt: 999,
   }
 
   assert.deepEqual(sidebarSessions([subagent, persisted], '/workspace'), [persisted])
   assert.deepEqual(sidebarSessions([subagent, persisted], '/workspace', [], true), [
+    persisted,
     subagent,
   ])
-  assert.deepEqual(sidebarSessions([persisted], '/workspace', [subagent]), [persisted])
-  assert.deepEqual(sidebarSessions([persisted], '/workspace', [subagent], true), [subagent])
+})
+
+test('does not include unowned or cross-workspace subagents', () => {
+  const orphan: RecentSession = {
+    ...persisted,
+    id: 'orphan-id',
+    name: 'subagent/research: orphan',
+    parentSessionId: 'missing-owner',
+    sessionPath: '/sessions/orphan.jsonl',
+    updatedAt: 999,
+  }
+  const otherWorkspaceChild: RecentSession = {
+    ...orphan,
+    id: 'other-child-id',
+    parentSessionId: persisted.id,
+    cwd: '/another-workspace',
+    sessionPath: '/sessions/other-child.jsonl',
+  }
+
+  assert.deepEqual(
+    sidebarSessions([persisted, orphan, otherWorkspaceChild], '/workspace', [], true),
+    [persisted],
+  )
 })
 
 test('reports latest workspace activity from persisted and optimistic sessions', () => {

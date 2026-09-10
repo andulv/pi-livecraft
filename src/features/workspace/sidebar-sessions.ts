@@ -15,7 +15,7 @@ export function workspaceActivity(
   sentSessions: readonly RecentSession[] = [],
 ): number {
   return [...recentSessions, ...sentSessions]
-    .filter(({ cwd }) => cwd === workspacePath)
+    .filter(({ cwd, name }) => cwd === workspacePath && !isSubagentSessionName(name))
     .reduce((latest, { updatedAt }) => Math.max(latest, updatedAt), 0)
 }
 
@@ -34,25 +34,40 @@ export function compareWorkspaces(
 /**
  * Adds pending sessions and orders the visible list by latest activity.
  *
- * Subagent runs persist ordinary sessions and are frequent enough to crowd the
- * list out. The ordinary list and opt-in subagent list are disjoint; the tool
- * call card remains the primary way into a child session.
+ * Subagent runs are hidden by default. When included, only children with an
+ * owner in this workspace list are inserted immediately after that owner.
  */
 export function sidebarSessions(
   recentSessions: RecentSession[],
   workspacePath: string,
   sentSessions: RecentSession[] = [],
-  showSubagentSessions = false,
+  includeSubagentSessions = false,
 ): RecentSession[] {
   const recentIds = new Set(recentSessions.map((session) => session.id))
   const recentPaths = new Set(recentSessions.map((session) => session.sessionPath))
-  const pending = sentSessions.filter((session) =>
-    !recentIds.has(session.id) && !recentPaths.has(session.sessionPath)
-  )
-  return [...pending, ...recentSessions]
+  const candidates = sentSessions
+    .filter((session) => !recentIds.has(session.id) && !recentPaths.has(session.sessionPath))
+    .concat(recentSessions)
     .filter(({ cwd }) => cwd === workspacePath)
-    .filter(({ name }) => isSubagentSessionName(name) === showSubagentSessions)
+  const ordinary = candidates
+    .filter(({ name }) => !isSubagentSessionName(name))
     .sort((left, right) => right.updatedAt - left.updatedAt)
+  if (!includeSubagentSessions) return ordinary
+
+  const ownerIds = new Set(ordinary.map(({ id }) => id))
+  const childrenByOwner = new Map<string, RecentSession[]>()
+  for (const child of candidates) {
+    if (!isSubagentSessionName(child.name) || !child.parentSessionId) continue
+    if (!ownerIds.has(child.parentSessionId)) continue
+    const children = childrenByOwner.get(child.parentSessionId) ?? []
+    children.push(child)
+    childrenByOwner.set(child.parentSessionId, children)
+  }
+  for (const children of childrenByOwner.values()) {
+    children.sort((left, right) => right.updatedAt - left.updatedAt)
+  }
+
+  return ordinary.flatMap((owner) => [owner, ...(childrenByOwner.get(owner.id) ?? [])])
 }
 
 /** Finds a live, message-free session that can satisfy the new-session action. */

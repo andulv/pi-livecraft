@@ -66,11 +66,12 @@ session file into the standard workspace session directory that
 effort, including `quick`: the persisted transcript is the debugging and
 cost-accounting record.
 
-The child is named at startup with `--name "subagent/research: <task>"`. The
-prefix is the marker: without it a subagent run is indistinguishable from a
-user session in the recent list, which blocks both filtering and any later
-parent/child grouping. Titles otherwise fall back to `fallbackSessionTitle`,
-which cannot express origin.
+The child is named at startup with
+`--name "subagent/<owner-session-id>/research: <task>"`. The prefix and owner
+marker are the persisted relationship: without them a subagent run is
+indistinguishable from a user session in the recent list, which blocks both
+filtering and parent/child grouping. The session store hides the owner marker
+from the displayed child title.
 
 **D3 — The tool card is the default surface; the session view is on demand.**
 The tool streams child activity (current step, tool count vs budget, elapsed,
@@ -93,13 +94,20 @@ it is not a passive inspection.
 Frequent research runs must not crowd ordinary sessions out. The backend scans
 metadata in batches until it has 60 ordinary candidates (or exhausts the
 workspace), returning up to 30 ordinary sessions and 30 subagent sessions with
-separate budgets. `sidebarSessions`
-(`src/features/workspace/sidebar-sessions.ts`) excludes names beginning with
-`subagent/` from the ordinary list. **View subagents only** in the session list
-options switches to a separate, disjoint Subagents view rather than mixing
-children into the ordinary list. The tool card link remains the primary route
-in. Recognition is name-based: manually renaming a child without the prefix
-makes it an ordinary session; older unmarked runs cannot be identified reliably.
+separate budgets. Child names persist the owner id as
+`subagent/<owner-session-id>/research: <task>`; the session store exposes that
+owner separately and hides the marker from the display name.
+
+`sidebarSessions` (`src/features/workspace/sidebar-sessions.ts`) excludes
+subagents by default. **Include subagent sessions** opts into children whose
+owner is present in the ordinary workspace list, inserting each child directly
+beneath its owner. The sidebar renders those rows indented with a branch
+connector and a child marker, so ownership is visually explicit. Unowned
+children, children from another workspace, and children whose owner is hidden
+or absent are not included. The tool card link remains the primary route in.
+Recognition and ownership are name-based in v1: manually renaming a child
+without the marker loses its grouping metadata; older unmarked runs cannot be
+identified reliably.
 
 **D5 — One agent profile in code, shaped for more later.** V1 ships exactly one
 profile — the research assistant — as a constant in the new extension holding
@@ -195,7 +203,7 @@ already aggregates per-turn cost.
 ```
 pi --no-extensions --no-skills --no-prompt-templates --no-themes
    --mode json
-   --name "subagent/research: <task, truncated>"
+   --name "subagent/<owner-session-id>/research: <task, truncated>"
    --extension <fff extension> --extension <subagent-budget-guard>
    --fff-mode tools-only
    --tools fffind,ffgrep,read,bash
@@ -292,6 +300,7 @@ Remaining work:
   a long run (the gap named in D6).
 - Cross-session cost aggregation, so subagent spend appears in the session
   analysis widget.
-- Session-list grouping of subagent sessions under their parent session.
+- More robust persisted ownership metadata than the v1 name marker, including
+  resilience to child renames.
 - Agent-definition files (markdown + frontmatter) once profiles outgrow code;
   recursion bounded by an explicit allowlist (pi-agents' `delegate:` pattern).

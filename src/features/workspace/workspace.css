@@ -870,6 +870,37 @@
   gap: 2px;
   min-width: 0;
 }
+/* Included child runs sit below their owner, with a branch connector and a
+   narrower row so the relationship remains obvious in a dense list. */
+.session-row.subagent-session-row {
+  position: relative;
+  margin-left: 16px;
+}
+.session-row.subagent-session-row::before {
+  position: absolute;
+  top: -5px;
+  bottom: 50%;
+  left: -9px;
+  width: 7px;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--secondary) 52%, var(--line));
+  border-left: 1px solid color-mix(in srgb, var(--secondary) 52%, var(--line));
+  content: "";
+}
+.session-row.subagent-session-row .session-item {
+  background: color-mix(in srgb, var(--secondary) 5%, transparent);
+  color: var(--muted);
+}
+.session-row.subagent-session-row .session-item:hover:not(:disabled),
+.session-row.subagent-session-row .session-item:focus-visible {
+  background: color-mix(in srgb, var(--secondary) 11%, transparent);
+}
+.subagent-session-marker {
+  color: var(--secondary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
 .session-row .session-item {
   flex: 1;
   min-width: 0;

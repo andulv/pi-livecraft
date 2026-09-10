@@ -3,7 +3,11 @@ import { homedir } from 'node:os'
 import { isAbsolute, join, relative, sep } from 'node:path'
 import type { RecentSession } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
-import { isSubagentSessionName } from '../shared/subagent-session.ts'
+import {
+  isSubagentSessionName,
+  subagentDisplayName,
+  subagentOwnerSessionId,
+} from '../shared/subagent-session.ts'
 import { fallbackSessionTitle } from '../shared/session-title.ts'
 import { workspaceSessionFolderName } from '../shared/pi-session-paths.ts'
 
@@ -214,11 +218,14 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
 
   if (!hasMessage) return null
   const createdAt = Date.parse(header.timestamp)
+  const rawName = name || prompt || 'New session'
+  const parentSessionId = subagentOwnerSessionId(rawName)
   return {
     id: header.id,
     cwd,
-    name: name || prompt || 'New session',
+    name: subagentDisplayName(rawName),
     sessionPath: canonicalPath,
+    ...(parentSessionId ? { parentSessionId } : {}),
     firstMessageAt: firstMessageAt ?? (Number.isNaN(createdAt) ? undefined : createdAt),
     updatedAt: lastMessageAt ?? (Number.isNaN(createdAt) ? updatedAt : createdAt),
   }

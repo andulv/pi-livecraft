@@ -22,6 +22,7 @@ import type {
   RecentSession,
   SessionSummary,
 } from '../../../shared/types.ts'
+import { isSubagentSessionName } from '../../../shared/subagent-session.ts'
 import { resolvePinnedSessions } from './pinned-sessions.ts'
 import { PinnedSessionList } from './PinnedSessionList.tsx'
 import type { Project } from './projects.ts'
@@ -139,7 +140,7 @@ export function WorkspaceSidebar({
   const [brandMenuOpen, setBrandMenuOpen] = useState(false)
   const [sessionListMenuOpen, setSessionListMenuOpen] = useState(false)
   const [showArchivedSessions, setShowArchivedSessions] = useState(false)
-  const [showSubagentSessions, setShowSubagentSessions] = useState(false)
+  const [includeSubagentSessions, setIncludeSubagentSessions] = useState(false)
   const [startingNewSession, setStartingNewSession] = useState(false)
   const [openWorkspacePanel, setOpenWorkspacePanel] = useState<WorkspacePanel>('sessions')
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
@@ -165,23 +166,33 @@ export function WorkspaceSidebar({
     () => new Set(resolvedPinnedSessions.map(({ sessionPath }) => sessionPath)),
     [resolvedPinnedSessions],
   )
-  const visibleSessions = useMemo(
-    () =>
-      sidebarSessions(recentSessions, workspacePath, sentSessions, showSubagentSessions)
-        .filter(({ sessionPath }) => !pinnedSessionPaths.has(sessionPath))
-        .filter(({ sessionPath }) =>
-          showArchivedSessions || !archivedSessionPathSet.has(sessionPath)
-        ),
-    [
-      archivedSessionPathSet,
-      pinnedSessionPaths,
+  const visibleSessions = useMemo(() => {
+    const filtered = sidebarSessions(
       recentSessions,
-      sentSessions,
-      showArchivedSessions,
-      showSubagentSessions,
       workspacePath,
-    ],
-  )
+      sentSessions,
+      includeSubagentSessions,
+    )
+      .filter(({ sessionPath }) => !pinnedSessionPaths.has(sessionPath))
+      .filter(({ sessionPath }) => showArchivedSessions || !archivedSessionPathSet.has(sessionPath))
+    if (!includeSubagentSessions) return filtered
+
+    const visibleOwnerIds = new Set(
+      filtered.filter(({ name }) => !isSubagentSessionName(name)).map(({ id }) => id),
+    )
+    return filtered.filter(({ name, parentSessionId }) =>
+      !isSubagentSessionName(name)
+      || (parentSessionId !== undefined && visibleOwnerIds.has(parentSessionId))
+    )
+  }, [
+    archivedSessionPathSet,
+    includeSubagentSessions,
+    pinnedSessionPaths,
+    recentSessions,
+    sentSessions,
+    showArchivedSessions,
+    workspacePath,
+  ])
   const workspaces = useMemo(() => projectDetails?.workspaces ?? [], [projectDetails])
   const selectedWorkspace = workspaces.find(({ path }) => path === workspacePath)
   const selectedWorkspaceLabel = selectedWorkspace?.branch ?? workspacePath
@@ -385,7 +396,7 @@ export function WorkspaceSidebar({
     setStartingNewSession(true)
     try {
       await onNewSession()
-      setShowSubagentSessions(false)
+      setIncludeSubagentSessions(false)
     } catch (cause) {
       onError(cause)
     } finally {
@@ -640,7 +651,7 @@ export function WorkspaceSidebar({
             title={workspacePath}
             type='button'
           >
-            {showSubagentSessions ? 'Subagents' : 'Sessions'}
+            Sessions
             {visibleSessions.length > 0 && <small>{visibleSessions.length}</small>}
           </button>
           <button
@@ -705,11 +716,11 @@ export function WorkspaceSidebar({
                 </label>
                 <label>
                   <input
-                    checked={showSubagentSessions}
+                    checked={includeSubagentSessions}
                     type='checkbox'
-                    onChange={(event) => setShowSubagentSessions(event.target.checked)}
+                    onChange={(event) => setIncludeSubagentSessions(event.target.checked)}
                   />
-                  View subagents only
+                  Include subagent sessions
                 </label>
               </div>
             )}
@@ -746,11 +757,7 @@ export function WorkspaceSidebar({
           role='tabpanel'
         >
           <nav
-            aria-label={showSubagentSessions
-              ? 'Subagent sessions'
-              : showArchivedSessions
-              ? 'Pi sessions'
-              : 'Recent Pi sessions'}
+            aria-label={showArchivedSessions ? 'Pi sessions' : 'Recent Pi sessions'}
             className='session-list'
           >
             {isRefreshing && visibleSessions.length === 0 && (
@@ -768,6 +775,7 @@ export function WorkspaceSidebar({
               </div>
             )}
             {visibleSessions.map((recentSession) => {
+              const subagent = isSubagentSessionName(recentSession.name)
               const activeSession = sessions.find((session) =>
                 session.sessionPath === recentSession.sessionPath && session.status !== 'exited'
               )
@@ -794,7 +802,10 @@ export function WorkspaceSidebar({
                 sessionPath: recentSession.sessionPath,
               }
               return (
-                <div className='session-row' key={recentSession.sessionPath}>
+                <div
+                  className={`session-row${subagent ? ' subagent-session-row' : ''}`}
+                  key={recentSession.sessionPath}
+                >
                   <Tooltip label={tooltipLabel}>
                     <button
                       className={`session-item${
@@ -817,6 +828,8 @@ export function WorkspaceSidebar({
                       <span className='session-status-slot'>
                         {indicator
                           ? <SessionStatusIndicator status={indicator} />
+                          : subagent
+                          ? <span aria-hidden='true' className='subagent-session-marker'>↳</span>
                           : archived
                           ? <ArchivedSessionIcon />
                           : null}
@@ -838,9 +851,7 @@ export function WorkspaceSidebar({
             })}
             {visibleSessions.length === 0 && !isRefreshing && (
               <p className='empty-sidebar'>
-                {showSubagentSessions
-                  ? 'No subagent sessions in this directory.'
-                  : showArchivedSessions
+                {showArchivedSessions
                   ? 'No archived sessions in this directory.'
                   : 'No Pi sessions in this directory.'}
               </p>

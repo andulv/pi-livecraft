@@ -15,7 +15,7 @@ import { access, stat } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { ExtensionSettingGroup } from '../shared/extension-settings.ts'
-import { SUBAGENT_SESSION_PREFIX } from '../shared/subagent-session.ts'
+import { sessionIdFromFilePath, subagentSessionName } from '../shared/subagent-session.ts'
 import {
   numberSetting,
   publishExtensionSettings,
@@ -274,7 +274,10 @@ export default function registerResearch(pi: ExtensionAPI): void {
         images.push(imagePath)
       }
 
-      const sessionName = `${SUBAGENT_SESSION_PREFIX}research: ${params.task.trim().slice(0, 120)}`
+      const ownerSessionId = sessionIdFromFilePath(ctx.sessionManager.getSessionFile())
+      const sessionName = ownerSessionId
+        ? subagentSessionName(ownerSessionId, params.task.trim().slice(0, 120))
+        : `subagent/research: ${params.task.trim().slice(0, 120)}`
       const systemPrompt = `${RESEARCH_SYSTEM_PROMPT}
 
 Effort: ${effort}. ${preset.guidance}
