@@ -44,7 +44,10 @@ runner, frontend presentation, or server route.
 - Keep each invocation isolated, bounded, cancellable, and inspectable.
 - Persist every child as a normal Pi session with durable parent ownership.
 - Show opted-in children indented directly beneath a visible owner session.
-- Make available agents and their intended use clear to the calling model.
+- Make available agents and their intended use clear to the calling model within
+  a fixed parent-context budget.
+- Keep full profile prompts, diagnostics, settings, and capability details out of
+  the parent context.
 - Enforce capabilities through a small code-owned catalog rather than arbitrary
   command-line fragments in profile files.
 - Support bundled, user, and trusted project profiles with deterministic
@@ -109,22 +112,52 @@ shub_agent({
 The tool accepts exactly one run. There are no `tasks`, `parallel`, or `chain`
 shapes in v1.
 
-### Tool description
+### Parent-context contract
 
-At session start, the extension discovers profiles and registers `shub_agent`
-with a concise catalog in its description:
+The extension must not publish profile implementation details into the parent
+prompt. `shub_agent` has one short generic description:
 
 ```text
-Available agents:
-- research — repository, web, and image investigation
-- reviewer — read-only code review with file:line evidence
-- planner — implementation planning without edits
+Delegate a bounded task to one of the available specialist agents.
 ```
 
-The prompt snippet and guidelines describe when delegation is worth its cost,
-how effort affects scope, and that the call blocks. Every guideline names
-`shub_agent` explicitly, as Pi appends custom-tool guidelines into one flat
-system-prompt section.
+Each enabled profile announces only its name followed by two short sentences:
+
+1. **What it does.**
+2. **When to use it.**
+
+Example:
+
+```text
+research — Investigates repositories, web sources, and images with cited evidence. Use when a question spans files or external sources.
+reviewer — Reviews code for concrete correctness and maintainability issues. Use after a non-trivial implementation or before merging.
+```
+
+That is the entire agent catalog visible to the parent. The full profile body,
+model, thinking level, capabilities, source path, validation diagnostics,
+settings, report format, and safety policy are resolved only after a tool call
+selects an agent.
+
+The tool registers no `promptSnippet` and no `promptGuidelines`; both would
+repeat information already present in the tool schema and agent announcements.
+Concise parameter descriptions explain `agent`, `task`, and `effort` without
+restating execution internals.
+
+Context limits are enforced as data validation rather than editorial advice:
+
+- profile name: at most 32 characters;
+- profile announcement: exactly two non-empty sentences and at most 200
+  characters;
+- enabled profiles exposed to one session: at most 12;
+- rendered catalog: at most 2,500 characters;
+- generic tool description plus catalog: at most 2,700 characters
+  (approximately 675 tokens), excluding the provider-required parameter schema.
+
+If enabled profiles exceed the limit, the extension exposes the deterministic
+first 12 by name and reports the omitted names through diagnostics. The
+`enabledAgents` setting is the intended way to keep a large installed catalog
+focused per Livecraft installation. Unknown-agent errors return only a bounded
+list of enabled names, not announcements or diagnostics.
 
 Profile files are rediscovered and validated when the extension loads or Pi
 reloads. Execution resolves the selected profile again so removed or invalid
@@ -139,11 +172,12 @@ role and output instructions.
 ```md
 ---
 name: reviewer
-description: Review code for correctness, safety, and maintainability
+description: Reviews code for correctness, safety, and maintainability. Use after implementation or before merging.
 capabilities: [repo-read]
 model: anthropic/claude-sonnet-4-5
 thinking: medium
 defaultEffort: standard
+projectContext: true
 ---
 
 You are a senior code reviewer.
@@ -160,11 +194,12 @@ Return:
 | Field | Required | Rules |
 |---|---:|---|
 | `name` | yes | Lower-case `a-z0-9-`, unique across all loaded scopes. |
-| `description` | yes | Short purpose used in the parent tool description. |
+| `description` | yes | Two sentences: what it does, then when to use it; maximum 200 characters. |
 | `capabilities` | yes | Non-empty list of names from the host capability catalog. |
 | `model` | no | `provider/model`; omission uses the configured default, then owner model. |
 | `thinking` | no | Valid Pi thinking level; omission uses the configured/profile fallback. |
 | `defaultEffort` | no | `quick`, `standard`, or `deep`; default `standard`. |
+| `projectContext` | no | Load workspace context files into the child; default false. |
 | Markdown body | yes | Non-empty system prompt for the child. |
 
 Unknown fields are errors. Invalid profiles are excluded from the catalog and
@@ -251,6 +286,7 @@ Effort remains a stable caller contract shared by all profiles:
 The extension publishes one `shub-agents` settings group. Settings tune host
 policy and defaults, not agent definitions:
 
+- enabled agent names (used to keep the parent catalog focused);
 - default model;
 - default thinking level;
 - default effort;
@@ -360,6 +396,7 @@ capability expansion.
 ```text
 pi --no-extensions --no-skills --no-prompt-templates --no-themes
    --mode json --print
+   [--no-context-files]
    --name "shub-agent/<agent>: <task>"
    --extension <session-marker>
    --extension <budget-guard>
@@ -371,6 +408,11 @@ pi --no-extensions --no-skills --no-prompt-templates --no-themes
    [@image ...]
    <task>
 ```
+
+`--no-context-files` is the default. It is omitted only when the selected
+profile explicitly sets `projectContext: true`. The child never receives parent
+conversation history, the agent catalog, other profile bodies, extension
+settings, or registry diagnostics.
 
 Owner id, owner session path, selected agent, and budget values are passed to
 internal extensions through narrowly named environment variables. Profile files
@@ -455,6 +497,51 @@ The server keeps separate recent-result budgets for ordinary sessions and
 shub-agent sessions so frequent children cannot crowd owners out before frontend
 grouping.
 
+## Context-efficiency rules
+
+Context efficiency is a feature invariant across both processes.
+
+### Parent
+
+- Exactly one generic tool is registered, regardless of agent count.
+- Its generic description is one dispatch sentence.
+- Each enabled agent contributes only “what it does” and “when to use it.”
+- No prompt snippet, prompt guidelines, per-agent tool, or per-agent schema is
+  registered.
+- Profile diagnostics are available through UI/diagnostics, not model context.
+- Progress updates are UI state and do not become parent conversation content.
+- The final result contains one short metadata line and one report; it does not
+  repeat the task, profile prompt, capability list, progress history, or raw
+  child events.
+- Large structured data belongs in tool-result `details`, not visible text sent
+  back to the parent model.
+
+### Child
+
+- The child receives the task, selected profile body, compact effort/output
+  policy, selected tool definitions, optional images, and explicitly requested
+  project context—nothing else.
+- Global/project extensions, skills, prompt templates, and themes are disabled.
+- Project context files are opt-in per profile and loaded through Pi's native
+  context mechanism rather than copied into the profile prompt.
+- Capability resolution selects the smallest exact tool set; profiles should
+  not receive broad default tools.
+- Profile bodies state role, decision rules, and output contract. They must not
+  duplicate Pi's tool schemas, generic safety text already enforced by the host,
+  effort tables, or catalog descriptions.
+- Profile bodies are capped at 12,000 characters. Larger profiles are invalid;
+  recurring specialist knowledge should become a narrowly loaded context file
+  or capability, not an ever-growing system prompt.
+- The child produces one final answer. Intermediate assistant text is retained
+  in the child session but not concatenated into the parent result.
+
+### Measurement
+
+Focused tests snapshot the registered tool metadata and assembled child argv /
+system prompt. They fail when the generic description plus catalog exceeds
+2,700 characters, disabled profile bodies leak into the prompt, unrelated tools are
+selected, or child system-prompt layers are duplicated.
+
 ## Progress and result contract
 
 Progress updates contain stable generic details:
@@ -537,11 +624,12 @@ the prototype without preserving its implementation:
 
 ```yaml
 name: research
-description: Repository, web, and image investigation with cited evidence
+description: Investigates repositories, web sources, and images with cited evidence. Use when a question spans files or external sources.
 capabilities: [repo-read, web, vision]
 model: openrouter/z-ai/glm-5.3-flash
 thinking: off
 defaultEffort: standard
+projectContext: true
 ```
 
 Its Markdown body owns research-specific tool guidance and report structure.
@@ -601,12 +689,17 @@ part of implementation.
 
 ### Profiles
 
-- Adding a valid user profile file and reloading exposes it in the tool catalog.
+- Adding a valid enabled user profile file and reloading exposes its bounded
+  name/description entry in the tool catalog.
 - Adding a valid trusted project profile does the same.
 - Untrusted project profiles are absent.
 - Invalid and duplicate profiles never run and produce actionable diagnostics.
 - A new profile using existing capabilities requires no TypeScript or frontend
   change.
+- Full profile bodies and disabled profiles never appear in parent context.
+- The generic description plus agent catalog remains within its 2,700-character
+  budget at maximum catalog size.
+- Every catalog entry contains only “what it does” and “when to use it.”
 
 ### Execution
 
@@ -651,3 +744,6 @@ part of implementation.
 10. Ownership is a durable custom session entry, not a display-name convention.
 11. Children appear only beneath a visible owner when explicitly included.
 12. Research is the first bundled profile, not a special runtime path.
+13. The generic description plus agent catalog has a fixed 2,700-character
+    ceiling; the required parameter schema is measured separately.
+14. Project context files are opt-in per profile; other Pi resources stay off.
