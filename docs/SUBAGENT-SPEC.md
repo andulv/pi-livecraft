@@ -1,306 +1,653 @@
-# Subagent sessions specification
+# shub-agents specification
 
-The design record for subagents in Pi Livecraft. The first version described
-here is implemented: `pi-extensions/research.ts` owns the tool and the agent
-profile, `pi-extensions/subagent-child.ts` runs the child, and the parent's tool
-call card carries live progress plus an action that opens the child session.
+Design specification for generic delegated agents in Pi Livecraft. This replaces
+the existing research-specific design. The current `research` extension and its
+hardcoded profile are prototypes to be removed, not compatibility constraints.
+
+The name is deliberately lower-case: `shub-agents`. The public Pi tool uses the
+identifier `shub_agent`, because tool identifiers use underscores rather than
+hyphens.
+
+## Status
+
+Proposed, not implemented.
+
+The current research implementation proves subprocess execution, progress,
+cancellation, persisted child sessions, and session-list grouping. Its reusable
+lessons should be retained, but its public tool, profile constants, filenames,
+and name-based ownership format should not shape the new API.
 
 ## Summary
 
-A **subagent** is a bounded one-shot Pi run started by a tool inside the
-persistent session's Pi process. The first subagent is the **research
-assistant**: one advanced, vision-capable, large-context model that can read
-the local repo (fff + read) and the internet, and returns a research brief.
-It replaces today's `repo_explore_ff` and `analyze_image` nested runs and
-ad-hoc web-search turns with a single tool.
+`shub-agents` is one Pi extension that dispatches one named, declaratively
+defined agent per tool call. Agent behavior is configuration; process control,
+validation, budgets, persistence, progress, and security policy are code.
 
-The caller controls cost and wall time through an **effort** preset — the same
-quick / standard / deep budgets `repo_explore_ff` used — because the subagent
-model is powerful enough that an unbounded call can run for minutes.
-
-Every run persists a real Pi session file so it can be debugged and its cost
-accounted for. The default surface is the parent's **tool call card** with live
-progress; the card also opens the child session in the ordinary conversation
-view on demand. No new endpoints, no manager changes, no protocol changes.
-
-## Requirements
-
-- One tool, `research`, with a task plus effort control; quick calls normally
-  land in 15–45 s, deep research may run for minutes.
-- The calling model must understand, from the tool description alone, what each
-  effort costs in wall time and scope, and be able to pick deliberately.
-- Live view of what the subagent is doing in the tool card, and a full
-  transcript openable in the ordinary session view for debugging.
-- Every run leaves a persisted, identifiable record: transcript, tool calls and
-  usage, so spend can be analyzed after the fact.
-- Vision input (screenshots/images) without a separate image tool.
-- Read-only in v1, but structured so later profiles can add temp files, report
-  writing, or shell access by changing one capability declaration.
-- Retire `repo_explore_ff` and `analyze_image` without losing their strengths:
-  effort budgets, timeout with partial-evidence recovery, model/effort
-  settings.
-
-## Prior art
-
-| Source | Mechanism | Lesson taken |
-|---|---|---|
-| [Official example](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/examples/extensions/subagent/) | `pi --mode json -p --no-session` subprocess; agents as markdown + frontmatter | Agent definition layer; usage tracking; launcher resolution |
-| [pi-subagents](https://github.com/nicobailon/pi-subagents) | In-process SDK sessions, foreground + background | `researcher` agent brief format; model-tier expectations |
-| [pi-agents](https://github.com/sebastienservouze/pi-agents) | In-process SDK sessions with `SessionManager.inMemory()` | `delegate:` allowlist gate; prompt composition. Rejected as mechanism for the reasons in D1 — note that in-process runs *could* persist (`SessionManager.create(cwd)`, `docs/sdk.md`); that is not why it is rejected |
-| `repo_explore_ff` + `budget-guard` (this project's own tool, at `../pi-extensions/repo-explore-ff/`) | One-shot `pi --mode json --print` subprocess | Effort presets with soft/hard tool-call budgets; partial-evidence recovery on timeout — kept as the core |
-
-## Design decisions
-
-**D1 — Subprocess child, not in-process.** The tool spawns a one-shot
-`pi --mode json --print` child in its own process group. This matches the
-existing `repo_explore_ff`/`analyze_image` precedent, keeps children killable
-on cancel, isolates crashes and memory from the parent Pi process, and avoids
-coupling the extension to SDK internals. An in-process SDK child could also
-persist a session; it is rejected for isolation and cancellation, not for
-visibility.
-
-**D2 — The child persists a real, marked session.** The child runs **without**
-`--no-session` and without `PI_CODING_AGENT_DIR` isolation, so Pi writes the
-session file into the standard workspace session directory that
-`server/pi-session-store.ts` `listRecentPiSessions` scans. This holds for every
-effort, including `quick`: the persisted transcript is the debugging and
-cost-accounting record.
-
-The child is named at startup with
-`--name "subagent/<owner-session-id>/research: <task>"`. The prefix and owner
-marker are the persisted relationship: without them a subagent run is
-indistinguishable from a user session in the recent list, which blocks both
-filtering and parent/child grouping. The session store hides the owner marker
-from the displayed child title.
-
-**D3 — The tool card is the default surface; the session view is on demand.**
-The tool streams child activity (current step, tool count vs budget, elapsed,
-tokens) via `onUpdate`; Livecraft already renders `tool_execution_update` in
-the parent's card (`src/features/conversation/tool-protocol.ts:142,163` →
-`ToolCallCard.tsx:103-108`). The child's session id and file path — the id
-comes from the first stdout line, the JSON session header (`docs/json.md`) —
-are reported in the first progress update and in the final result, so a
-tool-call presentation can offer **Open subagent session**, reusing the
-existing `openSession(cwd, sessionPath)` path.
-
-Consequence to accept: Livecraft has no read-only session viewer. Opening a
-past session resumes it live through `server/manager.ts` (`POST /api/sessions`
-with `sessionPath`, `backend.ts:565-580`). Opening a subagent session therefore
-spawns a Pi process and turns that run into an ordinary, continuable session.
-That is acceptable — and useful for continuing a research thread by hand — but
-it is not a passive inspection.
-
-**D4 — Subagent sessions are filtered out of the recent list by default.**
-Frequent research runs must not crowd ordinary sessions out. The backend scans
-metadata in batches until it has 60 ordinary candidates (or exhausts the
-workspace), returning up to 30 ordinary sessions and 30 subagent sessions with
-separate budgets. Child names persist the owner id as
-`subagent/<owner-session-id>/research: <task>`; the session store exposes that
-owner separately and hides the marker from the display name.
-
-`sidebarSessions` (`src/features/workspace/sidebar-sessions.ts`) excludes
-subagents by default. **Include subagent sessions** opts into children whose
-owner is present in the ordinary workspace list, inserting each child directly
-beneath its owner. The sidebar renders those rows indented with a branch
-connector and a child marker, so ownership is visually explicit. Unowned
-children, children from another workspace, and children whose owner is hidden
-or absent are not included. The tool card link remains the primary route in.
-Recognition and ownership are name-based in v1: manually renaming a child
-without the marker loses its grouping metadata; older unmarked runs cannot be
-identified reliably.
-
-**D5 — One agent profile in code, shaped for more later.** V1 ships exactly one
-profile — the research assistant — as constants in the extension holding its
-model defaults, `--tools` allowlist, extension list, and system prompt. The
-runner is reusable, but profile selection is not a config feature yet: adding a
-writing or shell-capable profile currently requires code for the profile and a
-new tool parameter or registration. No agent-file discovery, catalogs, or
-recursion in v1.
-
-**D6 — Effort presets are the caller's contract.** Every call carries
-`effort: quick | standard | deep`, mapping to a timeout plus soft/hard
-tool-call budgets enforced by `subagent-budget-guard.ts` (soft target = stop
-expanding and synthesize; hard ceiling = calls blocked, child must synthesize).
-The tool description states wall-time and scope expectations per effort so the
-calling model picks deliberately. Per-call `timeoutMs` and `model` overrides
-remain.
-
-The timeouts are ceilings measured against the configured model, not targets: a
-four-call `quick` run on `glm-5.3-flash` took about 50 s, so the quick ceiling
-is 90 s rather than the 45 s `repo_explore_ff` used with a faster, text-only
-model.
-
-Honest limitation: a blocking tool call gives the *calling model* no mid-flight
-status — progress updates reach the UI, not the model. So the caller's control
-is entirely up-front: effort, timeout, and a description precise enough to
-choose correctly. Background runs with a polling tool are deferred (Future).
-
-**D7 — Capability is declared in the profile and enforced by argv.** The child
-runs with `--no-extensions` plus an explicit `--extension` list and a `--tools`
-allowlist. `--no-extensions` is also the recursion and configuration guard:
-without it the child inherits the user's global extension list from
-`~/.pi/agent/settings.json`, including this extension.
-
-The allowlist is `fffind, ffgrep, read, bash`. `bash` is present because the
-internet transport is the `ketch` CLI, not a search extension; the prompt
-restricts it to `ketch`. No file-mutating tool is in the allowlist, so `edit`,
-`write`, and `apply_patch` are unavailable regardless of what the prompt says.
-This is not a read-only sandbox: bash can mutate files or run arbitrary commands.
-Both "read-only" and "shell only for search" depend on prompt discipline. Later
-profiles widen the allowlist rather than the mechanism.
-
-**D8 — Cancel kills the child immediately.** On parent abort (`signal`) or
-timeout, the child's process group is terminated at once, evidence collected so
-far is returned as partial output (the `repo_explore_ff` recovery pattern), and
-the session file remains for inspection. Orphaned children are only accepted
-for a manager restart, which closes the parent Pi and loses the tool call
-anyway.
-
-**D9 — Ownership boundary is unchanged.** Children are one-shot non-RPC
-processes spawned by the extension inside the parent's Pi process — the same
-class of run `repo_explore_ff` already performs. `server/manager.ts` remains
-the sole owner of `pi --mode rpc` processes; the backend gains no routes; the
-frontend gains one tool-call presentation and one list filter.
-
-## Tool contract
-
-```
-research(task, effort?, images?, cwd?, model?, timeoutMs?) → research brief
+```text
+parent Pi session
+  └─ shub_agent({ agent: "research", task: "...", effort: "quick" })
+       ├─ discover and validate research.md
+       ├─ resolve capabilities through a code-owned catalog
+       ├─ spawn one bounded `pi --mode json --print` child
+       ├─ persist child session plus durable owner metadata
+       ├─ stream progress into the parent tool card
+       └─ return the child's final report
 ```
 
-Default model: `openrouter/z-ai/glm-5.3-flash` — vision-capable, 1M context, and
-cheap enough that a bounded run costs fractions of a cent.
+Adding a normal agent requires one Markdown profile and no new extension, tool,
+runner, frontend presentation, or server route.
 
-| Parameter | Type | Default | Notes |
+## Goals
+
+- One generic `shub-agents` extension and one `shub_agent` tool.
+- Add and tune agents declaratively without TypeScript changes.
+- Keep each invocation isolated, bounded, cancellable, and inspectable.
+- Persist every child as a normal Pi session with durable parent ownership.
+- Show opted-in children indented directly beneath a visible owner session.
+- Make available agents and their intended use clear to the calling model.
+- Enforce capabilities through a small code-owned catalog rather than arbitrary
+  command-line fragments in profile files.
+- Support bundled, user, and trusted project profiles with deterministic
+  discovery and validation.
+- Keep the first release small: one foreground child per tool call.
+
+## Non-goals for the first release
+
+- Compatibility with the current `research` tool or its stored calls.
+- One extension or one tool per agent.
+- Background jobs or polling.
+- Extension-managed parallel or chained workflows.
+- Recursive delegation from a child.
+- Agent inheritance, templates, or executable hooks.
+- Arbitrary extension paths or command-line arguments in agent profiles.
+- A read-only session viewer.
+- Cross-session cost aggregation.
+- A security sandbox. Capability restriction reduces exposure but does not turn
+  a subprocess with shell access into a sandbox.
+
+Pi already supports parallel tool calls. A parent may invoke multiple
+`shub_agent` calls in one turn; each remains an independent child session. A
+parent may chain calls across turns by passing previous results in the next
+task. The extension should not duplicate orchestration in v1.
+
+## Terminology
+
+- **extension** — the single `shub-agents` Pi extension loaded into persistent
+  Livecraft sessions.
+- **profile** — one validated Markdown agent definition.
+- **agent** — the named behavior described by a profile, such as `research` or
+  `reviewer`.
+- **run** or **child** — one bounded Pi subprocess created for one tool call.
+- **owner** — the persistent parent Pi session that invoked the child.
+- **capability** — a code-owned bundle of allowed tools and required child
+  extensions.
+
+## Public tool contract
+
+```ts
+shub_agent({
+  agent: string
+  task: string
+  effort?: 'quick' | 'standard' | 'deep'
+  images?: string[]
+  cwd?: string
+  model?: string
+  timeoutMs?: number
+}) => agent report
+```
+
+| Parameter | Required | Meaning |
+|---|---:|---|
+| `agent` | yes | Name of a discovered profile. |
+| `task` | yes | Bounded assignment and requested evidence/output. |
+| `effort` | no | Shared budget preset; profile default, then global default. |
+| `images` | no | Image paths relative to the resolved `cwd`; requires profile vision capability. |
+| `cwd` | no | Child working directory, resolved from the owner's workspace. |
+| `model` | no | Explicit per-call override when overrides are enabled by settings. |
+| `timeoutMs` | no | Advanced per-call ceiling, clamped by host policy. |
+
+The tool accepts exactly one run. There are no `tasks`, `parallel`, or `chain`
+shapes in v1.
+
+### Tool description
+
+At session start, the extension discovers profiles and registers `shub_agent`
+with a concise catalog in its description:
+
+```text
+Available agents:
+- research — repository, web, and image investigation
+- reviewer — read-only code review with file:line evidence
+- planner — implementation planning without edits
+```
+
+The prompt snippet and guidelines describe when delegation is worth its cost,
+how effort affects scope, and that the call blocks. Every guideline names
+`shub_agent` explicitly, as Pi appends custom-tool guidelines into one flat
+system-prompt section.
+
+Profile files are rediscovered and validated when the extension loads or Pi
+reloads. Execution resolves the selected profile again so removed or invalid
+files fail safely rather than running stale configuration. Adding or changing a
+profile becomes model-visible after Pi's normal reload flow.
+
+## Profile format
+
+Profiles are Markdown with YAML frontmatter. The body is the agent's complete
+role and output instructions.
+
+```md
+---
+name: reviewer
+description: Review code for correctness, safety, and maintainability
+capabilities: [repo-read]
+model: anthropic/claude-sonnet-4-5
+thinking: medium
+defaultEffort: standard
+---
+
+You are a senior code reviewer.
+
+Return:
+1. Overall assessment.
+2. Findings ordered by severity.
+3. Evidence using file:line references.
+4. Focused validation suggestions.
+```
+
+### Profile schema
+
+| Field | Required | Rules |
+|---|---:|---|
+| `name` | yes | Lower-case `a-z0-9-`, unique across all loaded scopes. |
+| `description` | yes | Short purpose used in the parent tool description. |
+| `capabilities` | yes | Non-empty list of names from the host capability catalog. |
+| `model` | no | `provider/model`; omission uses the configured default, then owner model. |
+| `thinking` | no | Valid Pi thinking level; omission uses the configured/profile fallback. |
+| `defaultEffort` | no | `quick`, `standard`, or `deep`; default `standard`. |
+| Markdown body | yes | Non-empty system prompt for the child. |
+
+Unknown fields are errors. Invalid profiles are excluded from the catalog and
+reported through diagnostics with their source path and reason. One invalid file
+must not prevent valid profiles from loading.
+
+Profiles cannot declare:
+
+- filesystem paths to extensions;
+- raw child arguments;
+- environment variables;
+- timeout or tool-call ceilings;
+- arbitrary executables;
+- owner/session metadata;
+- recursive delegation.
+
+Those are host policy, not agent behavior.
+
+## Profile locations and trust
+
+```text
+pi-extensions/shub-agents/agents/*.md   bundled Livecraft profiles
+~/.pi/agent/shub-agents/*.md            user profiles
+<workspace>/.pi/shub-agents/*.md        project profiles
+```
+
+Discovery is non-recursive and accepts regular `.md` files and symlinks whose
+resolved target remains within the selected profile directory.
+
+Scopes:
+
+- Bundled profiles always load.
+- User profiles always load.
+- Project profiles load only when `ctx.isProjectTrusted()` is true.
+- The generic tool has no per-call scope selector. Trust and installation
+  determine the catalog before the model chooses an agent.
+
+Profile names must be globally unique across loaded scopes. A collision excludes
+all colliding definitions and reports a diagnostic; there is no silent override
+or precedence rule in v1. This makes the selected behavior deterministic and
+prevents a project profile from impersonating a bundled or user agent.
+
+## Capability catalog
+
+Profiles name capabilities; TypeScript resolves capabilities into concrete
+child tools and extension entry points.
+
+Initial catalog:
+
+| Capability | Child tools | Child extensions | Notes |
 |---|---|---|---|
-| `task` | string | required | What to find, summarize, or research. Also forms the child session name. |
-| `effort` | `quick` \| `standard` \| `deep` | `standard` | Preset below; default overridable by setting. |
-| `images` | string[] | — | Paths to screenshots/images (relative to `cwd`). Passed as `@path` arguments so a vision model reads them. |
-| `cwd` | string | workspace | Directory the child runs in and persists its session under. |
-| `model` | string | setting | Model override for this call. |
-| `timeoutMs` | number | preset | Per-call timeout override. |
+| `repo-read` | `read`, `fffind`, `ffgrep` | FFF | Repository discovery and file evidence. |
+| `web` | dedicated retrieval tools when available; otherwise `bash` | retrieval transport | Shell fallback is prompt-restricted, not sandboxed. |
+| `vision` | none | none | Permits image arguments with a vision-capable model. |
+| `shell` | `bash` | none | Explicit arbitrary shell capability. |
+| `workspace-write` | `read`, `write`, `edit` | required mutation support | Deferred until a concrete writing agent is approved. |
 
-Default presets (tunable via settings):
+The catalog owns:
 
-| Effort | Timeout ceiling | Tool calls (soft/hard) | Expected use |
-|---|---|---|---|
-| `quick` | 90 s | 6 / 8 | A known file/symbol lookup, a one-page summary, a single image analysis. |
-| `standard` | 240 s | 12 / 16 | Map one feature across files; a focused web search with sources. |
-| `deep` | 600 s | 24 / 32 | Multi-angle research, cross-referenced repo + web audits, long synthesis. |
+- allowed tool names;
+- required child extensions;
+- whether images are permitted;
+- whether the profile is read-only by construction;
+- warnings shown in diagnostics/settings;
+- any future trust or confirmation requirements.
 
-Result: the research brief, preceded by a one-line run header with effort,
-elapsed time, tool calls used, tokens, cost, and the child session file.
+The extension rejects unknown capabilities. It deduplicates resolved tools and
+extensions and always adds the internal budget guard and session marker.
 
-Cost accounting decision: per call and per session only. The header reports what
-one call cost, and the persisted child session holds the authoritative record
-for later analysis, but nothing aggregates subagent spend into the parent's
-stats or the quota widget. That answers "what did this call cost" and "what has
-this run spent" by inspection. If totals across many runs become a real
-question, the session-analysis widget is where to add them (Future), because it
-already aggregates per-turn cost.
+`bash` is inherently mutation-capable. A `web` implementation backed by `bash`
+cannot honestly be called enforced read-only. The preferred direction is a
+dedicated child retrieval tool so `web` does not imply shell access.
+
+## Budgets and settings
+
+Effort remains a stable caller contract shared by all profiles:
+
+| Effort | Timeout ceiling | Tool calls soft/hard | Intended scope |
+|---|---:|---:|---|
+| `quick` | 90 s | 6 / 8 | One narrow lookup, image, or focused check. |
+| `standard` | 240 s | 12 / 16 | One feature map, review, or focused investigation. |
+| `deep` | 600 s | 24 / 32 | Multi-angle audit or substantial synthesis. |
+
+The extension publishes one `shub-agents` settings group. Settings tune host
+policy and defaults, not agent definitions:
+
+- default model;
+- default thinking level;
+- default effort;
+- optional bounded timeout override;
+- maximum returned output characters;
+- executable/known extension locations as advanced host settings;
+- whether per-call model and timeout overrides are allowed.
+
+Profiles may choose a default effort but cannot redefine effort budgets. This
+keeps `quick`, `standard`, and `deep` comparable across agents.
+
+Resolution order:
+
+1. permitted per-call override;
+2. profile value;
+3. `shub-agents` setting;
+4. owner session model/thinking where applicable;
+5. code default.
+
+Every resolved model is checked for availability. Image calls additionally
+require a vision-capable resolved model.
+
+## Runtime architecture
+
+### Parent extension
+
+`pi-extensions/shub-agents/index.ts` owns:
+
+- profile discovery and catalog publication;
+- `shub_agent` tool registration;
+- parameter and policy validation;
+- profile/settings/capability resolution;
+- owner identity capture;
+- progress and final result shaping.
+
+It contains no agent-specific prompt text.
+
+### Registry
+
+`pi-extensions/shub-agents/registry.ts` owns:
+
+- profile directories and trust-aware discovery;
+- YAML/frontmatter parsing;
+- strict schema validation;
+- duplicate detection;
+- deterministic sorting;
+- diagnostic records;
+- capability resolution.
+
+Discovery returns immutable resolved profiles and diagnostics. Callers never
+consume raw frontmatter.
+
+### Child runner
+
+`pi-extensions/shub-agents/runner.ts` owns:
+
+- child argv construction;
+- process-group spawning;
+- JSON event parsing;
+- progress throttling;
+- usage aggregation;
+- output/evidence limits;
+- timeout and abort handling;
+- graceful then forced termination;
+- child session-file lookup.
+
+The runner accepts only a resolved run specification. It knows no agent names or
+profile locations:
+
+```ts
+interface ResolvedShubRun {
+  agent: string
+  task: string
+  cwd: string
+  images: string[]
+  sessionName: string
+  systemPrompt: string
+  model?: string
+  thinking: ThinkingLevel
+  tools: string[]
+  extensions: string[]
+  effort: EffortLevel
+  softToolCalls: number
+  hardToolCalls: number
+  timeoutMs: number
+  maxOutputChars: number
+  ownerSessionId: string
+  ownerSessionPath: string
+}
+```
+
+### Internal child extensions
+
+Two internal extensions are always loaded explicitly while global/project Pi
+extensions, skills, prompt templates, and themes are disabled:
+
+1. **budget guard** — enforces the hard tool-call ceiling inside the child.
+2. **session marker** — appends durable ownership metadata to the child session
+   at startup.
+
+The child receives only resolved capability extensions in addition to these two.
+It never inherits the owner's extension set, preventing recursion and accidental
+capability expansion.
 
 ### Child invocation
 
-```
+```text
 pi --no-extensions --no-skills --no-prompt-templates --no-themes
-   --mode json
-   --name "subagent/<owner-session-id>/research: <task, truncated>"
-   --extension <fff extension> --extension <subagent-budget-guard>
-   --fff-mode tools-only
-   --tools fffind,ffgrep,read,bash
-   --system-prompt <profile prompt + effort guidance + budgets>
-   [--model <model>] --thinking <level>
-   --print "<@image ...> <task>"
+   --mode json --print
+   --name "shub-agent/<agent>: <task>"
+   --extension <session-marker>
+   --extension <budget-guard>
+   [--extension <resolved-capability-extension> ...]
+   --tools <resolved-tool-list>
+   --system-prompt <profile body + bounded effort instructions>
+   [--model <model>]
+   --thinking <level>
+   [@image ...]
+   <task>
 ```
 
-Deliberate differences from `repo_explore_ff`'s argv: no `--no-session` (D2),
-`--name` added (D2), `bash` in the allowlist for `ketch` (D7), images appended
-to the prompt as `@path` (the `analyze_image` mechanism). The tool-call budget
-reaches the child through `PI_SUBAGENT_SOFT_TOOL_CALLS` and
-`PI_SUBAGENT_HARD_TOOL_CALLS`.
+Owner id, owner session path, selected agent, and budget values are passed to
+internal extensions through narrowly named environment variables. Profile files
+cannot set or override them.
 
-No search extension is loaded: the `ketch` CLI covers search, scraping, code,
-and documentation lookup through one transport, so the child needs no extension
-for it. Skills are disabled and the ketch usage a skill would supply is stated
-directly in the profile prompt instead — loading a skill alongside `--no-skills`
-could not be verified, and inlining removes the ambiguity.
+## Persistence and ownership
 
-`--no-context-files` is **not** passed: the workspace `AGENTS.md` is cheap
-context that improves repo answers. Note that non-interactive modes never
-prompt for trust and fall back to `defaultProjectTrust`
-(`docs/security.md` in the installed Pi docs), so project-level resources may
-be ignored unless the workspace is already trusted; this version does not pass
-`-a`.
+Each run persists a real Pi session. Ownership is stored as a versioned custom
+session entry, not encoded only in the display name:
 
-Settings (existing extension-settings mechanism, same shape as
-`repo-explore-ff` today): model, thinking level (default `off`), default
-effort, timeout override, max output chars (default 30 000), fff extension
-path, pi executable.
+```json
+{
+  "type": "custom",
+  "customType": "livecraft.shub-agent",
+  "data": {
+    "version": 1,
+    "ownerSessionId": "...",
+    "ownerSessionPath": "...",
+    "agent": "research"
+  }
+}
+```
 
-System prompt: the research brief discipline — direct answer first; findings
-with sources (URLs, or `file:line` for repo evidence); explicit confidence and
-contradictions; short next steps; no file edits, no side effects. The effort
-preset's guidance and budget are appended per call, as `repo_explore_ff` did.
+The session-marker child extension writes this entry during `session_start`
+before the child prompt runs. The display name remains readable:
 
-## What is visible where
+```text
+shub-agent/research: map session persistence
+```
 
-| Surface | Behavior |
-|---|---|
-| Parent tool card | Default view. Live progress line (current tool, count vs budget) and an **Open subagent session** action once the run has a session. |
-| Conversation view | Full child transcript, tool calls and costs, opened from the card. Opening resumes the session live (D3). |
-| Recent sessions | Excluded from the ordinary list; **Include subagent sessions** inserts owned children beneath their visible owner, identified by the `subagent/` name marker. |
-| Manager list | Listed only if the user opens the child session, at which point it is an ordinary session. |
-| Quota / session analysis widgets | Unchanged; they do not aggregate child spend. |
+The custom marker is authoritative for ownership and classification. Renaming a
+child does not change its identity or grouping. A run without a valid marker is
+not treated as a shub-agent session and produces a diagnostic; the implementation
+must ensure marker failure causes the run to fail before model execution so it
+cannot silently leak into the ordinary list.
 
-Not built in v1: cross-session cost aggregation, streaming the child's
-transcript into the parent card beyond the progress line, background/async runs,
-parallel or chained subagents, and a read-only session viewer.
+`server/pi-session-store.ts` reads the marker while scanning session metadata and
+returns optional structured fields on `RecentSession`:
 
-## Implementation
+```ts
+interface RecentSession {
+  // existing fields
+  sessionKind?: 'shub-agent'
+  ownerSessionId?: string
+  shubAgent?: string
+}
+```
 
-| File | Role |
-|---|---|
-| `pi-extensions/research.ts` | Tool contract, research profile, effort presets, published settings. |
-| `pi-extensions/subagent-child.ts` | Child argv, JSON event stream, progress, cancel/timeout, session-file lookup. |
-| `pi-extensions/subagent-budget-guard.ts` | Hard tool-call ceiling inside the child. |
-| `pi-extensions/extension-settings-store.ts` | Extension-side publishing and per-call resolution of settings. |
-| `shared/subagent-session.ts` | The `subagent/` naming rule, shared by producer and session list. |
-| `shared/pi-session-paths.ts` | Workspace session folder rule, shared with `server/pi-session-store.ts`. |
-| `server/pi-process.ts` | Loads the extension into persistent sessions. |
-| `src/features/conversation/OpenSubagentSessionButton.tsx` | Opens the child session from the tool card. |
-| `src/features/workspace/sidebar-sessions.ts` | Filters subagent runs by default and groups owned children beneath visible owners when enabled. |
+No new HTTP endpoint or manager protocol is required.
 
-The child session file is located from the parent's own session file
-(`ctx.sessionManager.getSessionFile()`) plus the workspace folder rule, which is
-the one place the storage root is known without duplicating Pi's environment
-resolution.
+## Session-list behavior
 
-Tests: `test/subagent-child.test.ts` (argv assembly, event extraction, progress)
-and the subagent case in `test/sidebar-sessions.test.ts`.
+By default, shub-agent sessions do not appear in the ordinary workspace session
+list and do not influence workspace activity ordering or automatic session
+selection.
 
-Remaining work:
+The session-list option is:
 
-1. **Retire the old tools**: remove the `repo-explore-ff` and `image-analysis`
-   extensions and their settings once the replacement has proved itself, and
-   update `AGENTS.md` tool-discipline wording plus any doc or skill referencing
-   `repo_explore_ff` / `analyze_image`. This deletes files outside the repo, so
-   it needs an explicit go-ahead. `image-analysis` is cleared to go;
-   `repo_explore_ff` stays until the research subagent is confirmed in daily
-   use.
-2. **Close the debug-link gap**: the current card action is available only after
-   a successful result, not during a live run or after timeout/cancellation.
-   Those runs still persist and can be opened through the Subagents list.
-   The spec's early session-path updates remain unimplemented.
+```text
+Include shub-agent sessions
+```
 
-## Future (not in this version)
+When enabled:
 
-- Additional profiles: temp-file scratch space, report writing, wider shell
-  access — added as capability declarations on the profile constant (D5).
-- Background subagents with a status/poll tool, so a calling model can abandon
-  a long run (the gap named in D6).
-- Cross-session cost aggregation, so subagent spend appears in the session
-  analysis widget.
-- More robust persisted ownership metadata than the v1 name marker, including
-  resilience to child renames.
-- Agent-definition files (markdown + frontmatter) once profiles outgrow code;
-  recursion bounded by an explicit allowlist (pi-agents' `delegate:` pattern).
+- ordinary sessions keep their normal newest-first order;
+- only children whose `ownerSessionId` matches an ordinary owner present in the
+  final visible list are included;
+- each child appears immediately beneath its owner;
+- siblings are newest-first;
+- child rows are indented and use a branch connector plus a child marker;
+- child title and agent identity remain readable at narrow widths;
+- archived/filtered/pinned owner handling is applied before child inclusion;
+- an absent or hidden owner means none of its children appear;
+- opening a child resumes it through the existing session-opening flow;
+- opening or renaming a child never promotes it to an ordinary session.
+
+The parent tool card remains the primary entry point and exposes **Open
+shub-agent session** after the child session path is known. The grouped list is
+the secondary inspection/debugging surface.
+
+The server keeps separate recent-result budgets for ordinary sessions and
+shub-agent sessions so frequent children cannot crowd owners out before frontend
+grouping.
+
+## Progress and result contract
+
+Progress updates contain stable generic details:
+
+```ts
+interface ShubAgentProgressDetails {
+  agent: string
+  cwd: string
+  model?: string
+  effort: EffortLevel
+  timeoutMs: number
+  childSessionId?: string
+  childSessionPath?: string
+  ownerSessionId: string
+  turnCount: number
+  toolCount: number
+  softToolCalls: number
+  hardToolCalls: number
+  totalTokens: number
+  costUsd: number
+  elapsedMs: number
+}
+```
+
+The first update says which agent/model/effort is starting. Later updates name
+the current tool and budget. Once the session can be located, progress details
+include its path so the UI may expose the open action before completion.
+
+A successful result contains:
+
+1. one concise run header;
+2. the child agent's final report;
+3. the same structured details plus final usage and truncation state.
+
+A timeout, cancellation, non-zero exit, provider error, or empty final report is
+a failed tool call. Diagnostics include bounded stderr and completed evidence,
+while the persisted session remains available when its marker was written.
+Raw JSON event lines are never returned as the agent report.
+
+## Cancellation and process ownership
+
+The child is a one-shot non-RPC subprocess started by the extension inside its
+owner Pi process. `server/manager.ts` remains the sole owner of persistent
+`pi --mode rpc` processes.
+
+The runner creates a process group where supported. Parent abort or timeout:
+
+1. marks the run settled so no later progress is emitted;
+2. sends graceful termination to the process group;
+3. waits a bounded grace period;
+4. force-kills the group if necessary;
+5. rejects with bounded partial diagnostics.
+
+An already-aborted signal prevents spawning. Listeners and timers are removed on
+every settlement path.
+
+## Security and trust model
+
+- Profiles are untrusted data, never executable instructions for the host.
+- Project profiles are ignored unless Pi reports the project trusted.
+- Profile frontmatter cannot inject argv, environment, executable paths, or
+  extension paths.
+- Capability names resolve through a code-owned allowlist.
+- Children start with global and project extensions/resources disabled.
+- Children cannot load `shub-agents`, so recursion is unavailable.
+- `cwd` and image paths are canonicalized and validated before spawn.
+- Tool output and stderr are bounded.
+- Retrieved web content is treated as untrusted data in relevant profile prompts.
+- Shell access is explicitly represented by capability and must not be described
+  as enforced read-only.
+
+A future mutation capability requires a separate design review covering trust,
+file queues, concurrent children, and user confirmation. It is not enabled merely
+by adding `workspace-write` to a profile.
+
+## Initial bundled profile
+
+The first bundled profile is `research.md`. It preserves the useful behavior of
+the prototype without preserving its implementation:
+
+```yaml
+name: research
+description: Repository, web, and image investigation with cited evidence
+capabilities: [repo-read, web, vision]
+model: openrouter/z-ai/glm-5.3-flash
+thinking: off
+defaultEffort: standard
+```
+
+Its Markdown body owns research-specific tool guidance and report structure.
+No research prompt, model, tool list, or description remains in extension code.
+
+Subsequent read-only agents such as `reviewer` or `planner` are added only as
+validated profile files. A genuinely new host capability may require one catalog
+entry in code, but it must not require a new extension or runner.
+
+## Proposed file layout
+
+```text
+pi-extensions/shub-agents/
+├── index.ts
+├── profile.ts
+├── registry.ts
+├── capabilities.ts
+├── runner.ts
+├── budget-guard.ts
+├── session-marker.ts
+└── agents/
+    └── research.md
+
+shared/shub-agent-session.ts
+server/pi-session-store.ts
+src/features/conversation/OpenShubAgentSessionButton.tsx
+src/features/workspace/sidebar-sessions.ts
+src/features/workspace/workspace.css
+test/shub-agent-profile.test.ts
+test/shub-agent-runner.test.ts
+test/shub-agent-session.test.ts
+test/sidebar-sessions.test.ts
+test/pi-session-store.test.ts
+```
+
+`server/pi-process.ts` loads only `pi-extensions/shub-agents/index.ts`. The
+research-specific extension and old subagent runner/guard files are deleted as
+part of implementation.
+
+## Implementation sequence
+
+1. Define strict profile and capability types plus discovery tests.
+2. Add bundled `research.md` and prove it resolves to the expected run spec.
+3. Move and generalize the runner, budget guard, and progress/result details.
+4. Add the session-marker extension and server-side custom-entry parsing.
+5. Register `shub_agent`; remove `research` entirely with no wrapper or legacy
+   argument handling.
+6. Replace name-prefix session classification with structured marker fields.
+7. Rename conversation actions and session-list labels to `shub-agent` language.
+8. Delete research-specific and obsolete subagent files, settings definitions,
+   tests, and documentation.
+9. Run focused tests, typecheck, lint, build, and one end-to-end bundled-profile
+   invocation.
+10. Restart the manager only through Livecraft's guarded user-requested lifecycle.
+
+## Acceptance criteria
+
+### Profiles
+
+- Adding a valid user profile file and reloading exposes it in the tool catalog.
+- Adding a valid trusted project profile does the same.
+- Untrusted project profiles are absent.
+- Invalid and duplicate profiles never run and produce actionable diagnostics.
+- A new profile using existing capabilities requires no TypeScript or frontend
+  change.
+
+### Execution
+
+- `shub_agent({ agent: "research", ... })` runs the bundled profile.
+- Unknown agents fail with the current available-agent list.
+- Resolved tools/extensions exactly match declared capabilities.
+- Quick/standard/deep budgets and timeout/cancel behavior are enforced.
+- Usage, cost, progress, final output, and failure diagnostics are bounded and
+  accurate.
+- Child processes cannot load `shub-agents` recursively.
+
+### Persistence and UI
+
+- Every started run writes a versioned ownership marker before model execution.
+- Children are hidden by default and never consume the ordinary-session result
+  budget.
+- **Include shub-agent sessions** inserts only children of visible owners.
+- Child rows are unmistakably indented beneath owners in light/dark themes and
+  narrow layouts.
+- Child renaming preserves classification and ownership.
+- The tool-card action opens the correct child workspace/session.
+
+### Boundaries
+
+- No new backend endpoint, frontend-to-manager call, or RPC protocol is added.
+- `server/manager.ts` remains the only owner of RPC Pi processes.
+- No database, router, state manager, UI library, or new runtime dependency is
+  introduced.
+
+## Explicit decisions
+
+1. The feature and extension are named lower-case `shub-agents`.
+2. The sole public tool is `shub_agent`.
+3. Agent definitions are Markdown configuration; runtime and capabilities are
+   TypeScript policy.
+4. There is no compatibility contract with the research prototype.
+5. There is no separate tool or extension per agent.
+6. V1 executes one foreground child per call; Pi handles parallel tool calls.
+7. Profile collisions are errors, not overrides.
+8. Project profiles require Pi project trust.
+9. Capabilities are catalog names, not raw tool/extension paths.
+10. Ownership is a durable custom session entry, not a display-name convention.
+11. Children appear only beneath a visible owner when explicitly included.
+12. Research is the first bundled profile, not a special runtime path.
