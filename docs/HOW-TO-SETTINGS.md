@@ -8,12 +8,16 @@
 SettingsPanel (modal container, tab state)
   ├── Tab bar (role="tablist")
   │     ├── Tab button: Color themes
-  │     ├── Tab button: Terminal
-  │     └── Tab button: Shortcuts
+  │     ├── Tab button: Shortcuts
+  │     ├── Tab button: Pi settings
+  │     ├── Tab button: Pi extensions
+  │     └── Tab button: Livecraft
   └── Tab panels (role="tabpanel", one visible at a time)
         ├── ThemeSettings (section component)
-        ├── TerminalSettings (section component)
-        └── ShortcutsSettings (section component)
+        ├── ShortcutsSettings (section component)
+        ├── PiSettings (section component)
+        ├── ExtensionSettings (section component)
+        └── LivecraftSettings (section component)
 ```
 
 `App.tsx` owns all persisted values and passes them into `SettingsPanel` through props. Section components receive only the values and callbacks they need; transient state (theme name being edited, shortcut being captured) lives in `SettingsPanel`.
@@ -23,11 +27,20 @@ SettingsPanel (modal container, tab state)
 | Tab ID | Label | Component | Props from `SettingsPanelProps` |
 |---|---|---|---|
 | `themes` | Color themes | `ThemeSettings` | `themes`, `activeThemeId`, `onSelectTheme`, `onDuplicateTheme`, `onRenameTheme`, `onUpdateThemeColor`, `onDeleteTheme`, `onResetTheme` |
-| `terminal` | Terminal | `TerminalSettings` | `terminalCommand`, `onTerminalCommandChange` |
 | `shortcuts` | Shortcuts | `ShortcutsSettings` | `definitions`, `shortcuts`, `onChange`, `onReset` |
+| `pi-settings` | Pi settings | `PiSettings` | `piSettings`, `piSettingsError`, `onPiSettingChange`, `onPiSettingsSaveDocument`, `onPiSettingsReload` |
 | `extensions` | Pi extensions | `ExtensionSettings` | `extensionSettings`, `extensionSettingsError`, `onExtensionSettingChange`, `onExtensionSettingsReload` |
+| `livecraft` | Livecraft | `LivecraftSettings` | `terminalCommand`, `onTerminalCommandChange` |
 
-The `extensions` tab is the one tab whose values are not local preferences: `ExtensionSettings` (`src/features/settings/ExtensionSettings.tsx`) renders settings that the installed Pi extensions published themselves and writes them through the backend into Pi's own configuration, so they also apply to the `pi` command line. Add a setting by publishing it from the extension, not by editing this component. See the [extension settings capability](/server/features/extension-settings/README.md).
+Two tabs are not local preferences. `ExtensionSettings`
+(`src/features/settings/ExtensionSettings.tsx`) renders settings that installed Pi
+extensions published themselves. `PiSettings` (`src/features/settings/PiSettings.tsx`)
+views and edits Pi's own `settings.json` files through the [Pi settings
+capability](/server/features/pi-settings/README.md); both surfaces write values that
+also apply to the `pi` command line. The `livecraft` tab owns the terminal command
+and resets Pi Livecraft's own browser-stored preferences from a declarative registry
+(`src/features/settings/livecraft-preferences.ts`). See the [Pi settings UI
+specification](/docs/PI-SETTINGS-SPEC.md) for the full design.
 
 ## Add a new tab
 

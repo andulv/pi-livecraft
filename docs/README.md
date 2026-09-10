@@ -5,6 +5,7 @@ Pi Livecraft is documented in layers: begin with the system you want to build on
 - **[Andulv fork feature overview](/docs/ANDULV-FORK-FEATURES.md)** — additions and improvements made by `andulv/pi-livecraft`, with screenshots from the running fork.
 - **[Browser bridge specification](/docs/BROWSER-BRIDGE.md)** — CDP livecast browser for the viewer pane; the spec records the design and is now implemented.
 - **[Embedded terminal specification](/docs/EMBEDDED-TERMINAL.md)** — server-side PTY shell in a viewer-pane Terminal tab; the spec records the transport decision and is now implemented.
+- **[Pi settings UI specification](/docs/PI-SETTINGS-SPEC.md)** — proposed settings tabs to view and edit Pi's global and project `settings.json` (curated fields plus a raw JSON editor) and to expose Pi Livecraft's own browser-stored preferences. Not yet implemented.
 - **[Project trust UI specification](/docs/PROJECT-TRUST.md)** — proposed workspace trust indicator and exact-workspace trust controls backed by Pi's native trust model.
 - **[Session data performance spec](/docs/SESSION-PERFORMANCE-SPEC.md)** — measured findings and a task plan for snapshot cost, workspace switching, right-panel persistence, and session data reading. Not yet implemented; a specification and task plan, not a guide.
 - **[shub-agents specification](/docs/SUBAGENT-SPEC.md)** — proposed generic delegated-agent extension with declarative profiles, bounded persisted child runs, and owner-grouped session visibility. Not yet implemented.

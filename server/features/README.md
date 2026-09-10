@@ -6,6 +6,7 @@ This directory contains local product capabilities used by `server/backend.ts`. 
 - [`browser/`](/server/features/browser/README.md) owns workspace-scoped livecast Chrome instances and their CDP endpoints for agent tooling.
 - [`extension-settings/`](/server/features/extension-settings/README.md) reads and writes the settings document that Pi extensions publish to Pi's agent directory.
 - [`git/`](/server/features/git/README.md) reads and mutates the selected repository.
+- [`pi-settings/`](/server/features/pi-settings/README.md) reads and writes Pi's own global and project `settings.json` files, shared with the `pi` command line.
 - [`quotas/`](/server/features/quotas/README.md) caches provider reports and coordinates refreshes through the manager.
 - [`session-environment/`](/server/features/session-environment/README.md) caches loaded tools and context files and coordinates refreshes through the manager.
 - [`terminal/`](/server/features/terminal/README.md) launches an external terminal application in the workspace directory and owns workspace-scoped embedded shell sessions (PTY + replay buffer) for the viewer-pane Terminal tab.

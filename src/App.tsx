@@ -8,6 +8,7 @@ import {
   getGitSnapshot,
   getEnvironment,
   getExtensionSettings,
+  getPiSettings,
   getQuotas,
   getVSCodeTitleBarColor,
   improvePrompt,
@@ -27,12 +28,15 @@ import {
   sendPiCommand,
   subscribeManagerEvents,
   updateExtensionSetting,
+  updatePiSetting,
+  savePiSettingsDocument,
 } from './api.ts'
 import type { QuotaResetTarget } from './api.ts'
 import type {
   ExtensionSettingsSnapshot,
   ExtensionSettingValue,
 } from '../shared/extension-settings.ts'
+import type { PiSettingsScope, PiSettingsSnapshot, PiSettingValue } from '../shared/pi-settings.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type {
   GitSnapshot,
@@ -327,6 +331,8 @@ function LivecraftProjectApp(
     null,
   )
   const [extensionSettingsError, setExtensionSettingsError] = useState<string | null>(null)
+  const [piSettings, setPiSettings] = useState<PiSettingsSnapshot | null>(null)
+  const [piSettingsError, setPiSettingsError] = useState<string | null>(null)
   const [openFilePaths, setOpenFilePaths] = useState<string[]>([])
   const [activePaneView, setActivePaneView] = useState<PaneView | null>(null)
   const [browserOpen, setBrowserOpen] = useState(false)
@@ -883,6 +889,42 @@ function LivecraftProjectApp(
         })
     },
     [showToast],
+  )
+
+  // Pi settings: read from Pi's own settings.json files when the modal opens or the workspace changes.
+  const loadPiSettings = useCallback(() => {
+    setPiSettingsError(null)
+    void getPiSettings(workspacePath)
+      .then(setPiSettings)
+      .catch((cause) => setPiSettingsError(messageOf(cause)))
+  }, [workspacePath])
+
+  useEffect(() => {
+    if (settingsOpen) loadPiSettings()
+  }, [settingsOpen, loadPiSettings])
+
+  const changePiSetting = useCallback(
+    (scope: PiSettingsScope, id: string, value: PiSettingValue | null) => {
+      void updatePiSetting(scope, workspacePath, id, value)
+        .then(setPiSettings)
+        .catch((cause) => {
+          showToast('error', messageOf(cause))
+          setPiSettingsError(messageOf(cause))
+        })
+    },
+    [showToast, workspacePath],
+  )
+
+  const savePiSettings = useCallback(
+    (scope: PiSettingsScope, text: string) => {
+      void savePiSettingsDocument(scope, workspacePath, text)
+        .then((snapshot) => {
+          setPiSettings(snapshot)
+          showToast('notice', 'Saved. Applies to Pi sessions started from now on.')
+        })
+        .catch((cause) => showToast('error', messageOf(cause)))
+    },
+    [showToast, workspacePath],
   )
 
   // Selected session synchronization
@@ -1960,8 +2002,13 @@ function LivecraftProjectApp(
           activeThemeId={activeTheme.id}
           extensionSettings={extensionSettings}
           extensionSettingsError={extensionSettingsError}
+          piSettings={piSettings}
+          piSettingsError={piSettingsError}
           onExtensionSettingChange={changeExtensionSetting}
           onExtensionSettingsReload={loadExtensionSettings}
+          onPiSettingChange={changePiSetting}
+          onPiSettingsSaveDocument={savePiSettings}
+          onPiSettingsReload={loadPiSettings}
           onChange={(id, shortcut) => {
             const next = { ...shortcuts, [id]: shortcut }
             setShortcuts(next)

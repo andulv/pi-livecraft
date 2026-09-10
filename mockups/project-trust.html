@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Pi Livecraft — Project trust UI mockup</title>
+    <style>
+    /* Tokens from src/styles/base.css */
+    :root {
+      --canvas: #fafafc;
+      --surface: #ffffff;
+      --ink: #1d2924;
+      --accent: #23776d;
+      --secondary: #6851a4;
+      --success: #28734b;
+      --warning: #b8860b;
+      --danger: #a13f37;
+      --surface-raised: color-mix(in srgb, var(--surface) 92%, var(--canvas));
+      --sidebar: color-mix(in srgb, var(--canvas) 96%, var(--ink));
+      --muted: color-mix(in srgb, var(--ink) 55%, var(--canvas));
+      --subtle: color-mix(in srgb, var(--ink) 42%, var(--canvas));
+      --line: color-mix(in srgb, var(--ink) 12%, var(--canvas));
+      --line-strong: color-mix(in srgb, var(--ink) 20%, var(--canvas));
+      --accent-hover: color-mix(in srgb, var(--accent) 78%, var(--ink));
+      --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+      --warning-soft: color-mix(in srgb, var(--warning) 13%, var(--surface));
+      --shadow: 0 18px 48px rgb(0 0 0 / 20%);
+      --shadow-soft: 0 8px 24px rgb(0 0 0 / 12%);
+      color-scheme: light;
+    }
+    [data-theme="dark"] {
+      --canvas: #171c1a;
+      --surface: #1e2422;
+      --ink: #dde3e0;
+      --accent: #4fb9ab;
+      --secondary: #9d91d4;
+      --success: #59ba7c;
+      --warning: #d6aa45;
+      --danger: #e26e63;
+      --surface-raised: color-mix(in srgb, var(--surface) 92%, var(--canvas));
+      --sidebar: color-mix(in srgb, var(--canvas) 90%, var(--ink));
+      --muted: color-mix(in srgb, var(--ink) 55%, var(--canvas));
+      --subtle: color-mix(in srgb, var(--ink) 42%, var(--canvas));
+      --line: color-mix(in srgb, var(--ink) 12%, var(--canvas));
+      --line-strong: color-mix(in srgb, var(--ink) 20%, var(--canvas));
+      --accent-hover: color-mix(in srgb, var(--accent) 78%, var(--ink));
+      --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+      --warning-soft: color-mix(in srgb, var(--warning) 13%, var(--surface));
+      --shadow: 0 18px 48px rgb(0 0 0 / 45%);
+      --shadow-soft: 0 8px 24px rgb(0 0 0 / 35%);
+      color-scheme: dark;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+    }
+    body {
+      font:
+        13px/1.45 ui-sans-serif,
+        system-ui,
+        -apple-system,
+        "Segoe UI",
+        sans-serif;
+      background: #e7e8ec;
+      color: #1d2924;
+      padding: 28px 28px 48px;
+    }
+    .page-title {
+      font-size: 17px;
+      font-weight: 650;
+      margin-bottom: 2px;
+    }
+    .page-sub {
+      font-size: 12px;
+      color: #5a625e;
+      margin-bottom: 24px;
+      max-width: 980px;
+    }
+    .theme-toggle {
+      border: 1px solid #c4c8cf;
+      background: #fff;
+      border-radius: 7px;
+      padding: 7px 12px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      margin-bottom: 24px;
+    }
+    .frames {
+      display: flex;
+      gap: 22px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    figure {
+      margin: 0;
+    }
+    figcaption {
+      font-size: 11px;
+      color: #5a625e;
+      margin-top: 8px;
+      text-align: center;
+      max-width: 300px;
+    }
+
+    /* ── Sidebar panel ── */
+    .sidebar {
+      width: 288px;
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      background: var(--sidebar);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      color: var(--ink);
+      padding: 11px 10px;
+    }
+    .sidebar-heading {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 22px;
+      color: color-mix(in srgb, var(--secondary) 72%, var(--muted));
+      font-size: 10.5px;
+      font-weight: 650;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+    .project-workspaces {
+      display: grid;
+      gap: 2px;
+      position: relative;
+    }
+    .workspace-row {
+      display: flex;
+      gap: 2px;
+      min-width: 0;
+    }
+    .workspace-path {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 34px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 4px 7px;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .workspace-path:hover {
+      background: color-mix(in srgb, var(--ink) 4%, transparent);
+    }
+    .workspace-path.selected {
+      border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+      background: var(--accent-soft);
+    }
+    .workspace-path-copy {
+      display: grid;
+      min-width: 0;
+      gap: 1px;
+      flex: 1;
+    }
+    .workspace-path-copy strong {
+      font-size: 12.5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .workspace-path-detail {
+      color: var(--muted);
+      font-size: 10.5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Trust indicator */
+    .trust-icon {
+      flex: 0 0 auto;
+      display: inline-grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .trust-icon.trusted {
+      color: var(--muted);
+    }
+    .trust-icon.untrusted {
+      color: var(--warning);
+      background: var(--warning-soft);
+    }
+    .trust-icon.pending {
+      color: var(--subtle);
+    }
+
+    .workspace-actions {
+      flex: 0 0 auto;
+      align-self: center;
+      width: 26px;
+      height: 26px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .workspace-actions:hover {
+      background: color-mix(in srgb, var(--ink) 6%, transparent);
+      color: var(--ink);
+    }
+
+    /* Popover menu */
+    .menu {
+      position: absolute;
+      right: 0;
+      top: 62px;
+      z-index: 5;
+      width: 224px;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      background: var(--surface);
+      box-shadow: var(--shadow-soft);
+      padding: 5px;
+      display: grid;
+      gap: 1px;
+    }
+    .menu button {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      width: 100%;
+      text-align: left;
+      border: 0;
+      border-radius: 7px;
+      padding: 8px 9px;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+    .menu button:hover {
+      background: var(--accent-soft);
+    }
+    .menu button .mi {
+      width: 15px;
+      text-align: center;
+      color: var(--muted);
+      flex: 0 0 auto;
+    }
+    .menu .sep {
+      height: 1px;
+      background: var(--line);
+      margin: 4px 2px;
+    }
+    .menu button.warn {
+      color: var(--warning);
+    }
+    .menu button.warn .mi {
+      color: var(--warning);
+    }
+
+    .tooltip {
+      position: absolute;
+      left: 26px;
+      top: 34px;
+      z-index: 6;
+      max-width: 232px;
+      background: color-mix(in srgb, var(--ink) 92%, black);
+      color: var(--canvas);
+      border-radius: 7px;
+      padding: 7px 9px;
+      font-size: 11px;
+      line-height: 1.4;
+      box-shadow: var(--shadow-soft);
+    }
+
+    /* ── Confirmation dialog ── */
+    .dialog-wrap {
+      position: relative;
+      width: 440px;
+      height: 396px;
+    }
+    .dialog-backdrop {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--ink) 18%, transparent);
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+    .dialog {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      color: var(--ink);
+    }
+    .dialog-head {
+      padding: 12px 15px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .dialog-head span {
+      display: block;
+      color: var(--warning);
+      font-size: 10.5px;
+      font-weight: 750;
+      margin-bottom: 2px;
+    }
+    .dialog-head strong {
+      font-size: 14px;
+      letter-spacing: -0.015em;
+    }
+    .dialog-body {
+      padding: 12px 15px;
+      display: grid;
+      gap: 9px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--ink);
+    }
+    .dialog-body .path {
+      font: 11px ui-monospace, monospace;
+      color: var(--ink);
+      background: var(--surface-raised);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 7px 8px;
+      overflow-wrap: anywhere;
+    }
+    .dialog-body .muted {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 7px;
+      padding: 11px 15px;
+      border-top: 1px solid var(--line);
+    }
+    .dialog-actions button {
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      padding: 6px 12px;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .dialog-actions button.primary {
+      border-color: var(--warning);
+      background: var(--warning);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* ── Settings project banner (secondary entry point) ── */
+    .settings-panel {
+      width: 440px;
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      color: var(--ink);
+    }
+    .settings-panel header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .settings-panel header span {
+      color: var(--muted);
+      font-size: 10.5px;
+    }
+    .settings-panel h2 {
+      margin: 1px 0 0;
+      font-size: 17px;
+    }
+    .settings-panel .close {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .settings-tab-bar {
+      display: flex;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+      overflow-x: auto;
+    }
+    .settings-tab-bar button {
+      padding: 8px 12px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      margin-bottom: -1px;
+    }
+    .settings-tab-bar button[aria-selected="true"] {
+      color: var(--ink);
+      border-bottom-color: var(--accent);
+    }
+    .settings-tab-panel {
+      padding: 12px 14px;
+    }
+    .scope-switch {
+      display: inline-flex;
+      padding: 2px;
+      gap: 2px;
+      margin-bottom: 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--surface-raised);
+    }
+    .scope-switch button {
+      border: 0;
+      border-radius: 5px;
+      padding: 5px 11px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .scope-switch button[aria-pressed="true"] {
+      background: var(--accent);
+      color: var(--surface);
+      font-weight: 600;
+    }
+    .trust-banner {
+      display: flex;
+      gap: 9px;
+      align-items: flex-start;
+      padding: 9px 11px;
+      border-radius: 7px;
+      background: var(--warning-soft);
+      color: color-mix(in srgb, var(--warning) 80%, var(--ink));
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .trust-banner .ic {
+      flex: 0 0 auto;
+      font-weight: 700;
+    }
+    .trust-banner .banner-body {
+      display: grid;
+      gap: 7px;
+    }
+    .trust-banner code {
+      font: 11px ui-monospace, monospace;
+    }
+    .trust-banner .trust-btn {
+      justify-self: start;
+      border: 1px solid var(--warning);
+      border-radius: 6px;
+      padding: 5px 10px;
+      background: transparent;
+      color: color-mix(in srgb, var(--warning) 82%, var(--ink));
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .trust-banner .trust-btn:hover {
+      background: color-mix(in srgb, var(--warning) 16%, var(--surface));
+    }
+    .rowspacer {
+      height: 36px;
+      border-top: 1px solid var(--line);
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      color: var(--subtle);
+      font-size: 11px;
+    }
+
+    /* ── Toast (from src/features/notifications/notifications.css) ── */
+    .panel-wrap {
+      position: relative;
+    }
+    .toast-stack {
+      position: absolute;
+      z-index: 30;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      width: min(100%, calc(100% - 8px));
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    .toast {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      width: fit-content;
+      max-width: 100%;
+      border: 1px solid var(--line-strong);
+      border-radius: 9px;
+      padding: 9px 9px 9px 12px;
+      background: var(--surface);
+      color: var(--ink);
+      box-shadow: var(--shadow-soft);
+      font: 12px/1.4 ui-sans-serif, system-ui, sans-serif;
+    }
+    .toast .toast-dismiss {
+      border: 0;
+      background: transparent;
+      color: currentColor;
+      font-size: 16px;
+      line-height: 1;
+      opacity: 0.7;
+      cursor: pointer;
+    }
+    </style>
+  </head>
+  <body>
+    <div class="page-title">Project trust — UI mockup</div>
+    <p class="page-sub">
+      Per <code>docs/PROJECT-TRUST.md</code>: the <strong>workspace row</strong>
+      owns the canonical trust indicator and toggle. The <strong>Pi settings
+        project banner</strong> is a secondary doorway to the same <code>POST
+        /api/project-trust</code> capability and the same confirmation — no
+      second trust store. Faithful to <code>workspace.css</code> and <code
+      >dialogs.css</code> tokens.
+    </p>
+    <button
+      class="theme-toggle"
+      onclick="const d = document.documentElement
+d.dataset.theme = d.dataset.theme === 'dark' ? '' : 'dark'
+document.body.style.background = d.dataset.theme === 'dark'
+  ? '#0f1311'
+  : '#e7e8ec'
+document.body.style.color = d.dataset.theme === 'dark' ? '#dde3e0' : '#1d2924'"
+    >
+      Toggle light / dark
+    </button>
+
+    <div class="frames">
+      <!-- Frame 1: sidebar with indicators + open menu -->
+      <figure>
+        <div class="sidebar">
+          <div class="sidebar-heading">Workspaces</div>
+          <div class="project-workspaces">
+            <div class="workspace-row">
+              <button class="workspace-path selected">
+                <span class="workspace-path-copy">
+                  <strong>main</strong>
+                  <span class="workspace-path-detail"
+                  >~/source/agent/pi-livecraft</span>
+                </span>
+                <span
+                  class="trust-icon untrusted"
+                  aria-label="Untrusted for this workspace"
+                  title="Untrusted for this workspace"
+                >⚠</span>
+              </button>
+              <button class="workspace-actions" aria-label="Workspace actions">
+                …
+              </button>
+            </div>
+
+            <div class="workspace-row">
+              <button class="workspace-path">
+                <span class="workspace-path-copy">
+                  <strong>feat/settings-ui</strong>
+                  <span class="workspace-path-detail"
+                  >~/source/agent/pi-livecraft-wt-1</span>
+                </span>
+                <span
+                  class="trust-icon trusted"
+                  aria-label="Trusted by parent folder"
+                  title="Trusted by parent folder: ~/source/agent"
+                >✓</span>
+              </button>
+              <button class="workspace-actions" aria-label="Workspace actions">
+                …
+              </button>
+            </div>
+
+            <div class="workspace-row">
+              <button class="workspace-path">
+                <span class="workspace-path-copy">
+                  <strong>experiment</strong>
+                  <span class="workspace-path-detail">~/tmp/experiment</span>
+                </span>
+                <span
+                  class="trust-icon pending"
+                  aria-label="Reading trust status"
+                  title="Reading trust status…"
+                >•••</span>
+              </button>
+              <button class="workspace-actions" aria-label="Workspace actions">
+                …
+              </button>
+            </div>
+
+            <div class="tooltip">
+              Untrusted for this workspace.<br>No trust-gated project resources
+              are currently present.
+            </div>
+
+            <div class="menu" role="menu">
+              <button role="menuitem">
+                <span class="mi">⧉</span> Open in VS Code
+              </button>
+              <button role="menuitem">
+                <span class="mi">▸</span> Open terminal
+              </button>
+              <div class="sep"></div>
+              <button role="menuitem" class="warn">
+                <span class="mi">⚿</span> Trust this workspace…
+              </button>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <strong>1 · Workspace sidebar.</strong> Quiet ✓ for trusted (with
+          inherited source in tooltip), warning ⚠ for untrusted, neutral
+          pending while reading. The <code>…</code> menu gains the trust
+          action below “Open in VS Code”.
+        </figcaption>
+      </figure>
+
+      <!-- Frame 2: confirmation dialog -->
+      <figure>
+        <div class="dialog-wrap">
+          <div class="dialog-backdrop">
+            <div class="dialog">
+              <div class="dialog-head">
+                <span>Confirm trust</span>
+                <strong>Trust this workspace?</strong>
+              </div>
+              <div class="dialog-body">
+                <p>
+                  Trusting lets this project's settings, packages, extensions,
+                  and skills
+                  <strong>load and execute with your permissions</strong> in
+                  newly started Pi sessions.
+                </p>
+                <div class="path">/home/anders/source/agent/pi-livecraft</div>
+                <p class="muted">
+                  Running Pi sessions keep their current resources; close and
+                  reopen a session to apply the change.
+                </p>
+              </div>
+              <div class="dialog-actions">
+                <button>Cancel</button>
+                <button class="primary">Trust workspace</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <strong>2 · Confirmation.</strong> Trusting is a sensitive local
+          action, so it always confirms and shows the exact path. Un-trusting
+          and “use inherited” apply directly.
+        </figcaption>
+      </figure>
+
+      <!-- Frame 3: settings banner secondary entry point -->
+      <figure>
+        <div class="panel-wrap">
+          <div class="toast-stack" aria-live="polite">
+            <div class="toast" role="status">
+              <span class="toast-message"
+              >Trust updated. Reopen a session to apply.</span>
+              <button class="toast-dismiss" aria-label="Dismiss">×</button>
+            </div>
+          </div>
+          <div class="settings-panel">
+            <header>
+              <div><span>Configuration</span><h2>Settings</h2></div>
+              <button class="close" aria-label="Close">×</button>
+            </header>
+            <div class="settings-tab-bar" role="tablist">
+              <button role="tab">Color themes</button>
+              <button role="tab">Shortcuts</button>
+              <button role="tab" aria-selected="true">Pi settings</button>
+              <button role="tab">Pi extensions</button>
+              <button role="tab">Livecraft</button>
+            </div>
+            <div class="settings-tab-panel" role="tabpanel">
+              <div
+                class="scope-switch"
+                role="group"
+                aria-label="Settings scope"
+              >
+                <button aria-pressed="false">Global</button>
+                <button aria-pressed="true">This project</button>
+              </div>
+              <div class="trust-banner">
+                <span class="ic">⚠</span>
+                <span class="banner-body">
+                  <span>Untrusted project: Pi ignores <code
+                    >.pi/settings.json</code> until you trust the workspace.
+                    Edits are still saved.</span>
+                  <button class="trust-btn">Trust this workspace…</button>
+                </span>
+              </div>
+              <div class="rowspacer">
+                Model &amp; thinking settings continue below…
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <strong>3 · Settings project banner.</strong> The persistent
+          untrusted warning is the one inline slot, with an inline <em>Trust
+            this workspace…</em> opening the same dialog and endpoint as the
+          sidebar. The transient <em>“Trust updated”</em> confirmation is a
+          toast.
+        </figcaption>
+      </figure>
+    </div>
+  </body>
+</html>

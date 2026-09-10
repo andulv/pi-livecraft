@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Pi Livecraft — Pi settings & Livecraft settings mockup</title>
+    <style>
+    /* Tokens copied from src/styles/base.css */
+    :root {
+      --canvas: #fafafc;
+      --surface: #ffffff;
+      --ink: #1d2924;
+      --accent: #23776d;
+      --secondary: #6851a4;
+      --success: #28734b;
+      --warning: #b8860b;
+      --danger: #a13f37;
+      --surface-raised: color-mix(in srgb, var(--surface) 92%, var(--canvas));
+      --muted: color-mix(in srgb, var(--ink) 55%, var(--canvas));
+      --subtle: color-mix(in srgb, var(--ink) 42%, var(--canvas));
+      --line: color-mix(in srgb, var(--ink) 12%, var(--canvas));
+      --line-strong: color-mix(in srgb, var(--ink) 20%, var(--canvas));
+      --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+      --warning-soft: color-mix(in srgb, var(--warning) 13%, var(--surface));
+      --shadow: 0 18px 48px rgb(0 0 0 / 20%);
+      --shadow-soft: 0 8px 24px rgb(0 0 0 / 12%);
+      color-scheme: light;
+    }
+    [data-theme="dark"] {
+      --canvas: #171c1a;
+      --surface: #1e2422;
+      --ink: #dde3e0;
+      --accent: #4fb9ab;
+      --secondary: #9d91d4;
+      --success: #59ba7c;
+      --warning: #d6aa45;
+      --danger: #e26e63;
+      --surface-raised: color-mix(in srgb, var(--surface) 92%, var(--canvas));
+      --muted: color-mix(in srgb, var(--ink) 55%, var(--canvas));
+      --subtle: color-mix(in srgb, var(--ink) 42%, var(--canvas));
+      --line: color-mix(in srgb, var(--ink) 12%, var(--canvas));
+      --line-strong: color-mix(in srgb, var(--ink) 20%, var(--canvas));
+      --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+      --warning-soft: color-mix(in srgb, var(--warning) 13%, var(--surface));
+      --shadow: 0 18px 48px rgb(0 0 0 / 45%);
+      --shadow-soft: 0 8px 24px rgb(0 0 0 / 35%);
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+    }
+    body {
+      font:
+        13px/1.45 ui-sans-serif,
+        system-ui,
+        -apple-system,
+        "Segoe UI",
+        sans-serif;
+      background: #e7e8ec;
+      color: #1d2924;
+      padding: 28px 28px 48px;
+    }
+    .page-title {
+      font-size: 17px;
+      font-weight: 650;
+      margin-bottom: 2px;
+    }
+    .page-sub {
+      font-size: 12px;
+      color: #5a625e;
+      margin-bottom: 24px;
+      max-width: 960px;
+    }
+    .theme-toggle {
+      border: 1px solid #c4c8cf;
+      background: #fff;
+      border-radius: 7px;
+      padding: 7px 12px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      margin-bottom: 24px;
+    }
+    .frames {
+      display: flex;
+      gap: 22px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    figure {
+      margin: 0;
+    }
+    figcaption {
+      font-size: 11px;
+      color: #5a625e;
+      margin-top: 8px;
+      text-align: center;
+      max-width: 440px;
+    }
+
+    /* ── Settings panel (from src/features/settings/settings.css) ── */
+    .settings-panel {
+      width: 440px;
+      display: flex;
+      flex-direction: column;
+      height: 588px;
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      color: var(--ink);
+    }
+    .settings-panel header, .settings-panel footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .settings-panel header span {
+      color: var(--muted);
+      font-size: 10.5px;
+    }
+    .settings-panel h2 {
+      margin: 1px 0 0;
+      font-size: 17px;
+    }
+    .settings-panel header .close {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .settings-content {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+    .settings-panel h3 {
+      margin: 0 0 8px;
+      font-size: 13px;
+    }
+
+    .settings-tab-bar {
+      display: flex;
+      gap: 0;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .settings-tab-bar button {
+      position: relative;
+      padding: 8px 12px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      margin-bottom: -1px;
+    }
+    .settings-tab-bar button:hover {
+      color: var(--ink);
+    }
+    .settings-tab-bar button[aria-selected="true"] {
+      color: var(--ink);
+      border-bottom-color: var(--accent);
+    }
+
+    .settings-tab-panel {
+      padding: 12px 14px;
+    }
+    .settings-tab-panel > section > p.lead {
+      margin: 0 0 9px;
+      color: var(--muted);
+      font-size: 11.5px;
+      line-height: 1.4;
+    }
+    .settings-tab-panel code {
+      font: 11px ui-monospace, monospace;
+    }
+
+    /* ── Scope switch (segmented control) ── */
+    .scope-switch {
+      display: inline-flex;
+      padding: 2px;
+      gap: 2px;
+      margin-bottom: 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--surface-raised);
+    }
+    .scope-switch button {
+      border: 0;
+      border-radius: 5px;
+      padding: 5px 11px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .scope-switch button[aria-pressed="true"] {
+      background: var(--accent);
+      color: var(--surface);
+      font-weight: 600;
+    }
+    .scope-switch button:disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+    }
+
+    /* ── Apply notice / trust warning banners ── */
+    .settings-note {
+      display: flex;
+      gap: 7px;
+      align-items: flex-start;
+      padding: 7px 10px;
+      border-radius: 7px;
+      font-size: 11px;
+      line-height: 1.4;
+      margin-bottom: 10px;
+    }
+    .settings-note.info {
+      background: var(--accent-soft);
+      color: color-mix(in srgb, var(--accent) 82%, var(--ink));
+    }
+    .settings-note.warn {
+      background: var(--warning-soft);
+      color: color-mix(in srgb, var(--warning) 78%, var(--ink));
+    }
+    .settings-note .ic {
+      flex-shrink: 0;
+      font-weight: 700;
+    }
+
+    /* ── Setting rows (reused shape from .extension-setting-row) ── */
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 6px 0;
+      border-top: 1px solid var(--line);
+      color: var(--ink);
+      font-size: 12.5px;
+    }
+    .setting-label {
+      display: grid;
+      gap: 1px;
+      min-width: 0;
+    }
+    .setting-label small {
+      color: var(--muted);
+      font-size: 10.5px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .setting-label small.origin {
+      color: var(--subtle);
+    }
+    .setting-label small.origin.inherited {
+      color: var(--secondary);
+    }
+    .setting-label small.badge-warn {
+      color: var(--warning);
+    }
+    .setting-control {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .setting-control select, .setting-control input {
+      min-width: 0;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      padding: 5px 8px;
+      background: var(--surface-raised);
+      color: var(--ink);
+      font: inherit;
+      font-size: 12px;
+    }
+    .setting-control input {
+      width: 190px;
+      font: 11px ui-monospace, monospace;
+    }
+    .setting-control input.placeholder {
+      color: var(--subtle);
+    }
+    .setting-control select {
+      max-width: 190px;
+    }
+    .setting-control select:disabled, .setting-control input:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .setting-control .reset {
+      border: 0;
+      border-radius: 6px;
+      padding: 3px 6px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .setting-control .reset:hover {
+      color: var(--ink);
+      background: var(--accent-soft);
+    }
+
+    .group-heading {
+      margin: 12px 0 1px;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--subtle);
+    }
+    .group-heading:first-of-type {
+      margin-top: 2px;
+    }
+
+    /* ── Section head with mode toggle ── */
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .path-line {
+      display: block;
+      margin-top: 7px;
+      color: var(--muted);
+      font: 11px ui-monospace, monospace;
+      overflow-wrap: anywhere;
+    }
+    .link-btn {
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      padding: 5px 9px;
+      background: var(--surface);
+      color: var(--ink);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .link-btn:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    /* ── Raw JSON editor ── */
+    .json-editor {
+      width: 100%;
+      height: 288px;
+      resize: none;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      padding: 10px 11px;
+      background: var(--surface-raised);
+      color: var(--ink);
+      font: 12px/1.5 ui-monospace, monospace;
+      white-space: pre;
+      tab-size: 2;
+      outline: 0;
+    }
+    .json-editor:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent);
+    }
+    .json-editor.invalid {
+      border-color: var(--danger);
+    }
+    .json-error {
+      display: flex;
+      gap: 6px;
+      margin-top: 7px;
+      color: var(--danger);
+      font-size: 11px;
+    }
+    .json-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 7px;
+      margin-top: 10px;
+    }
+    .json-actions button {
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      padding: 6px 11px;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .json-actions button.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--surface);
+    }
+    .json-actions button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    /* naive JSON tinting for the mock */
+    .jkey {
+      color: var(--secondary);
+    }
+    .jstr {
+      color: var(--success);
+    }
+    .jnum {
+      color: var(--warning);
+    }
+    .jbool {
+      color: var(--accent);
+    }
+
+    /* ── Collapsed layout/state block ── */
+    .details {
+      margin-top: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .details > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 7px 10px;
+      color: var(--muted);
+      font-size: 11.5px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--surface-raised);
+    }
+    .details > summary::-webkit-details-marker {
+      display: none;
+    }
+    .details > summary .chev {
+      transition: transform 160ms ease;
+    }
+    .details[open] > summary .chev {
+      transform: rotate(90deg);
+    }
+    .details .details-body {
+      padding: 0 10px 6px;
+    }
+    .details .setting-row:first-child {
+      border-top: 0;
+    }
+
+    .danger-row {
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+    .danger-btn {
+      border: 1px solid
+        color-mix(in srgb, var(--danger) 55%, var(--line-strong));
+      border-radius: 6px;
+      padding: 6px 11px;
+      background: transparent;
+      color: var(--danger);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .danger-btn:hover {
+      background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+    }
+
+    .settings-panel footer {
+      justify-content: flex-end;
+      gap: 7px;
+      border-top: 1px solid var(--line);
+      border-bottom: 0;
+      padding: 10px 14px;
+    }
+    .settings-panel footer button {
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      padding: 6px 11px;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      cursor: pointer;
+    }
+    .settings-panel footer .primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--surface);
+    }
+
+    /* ── Toast (from src/features/notifications/notifications.css) ── */
+    .panel-wrap {
+      position: relative;
+    }
+    .toast-stack {
+      position: absolute;
+      z-index: 30;
+      bottom: 62px;
+      left: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      width: min(100%, calc(100% - 28px));
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    .toast {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      width: fit-content;
+      max-width: 100%;
+      border: 1px solid var(--line-strong);
+      border-radius: 9px;
+      padding: 9px 9px 9px 12px;
+      background: var(--surface);
+      color: var(--ink);
+      box-shadow: var(--shadow-soft);
+      font: 12px/1.4 ui-sans-serif, system-ui, sans-serif;
+    }
+    .toast .toast-dismiss {
+      border: 0;
+      background: transparent;
+      color: currentColor;
+      font-size: 16px;
+      line-height: 1;
+      opacity: 0.7;
+      cursor: pointer;
+    }
+    </style>
+  </head>
+  <body>
+    <div class="page-title">
+      Pi settings &amp; Livecraft settings — UI mockup
+    </div>
+    <p class="page-sub">
+      Two new tabs in the existing settings modal. <strong>Pi settings</strong>
+      reads and writes
+      <code>~/.pi/agent/settings.json</code> and the workspace's <code
+      >.pi/settings.json</code>
+      with a scope switch, provenance per row, and a raw-JSON escape hatch.
+      <strong>Livecraft</strong> exposes the browser-stored preferences and
+      makes remembered layout state resettable. Faithful to <code
+      >src/features/settings/settings.css</code> tokens and row shapes.
+    </p>
+    <button
+      class="theme-toggle"
+      onclick="document.documentElement.dataset.theme =
+  document.documentElement.dataset.theme === 'dark' ? '' : 'dark'
+document.body.style.background =
+  document.documentElement.dataset.theme === 'dark' ? '#0f1311' : '#e7e8ec'
+document.body.style.color = document.documentElement.dataset.theme === 'dark'
+  ? '#dde3e0'
+  : '#1d2924'"
+    >
+      Toggle light / dark
+    </button>
+
+    <div class="frames">
+      <!-- ─────────────── FRAME 1: Pi settings, form, project scope ─────────────── -->
+      <figure>
+        <div class="panel-wrap">
+          <div class="toast-stack" aria-live="polite">
+            <div class="toast" role="status">
+              <span class="toast-message"
+              >Saved. Applies to Pi sessions started from now on.</span>
+              <button class="toast-dismiss" aria-label="Dismiss">×</button>
+            </div>
+          </div>
+          <div class="settings-panel">
+            <header>
+              <div>
+                <span>Configuration</span>
+                <h2>Settings</h2>
+              </div>
+              <button class="close" aria-label="Close">×</button>
+            </header>
+            <div class="settings-tab-bar" role="tablist">
+              <button role="tab">Color themes</button>
+              <button role="tab">Shortcuts</button>
+              <button role="tab" aria-selected="true">Pi settings</button>
+              <button role="tab">Pi extensions</button>
+              <button role="tab">Livecraft</button>
+            </div>
+            <div class="settings-content">
+              <div class="settings-tab-panel" role="tabpanel">
+                <section>
+                  <div class="section-head">
+                    <div
+                      class="scope-switch"
+                      role="group"
+                      aria-label="Settings scope"
+                    >
+                      <button aria-pressed="false">Global</button>
+                      <button aria-pressed="true">This project</button>
+                    </div>
+                    <button class="link-btn">Edit as JSON</button>
+                  </div>
+
+                  <div class="settings-note warn">
+                    <span class="ic">⚠</span>
+                    <span>Untrusted project: Pi ignores <code
+                      >.pi/settings.json</code> until you trust the workspace.
+                      Edits are still saved.</span>
+                  </div>
+
+                  <div class="group-heading">Model &amp; thinking</div>
+
+                  <div class="setting-row">
+                    <span class="setting-label">
+                      Startup model
+                      <small class="origin inherited"
+                      >Inherited from global · gpt-5.6-terra</small>
+                    </span>
+                    <span class="setting-control">
+                      <input
+                        class="placeholder"
+                        value=""
+                        placeholder="Override here…"
+                      >
+                    </span>
+                  </div>
+
+                  <div class="setting-row">
+                    <span class="setting-label">
+                      Default thinking level
+                      <small class="origin">Set in this project</small>
+                    </span>
+                    <span class="setting-control">
+                      <select><option>medium</option></select>
+                      <button class="reset">Reset</button>
+                    </span>
+                  </div>
+
+                  <div class="setting-row">
+                    <span class="setting-label">
+                      Hide thinking block
+                      <small class="origin inherited"
+                      >Inherited from global · On</small>
+                    </span>
+                    <span class="setting-control">
+                      <select><option>On</option></select>
+                    </span>
+                  </div>
+
+                  <div class="group-heading">Behavior</div>
+
+                  <div class="setting-row">
+                    <span class="setting-label">
+                      Auto-compaction
+                      <small class="origin">Pi default · On</small>
+                    </span>
+                    <span class="setting-control">
+                      <select><option>On</option></select>
+                    </span>
+                  </div>
+
+                  <div class="setting-row">
+                    <span class="setting-label">
+                      Compaction reserve tokens
+                      <small class="origin">Set in this project</small>
+                    </span>
+                    <span class="setting-control">
+                      <input value="8192">
+                      <button class="reset">Reset</button>
+                    </span>
+                  </div>
+
+                  <div class="setting-row">
+                    <span class="setting-label">
+                      Default project trust
+                      <small class="badge-warn">Global setting only</small>
+                    </span>
+                    <span class="setting-control">
+                      <select disabled><option>ask</option></select>
+                    </span>
+                  </div>
+
+                  <small class="path-line"
+                  >/home/anders/source/agent/pi-livecraft/.pi/settings.json</small>
+                </section>
+              </div>
+            </div>
+            <footer>
+              <button class="primary">Done</button>
+            </footer>
+          </div>
+        </div>
+        <figcaption>
+          <strong>1 · Pi settings — form, “This project” scope.</strong>
+          Provenance per row (inherited / set here / Pi default), “Override
+          here” placeholder, and a global-only field disabled. The one
+          persistent warning sits in a single top slot; the transient <em
+          >“Saved”</em> confirmation is a floating toast, not inline chrome.
+        </figcaption>
+      </figure>
+
+      <!-- ─────────────── FRAME 2: Pi settings, raw JSON ─────────────── -->
+      <figure>
+        <div class="settings-panel">
+          <header>
+            <div>
+              <span>Configuration</span>
+              <h2>Settings</h2>
+            </div>
+            <button class="close" aria-label="Close">×</button>
+          </header>
+          <div class="settings-tab-bar" role="tablist">
+            <button role="tab">Color themes</button>
+            <button role="tab">Shortcuts</button>
+            <button role="tab" aria-selected="true">Pi settings</button>
+            <button role="tab">Pi extensions</button>
+            <button role="tab">Livecraft</button>
+          </div>
+          <div class="settings-content">
+            <div class="settings-tab-panel" role="tabpanel">
+              <section>
+                <div class="section-head">
+                  <div
+                    class="scope-switch"
+                    role="group"
+                    aria-label="Settings scope"
+                  >
+                    <button aria-pressed="true">Global</button>
+                    <button aria-pressed="false">This project</button>
+                  </div>
+                  <button class="link-btn">Edit as form</button>
+                </div>
+
+                <p class="lead">
+                  Editing the whole document. Keys the form doesn't model are
+                  preserved exactly as written.
+                </p>
+
+                <textarea class="json-editor invalid" spellcheck="false"
+                >{
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.6-terra",
+  "defaultThinkingLevel": "max",
+  "theme": "dark",
+  "hideThinkingBlock": true,
+  "packages": [
+    "npm:pi-mcp-adapter",
+    "npm:@ff-labs/pi-fff"
+  ],
+  "compaction": {
+    "keepRecentTokens": 20000,
+  }
+}</textarea>
+                <div class="json-error">
+                  <span>⚠</span><span>Invalid JSON: unexpected “}” at line
+                    13 — trailing comma after 20000.</span>
+                </div>
+
+                <div class="json-actions">
+                  <button>Cancel</button>
+                  <button class="primary" disabled>Save</button>
+                </div>
+
+                <small class="path-line">~/.pi/agent/settings.json</small>
+              </section>
+            </div>
+          </div>
+          <footer>
+            <button class="primary">Done</button>
+          </footer>
+        </div>
+        <figcaption>
+          <strong>2 · Pi settings — raw JSON escape hatch, “Global”
+            scope.</strong>
+          Any setting is reachable here. Invalid JSON is rejected inline and
+          Save stays disabled; unmodeled keys (<code>packages</code>) are never
+          dropped.
+        </figcaption>
+      </figure>
+
+      <!-- ─────────────── FRAME 3: Livecraft tab ─────────────── -->
+      <figure>
+        <div class="settings-panel">
+          <header>
+            <div>
+              <span>Configuration</span>
+              <h2>Settings</h2>
+            </div>
+            <button class="close" aria-label="Close">×</button>
+          </header>
+          <div class="settings-tab-bar" role="tablist">
+            <button role="tab">Color themes</button>
+            <button role="tab">Shortcuts</button>
+            <button role="tab">Pi settings</button>
+            <button role="tab">Pi extensions</button>
+            <button role="tab" aria-selected="true">Livecraft</button>
+          </div>
+          <div class="settings-content">
+            <div class="settings-tab-panel" role="tabpanel">
+              <section>
+                <p class="lead">
+                  Preferences stored in this browser. They don't affect the
+                  <code>pi</code> command line.
+                </p>
+
+                <div class="group-heading">Preferences</div>
+
+                <div class="setting-row">
+                  <span class="setting-label">
+                    External terminal command
+                    <small>Launched by the “Open terminal” action.</small>
+                  </span>
+                  <span class="setting-control">
+                    <input value="kitty --directory">
+                  </span>
+                </div>
+
+                <div class="setting-row">
+                  <span class="setting-label">Conversation view</span>
+                  <span class="setting-control">
+                    <select><option>Comfortable</option></select>
+                  </span>
+                </div>
+
+                <div class="setting-row">
+                  <span class="setting-label">
+                    Detailed view
+                    <small>Show tool calls and metadata inline.</small>
+                  </span>
+                  <span class="setting-control">
+                    <select><option>On</option></select>
+                  </span>
+                </div>
+
+                <div class="setting-row">
+                  <span class="setting-label">Browser viewport preset</span>
+                  <span class="setting-control">
+                    <select><option>1280 × 800</option></select>
+                  </span>
+                </div>
+
+                <div class="setting-row">
+                  <span class="setting-label">
+                    Pinned models
+                    <small>3 pinned · edit from the composer's model
+                      menu.</small>
+                  </span>
+                  <span class="setting-control">
+                    <button class="reset">Clear</button>
+                  </span>
+                </div>
+
+                <details class="details">
+                  <summary>
+                    <span class="chev">▸</span> Layout &amp; state (5
+                    remembered values)
+                  </summary>
+                  <div class="details-body">
+                    <div class="setting-row">
+                      <span class="setting-label"
+                      >Sidebar widths &amp; collapse</span>
+                      <span class="setting-control"><button class="reset">
+                          Reset
+                        </button></span>
+                    </div>
+                    <div class="setting-row">
+                      <span class="setting-label">File pane split</span>
+                      <span class="setting-control"><button class="reset">
+                          Reset
+                        </button></span>
+                    </div>
+                    <div class="setting-row">
+                      <span class="setting-label"
+                      >Last right-sidebar widget</span>
+                      <span class="setting-control"><button class="reset">
+                          Reset
+                        </button></span>
+                    </div>
+                    <div class="setting-row">
+                      <span class="setting-label">Last selected session</span>
+                      <span class="setting-control"><button class="reset">
+                          Reset
+                        </button></span>
+                    </div>
+                    <div class="setting-row">
+                      <span class="setting-label">Workspace list</span>
+                      <span class="setting-control"><button class="reset">
+                          Reset
+                        </button></span>
+                    </div>
+                  </div>
+                </details>
+
+                <div class="danger-row">
+                  <button class="danger-btn">
+                    Reset all Livecraft settings…
+                  </button>
+                </div>
+              </section>
+            </div>
+          </div>
+          <footer>
+            <button class="primary">Done</button>
+          </footer>
+        </div>
+        <figcaption>
+          <strong>3 · Livecraft tab.</strong>
+          User-facing preferences (Terminal command folded in), a collapsed
+          Layout &amp; state block with per-row Reset, and Reset-all behind a
+          confirm.
+        </figcaption>
+      </figure>
+    </div>
+  </body>
+</html>

@@ -548,6 +548,297 @@
   font: 11px ui-monospace, monospace;
   overflow-wrap: anywhere;
 }
+
+/* Pi settings & Livecraft settings */
+.pi-settings > p,
+.livecraft-settings > p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.pi-settings-error {
+  color: var(--danger);
+}
+.pi-settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.pi-settings-scope {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+.pi-settings-scope button {
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease;
+}
+.pi-settings-scope button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--surface);
+  font-weight: 600;
+}
+.pi-settings-scope button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+.pi-settings-mode {
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 7px 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+.pi-settings-mode:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.pi-settings-mode:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.pi-settings-banner {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: var(--warning-soft);
+  color: color-mix(in srgb, var(--warning) 80%, var(--ink));
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.pi-settings-banner code {
+  font: 11px ui-monospace, monospace;
+}
+.pi-settings-group {
+  margin-bottom: 6px;
+}
+.pi-settings-group-heading {
+  margin: 14px 0 2px;
+  color: var(--subtle);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.pi-settings-group:first-of-type .pi-settings-group-heading {
+  margin-top: 2px;
+}
+.pi-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 13px;
+}
+.pi-setting-label {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pi-setting-label small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.pi-setting-label small.origin {
+  color: var(--subtle);
+}
+.pi-setting-label small.origin.inherited {
+  color: var(--secondary);
+}
+.pi-setting-label small.origin.warn {
+  color: var(--warning);
+}
+.pi-setting-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.pi-setting-control select,
+.pi-setting-control input {
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font-size: 12px;
+}
+.pi-setting-control input {
+  width: 200px;
+  font: 11px ui-monospace, monospace;
+}
+.pi-setting-control select {
+  max-width: 200px;
+}
+.pi-setting-control select:focus,
+.pi-setting-control input:focus {
+  border-color: var(--accent);
+  outline: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent);
+}
+.pi-setting-control select:disabled,
+.pi-setting-control input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.pi-setting-reset {
+  border: 0;
+  border-radius: 6px;
+  padding: 4px 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 180ms ease, background 180ms ease;
+}
+.pi-setting-reset:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--accent-soft);
+}
+.pi-setting-reset:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.pi-setting-reset:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.pi-settings-path {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font: 11px ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+.pi-settings-json > p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.pi-settings-json textarea {
+  width: 100%;
+  height: 300px;
+  resize: vertical;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 11px 12px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font: 12px/1.55 ui-monospace, monospace;
+  white-space: pre;
+  tab-size: 2;
+  outline: 0;
+}
+.pi-settings-json textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent);
+}
+.pi-settings-json textarea.invalid {
+  border-color: var(--danger);
+}
+.pi-settings-json-error {
+  margin: 8px 0 0;
+  color: var(--danger);
+  font-size: 11px;
+}
+.pi-settings-json-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.pi-settings-json-actions button {
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+.pi-settings-json-actions button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--surface);
+}
+.pi-settings-json-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.livecraft-details {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.livecraft-details > summary {
+  padding: 9px 11px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.livecraft-details > summary:hover {
+  color: var(--ink);
+}
+.livecraft-details > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+.livecraft-details-body {
+  padding: 0 11px 6px;
+}
+.livecraft-details-body .pi-setting-row:first-child {
+  border-top: 0;
+}
+.livecraft-danger {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.livecraft-danger-btn {
+  border: 1px solid color-mix(in srgb, var(--danger) 55%, var(--line-strong));
+  border-radius: 7px;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--danger);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 180ms ease;
+}
+.livecraft-danger-btn:hover {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+}
+.livecraft-danger-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 @media (prefers-reduced-motion: reduce) {
   .settings-backdrop,
   .settings-panel,
@@ -559,6 +850,12 @@
   }
   .extension-settings > button,
   .extension-setting-control button {
+    transition: none;
+  }
+  .pi-settings-scope button,
+  .pi-settings-mode,
+  .pi-setting-reset,
+  .livecraft-danger-btn {
     transition: none;
   }
 }
@@ -598,5 +895,19 @@
   .extension-setting-control select {
     flex: 1;
     width: 100%;
+  }
+  .pi-setting-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .pi-setting-control {
+    width: 100%;
+  }
+  .pi-setting-control input,
+  .pi-setting-control select {
+    flex: 1;
+    width: 100%;
+    max-width: none;
   }
 }

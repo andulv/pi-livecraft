@@ -25,6 +25,12 @@ import {
   readExtensionSettings,
   updateExtensionSetting,
 } from './features/extension-settings/extension-settings.ts'
+import {
+  PiSettingsError,
+  readPiSettings,
+  savePiSettingsDocument,
+  updatePiSetting,
+} from './features/pi-settings/pi-settings.ts'
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
 import { parseBrowserInputEvent, parseBrowserViewport } from './features/browser/browser-session.ts'
 import { BrowserService, parseBrowserId } from './features/browser/browser-service.ts'
@@ -305,6 +311,52 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       sendJson(response, 200, await updateExtensionSetting(body.extension, body.id, body.value))
     } catch (error) {
       if (error instanceof ExtensionSettingsError) throw new HttpError(400, error.message)
+      throw error
+    }
+    return
+  }
+
+  if (method === 'GET' && url.pathname === '/api/pi-settings') {
+    const cwdParam = url.searchParams.get('cwd')
+    const cwd = cwdParam ? await resolveWorkingDirectory(cwdParam) : undefined
+    try {
+      sendJson(response, 200, await readPiSettings(cwd))
+    } catch (error) {
+      if (error instanceof PiSettingsError) throw new HttpError(409, error.message)
+      throw error
+    }
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/pi-settings') {
+    const body = await readJsonBody(request)
+    if (body.scope !== 'global' && body.scope !== 'project')
+      throw new HttpError(400, 'A settings scope of “global” or “project” is required')
+    if (typeof body.id !== 'string') throw new HttpError(400, 'A setting identifier is required')
+    const cwd = typeof body.cwd === 'string' && body.cwd
+      ? await resolveWorkingDirectory(body.cwd)
+      : undefined
+    try {
+      sendJson(response, 200, await updatePiSetting(body.scope, cwd, body.id, body.value))
+    } catch (error) {
+      if (error instanceof PiSettingsError) throw new HttpError(400, error.message)
+      throw error
+    }
+    return
+  }
+
+  if (method === 'PUT' && url.pathname === '/api/pi-settings/document') {
+    const body = await readJsonBody(request)
+    if (body.scope !== 'global' && body.scope !== 'project')
+      throw new HttpError(400, 'A settings scope of “global” or “project” is required')
+    if (typeof body.text !== 'string') throw new HttpError(400, 'Document text is required')
+    const cwd = typeof body.cwd === 'string' && body.cwd
+      ? await resolveWorkingDirectory(body.cwd)
+      : undefined
+    try {
+      sendJson(response, 200, await savePiSettingsDocument(body.scope, cwd, body.text))
+    } catch (error) {
+      if (error instanceof PiSettingsError) throw new HttpError(400, error.message)
       throw error
     }
     return

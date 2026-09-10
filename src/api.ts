@@ -2,6 +2,7 @@ import type {
   ExtensionSettingsSnapshot,
   ExtensionSettingValue,
 } from '../shared/extension-settings.ts'
+import type { PiSettingsScope, PiSettingsSnapshot, PiSettingValue } from '../shared/pi-settings.ts'
 import type {
   BrowserInputEvent,
   BrowserInstanceTarget,
@@ -339,6 +340,37 @@ export async function updateExtensionSetting(
   return request<ExtensionSettingsSnapshot>('/api/extension-settings', {
     method: 'POST',
     body: JSON.stringify({ extension, id, value }),
+  })
+}
+
+/** Reads Pi's global and project settings files with the curated field registry. */
+export async function getPiSettings(cwd?: string): Promise<PiSettingsSnapshot> {
+  const query = cwd ? `?cwd=${encodeURIComponent(cwd)}` : ''
+  return request<PiSettingsSnapshot>(`/api/pi-settings${query}`)
+}
+
+/** Stores or clears one curated Pi setting; `null` restores Pi's default. */
+export async function updatePiSetting(
+  scope: PiSettingsScope,
+  cwd: string | undefined,
+  id: string,
+  value: PiSettingValue | null,
+): Promise<PiSettingsSnapshot> {
+  return request<PiSettingsSnapshot>('/api/pi-settings', {
+    method: 'POST',
+    body: JSON.stringify({ scope, cwd, id, value }),
+  })
+}
+
+/** Saves a whole Pi settings document verbatim, preserving unmodeled keys. */
+export async function savePiSettingsDocument(
+  scope: PiSettingsScope,
+  cwd: string | undefined,
+  text: string,
+): Promise<PiSettingsSnapshot> {
+  return request<PiSettingsSnapshot>('/api/pi-settings/document', {
+    method: 'PUT',
+    body: JSON.stringify({ scope, cwd, text }),
   })
 }
 

@@ -9,6 +9,8 @@
 - `App.tsx` persists shortcuts, theme, conversation view, workspace restoration, left and right sidebar state.
 - `composer/` persists drafts per session.
 - `settings/ExtensionSettings.tsx` renders settings that installed Pi extensions published themselves; the values belong to Pi, not to the browser, and are read and written through the [extension settings capability](/server/features/extension-settings/README.md).
+- `settings/PiSettings.tsx` views and edits Pi's own global and project `settings.json` through the [Pi settings capability](/server/features/pi-settings/README.md); the values belong to Pi and apply to the `pi` command line too.
+- `settings/LivecraftSettings.tsx` edits the terminal command and resets Pi Livecraft's browser-stored preferences from the `settings/livecraft-preferences.ts` registry.
 
 Local values stay in browser `localStorage`; never store secrets there. Readers must tolerate missing, malformed, and documented legacy values so a preference cannot prevent startup. The palette and Settings shortcuts remain fixed to keep both surfaces recoverable.
 

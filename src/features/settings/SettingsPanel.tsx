@@ -2,10 +2,17 @@ import { type ReactNode, useEffect, useState } from 'react'
 import * as Select from '@radix-ui/react-select'
 import type { CommandDefinition, CommandId } from '../commands/command-registry.ts'
 import { ExtensionSettings } from './ExtensionSettings.tsx'
+import { PiSettings } from './PiSettings.tsx'
+import { LivecraftSettings } from './LivecraftSettings.tsx'
 import type {
   ExtensionSettingsSnapshot,
   ExtensionSettingValue,
 } from '../../../shared/extension-settings.ts'
+import type {
+  PiSettingsScope,
+  PiSettingsSnapshot,
+  PiSettingValue,
+} from '../../../shared/pi-settings.ts'
 import { shortcutFromEvent, shortcutConflicts } from '../commands/command-registry.ts'
 import {
   applyThemePalette,
@@ -30,7 +37,7 @@ const themeVariableLabels: Record<ThemeVariable, string> = {
 // ── Tab registry ───────────────────────────────────────────────────
 
 /** Identifies a settings tab. Extend this union when adding a new tab. */
-export type SettingsTabId = 'themes' | 'terminal' | 'shortcuts' | 'extensions'
+export type SettingsTabId = 'themes' | 'shortcuts' | 'pi-settings' | 'extensions' | 'livecraft'
 
 /** Describes one tab in the settings modal. */
 export interface SettingsTabDefinition {
@@ -41,9 +48,10 @@ export interface SettingsTabDefinition {
 /** Ordered list of tabs rendered in the settings modal. */
 export const settingsTabs: SettingsTabDefinition[] = [
   { id: 'themes', label: 'Color themes' },
-  { id: 'terminal', label: 'Terminal' },
   { id: 'shortcuts', label: 'Shortcuts' },
+  { id: 'pi-settings', label: 'Pi settings' },
   { id: 'extensions', label: 'Pi extensions' },
+  { id: 'livecraft', label: 'Livecraft' },
 ]
 
 // ── Shared props ───────────────────────────────────────────────────
@@ -56,6 +64,8 @@ interface SettingsPanelProps {
   activeThemeId: string
   extensionSettings: ExtensionSettingsSnapshot | null
   extensionSettingsError: string | null
+  piSettings: PiSettingsSnapshot | null
+  piSettingsError: string | null
   onChange: (id: CommandId, shortcut: string) => void
   onTerminalCommandChange: (value: string) => void
   onExtensionSettingChange: (
@@ -64,6 +74,9 @@ interface SettingsPanelProps {
     value: ExtensionSettingValue | null,
   ) => void
   onExtensionSettingsReload: () => void
+  onPiSettingChange: (scope: PiSettingsScope, id: string, value: PiSettingValue | null) => void
+  onPiSettingsSaveDocument: (scope: PiSettingsScope, text: string) => void
+  onPiSettingsReload: () => void
   onSelectTheme: (id: string) => void
   onDuplicateTheme: () => void
   onRenameTheme: (id: string, name: string) => void
@@ -242,36 +255,6 @@ function ThemeSettings(
   )
 }
 
-interface TerminalSettingsProps {
-  terminalCommand: string
-  onTerminalCommandChange: (value: string) => void
-}
-
-function TerminalSettings({ terminalCommand, onTerminalCommandChange }: TerminalSettingsProps) {
-  return (
-    <section>
-      <label className='terminal-command-row'>
-        <span>External terminal command</span>
-        <input
-          aria-label='Terminal command template'
-          onChange={(event) => onTerminalCommandChange(event.target.value)}
-          placeholder='Platform default'
-          spellCheck={false}
-          value={terminalCommand}
-        />
-        {terminalCommand && !terminalCommand.includes('{cwd}') && (
-          <small className='terminal-command-error'>
-            The template must contain {'{cwd}'} where the workspace folder should be inserted.
-          </small>
-        )}
-        <small>
-          Leave empty for the platform default, or use {'{cwd}'} for the workspace folder.
-        </small>
-      </label>
-    </section>
-  )
-}
-
 interface ShortcutsSettingsProps {
   definitions: CommandDefinition[]
   shortcuts: Partial<Record<CommandId, string>>
@@ -342,10 +325,15 @@ export function SettingsPanel({
   activeThemeId,
   extensionSettings,
   extensionSettingsError,
+  piSettings,
+  piSettingsError,
   onChange,
   onTerminalCommandChange,
   onExtensionSettingChange,
   onExtensionSettingsReload,
+  onPiSettingChange,
+  onPiSettingsSaveDocument,
+  onPiSettingsReload,
   onSelectTheme,
   onDuplicateTheme,
   onRenameTheme,
@@ -419,18 +407,6 @@ export function SettingsPanel({
               />
             </TabPanel>
           )}
-          {activeTab === 'terminal' && (
-            <TabPanel
-              key='terminal'
-              id='settings-tab-terminal'
-              labelledBy='settings-tab-btn-terminal'
-            >
-              <TerminalSettings
-                onTerminalCommandChange={onTerminalCommandChange}
-                terminalCommand={terminalCommand}
-              />
-            </TabPanel>
-          )}
           {activeTab === 'shortcuts' && (
             <TabPanel
               key='shortcuts'
@@ -448,6 +424,21 @@ export function SettingsPanel({
               />
             </TabPanel>
           )}
+          {activeTab === 'pi-settings' && (
+            <TabPanel
+              key='pi-settings'
+              id='settings-tab-pi-settings'
+              labelledBy='settings-tab-btn-pi-settings'
+            >
+              <PiSettings
+                error={piSettingsError}
+                onChange={onPiSettingChange}
+                onRetry={onPiSettingsReload}
+                onSaveDocument={onPiSettingsSaveDocument}
+                snapshot={piSettings}
+              />
+            </TabPanel>
+          )}
           {activeTab === 'extensions' && (
             <TabPanel
               key='extensions'
@@ -459,6 +450,18 @@ export function SettingsPanel({
                 onChange={onExtensionSettingChange}
                 onRetry={onExtensionSettingsReload}
                 snapshot={extensionSettings}
+              />
+            </TabPanel>
+          )}
+          {activeTab === 'livecraft' && (
+            <TabPanel
+              key='livecraft'
+              id='settings-tab-livecraft'
+              labelledBy='settings-tab-btn-livecraft'
+            >
+              <LivecraftSettings
+                onTerminalCommandChange={onTerminalCommandChange}
+                terminalCommand={terminalCommand}
               />
             </TabPanel>
           )}
