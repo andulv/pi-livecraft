@@ -37,9 +37,11 @@ test('uses gradual context pressure colors at the defined thresholds', () => {
     [20, 'context-warning-weak'],
     [39.9, 'context-warning-weak'],
     [40, 'context-warning'],
-    [79.9, 'context-warning'],
-    [80, 'context-warning-strong'],
-    [89.9, 'context-warning-strong'],
+    [59.9, 'context-warning'],
+    [60, 'context-warning-strong'],
+    [79.9, 'context-warning-strong'],
+    [80, 'context-warning-critical'],
+    [89.9, 'context-warning-critical'],
     [90, 'context-danger'],
   ]
 

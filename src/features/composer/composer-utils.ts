@@ -53,6 +53,8 @@ export function formatSessionStats(stats: SessionStats | null): {
     ? contextUsage.percent >= 90
       ? 'context-danger'
       : contextUsage.percent >= 80
+      ? 'context-warning-critical'
+      : contextUsage.percent >= 60
       ? 'context-warning-strong'
       : contextUsage.percent >= 40
       ? 'context-warning'

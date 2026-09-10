@@ -37,7 +37,8 @@
 
   /* ── Derived status variants ── */
   --success-soft: color-mix(in srgb, var(--success) 13%, var(--surface));
-  --warning-strong: color-mix(in srgb, var(--warning) 65%, var(--ink));
+  --warning-strong: color-mix(in srgb, var(--warning) 75%, var(--danger));
+  --warning-critical: color-mix(in srgb, var(--warning) 45%, var(--danger) 55%);
   --danger-soft: color-mix(in srgb, var(--danger) 10%, var(--surface));
 
   /* ── File icon colours ── */

@@ -406,6 +406,9 @@
 .context-warning-strong {
   color: var(--warning-strong);
 }
+.context-warning-critical {
+  color: var(--warning-critical);
+}
 .context-danger {
   color: var(--danger);
 }
