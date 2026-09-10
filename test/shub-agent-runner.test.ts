@@ -1,32 +1,35 @@
 import { deepEqual, equal, ok, rejects } from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  applySubagentEvent,
-  createSubagentStream,
+  applyShubEvent,
+  createShubStream,
   progressText,
-  runSubagentChild,
-  subagentChildArguments,
-} from '../pi-extensions/subagent-child.ts'
+  runShubChild,
+  shubChildArguments,
+} from '../pi-extensions/shub-agents/runner.ts'
 
 const baseOptions = {
   extensions: ['/ext/fff.ts', '/ext/budget-guard.ts'],
   tools: ['fffind', 'ffgrep', 'read', 'bash'],
   task: 'Explain the session store',
   images: [],
-  sessionName: 'subagent/research: Explain the session store',
+  ownerSessionId: 'owner-id',
+  agentName: 'research',
+  sessionName: 'shub-agent/research: Explain the session store',
   systemPrompt: 'PROMPT',
   model: 'openrouter/z-ai/glm-5.3-flash',
   thinking: 'off',
 }
 
 test('child arguments persist a named session and load only the given extensions', () => {
-  const args = subagentChildArguments(baseOptions)
+  const args = shubChildArguments(baseOptions)
 
   ok(!args.includes('--no-session'), 'the child must persist its session')
   ok(args.includes('--no-extensions'), 'global extensions must not load into the child')
+  ok(args.includes('--no-context-files'), 'context files are opt-in per profile')
   deepEqual(args.slice(args.indexOf('--name'), args.indexOf('--name') + 2), [
     '--name',
-    'subagent/research: Explain the session store',
+    'shub-agent/research: Explain the session store',
   ])
   deepEqual(args.filter((_value, index) => args[index - 1] === '--extension'), [
     '/ext/fff.ts',
@@ -36,8 +39,22 @@ test('child arguments persist a named session and load only the given extensions
   deepEqual(args.slice(args.indexOf('--print')), ['--print', 'Explain the session store'])
 })
 
+test('projectContext opts the child back into context files and host args are kept', () => {
+  const args = shubChildArguments({
+    ...baseOptions,
+    projectContext: true,
+    providerArgs: ['--fff-mode', 'tools-only'],
+  })
+
+  ok(!args.includes('--no-context-files'))
+  deepEqual(args.slice(args.indexOf('--fff-mode'), args.indexOf('--fff-mode') + 2), [
+    '--fff-mode',
+    'tools-only',
+  ])
+})
+
 test('images are passed as @path arguments before the task', () => {
-  const args = subagentChildArguments({
+  const args = shubChildArguments({
     ...baseOptions,
     images: ['/tmp/one.png', '/tmp/two.png'],
   })
@@ -51,27 +68,27 @@ test('images are passed as @path arguments before the task', () => {
 })
 
 test('an omitted model leaves model selection to the child configuration', () => {
-  const args = subagentChildArguments({ ...baseOptions, model: '' })
+  const args = shubChildArguments({ ...baseOptions, model: '' })
 
   ok(!args.includes('--model'))
 })
 
 test('the event stream yields the session id, counters, usage, and the answer', () => {
-  const stream = createSubagentStream()
+  const stream = createShubStream()
 
   equal(
-    applySubagentEvent(stream, JSON.stringify({ type: 'session', version: 3, id: 'abc-123' })),
+    applyShubEvent(stream, JSON.stringify({ type: 'session', version: 3, id: 'abc-123' })),
     'session',
   )
-  equal(applySubagentEvent(stream, JSON.stringify({ type: 'turn_start' })), 'turn')
+  equal(applyShubEvent(stream, JSON.stringify({ type: 'turn_start' })), 'turn')
   equal(
-    applySubagentEvent(
+    applyShubEvent(
       stream,
       JSON.stringify({ type: 'tool_execution_start', toolName: 'ffgrep', args: {} }),
     ),
     'tool',
   )
-  applySubagentEvent(
+  applyShubEvent(
     stream,
     JSON.stringify({
       type: 'tool_execution_end',
@@ -80,7 +97,7 @@ test('the event stream yields the session id, counters, usage, and the answer', 
     }),
   )
   equal(
-    applySubagentEvent(
+    applyShubEvent(
       stream,
       JSON.stringify({
         type: 'message_end',
@@ -106,11 +123,11 @@ test('the event stream yields the session id, counters, usage, and the answer', 
 })
 
 test('usage sums completed turns without counting cumulative streaming updates twice', () => {
-  const stream = createSubagentStream()
+  const stream = createShubStream()
   for (const totalTokens of [673, 2000]) {
     const usage = { totalTokens, cost: { total: 0.125 } }
-    applySubagentEvent(stream, JSON.stringify({ type: 'message_update', usage }))
-    applySubagentEvent(
+    applyShubEvent(stream, JSON.stringify({ type: 'message_update', usage }))
+    applyShubEvent(
       stream,
       JSON.stringify({
         type: 'message_end',
@@ -122,11 +139,29 @@ test('usage sums completed turns without counting cumulative streaming updates t
   equal(stream.costUsd, 0.25)
 })
 
+test('accumulated assistant output stays bounded', () => {
+  const stream = createShubStream()
+  for (let index = 0; index < 30; index++) {
+    applyShubEvent(
+      stream,
+      JSON.stringify({
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'x'.repeat(10_000) }],
+        },
+      }),
+    )
+  }
+  ok(stream.output.length <= 100_000, 'output must be tail-capped')
+  ok(stream.output.endsWith('x'), 'the tail (the final report) is preserved')
+})
+
 test('an already cancelled call never attempts to spawn a child', async () => {
   await rejects(
-    runSubagentChild({
+    runShubChild({
       ...baseOptions,
-      piExecutable: '/nonexistent-pi-subagent',
+      piExecutable: '/nonexistent-pi-shub-agent',
       cwd: process.cwd(),
       effort: 'quick',
       softToolCalls: 6,
@@ -135,28 +170,28 @@ test('an already cancelled call never attempts to spawn a child', async () => {
       maxOutputChars: 1000,
       signal: AbortSignal.abort(),
     }),
-    /Subagent cancelled/,
+    /cancelled/,
   )
 })
 
 test('malformed and unrelated lines are ignored', () => {
-  const stream = createSubagentStream()
+  const stream = createShubStream()
 
-  equal(applySubagentEvent(stream, 'not json'), undefined)
-  equal(applySubagentEvent(stream, ''), undefined)
-  equal(applySubagentEvent(stream, JSON.stringify({ type: 'agent_start' })), undefined)
+  equal(applyShubEvent(stream, 'not json'), undefined)
+  equal(applyShubEvent(stream, ''), undefined)
+  equal(applyShubEvent(stream, JSON.stringify({ type: 'agent_start' })), undefined)
   equal(stream.turnCount, 0)
 })
 
-test('progress reports the tool budget and warns once the soft target is reached', () => {
-  const stream = createSubagentStream()
+test('progress reports the agent, tool budget, and soft-target warning', () => {
+  const stream = createShubStream()
   stream.turnCount = 1
-  const budget = { effort: 'standard', softToolCalls: 12, hardToolCalls: 16 }
+  const budget = { agentName: 'research', effort: 'standard', softToolCalls: 12, hardToolCalls: 16 }
 
-  equal(progressText(stream, budget), 'Researching [standard]: turn 1...')
+  equal(progressText(stream, budget), 'research [standard]: turn 1...')
 
   stream.toolCount = 12
   stream.lastTool = 'read'
-  ok(progressText(stream, budget).includes('12/12 target, 16 max'))
+  ok(progressText(stream, budget).includes('research [standard]: read (12/12 target, 16 max)'))
   ok(progressText(stream, budget).includes('Target reached'))
 })

@@ -1,11 +1,13 @@
 /**
- * Runs one subagent child: a bounded, one-shot `pi --mode json --print` process.
+ * Runs one shub-agent child: a bounded, one-shot `pi --mode json --print`
+ * process.
  *
  * The child persists a normal Pi session in the workspace session directory, so
  * every run stays inspectable and its cost stays attributable after the tool
- * call is gone. Ownership is unchanged by this file: children are one-shot
- * non-RPC processes, and `server/manager.ts` remains the sole owner of
- * `pi --mode rpc` processes.
+ * call is gone. This file knows no agent names or profile locations: it accepts
+ * only a resolved run specification. Ownership is unchanged by this file —
+ * children are one-shot non-RPC processes, and `server/manager.ts` remains the
+ * sole owner of `pi --mode rpc` processes.
  *
  * Argument assembly and event extraction are exported separately from the spawn
  * so both can be tested without starting a process.
@@ -13,41 +15,55 @@
 import { spawn } from 'node:child_process'
 import { readdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { isObject } from '../shared/is-object.ts'
-import { workspaceSessionFolderName } from '../shared/pi-session-paths.ts'
+import { isObject } from '../../shared/is-object.ts'
+import { workspaceSessionFolderName } from '../../shared/pi-session-paths.ts'
 
 const MAX_RAW_EVENT_TAIL_CHARS = 50_000
+/** Assistant text is accumulated tail-only so a verbose child cannot grow memory without bound. */
+const MAX_OUTPUT_TAIL_CHARS = 100_000
 const MAX_PARTIAL_EVIDENCE_CHARS = 20_000
 const MAX_EVIDENCE_ITEM_CHARS = 2_000
 const PROGRESS_THROTTLE_MS = 300
 const FORCE_KILL_DELAY_MS = 5_000
+/** Extra wait after force-kill before rejecting, in case the process ignores everything. */
+const SETTLE_DELAY_MS = 1_000
 
-export interface SubagentChildOptions {
+export interface ShubChildOptions {
   piExecutable: string
   /** Extension entry files loaded into the child; the child is otherwise extension-free. */
   extensions: string[]
-  /** Allowlist passed to `--tools`; the only capability boundary the child has. */
+  /** Allowlist passed to `--tools`; the declared tools are the child's whole capability. */
   tools: string[]
+  /** Extra CLI flags owned by the host, never by a profile (e.g. FFF mode flags). */
+  providerArgs?: string[]
+  /** Extra environment owned by the host (e.g. FFF mode settings). */
+  providerEnv?: Record<string, string>
   cwd: string
   task: string
   /** Absolute image paths passed as `@path` so a vision model reads them. */
   images: string[]
-  /** Session display name, which is also how a subagent run is recognized later. */
+  /** Pi session id of the owning parent session, passed to the session marker. */
+  ownerSessionId?: string
+  /** Agent name, passed to the session marker and shown in progress text. */
+  agentName?: string
   sessionName: string
   systemPrompt: string
-  model: string
+  /** Empty string omits `--model` and leaves model selection to the child config. */
+  model?: string
   thinking: string
   effort: string
   softToolCalls: number
   hardToolCalls: number
   timeoutMs: number
   maxOutputChars: number
+  /** Whether the child loads AGENTS.md-style context files; off by default. */
+  projectContext?: boolean
   signal?: AbortSignal
-  onProgress?: (progress: SubagentProgress) => void
+  onProgress?: (progress: ShubProgress) => void
 }
 
 /** Live state of a running child, reported to the parent tool card. */
-export interface SubagentProgress {
+export interface ShubProgress {
   text: string
   sessionId?: string
   turnCount: number
@@ -59,7 +75,7 @@ export interface SubagentProgress {
   elapsedMs: number
 }
 
-export interface SubagentChildResult {
+export interface ShubChildResult {
   code: number | null
   text: string
   stderr: string
@@ -72,14 +88,14 @@ export interface SubagentChildResult {
 }
 
 /**
- * Builds the child command line. `--no-extensions` is both the capability guard
+ * Builds the child command line. `--no-extensions` is both the isolation guard
  * and the recursion guard: without it the child would load the user's global
- * extension list, including this one. `--no-session` is deliberately absent so
- * the run persists (see `docs/SUBAGENT-SPEC.md`, D2).
+ * extension list, including shub-agents itself. `--no-session` is deliberately
+ * absent so the run persists.
  */
-export function subagentChildArguments(
+export function shubChildArguments(
   options: Pick<
-    SubagentChildOptions,
+    ShubChildOptions,
     | 'extensions'
     | 'tools'
     | 'task'
@@ -88,6 +104,8 @@ export function subagentChildArguments(
     | 'systemPrompt'
     | 'model'
     | 'thinking'
+    | 'providerArgs'
+    | 'projectContext'
   >,
 ): string[] {
   const args = [
@@ -95,13 +113,14 @@ export function subagentChildArguments(
     '--no-skills',
     '--no-prompt-templates',
     '--no-themes',
+    ...(options.projectContext ? [] : ['--no-context-files']),
     '--mode',
     'json',
     '--name',
     options.sessionName,
   ]
   for (const extension of options.extensions) args.push('--extension', extension)
-  args.push('--fff-mode', 'tools-only')
+  args.push(...(options.providerArgs ?? []))
   args.push('--tools', options.tools.join(','))
   args.push('--system-prompt', options.systemPrompt)
   if (options.model) args.push('--model', options.model)
@@ -111,7 +130,7 @@ export function subagentChildArguments(
 }
 
 /** Accumulated state of one child, updated from its JSON event stream. */
-export interface SubagentStream {
+export interface ShubStream {
   sessionId?: string
   turnCount: number
   toolCount: number
@@ -119,13 +138,13 @@ export interface SubagentStream {
   lastTool?: string
   totalTokens: number
   costUsd: number
-  /** Assistant text, which is the answer the parent receives. */
+  /** Assistant text, tail-capped; the answer the parent receives comes from here. */
   output: string
   /** Tail of completed tool results, used as partial evidence after a timeout. */
   evidence: string
 }
 
-export function createSubagentStream(): SubagentStream {
+export function createShubStream(): ShubStream {
   return {
     turnCount: 0,
     toolCount: 0,
@@ -141,8 +160,8 @@ export function createSubagentStream(): SubagentStream {
  * Applies one JSON event line to the stream state and reports what changed, so
  * the caller decides whether the change is worth a progress update.
  */
-export function applySubagentEvent(
-  stream: SubagentStream,
+export function applyShubEvent(
+  stream: ShubStream,
   line: string,
 ): 'session' | 'turn' | 'tool' | 'answer' | undefined {
   if (!line.trim()) return undefined
@@ -182,14 +201,20 @@ export function applySubagentEvent(
   ) {
     applyUsage(stream, event.message.usage)
     const text = contentText(event.message).trim()
-    if (text) stream.output = stream.output ? `${stream.output}\n\n${text}` : text
+    if (text) {
+      stream.output = stream.output ? `${stream.output}\n\n${text}` : text
+      // Keep only the tail so accumulated output stays bounded across many turns.
+      if (stream.output.length > MAX_OUTPUT_TAIL_CHARS) {
+        stream.output = stream.output.slice(-MAX_OUTPUT_TAIL_CHARS)
+      }
+    }
     return 'answer'
   }
   return undefined
 }
 
-/** Sum completed assistant messages only; streaming usage is cumulative per message. */
-function applyUsage(stream: SubagentStream, usage: unknown): void {
+/** Sums completed assistant messages only; streaming usage is cumulative per message. */
+function applyUsage(stream: ShubStream, usage: unknown): void {
   if (!isObject(usage)) return
   if (typeof usage.totalTokens === 'number') stream.totalTokens += usage.totalTokens
   const cost = usage.cost
@@ -214,7 +239,7 @@ function contentText(value: unknown): string {
  * session file, which is the one place the child's storage root is known for
  * certain: sessions live in `<root>/<workspace folder>/`.
  */
-export async function findSubagentSessionPath(
+export async function findShubSessionPath(
   cwd: string,
   sessionId: string,
   parentSessionFile: string | undefined,
@@ -232,15 +257,16 @@ export async function findSubagentSessionPath(
 
 /**
  * Spawns the child and resolves once it exits. A timeout or an aborted parent
- * turn kills the process group immediately and rejects with whatever evidence
- * the child had already produced; the persisted session keeps the rest.
+ * turn terminates the process group and rejects only after the child has
+ * actually settled, with whatever evidence it had already produced; the
+ * persisted session keeps the rest.
  */
-export function runSubagentChild(options: SubagentChildOptions): Promise<SubagentChildResult> {
-  if (options.signal?.aborted) return Promise.reject(new Error('Subagent cancelled.'))
-  const args = subagentChildArguments(options)
+export function runShubChild(options: ShubChildOptions): Promise<ShubChildResult> {
+  if (options.signal?.aborted) return Promise.reject(new Error('shub-agent cancelled.'))
+  const args = shubChildArguments(options)
   const startedAt = Date.now()
 
-  return new Promise<SubagentChildResult>((resolvePromise, reject) => {
+  return new Promise<ShubChildResult>((resolvePromise, reject) => {
     const child = spawn(options.piExecutable, args, {
       cwd: options.cwd,
       detached: process.platform !== 'win32',
@@ -248,14 +274,15 @@ export function runSubagentChild(options: SubagentChildOptions): Promise<Subagen
       env: {
         ...process.env,
         PI_SKIP_VERSION_CHECK: '1',
-        PI_FFF_MODE: 'tools-only',
-        PI_FFF_MULTIGREP: '0',
-        PI_SUBAGENT_SOFT_TOOL_CALLS: String(options.softToolCalls),
-        PI_SUBAGENT_HARD_TOOL_CALLS: String(options.hardToolCalls),
+        PI_SHUB_OWNER_SESSION_ID: options.ownerSessionId ?? '',
+        PI_SHUB_AGENT: options.agentName ?? '',
+        PI_SHUB_SOFT_TOOL_CALLS: String(options.softToolCalls),
+        PI_SHUB_HARD_TOOL_CALLS: String(options.hardToolCalls),
+        ...(options.providerEnv ?? {}),
       },
     })
 
-    const stream = createSubagentStream()
+    const stream = createShubStream()
     let rawEventTail = ''
     let stderr = ''
     let lineBuffer = ''
@@ -265,6 +292,9 @@ export function runSubagentChild(options: SubagentChildOptions): Promise<Subagen
     let pendingProgress: string | undefined
     let progressTimer: ReturnType<typeof setTimeout> | undefined
     let forceKillTimer: ReturnType<typeof setTimeout> | undefined
+    let settleTimer: ReturnType<typeof setTimeout> | undefined
+    /** Set once termination begins; the promise rejects only after the child settles. */
+    let pendingFailure: (() => Error) | undefined
 
     const killProcessGroup = (signal: NodeJS.Signals): void => {
       if (closed) return
@@ -316,10 +346,10 @@ export function runSubagentChild(options: SubagentChildOptions): Promise<Subagen
     }
 
     const processLine = (line: string): void => {
-      const change = applySubagentEvent(stream, line)
+      const change = applyShubEvent(stream, line)
       if (!change) return
-      if (change === 'session') emitProgress(progressText(stream, options), true)
-      else if (change === 'answer') emitProgress(progressText(stream, options), true)
+      if (change === 'session' || change === 'answer')
+        emitProgress(progressText(stream, options), true)
       else emitProgress(progressText(stream, options))
     }
 
@@ -328,15 +358,14 @@ export function runSubagentChild(options: SubagentChildOptions): Promise<Subagen
       settled = true
       clearTimeout(timer)
       if (progressTimer) clearTimeout(progressTimer)
+      if (forceKillTimer) clearTimeout(forceKillTimer)
+      if (settleTimer) clearTimeout(settleTimer)
       options.signal?.removeEventListener('abort', onAbort)
       fn()
     }
 
-    const terminate = (message: string): void => {
-      if (settled) return
-      killProcessGroup('SIGTERM')
-      forceKillTimer = setTimeout(() => killProcessGroup('SIGKILL'), FORCE_KILL_DELAY_MS)
-
+    /** Bounded diagnostics: assistant tail, completed evidence, stderr, raw event tail. */
+    const failureDiagnostics = (message: string): string => {
       const evidence = stream.evidence.trim()
       const diagnostics = [
         stream.output.trim(),
@@ -348,22 +377,32 @@ export function runSubagentChild(options: SubagentChildOptions): Promise<Subagen
         .join('\n\n')
         .slice(-options.maxOutputChars)
       const session = stream.sessionId ? `\nChild session: ${stream.sessionId}` : ''
-      finish(() =>
-        reject(
-          new Error(
-            diagnostics
-              ? `${message}${session}\n\nPartial child output:\n${diagnostics}`
-              : `${message}${session}`,
-          ),
-        )
-      )
+      return diagnostics
+        ? `${message}${session}\n\nPartial child output:\n${diagnostics}`
+        : `${message}${session}`
+    }
+
+    /**
+     * Terminates the process group and defers the rejection until the child has
+     * settled (close event, force-kill, or the extra settle delay), so the
+     * caller never observes a completed failure while the child may still run.
+     */
+    const terminate = (message: string): void => {
+      if (settled || pendingFailure) return
+      pendingFailure = () => new Error(failureDiagnostics(message))
+      killProcessGroup('SIGTERM')
+      forceKillTimer = setTimeout(() => killProcessGroup('SIGKILL'), FORCE_KILL_DELAY_MS)
+      settleTimer = setTimeout(() => {
+        const failure = pendingFailure
+        if (failure) finish(() => reject(failure()))
+      }, FORCE_KILL_DELAY_MS + SETTLE_DELAY_MS)
     }
 
     const timer = setTimeout(
-      () => terminate(`Subagent timed out after ${options.timeoutMs}ms.`),
+      () => terminate(`shub-agent timed out after ${options.timeoutMs}ms.`),
       options.timeoutMs,
     )
-    const onAbort = (): void => terminate('Subagent cancelled.')
+    const onAbort = (): void => terminate('shub-agent cancelled.')
     options.signal?.addEventListener('abort', onAbort, { once: true })
 
     child.stdout.on('data', (chunk: Buffer) => {
@@ -381,8 +420,8 @@ export function runSubagentChild(options: SubagentChildOptions): Promise<Subagen
     child.on('close', (code) => {
       closed = true
       if (lineBuffer.trim()) processLine(lineBuffer)
-      if (forceKillTimer) clearTimeout(forceKillTimer)
-      finish(() =>
+      finish(() => {
+        if (pendingFailure) return reject(pendingFailure())
         resolvePromise({
           code,
           text: stream.output,
@@ -394,7 +433,7 @@ export function runSubagentChild(options: SubagentChildOptions): Promise<Subagen
           costUsd: stream.costUsd,
           elapsedMs: Date.now() - startedAt,
         })
-      )
+      })
     })
     // The parent may have aborted between the pre-spawn check and listener setup.
     if (options.signal?.aborted) onAbort()
@@ -403,11 +442,12 @@ export function runSubagentChild(options: SubagentChildOptions): Promise<Subagen
 
 /** One line describing the current state, shown live in the parent's tool card. */
 export function progressText(
-  stream: SubagentStream,
-  options: Pick<SubagentChildOptions, 'effort' | 'softToolCalls' | 'hardToolCalls'>,
+  stream: ShubStream,
+  options: Pick<ShubChildOptions, 'agentName' | 'effort' | 'softToolCalls' | 'hardToolCalls'>,
 ): string {
+  const agent = options.agentName ? `${options.agentName} ` : ''
   const budget = `${stream.toolCount}/${options.softToolCalls} target, ${options.hardToolCalls} max`
-  if (stream.toolCount === 0) return `Researching [${options.effort}]: turn ${stream.turnCount}...`
+  if (stream.toolCount === 0) return `${agent}[${options.effort}]: turn ${stream.turnCount}...`
   const notice = stream.toolCount === options.softToolCalls ? ' Target reached; synthesizing.' : ''
-  return `Researching [${options.effort}]: ${stream.lastTool ?? 'tool'} (${budget}).${notice}`
+  return `${agent}[${options.effort}]: ${stream.lastTool ?? 'tool'} (${budget}).${notice}`
 }

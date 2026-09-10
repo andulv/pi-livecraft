@@ -389,10 +389,11 @@ export function toolWriteContent(args: unknown): string | null {
 }
 
 /**
- * Returns the session file a subagent run persisted, reported by the `research`
- * tool in its result details, or null when the run never reached a session.
+ * Returns the session file a shub-agent run persisted, reported by the
+ * `shub_agent` tool in its result details, or null when the run never reached a
+ * session.
  */
-export function subagentSessionPath(details: unknown): string | null {
+export function shubAgentSessionPath(details: unknown): string | null {
   return isObject(details) && typeof details.sessionPath === 'string'
       && details.sessionPath.length > 0
     ? details.sessionPath

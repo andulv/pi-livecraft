@@ -1,5 +1,4 @@
 import type { GitWorkspace, RecentSession, SessionSummary } from '../../../shared/types.ts'
-import { isSubagentSessionName } from '../../../shared/subagent-session.ts'
 
 export interface SessionActionTarget {
   cwd: string
@@ -15,7 +14,7 @@ export function workspaceActivity(
   sentSessions: readonly RecentSession[] = [],
 ): number {
   return [...recentSessions, ...sentSessions]
-    .filter(({ cwd, name }) => cwd === workspacePath && !isSubagentSessionName(name))
+    .filter(({ cwd, shubAgent }) => cwd === workspacePath && shubAgent === undefined)
     .reduce((latest, { updatedAt }) => Math.max(latest, updatedAt), 0)
 }
 
@@ -34,14 +33,14 @@ export function compareWorkspaces(
 /**
  * Adds pending sessions and orders the visible list by latest activity.
  *
- * Subagent runs are hidden by default. When included, only children with an
+ * Shub-agent runs are hidden by default. When included, only children with an
  * owner in this workspace list are inserted immediately after that owner.
  */
 export function sidebarSessions(
   recentSessions: RecentSession[],
   workspacePath: string,
   sentSessions: RecentSession[] = [],
-  includeSubagentSessions = false,
+  includeShubAgentSessions = false,
 ): RecentSession[] {
   const recentIds = new Set(recentSessions.map((session) => session.id))
   const recentPaths = new Set(recentSessions.map((session) => session.sessionPath))
@@ -50,18 +49,18 @@ export function sidebarSessions(
     .concat(recentSessions)
     .filter(({ cwd }) => cwd === workspacePath)
   const ordinary = candidates
-    .filter(({ name }) => !isSubagentSessionName(name))
+    .filter(({ shubAgent }) => shubAgent === undefined)
     .sort((left, right) => right.updatedAt - left.updatedAt)
-  if (!includeSubagentSessions) return ordinary
+  if (!includeShubAgentSessions) return ordinary
 
   const ownerIds = new Set(ordinary.map(({ id }) => id))
   const childrenByOwner = new Map<string, RecentSession[]>()
   for (const child of candidates) {
-    if (!isSubagentSessionName(child.name) || !child.parentSessionId) continue
-    if (!ownerIds.has(child.parentSessionId)) continue
-    const children = childrenByOwner.get(child.parentSessionId) ?? []
+    if (child.shubAgent === undefined || !child.ownerSessionId) continue
+    if (!ownerIds.has(child.ownerSessionId)) continue
+    const children = childrenByOwner.get(child.ownerSessionId) ?? []
     children.push(child)
-    childrenByOwner.set(child.parentSessionId, children)
+    childrenByOwner.set(child.ownerSessionId, children)
   }
   for (const children of childrenByOwner.values()) {
     children.sort((left, right) => right.updatedAt - left.updatedAt)

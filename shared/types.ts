@@ -15,8 +15,10 @@ export interface RecentSession {
   cwd: string
   name: string
   sessionPath: string
-  /** Parent session id for a persisted subagent run. */
-  parentSessionId?: string
+  /** Agent name from the durable ownership marker of a shub-agent child run. */
+  shubAgent?: string
+  /** Owner session id from the marker of a shub-agent child run. */
+  ownerSessionId?: string
   /** Timestamp of the session's first message; falls back to the header timestamp. */
   firstMessageAt?: number
   updatedAt: number

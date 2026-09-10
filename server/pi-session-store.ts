@@ -3,11 +3,7 @@ import { homedir } from 'node:os'
 import { isAbsolute, join, relative, sep } from 'node:path'
 import type { RecentSession } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
-import {
-  isSubagentSessionName,
-  subagentDisplayName,
-  subagentOwnerSessionId,
-} from '../shared/subagent-session.ts'
+import { shubMarkerFromEntry } from '../shared/shub-agent-session.ts'
 import { fallbackSessionTitle } from '../shared/session-title.ts'
 import { workspaceSessionFolderName } from '../shared/pi-session-paths.ts'
 
@@ -73,10 +69,10 @@ export async function listRecentPiSessions(
   )
   const candidates = withMtime.sort((a, b) => b.mtime - a.mtime)
   const ordinary: RecentSession[] = []
-  const subagents: RecentSession[] = []
+  const shubChildren: RecentSession[] = []
   const batchSize = MAX_SESSIONS * 2
   // Hidden child runs must not consume the ordinary-session scan or result budget.
-  // Read metadata in bounded batches, continuing past bursts of research runs.
+  // Read metadata in bounded batches, continuing past bursts of shub-agent runs.
   for (let offset = 0; offset < candidates.length; offset += batchSize) {
     const batch = await Promise.all(
       candidates
@@ -85,7 +81,7 @@ export async function listRecentPiSessions(
     )
     for (const session of batch) {
       if (session?.cwd !== cwd) continue
-      const group = isSubagentSessionName(session.name) ? subagents : ordinary
+      const group = session.shubAgent !== undefined ? shubChildren : ordinary
       group.push(session)
     }
     if (ordinary.length >= batchSize) break
@@ -93,7 +89,7 @@ export async function listRecentPiSessions(
 
   const newest = (sessions: RecentSession[]): RecentSession[] =>
     sessions.sort((left, right) => right.updatedAt - left.updatedAt).slice(0, MAX_SESSIONS)
-  return [...newest(ordinary), ...newest(subagents)]
+  return [...newest(ordinary), ...newest(shubChildren)]
     .sort((left, right) => right.updatedAt - left.updatedAt)
 }
 
@@ -163,6 +159,8 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
   }
 
   let name: string | undefined
+  let shubAgent: string | undefined
+  let ownerSessionId: string | undefined
   let hasMessage = false
   let firstMessageAt: number | undefined
   let lastMessageAt: number | undefined
@@ -179,6 +177,12 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
       if (!trimmed) continue
       const value = parseLine(trimmed)
       if (!value) continue
+      // The ownership marker is written at child startup, so it sits in the head.
+      const marker = shubMarkerFromEntry(value)
+      if (marker) {
+        shubAgent = marker.agent
+        ownerSessionId = marker.ownerSessionId
+      }
       if (value.type === 'session_info') {
         name = typeof value.name === 'string' && value.name.trim() ? value.name.trim() : undefined
       }
@@ -219,13 +223,12 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
   if (!hasMessage) return null
   const createdAt = Date.parse(header.timestamp)
   const rawName = name || prompt || 'New session'
-  const parentSessionId = subagentOwnerSessionId(rawName)
   return {
     id: header.id,
     cwd,
-    name: subagentDisplayName(rawName),
+    name: rawName,
     sessionPath: canonicalPath,
-    ...(parentSessionId ? { parentSessionId } : {}),
+    ...(shubAgent !== undefined ? { shubAgent, ownerSessionId } : {}),
     firstMessageAt: firstMessageAt ?? (Number.isNaN(createdAt) ? undefined : createdAt),
     updatedAt: lastMessageAt ?? (Number.isNaN(createdAt) ? updatedAt : createdAt),
   }

@@ -6,13 +6,13 @@ import { CopyButton } from './CopyButton.tsx'
 import { canHighlightFile } from './file-preview.ts'
 import { formatDuration } from './message-usage.ts'
 import { OpenFileButton } from './OpenFileButton.tsx'
-import { OpenSubagentSessionButton } from './OpenSubagentSessionButton.tsx'
+import { OpenShubAgentSessionButton } from './OpenShubAgentSessionButton.tsx'
 import {
   formatToolCallTooltip,
   formatToolData,
   provisionalToolName,
   readContentDisplay,
-  subagentSessionPath,
+  shubAgentSessionPath,
   toolCallPresentation,
   toolDataLength,
   toolFilePath,
@@ -52,7 +52,7 @@ interface ToolCallCardProps {
   interrupted?: boolean
   name: string
   onError: (cause: unknown) => void
-  onOpenSubagentSession?: (cwd: string, sessionPath: string) => Promise<void>
+  onOpenShubAgentSession?: (cwd: string, sessionPath: string) => Promise<void>
   repositoryRoot?: string | null
   partialResultContent?: unknown
   resultContent?: unknown
@@ -75,7 +75,7 @@ export const ToolCallCard = memo(function ToolCallCard({
   interrupted = false,
   name,
   onError,
-  onOpenSubagentSession,
+  onOpenShubAgentSession,
   partialResultContent,
   repositoryRoot,
   resultContent,
@@ -142,7 +142,7 @@ export const ToolCallCard = memo(function ToolCallCard({
     durationLabel ? ` Duration: ${durationLabel}.` : ''
   }`
   const writeContent = toolName === 'write' ? toolWriteContent(args) : null
-  const sessionPath = hasResult ? subagentSessionPath(resultDetails) : null
+  const sessionPath = hasResult ? shubAgentSessionPath(resultDetails) : null
   const content = toolName === 'write' && !resultError && writeContent
     ? writeContent
     : displayedOutput
@@ -288,14 +288,14 @@ export const ToolCallCard = memo(function ToolCallCard({
         {hasResult && !contentError && filePath && (
           <OpenFileButton cwd={workingDirectory} onError={onError} path={filePath} />
         )}
-        {sessionPath && onOpenSubagentSession && (
-          <OpenSubagentSessionButton
+        {sessionPath && onOpenShubAgentSession && (
+          <OpenShubAgentSessionButton
             cwd={isObject(resultDetails) && typeof resultDetails.cwd === 'string'
                 && resultDetails.cwd.trim()
               ? resultDetails.cwd
               : workingDirectory}
             onError={onError}
-            onOpenSession={onOpenSubagentSession}
+            onOpenSession={onOpenShubAgentSession}
             sessionPath={sessionPath}
           />
         )}

@@ -22,7 +22,6 @@ import type {
   RecentSession,
   SessionSummary,
 } from '../../../shared/types.ts'
-import { isSubagentSessionName } from '../../../shared/subagent-session.ts'
 import { resolvePinnedSessions } from './pinned-sessions.ts'
 import { PinnedSessionList } from './PinnedSessionList.tsx'
 import type { Project } from './projects.ts'
@@ -140,7 +139,7 @@ export function WorkspaceSidebar({
   const [brandMenuOpen, setBrandMenuOpen] = useState(false)
   const [sessionListMenuOpen, setSessionListMenuOpen] = useState(false)
   const [showArchivedSessions, setShowArchivedSessions] = useState(false)
-  const [includeSubagentSessions, setIncludeSubagentSessions] = useState(false)
+  const [includeShubAgentSessions, setIncludeShubAgentSessions] = useState(false)
   const [startingNewSession, setStartingNewSession] = useState(false)
   const [openWorkspacePanel, setOpenWorkspacePanel] = useState<WorkspacePanel>('sessions')
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
@@ -171,22 +170,22 @@ export function WorkspaceSidebar({
       recentSessions,
       workspacePath,
       sentSessions,
-      includeSubagentSessions,
+      includeShubAgentSessions,
     )
       .filter(({ sessionPath }) => !pinnedSessionPaths.has(sessionPath))
       .filter(({ sessionPath }) => showArchivedSessions || !archivedSessionPathSet.has(sessionPath))
-    if (!includeSubagentSessions) return filtered
+    if (!includeShubAgentSessions) return filtered
 
     const visibleOwnerIds = new Set(
-      filtered.filter(({ name }) => !isSubagentSessionName(name)).map(({ id }) => id),
+      filtered.filter(({ shubAgent }) => shubAgent === undefined).map(({ id }) => id),
     )
-    return filtered.filter(({ name, parentSessionId }) =>
-      !isSubagentSessionName(name)
-      || (parentSessionId !== undefined && visibleOwnerIds.has(parentSessionId))
+    return filtered.filter(({ shubAgent, ownerSessionId }) =>
+      shubAgent === undefined
+      || (ownerSessionId !== undefined && visibleOwnerIds.has(ownerSessionId))
     )
   }, [
     archivedSessionPathSet,
-    includeSubagentSessions,
+    includeShubAgentSessions,
     pinnedSessionPaths,
     recentSessions,
     sentSessions,
@@ -396,7 +395,7 @@ export function WorkspaceSidebar({
     setStartingNewSession(true)
     try {
       await onNewSession()
-      setIncludeSubagentSessions(false)
+      setIncludeShubAgentSessions(false)
     } catch (cause) {
       onError(cause)
     } finally {
@@ -716,11 +715,11 @@ export function WorkspaceSidebar({
                 </label>
                 <label>
                   <input
-                    checked={includeSubagentSessions}
+                    checked={includeShubAgentSessions}
                     type='checkbox'
-                    onChange={(event) => setIncludeSubagentSessions(event.target.checked)}
+                    onChange={(event) => setIncludeShubAgentSessions(event.target.checked)}
                   />
-                  Include subagent sessions
+                  Include shub-agent sessions
                 </label>
               </div>
             )}
@@ -775,7 +774,7 @@ export function WorkspaceSidebar({
               </div>
             )}
             {visibleSessions.map((recentSession) => {
-              const subagent = isSubagentSessionName(recentSession.name)
+              const shubChild = recentSession.shubAgent !== undefined
               const activeSession = sessions.find((session) =>
                 session.sessionPath === recentSession.sessionPath && session.status !== 'exited'
               )
@@ -803,7 +802,7 @@ export function WorkspaceSidebar({
               }
               return (
                 <div
-                  className={`session-row${subagent ? ' subagent-session-row' : ''}`}
+                  className={`session-row${shubChild ? ' shub-agent-session-row' : ''}`}
                   key={recentSession.sessionPath}
                 >
                   <Tooltip label={tooltipLabel}>
@@ -828,8 +827,8 @@ export function WorkspaceSidebar({
                       <span className='session-status-slot'>
                         {indicator
                           ? <SessionStatusIndicator status={indicator} />
-                          : subagent
-                          ? <span aria-hidden='true' className='subagent-session-marker'>↳</span>
+                          : shubChild
+                          ? <span aria-hidden='true' className='shub-agent-session-marker'>↳</span>
                           : archived
                           ? <ArchivedSessionIcon />
                           : null}

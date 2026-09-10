@@ -751,7 +751,7 @@ const expectedExtensions = ${
     JSON.stringify([
       join(process.cwd(), 'pi-extensions/ask-user-question.ts'),
       join(process.cwd(), 'pi-extensions/quotas.ts'),
-      join(process.cwd(), 'pi-extensions/research.ts'),
+      join(process.cwd(), 'pi-extensions/shub-agents/index.ts'),
       join(process.cwd(), 'pi-extensions/response-controls.ts'),
       join(process.cwd(), 'pi-extensions/session-environment.ts'),
     ])

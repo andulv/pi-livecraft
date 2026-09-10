@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 
-interface OpenSubagentSessionButtonProps {
+interface OpenShubAgentSessionButtonProps {
   cwd: string
   onError: (cause: unknown) => void
   onOpenSession: (cwd: string, sessionPath: string) => Promise<void>
@@ -9,16 +9,16 @@ interface OpenSubagentSessionButtonProps {
 }
 
 /**
- * Opens the session a subagent run persisted, so its transcript, tool calls and
- * cost can be read like any other session. Opening resumes the session through
- * the manager, which also makes it continuable by hand.
+ * Opens the session a shub-agent run persisted, so its transcript, tool calls
+ * and cost can be read like any other session. Opening resumes the session
+ * through the manager, which also makes it continuable by hand.
  */
-export function OpenSubagentSessionButton({
+export function OpenShubAgentSessionButton({
   cwd,
   onError,
   onOpenSession,
   sessionPath,
-}: OpenSubagentSessionButtonProps) {
+}: OpenShubAgentSessionButtonProps) {
   const [busy, setBusy] = useState(false)
 
   async function open(): Promise<void> {
@@ -32,12 +32,12 @@ export function OpenSubagentSessionButton({
     }
   }
 
-  const label = busy ? 'Opening subagent session…' : 'Open subagent session'
+  const label = busy ? 'Opening shub-agent session…' : 'Open shub-agent session'
   return (
     <Tooltip label={label}>
       <button
         aria-label={label}
-        className='conversation-action-button open-subagent-session-action'
+        className='conversation-action-button open-shub-agent-session-action'
         disabled={busy}
         onClick={() => void open()}
         type='button'

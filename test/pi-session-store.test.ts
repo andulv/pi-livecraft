@@ -38,7 +38,7 @@ test('resolves Pi session storage with Pi environment precedence', () => {
   )
 })
 
-test('a burst of subagents cannot crowd ordinary sessions out of the recent list', async () => {
+test('a burst of shub-agent children cannot crowd ordinary sessions out of the recent list', async () => {
   const { directory, workspace } = await fixture()
   const sessions = workspaceSessionDir(workspace, directory)
   await mkdir(sessions, { recursive: true })
@@ -49,19 +49,20 @@ test('a burst of subagents cannot crowd ordinary sessions out of the recent list
       path,
       workspace,
       String(index),
-      child
-        ? `subagent/research: task ${index}`
-        : `User session ${index}`,
+      child ? `shub-agent/research: task ${index}` : `User session ${index}`,
+      undefined,
+      undefined,
+      child ? { ownerSessionId: 'owner-id', agent: 'research' } : undefined,
     )
     // All 70 children are newer, exceeding both the old scan and result caps.
     await utimes(path, index + 1, index + 1)
   }))
   const recent = await listRecentPiSessions(workspace, directory)
   assert.equal(recent.filter(({ name }) => name.startsWith('User session ')).length, 30)
-  assert.equal(recent.filter(({ name }) => name.startsWith('subagent/')).length, 30)
+  assert.equal(recent.filter(({ name }) => name.startsWith('shub-agent/')).length, 30)
 })
 
-test('extracts and hides the persisted subagent owner marker', async () => {
+test('extracts the persisted ownership marker and keeps the display name whole', async () => {
   const { directory, workspace } = await fixture()
   const sessions = workspaceSessionDir(workspace, directory)
   await mkdir(sessions, { recursive: true })
@@ -69,20 +70,42 @@ test('extracts and hides the persisted subagent owner marker', async () => {
     join(sessions, 'child.jsonl'),
     workspace,
     'child-id',
-    'subagent/owner-id/research: inspect the session list',
+    'shub-agent/research: inspect the session list',
+    undefined,
+    undefined,
+    { ownerSessionId: 'owner-id', agent: 'research' },
   )
 
   assert.deepEqual(await listRecentPiSessions(workspace, directory), [
     {
       id: 'child-id',
       cwd: await realpath(workspace),
-      name: 'subagent/research: inspect the session list',
+      name: 'shub-agent/research: inspect the session list',
       sessionPath: await realpath(join(sessions, 'child.jsonl')),
-      parentSessionId: 'owner-id',
+      shubAgent: 'research',
+      ownerSessionId: 'owner-id',
       firstMessageAt: 1784451600000,
       updatedAt: 1784451600000,
     },
   ])
+})
+
+test('a session without an ownership marker stays an ordinary session', async () => {
+  const { directory, workspace } = await fixture()
+  const sessions = workspaceSessionDir(workspace, directory)
+  await mkdir(sessions, { recursive: true })
+  // The marker is the only classification: without it, even a shub-agent-shaped name is ordinary.
+  await writeSession(
+    join(sessions, 'unmarked.jsonl'),
+    workspace,
+    'unmarked-id',
+    'shub-agent/research: never ran through the extension',
+  )
+
+  const recent = await listRecentPiSessions(workspace, directory)
+  assert.equal(recent.length, 1)
+  assert.equal(recent[0].shubAgent, undefined)
+  assert.equal(recent[0].ownerSessionId, undefined)
 })
 
 test('encodes the workspace folder name the way Pi does', () => {
@@ -329,12 +352,23 @@ async function writeSession(
   name: string,
   renamedName?: string,
   lastMessageTimestamp?: string,
+  marker?: { ownerSessionId: string; agent: string },
 ): Promise<void> {
   const timestamp = id === 'newer' ? '2026-07-19T10:00:00.000Z' : '2026-07-19T09:00:00.000Z'
   await writeFile(
     path,
     [
       JSON.stringify({ type: 'session', version: 3, id, timestamp, cwd }),
+      ...(marker
+        ? [JSON.stringify({
+          type: 'custom',
+          id: 'marker0',
+          parentId: null,
+          timestamp,
+          customType: 'livecraft.shub-agent',
+          data: { version: 1, ...marker },
+        })]
+        : []),
       JSON.stringify({ type: 'session_info', name }),
       JSON.stringify({
         type: 'message',

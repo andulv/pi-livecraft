@@ -44,36 +44,38 @@ test('uses persisted order once the sent session is returned', () => {
   ])
 })
 
-test('includes owned subagents directly below their owner when requested', () => {
-  const subagent: RecentSession = {
+test('includes owned shub-agent children directly below their owner when requested', () => {
+  const child: RecentSession = {
     ...persisted,
-    id: 'subagent-id',
-    name: 'subagent/research: map the session store',
-    parentSessionId: persisted.id,
-    sessionPath: '/sessions/subagent.jsonl',
+    id: 'child-id',
+    name: 'shub-agent/research: map the session store',
+    shubAgent: 'research',
+    ownerSessionId: persisted.id,
+    sessionPath: '/sessions/child.jsonl',
     updatedAt: 999,
   }
 
-  assert.deepEqual(sidebarSessions([subagent, persisted], '/workspace'), [persisted])
-  assert.deepEqual(sidebarSessions([subagent, persisted], '/workspace', [], true), [
+  assert.deepEqual(sidebarSessions([child, persisted], '/workspace'), [persisted])
+  assert.deepEqual(sidebarSessions([child, persisted], '/workspace', [], true), [
     persisted,
-    subagent,
+    child,
   ])
 })
 
-test('does not include unowned or cross-workspace subagents', () => {
+test('does not include unowned or cross-workspace shub-agent children', () => {
   const orphan: RecentSession = {
     ...persisted,
     id: 'orphan-id',
-    name: 'subagent/research: orphan',
-    parentSessionId: 'missing-owner',
+    name: 'shub-agent/research: orphan',
+    shubAgent: 'research',
+    ownerSessionId: 'missing-owner',
     sessionPath: '/sessions/orphan.jsonl',
     updatedAt: 999,
   }
   const otherWorkspaceChild: RecentSession = {
     ...orphan,
     id: 'other-child-id',
-    parentSessionId: persisted.id,
+    ownerSessionId: persisted.id,
     cwd: '/another-workspace',
     sessionPath: '/sessions/other-child.jsonl',
   }
