@@ -110,11 +110,12 @@ without the marker loses its grouping metadata; older unmarked runs cannot be
 identified reliably.
 
 **D5 — One agent profile in code, shaped for more later.** V1 ships exactly one
-profile — the research assistant — as a constant in the new extension holding
-its model defaults, `--tools` allowlist, extension list, and system prompt.
-Adding a writing or shell-capable profile later means adding a second constant
-and a `profile` parameter, not restructuring the runner. No agent-file
-discovery, no catalogs, no recursion in v1.
+profile — the research assistant — as constants in the extension holding its
+model defaults, `--tools` allowlist, extension list, and system prompt. The
+runner is reusable, but profile selection is not a config feature yet: adding a
+writing or shell-capable profile currently requires code for the profile and a
+new tool parameter or registration. No agent-file discovery, catalogs, or
+recursion in v1.
 
 **D6 — Effort presets are the caller's contract.** Every call carries
 `effort: quick | standard | deep`, mapping to a timeout plus soft/hard
@@ -247,14 +248,13 @@ preset's guidance and budget are appended per call, as `repo_explore_ff` did.
 |---|---|
 | Parent tool card | Default view. Live progress line (current tool, count vs budget) and an **Open subagent session** action once the run has a session. |
 | Conversation view | Full child transcript, tool calls and costs, opened from the card. Opening resumes the session live (D3). |
-| Recent sessions | Excluded from the ordinary list; **View subagents only** selects the separate debug list, identified by the `subagent/` name prefix. |
+| Recent sessions | Excluded from the ordinary list; **Include subagent sessions** inserts owned children beneath their visible owner, identified by the `subagent/` name marker. |
 | Manager list | Listed only if the user opens the child session, at which point it is an ordinary session. |
 | Quota / session analysis widgets | Unchanged; they do not aggregate child spend. |
 
-Not built in v1: nesting the child under the parent in the session list,
-cross-session cost aggregation, streaming the child's transcript into the
-parent card beyond the progress line, background/async runs, parallel or
-chained subagents, a read-only session viewer.
+Not built in v1: cross-session cost aggregation, streaming the child's
+transcript into the parent card beyond the progress line, background/async runs,
+parallel or chained subagents, and a read-only session viewer.
 
 ## Implementation
 
@@ -268,7 +268,7 @@ chained subagents, a read-only session viewer.
 | `shared/pi-session-paths.ts` | Workspace session folder rule, shared with `server/pi-session-store.ts`. |
 | `server/pi-process.ts` | Loads the extension into persistent sessions. |
 | `src/features/conversation/OpenSubagentSessionButton.tsx` | Opens the child session from the tool card. |
-| `src/features/workspace/sidebar-sessions.ts` | Filters subagent runs out of the session list by default. |
+| `src/features/workspace/sidebar-sessions.ts` | Filters subagent runs by default and groups owned children beneath visible owners when enabled. |
 
 The child session file is located from the parent's own session file
 (`ctx.sessionManager.getSessionFile()`) plus the workspace folder rule, which is
