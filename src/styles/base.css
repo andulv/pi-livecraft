@@ -16,6 +16,7 @@
   --secondary: #6851a4;
   --success: #28734b;
   --warning: #b8860b;
+  --warning-weak: color-mix(in srgb, var(--warning) 55%, var(--muted));
   --danger: #a13f37;
 
   /* ── Derived neutrals ── */
@@ -66,6 +67,7 @@
   --secondary: #9d91d4;
   --success: #59ba7c;
   --warning: #d6aa45;
+  --warning-weak: color-mix(in srgb, var(--warning) 55%, var(--muted));
   --danger: #e26e63;
   --file-icon-blue: #519aba;
   --file-icon-green: #8dc149;

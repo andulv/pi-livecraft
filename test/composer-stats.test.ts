@@ -31,6 +31,28 @@ test('formats cumulative session token and activity metrics', () => {
   })
 })
 
+test('uses gradual context pressure colors at the defined thresholds', () => {
+  const expectations: Array<[number, string]> = [
+    [19.9, ''],
+    [20, 'context-warning-weak'],
+    [39.9, 'context-warning-weak'],
+    [40, 'context-warning'],
+    [79.9, 'context-warning'],
+    [80, 'context-warning-strong'],
+    [89.9, 'context-warning-strong'],
+    [90, 'context-danger'],
+  ]
+
+  for (const [percent, expectedClass] of expectations) {
+    assert.equal(
+      formatSessionStats({ contextUsage: { tokens: percent, contextWindow: 100, percent } })
+        .contextClass,
+      expectedClass,
+      `${percent}%`,
+    )
+  }
+})
+
 test('shows unavailable session metrics without producing invalid percentages', () => {
   const formatted = formatSessionStats(null)
 

@@ -397,6 +397,9 @@
   border-radius: inherit;
   background: currentColor;
 }
+.context-warning-weak {
+  color: var(--warning-weak);
+}
 .context-warning {
   color: var(--warning);
 }

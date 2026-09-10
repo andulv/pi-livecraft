@@ -50,12 +50,14 @@ export function formatSessionStats(stats: SessionStats | null): {
     : 'Unavailable'
   const cost = typeof stats?.cost === 'number' ? `$${stats.cost.toFixed(2)}` : '—'
   const contextClass = typeof contextUsage?.percent === 'number'
-    ? contextUsage.percent >= 40
+    ? contextUsage.percent >= 90
       ? 'context-danger'
-      : contextUsage.percent >= 30
+      : contextUsage.percent >= 80
       ? 'context-warning-strong'
-      : contextUsage.percent >= 20
+      : contextUsage.percent >= 40
       ? 'context-warning'
+      : contextUsage.percent >= 20
+      ? 'context-warning-weak'
       : ''
     : ''
   const userMessages = typeof stats?.userMessages === 'number'
