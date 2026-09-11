@@ -72,24 +72,39 @@ export function useConversationRuntime(
   const liveMessagesRef = useRef<LiveMessage[]>([])
   const liveMessageIndexRef = useRef(-1)
   const pendingLiveMessagesRef = useRef<LiveMessage[] | undefined>(undefined)
+  const toolExecutionsRef = useRef<ToolExecution[]>([])
+  const pendingToolExecutionsRef = useRef<ToolExecution[] | undefined>(undefined)
   const liveUpdateFrameRef = useRef<number | undefined>(undefined)
   const snapshotGateRef = useRef<SnapshotGate | undefined>(undefined)
   snapshotGateRef.current ??= new SnapshotGate(document.hidden)
   const snapshotCursorRef = useRef('')
   selectedIdRef.current = selectedId
 
-  /** Applies the latest streamed assistant messages at most once per rendered frame. */
+  /** Applies the latest streamed messages and tools in one render at most once per frame. */
   const flushLiveUpdates = useCallback(() => {
     if (liveUpdateFrameRef.current !== undefined)
       window.cancelAnimationFrame(liveUpdateFrameRef.current)
     liveUpdateFrameRef.current = undefined
-    const pending = pendingLiveMessagesRef.current
+
+    const pendingMessages = pendingLiveMessagesRef.current
     pendingLiveMessagesRef.current = undefined
-    if (pending) {
-      liveMessagesRef.current = pending
-      setLiveMessages(pending)
+    if (pendingMessages) {
+      liveMessagesRef.current = pendingMessages
+      setLiveMessages(pendingMessages)
+    }
+
+    const pendingTools = pendingToolExecutionsRef.current
+    pendingToolExecutionsRef.current = undefined
+    if (pendingTools) {
+      toolExecutionsRef.current = pendingTools
+      setToolExecutions(pendingTools)
     }
   }, [])
+
+  const scheduleLiveUpdate = useCallback(() => {
+    if (liveUpdateFrameRef.current !== undefined) return
+    liveUpdateFrameRef.current = window.requestAnimationFrame(flushLiveUpdates)
+  }, [flushLiveUpdates])
 
   /** Queues a complete public-RPC assistant message without rendering every SSE delta. */
   const queueLiveMessage = useCallback((message: JsonObject) => {
@@ -98,19 +113,32 @@ export function useConversationRuntime(
     const next = [...(pendingLiveMessagesRef.current ?? liveMessagesRef.current)]
     next[index] = { ...next[index], message }
     pendingLiveMessagesRef.current = next
-    if (liveUpdateFrameRef.current !== undefined) return
-    liveUpdateFrameRef.current = window.requestAnimationFrame(flushLiveUpdates)
-  }, [flushLiveUpdates])
+    scheduleLiveUpdate()
+  }, [scheduleLiveUpdate])
 
-  /** Clears streamed assistant messages when the displayed session changes. */
-  const clearLiveMessages = useCallback(() => {
+  /** Queues tool state beside its streamed message so both commit in one frame. */
+  const queueToolExecutions = useCallback(
+    (update: (current: ToolExecution[]) => ToolExecution[]) => {
+      pendingToolExecutionsRef.current = update(
+        pendingToolExecutionsRef.current ?? toolExecutionsRef.current,
+      )
+      scheduleLiveUpdate()
+    },
+    [scheduleLiveUpdate],
+  )
+
+  /** Clears every pending live update when the displayed session changes. */
+  const clearLiveUpdates = useCallback(() => {
     if (liveUpdateFrameRef.current !== undefined)
       window.cancelAnimationFrame(liveUpdateFrameRef.current)
     liveUpdateFrameRef.current = undefined
     pendingLiveMessagesRef.current = undefined
+    pendingToolExecutionsRef.current = undefined
     liveMessagesRef.current = []
     liveMessageIndexRef.current = -1
+    toolExecutionsRef.current = []
     setLiveMessages([])
+    setToolExecutions([])
   }, [])
 
   /** Synchronizes the selected snapshot and replays newer buffered manager events. */
@@ -168,9 +196,8 @@ export function useConversationRuntime(
           setSnapshotSessionId(sessionId)
           const latestLiveSequence = response.liveEvents.at(-1)?.sequence ?? 0
           if (latestLiveSequence > appliedPiEventSequenceRef.current) {
-            clearLiveMessages()
+            clearLiveUpdates()
             setActivity(null)
-            setToolExecutions([])
             appliedPiEventSequenceRef.current = 0
             for (const liveEvent of response.liveEvents) {
               replayEvent(
@@ -199,7 +226,7 @@ export function useConversationRuntime(
       })
     snapshotRefreshRef.current = request
     return request.promise
-  }, [clearLiveMessages, flushLiveUpdates, onError, replayEvent])
+  }, [clearLiveUpdates, flushLiveUpdates, onError, replayEvent])
 
   /** Runs an automatic snapshot now, or defers it while the page is hidden. */
   const scheduleSnapshot = useCallback((sessionId: string): void => {
@@ -242,22 +269,20 @@ export function useConversationRuntime(
       }
       if (event.type === 'agent_start') requestStartedAtRef.current = performance.now()
       const streamedToolCall = toolCallInUpdate(event)
-      if (streamedToolCall) {
-        flushLiveUpdates()
-        setToolExecutions((current) =>
+      if (streamedToolCall)
+        queueToolExecutions((current) =>
           applyToolCallUpdate(current, streamedToolCall, crypto.randomUUID())
         )
-      }
       const toolExecutionUpdate = toolExecutionUpdateInEvent(event)
       if (toolExecutionUpdate)
-        setToolExecutions((current) => applyToolExecutionUpdate(current, toolExecutionUpdate))
+        queueToolExecutions((current) => applyToolExecutionUpdate(current, toolExecutionUpdate))
       if (
         event.type === 'tool_execution_start' && typeof event.toolCallId === 'string'
         && typeof event.toolName === 'string'
       ) {
         const { args, toolCallId: id, toolName: name } = event
         toolStartedAtRef.current.set(id, performance.now())
-        setToolExecutions((current) => [
+        queueToolExecutions((current) => [
           ...current.filter((execution) => execution.id !== id),
           { id, name, args, status: 'running' },
         ])
@@ -282,7 +307,7 @@ export function useConversationRuntime(
           isError: event.isError === true,
           details,
         }
-        setToolExecutions((current) =>
+        queueToolExecutions((current) =>
           current.map((execution) => execution.id === id ? { ...execution, result } : execution)
         )
         scheduleSnapshot(sessionId)
@@ -292,8 +317,8 @@ export function useConversationRuntime(
         return next?.kind === current?.kind ? current : next
       })
       if (event.type === 'message_start') {
+        queueToolExecutions(interruptToolCallGeneration)
         flushLiveUpdates()
-        setToolExecutions(interruptToolCallGeneration)
         const message = assistantMessageInEvent(event)
         if (message) {
           const next = [...liveMessagesRef.current, { id: crypto.randomUUID(), message }]
@@ -309,7 +334,7 @@ export function useConversationRuntime(
         const message = assistantMessageAfterEvent(live?.message ?? null, event)
         if (message) queueLiveMessage(message)
         if (event.assistantMessageEvent.type === 'error')
-          setToolExecutions(interruptToolCallGeneration)
+          queueToolExecutions(interruptToolCallGeneration)
       }
       if (event.type === 'message_end') {
         const live = (pendingLiveMessagesRef.current ?? liveMessagesRef.current)[
@@ -332,8 +357,8 @@ export function useConversationRuntime(
         : undefined
       if (event.type === 'agent_settled') requestStartedAtRef.current = undefined
       if (event.type === 'message_end' || event.type === 'agent_settled') {
+        queueToolExecutions(interruptToolCallGeneration)
         flushLiveUpdates()
-        setToolExecutions(interruptToolCallGeneration)
         const settledSnapshot = snapshotGateRef.current?.schedule(sessionId) === 'run'
           ? refreshSnapshot(sessionId)
           : undefined
@@ -350,13 +375,13 @@ export function useConversationRuntime(
         })
       }
     },
-    [flushLiveUpdates, queueLiveMessage, refreshSnapshot, scheduleSnapshot],
+    [flushLiveUpdates, queueLiveMessage, queueToolExecutions, refreshSnapshot, scheduleSnapshot],
   )
 
   useEffect(() => {
     snapshotGateRef.current?.selectionChanged()
     snapshotCursorRef.current = ''
-    clearLiveMessages()
+    clearLiveUpdates()
     appliedPiEventSequenceRef.current = 0
     snapshotSessionIdRef.current = ''
     setSnapshot(emptySnapshot)
@@ -364,13 +389,12 @@ export function useConversationRuntime(
     setPendingSteering([])
     queueUpdateVersionRef.current += 1
     setActivity(null)
-    setToolExecutions([])
     setObservedToolDurations(new Map())
     setObservedRequestDurations(new Map())
     toolStartedAtRef.current.clear()
     requestStartedAtRef.current = undefined
     void refreshSnapshot(selectedId)
-  }, [clearLiveMessages, refreshSnapshot, selectedId])
+  }, [clearLiveUpdates, refreshSnapshot, selectedId])
 
   const addPendingSteering = useCallback((message: string): void => {
     setPendingSteering((current) => [...current, message])

@@ -356,7 +356,7 @@ The remainder is react-dom reconciliation plus development-only validation
 
 One 75-second window of ordinary work carried 1183 SSE frames and 566 KB:
 
-| Event | Count | Batched today |
+| Event | Count | Batched before C1 |
 |---|---|---|
 | `message_update/toolcall_delta` | 498 | no |
 | `message_update/thinking_delta` | 468 | yes, one frame |
@@ -391,7 +391,7 @@ backend, manager, or Pi CPU.
 5. Pure protocol helpers return fresh objects for unchanged messages, so leaf `memo` fails.
 6. Background sessions trigger effects in the selected session's view.
 
-### C1. Commit streamed tool-call state through the existing frame batcher
+### C1. Commit streamed tool-call state through the existing frame batcher (implemented 2026-09-11)
 
 Owner: `src/features/conversation/useConversationRuntime.ts`.
 
@@ -412,6 +412,19 @@ render per frame.
 
 Proof: extend `test/conversation-runtime.test.ts` with a delta burst that asserts one commit
 per frame and preserved ordering between a tool call and the message that contains it.
+
+Implemented with one pending tool-execution ref beside the existing pending-message ref and
+one shared frame callback. Tool-call deltas, execution updates, starts, ends, and interruption
+all enter that queue; deliberate settlement, snapshot, dialog, and selection flushes remain.
+No timer or second scheduler was added. The existing test harness does not mount React hooks,
+so render frequency was proved in the shared browser rather than by pretending the pure
+snapshot tests cover it: 317 `toolcall_delta` events on a larger session (99 visible messages,
+139 tool cards, about 10,700 DOM nodes) blocked the main thread for 5.5 % over 57 seconds,
+with a 74 ms median and 217 ms maximum long task. The C0 run blocked 42 %, with a 154 ms
+median and 1400 ms maximum. Rendered messages, tool cards, activity, and console errors were
+checked after the sampled tool calls. Browser-pane comparison remains separate because attaching
+the shared browser to a Livecraft page and opening its own Browser tab would recursively
+capture the measuring page.
 
 ### C2. Stop re-parsing streamed tool arguments on every delta
 
