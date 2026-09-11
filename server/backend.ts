@@ -40,7 +40,10 @@ import {
   parseTerminalResize,
   TerminalService,
 } from './features/terminal/session.ts'
-import { DiagnosticsRecorder } from './features/diagnostics/diagnostics.ts'
+import {
+  DiagnosticsRecorder,
+  type SnapshotStageMeasurement,
+} from './features/diagnostics/diagnostics.ts'
 import { MetadataCache } from './features/session-metadata/metadata-cache.ts'
 import { openSseStream, parseSseLastEventId } from './sse-response.ts'
 import {
@@ -88,6 +91,12 @@ const environment = new EnvironmentService(manager)
 const diagnostics = new DiagnosticsRecorder()
 const appLog = new AppLog(fileURLToPath(new URL('../pi-livecraft-app.log', import.meta.url)))
 appLog.boot(process.pid)
+
+/** Records one snapshot once in both bounded and persistent diagnostics. */
+function recordSnapshot(stage: SnapshotStageMeasurement): void {
+  diagnostics.snapshot(stage)
+  if (stage.totalMs >= slowSnapshotThresholdMs) appLog.slowSnapshot(stage)
+}
 const metadata = new MetadataCache()
 const browsers = new BrowserService()
 process.once('exit', () => {
@@ -740,7 +749,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         cursor: delta.cursor,
       })
       const deltaTotalMs = Math.round((performance.now() - snapshotStartedAt) * 100) / 100
-      diagnostics.snapshot({
+      recordSnapshot({
         rpcMs,
         buildMs,
         templatesMs,
@@ -748,7 +757,6 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         bytes,
         mode: 'delta',
       })
-      if (deltaTotalMs >= slowSnapshotThresholdMs) appLog.slowSnapshot('delta', deltaTotalMs, bytes)
       return
     }
     const snapshot: SessionSnapshot = {
@@ -770,7 +778,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     }
     const bytes = sendJson(response, 200, snapshot)
     const fullTotalMs = Math.round((performance.now() - snapshotStartedAt) * 100) / 100
-    diagnostics.snapshot({
+    recordSnapshot({
       rpcMs,
       buildMs,
       templatesMs,
@@ -778,7 +786,6 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       bytes,
       mode: 'full',
     })
-    if (fullTotalMs >= slowSnapshotThresholdMs) appLog.slowSnapshot('full', fullTotalMs, bytes)
     return
   }
 

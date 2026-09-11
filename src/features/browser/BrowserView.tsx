@@ -176,7 +176,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
         lastFrameRef.current = data
         const image = frameImageRef.current
         if (image) image.src = `data:image/jpeg;base64,${data}`
-        setHasFrame((current) => current || true)
+        else setHasFrame(true)
       },
       onUrl: (nextUrl) => onUrlCommitRef.current(nextUrl),
       onStatus: (next) => {

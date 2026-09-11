@@ -151,7 +151,7 @@ const turnTimeFormat = new Intl.DateTimeFormat(navigator.language, {
 })
 
 /** Displays counters billed by Pi for a completed assistant response. */
-export function TurnUsage(
+export const TurnUsage = memo(function TurnUsage(
   { model, thinkingLevel, timestamp, turnDurationMs, turnNumber, usage }: {
     model?: string
     thinkingLevel?: string
@@ -184,7 +184,7 @@ export function TurnUsage(
       <span>Cost: {formatTurnCost(usage.cost)}</span>
     </div>
   )
-}
+})
 
 function visibleText(content: unknown): string {
   if (typeof content === 'string') return content

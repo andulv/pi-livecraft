@@ -16,7 +16,7 @@ and work from that evidence instead of simulating heavy usage.
 | `request-error` | failed HTTP request | `route` (template, `sessions/:id` masked), `status` |
 | `manager` | manager connect/disconnect | `state` |
 | `sse-open` | SSE stream opened (loads and reconnects) | — |
-| `slow-snapshot` | snapshot ≥ 1000 ms | `mode`, `totalMs`, `bytes` |
+| `slow-snapshot` | snapshot ≥ 1000 ms | `mode`, `rpcMs`, `buildMs`, `templatesMs`, `totalMs`, `bytes` |
 | `provider-failure` | Pi provider request failed | `model`, `message` (truncated) |
 | `client` | client POST `/api/client-log` | `source`, `message` |
 | `client-cap` | client cap reached | `note` (once per run) |

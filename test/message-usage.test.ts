@@ -35,6 +35,16 @@ test('extracts per-response cost and token counters from Pi usage', () => {
   assert.equal(formatTurnDuration(3_723_000), '1h2m3s')
 })
 
+test('reuses extracted usage while the protocol message is unchanged', () => {
+  const message = {
+    role: 'assistant',
+    usage: { input: 10, output: 5, cacheRead: 20, cost: { total: 0.001 } },
+  }
+
+  assert.equal(messageUsage(message), messageUsage(message))
+  assert.notEqual(messageUsage(message), messageUsage({ ...message }))
+})
+
 test('adds completed response usage to cumulative session stats', () => {
   assert.deepEqual(
     addMessageUsage({ cost: 1, tokens: { input: 100, output: 20 } }, {

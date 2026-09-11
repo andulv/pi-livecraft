@@ -10,6 +10,17 @@ export interface MessageUsage {
   output: number
 }
 
+const usageByMessage = new WeakMap<JsonObject, { usage: MessageUsage | null }>()
+const preciseCostFormat = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 4,
+  maximumFractionDigits: 4,
+})
+const standardCostFormat = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+let durationFormat: Intl.NumberFormat | undefined
+
 /** Adds one completed assistant response to cumulative session totals. */
 export function addMessageUsage(stats: SessionStats | null, usage: MessageUsage): SessionStats {
   const tokens = stats?.tokens
@@ -30,6 +41,14 @@ export function addMessageUsage(stats: SessionStats | null, usage: MessageUsage)
 
 /** Extracts final counters associated with a Pi response or tool result. */
 export function messageUsage(message: JsonObject): MessageUsage | null {
+  const cached = usageByMessage.get(message)
+  if (cached) return cached.usage
+  const usage = readMessageUsage(message)
+  usageByMessage.set(message, { usage })
+  return usage
+}
+
+function readMessageUsage(message: JsonObject): MessageUsage | null {
   const usage = isObject(message.usage) ? message.usage : null
   const cost = usage && isObject(usage.cost) ? usage.cost : null
   if (
@@ -47,11 +66,7 @@ export function messageUsage(message: JsonObject): MessageUsage | null {
 }
 
 export function formatTurnCost(value: number): string {
-  const digits = value < 0.01 ? 4 : 2
-  return `$${
-    new Intl.NumberFormat('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })
-      .format(value)
-  }`
+  return `$${(value < 0.01 ? preciseCostFormat : standardCostFormat).format(value)}`
 }
 
 export function formatTokens(value: number): string {
@@ -97,9 +112,8 @@ export function turnUsageByMessage(
 /** Formats an observed millisecond duration for display. */
 export function formatDuration(value: number): string {
   if (value < 1000) return `${Math.round(value)} ms`
-  return `${
-    new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 }).format(value / 1000)
-  } s`
+  durationFormat ??= new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 })
+  return `${durationFormat.format(value / 1000)} s`
 }
 function isNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)

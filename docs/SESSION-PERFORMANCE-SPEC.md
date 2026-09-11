@@ -468,7 +468,7 @@ content on every frame; that serialization is the 3.47 ms measured at 868 messag
 Proof: existing `test/tool-protocol.test.ts` and reconciliation coverage must pass unchanged;
 add one assertion that a repeated call for the same message returns the same reference.
 
-### C4. Share locale formatters
+### C4. Share locale formatters (implemented 2026-09-11)
 
 Owners: `formatSessionTime` in `src/features/workspace/session-time.ts` and `TurnUsage` in
 `src/features/conversation/MessageCard.tsx`.
@@ -481,11 +481,15 @@ time for every visible turn on every render.
 1. Hoist the formatters to module-level `Intl.DateTimeFormat` constants and format from them.
    Output must not change.
 2. Wrap `TurnUsage` in `memo`. It is exported and rendered per turn, and it is the only
-   conversation component in the profile that is not already memoized. Its benefit depends on
-   C3 and C5 stabilizing its `usage` prop; measure after those, not before.
+   conversation component in the profile that is not already memoized. Retain one extracted
+   usage value per immutable message object so repeated history derivation keeps that prop stable.
 
 Proof: keep or extend the existing `session-time` coverage for same-year and older
 timestamps. Locale formatting is observable behavior: assert the rendered strings.
+
+Implemented with shared date, time, cost, and duration formatters; `messageUsage` retains its
+pure result in a `WeakMap`, and `TurnUsage` is memoized. The cache follows the same immutable
+message-object contract as C3 and releases entries when messages become unreachable.
 
 ### C5. Scope background-session effects to their workspace
 

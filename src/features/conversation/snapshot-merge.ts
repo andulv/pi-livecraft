@@ -15,7 +15,8 @@ export function mergeSnapshotResponse(
 ): SessionSnapshot {
   if (!('mode' in response) || response.mode !== 'delta') {
     const snapshot = response as SessionSnapshot
-    return { ...snapshot, stats: mergeSessionStats(current.stats, snapshot.stats) }
+    const stats = mergeSessionStats(current.stats, snapshot.stats)
+    return stats === snapshot.stats ? snapshot : { ...snapshot, stats }
   }
   const messages = response.appended.length > 0
     ? [...current.messages, ...response.appended]

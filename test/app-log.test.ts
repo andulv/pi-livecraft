@@ -62,6 +62,31 @@ test('shutdown writes once even when both the crash handler and exit fire', () =
   assert.equal(lines.at(-1).reason, 'crash')
 })
 
+test('slow snapshots retain their content-free stage breakdown', () => {
+  const path = join(mkdtempSync(join(tmpdir(), 'app-log-')), 'app.log')
+  const log = new AppLog(path)
+  log.slowSnapshot({
+    mode: 'delta',
+    rpcMs: 1200,
+    buildMs: 2,
+    templatesMs: 0.03,
+    totalMs: 1205,
+    bytes: 226_000,
+  })
+
+  const line = JSON.parse(readFileSync(path, 'utf8').trim())
+  assert.deepEqual(line, {
+    t: line.t,
+    kind: 'slow-snapshot',
+    mode: 'delta',
+    rpcMs: 1200,
+    buildMs: 2,
+    templatesMs: 0.03,
+    totalMs: 1205,
+    bytes: 226_000,
+  })
+})
+
 test('client entries are capped per run with a single marker', () => {
   const path = join(mkdtempSync(join(tmpdir(), 'app-log-')), 'app.log')
   const log = new AppLog(path)

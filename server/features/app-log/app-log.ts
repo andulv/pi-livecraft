@@ -19,6 +19,15 @@ export interface AppLogPreviousRun {
   clean: boolean
 }
 
+export interface SlowSnapshotMeasurement {
+  mode: 'full' | 'delta'
+  rpcMs: number
+  buildMs: number
+  templatesMs: number
+  totalMs: number
+  bytes: number
+}
+
 /**
  * Parses the previous run's outcome from the last log line: a `shutdown` line reports a
  * known uptime (clean only when the reason is `exit`); anything else, including a torn
@@ -109,9 +118,9 @@ export class AppLog {
     this.#write('provider-failure', { model, message: truncate(message, appLogMaxMessageLength) })
   }
 
-  /** Records one snapshot slower than `slowSnapshotThresholdMs`. */
-  slowSnapshot(mode: 'full' | 'delta', totalMs: number, bytes: number): void {
-    this.#write('slow-snapshot', { mode, totalMs, bytes })
+  /** Records the existing stage measurements for one slow snapshot. */
+  slowSnapshot(measurement: SlowSnapshotMeasurement): void {
+    this.#write('slow-snapshot', { ...measurement })
   }
 
   /**
