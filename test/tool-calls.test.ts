@@ -180,6 +180,47 @@ test('accumulates arguments and preserves interrupted generations', () => {
   assert.deepEqual(completed[0]?.args, { path: 'note.md' })
 })
 
+test('returns one tool call identity per message so cards can memoize', () => {
+  const message = {
+    role: 'assistant',
+    content: [{ type: 'toolCall', id: 'call_1', name: 'read', arguments: { path: 'a.ts' } }],
+  }
+
+  const first = toolCallsInMessage(message)
+  const second = toolCallsInMessage(message)
+
+  assert.equal(first, second)
+  assert.equal(first[0], second[0])
+  assert.notEqual(first, toolCallsInMessage({ ...message }))
+})
+
+test('parses accumulated arguments that close after a nested object', () => {
+  const start = {
+    call: { id: '', name: '', args: {} },
+    contentIndex: 0,
+    delta: '',
+    phase: 'start' as const,
+  }
+  const deltas = ['{"edits":[{"oldText":"a","newText":"b"}', '],"path":"note.md"}']
+  const executions = deltas.reduce(
+    (current, delta) =>
+      applyToolCallUpdate(current, {
+        call: { id: 'call_1', name: '', args: {} },
+        contentIndex: 0,
+        delta,
+        phase: 'delta',
+      }, 'unused'),
+    applyToolCallUpdate([], start, 'draft_1'),
+  )
+
+  // The first delta ends on an inner brace and stays unparsed; the last one completes.
+  assert.equal(executions[0]?.rawArguments, deltas.join(''))
+  assert.deepEqual(executions[0]?.args, {
+    edits: [{ oldText: 'a', newText: 'b' }],
+    path: 'note.md',
+  })
+})
+
 test('preserves partial arguments through multiple deltas', () => {
   const start = {
     call: { id: '', name: 'read', args: {} },

@@ -143,6 +143,13 @@ function DefaultCustomMessage({ message }: { message: JsonObject & { customType?
   )
 }
 
+// Every visible turn renders this footer on each render, so the formatter is built once.
+const turnTimeFormat = new Intl.DateTimeFormat(navigator.language, {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+})
+
 /** Displays counters billed by Pi for a completed assistant response. */
 export function TurnUsage(
   { model, thinkingLevel, timestamp, turnDurationMs, turnNumber, usage }: {
@@ -161,11 +168,7 @@ export function TurnUsage(
       {turnNumber !== undefined && <span>#{turnNumber}</span>}
       {validTime && (
         <time dateTime={validTime.toISOString()}>
-          {validTime.toLocaleTimeString(navigator.language, {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          })}
+          {turnTimeFormat.format(validTime)}
           {turnDurationMs !== undefined && ` (+${formatTurnDuration(turnDurationMs)})`}
         </time>
       )}

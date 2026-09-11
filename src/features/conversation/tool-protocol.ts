@@ -37,14 +37,24 @@ export interface ToolExecution extends ToolCall {
   status: 'generating' | 'running' | 'interrupted'
 }
 
+/**
+ * Retains one result per message object so unchanged history keeps a stable call identity.
+ * Protocol messages are replaced rather than mutated, so object identity tracks their content.
+ */
+const callsByMessage = new WeakMap<JsonObject, ToolCall[]>()
+
 /** Extracts every tool call embedded in an assistant message's content array. */
 export function toolCallsInMessage(message: JsonObject): ToolCall[] {
   if (message.role !== 'assistant' || !Array.isArray(message.content)) return []
 
-  return message.content.flatMap((part) => {
+  const cached = callsByMessage.get(message)
+  if (cached) return cached
+  const calls = message.content.flatMap((part) => {
     const call = toolCallFromValue(part)
     return call ? [call] : []
   })
+  callsByMessage.set(message, calls)
+  return calls
 }
 
 /** Extracts each step of a tool call to track its raw arguments while they are generated. */
@@ -107,7 +117,12 @@ export function applyToolCallUpdate(
     if (update.phase === 'end') return { ...execution, ...update.call, status: 'running' as const }
 
     const rawArguments = `${execution.rawArguments ?? ''}${update.delta}`
-    const parsedArguments = parseToolArguments(rawArguments)
+    // Arguments serialize as a JSON object, so an accumulation that has not reached its
+    // closing brace cannot parse. Skipping those attempts keeps a long argument linear
+    // instead of reparsing every prefix once per delta.
+    const parsedArguments = rawArguments.trimEnd().endsWith('}')
+      ? parseToolArguments(rawArguments)
+      : undefined
     return {
       ...execution,
       ...update.call,

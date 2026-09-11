@@ -1217,6 +1217,11 @@ function LivecraftProjectApp(
     return saved
   }, [selectedSession?.cwd, showToast, workspacePath])
   const handleComposerSelectOpened = useCallback(() => setRequestedSelect(null), [])
+  /** Kept stable so streamed updates do not defeat each tool call card's memoization. */
+  const handleOpenShubAgentSession = useCallback(
+    (cwd: string, sessionPath: string): Promise<void> => openPinnedSession({ cwd, sessionPath }),
+    [openPinnedSession],
+  )
   const analysisAvailable = selectedSession !== undefined
     && snapshotSessionId === selectedSession.id
   const sessionAnalysis = useMemo(() =>
@@ -1679,8 +1684,7 @@ function LivecraftProjectApp(
                       navigationRequest={conversationNavigation}
                       onError={handleConversationError}
                       onFork={handleForkConversation}
-                      onOpenShubAgentSession={(cwd, sessionPath) =>
-                        openPinnedSession({ cwd, sessionPath })}
+                      onOpenShubAgentSession={handleOpenShubAgentSession}
                       onRetry={retryConversationPrompt}
                       pendingSteering={pendingSteering}
                       repositoryRoot={workspaceGit[workspacePath]?.root}

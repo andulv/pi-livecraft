@@ -45,8 +45,23 @@ function extractUserText(message: JsonObject): string | null {
   return null
 }
 
+/**
+ * Retains one key per message object. Reconciliation runs for every streamed frame, so without
+ * this the whole history reserializes on each one. Protocol messages are replaced rather than
+ * mutated, so object identity tracks their content.
+ */
+const keysByMessage = new WeakMap<JsonObject, { key: string | null }>()
+
 /** Returns a stable comparison key without reserializing the same message for every candidate. */
 function messageMatchKey(message: JsonObject): string | null {
+  const cached = keysByMessage.get(message)
+  if (cached) return cached.key
+  const key = computeMessageMatchKey(message)
+  keysByMessage.set(message, { key })
+  return key
+}
+
+function computeMessageMatchKey(message: JsonObject): string | null {
   const userText = extractUserText(message)
   if (userText !== null) return `user\u0000${userText}`
   const assistantContent = assistantContentKey(message)
