@@ -3,6 +3,7 @@
 Pi Livecraft is documented in layers: begin with the system you want to build on, then follow a deeper link only when the change crosses a boundary. Implementation guides describe the project's supported composition points; feature README files record their local contracts.
 
 - **[Andulv fork feature overview](/docs/ANDULV-FORK-FEATURES.md)** — additions and improvements made by `andulv/pi-livecraft`, with screenshots from the running fork.
+- **[Workspace containers specification](/docs/WORKSPACE-CONTAINERS.md)** — draft workspace execution environments, replaceable Pi placement, lifecycle/UX direction, and browser discovery/control alternatives. Not implemented.
 - **[Browser bridge specification](/docs/BROWSER-BRIDGE.md)** — CDP livecast browser for the viewer pane; the spec records the design and is now implemented.
 - **[Embedded terminal specification](/docs/EMBEDDED-TERMINAL.md)** — server-side PTY shell in a viewer-pane Terminal tab; the spec records the transport decision and is now implemented.
 - **[Pi settings UI specification](/docs/PI-SETTINGS-SPEC.md)** — proposed settings tabs to view and edit Pi's global and project `settings.json` (curated fields plus a raw JSON editor) and to expose Pi Livecraft's own browser-stored preferences. Not yet implemented.
