@@ -390,7 +390,7 @@ export function toolWriteContent(args: unknown): string | null {
 
 /**
  * Returns the session file a shub-agent run persisted, reported by the
- * `shub_agent` tool in its result details, or null when the run never reached a
+ * subagent tool in its result details, or null when the run never reached a
  * session.
  */
 export function shubAgentSessionPath(details: unknown): string | null {

@@ -56,8 +56,6 @@ export interface ShubChildOptions {
   hardToolCalls: number
   timeoutMs: number
   maxOutputChars: number
-  /** Whether the child loads AGENTS.md-style context files; off by default. */
-  projectContext?: boolean
   signal?: AbortSignal
   onProgress?: (progress: ShubProgress) => void
 }
@@ -105,7 +103,6 @@ export function shubChildArguments(
     | 'model'
     | 'thinking'
     | 'providerArgs'
-    | 'projectContext'
   >,
 ): string[] {
   const args = [
@@ -113,7 +110,7 @@ export function shubChildArguments(
     '--no-skills',
     '--no-prompt-templates',
     '--no-themes',
-    ...(options.projectContext ? [] : ['--no-context-files']),
+    '--no-context-files',
     '--mode',
     'json',
     '--name',

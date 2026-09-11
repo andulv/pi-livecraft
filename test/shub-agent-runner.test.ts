@@ -26,7 +26,7 @@ test('child arguments persist a named session and load only the given extensions
 
   ok(!args.includes('--no-session'), 'the child must persist its session')
   ok(args.includes('--no-extensions'), 'global extensions must not load into the child')
-  ok(args.includes('--no-context-files'), 'context files are opt-in per profile')
+  ok(args.includes('--no-context-files'), 'child context files must stay disabled')
   deepEqual(args.slice(args.indexOf('--name'), args.indexOf('--name') + 2), [
     '--name',
     'shub-agent/research: Explain the session store',
@@ -39,14 +39,13 @@ test('child arguments persist a named session and load only the given extensions
   deepEqual(args.slice(args.indexOf('--print')), ['--print', 'Explain the session store'])
 })
 
-test('projectContext opts the child back into context files and host args are kept', () => {
+test('provider arguments do not change child isolation', () => {
   const args = shubChildArguments({
     ...baseOptions,
-    projectContext: true,
     providerArgs: ['--fff-mode', 'tools-only'],
   })
 
-  ok(!args.includes('--no-context-files'))
+  ok(args.includes('--no-context-files'))
   deepEqual(args.slice(args.indexOf('--fff-mode'), args.indexOf('--fff-mode') + 2), [
     '--fff-mode',
     'tools-only',
