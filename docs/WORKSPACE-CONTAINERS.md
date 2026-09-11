@@ -156,7 +156,27 @@ Other required integration decisions:
   execution, including manager process reuse across sessions.
 - Loopback port forwarding and a relay into container-local CDP endpoints.
 
-## Browser observation and control: alternatives
+## Browser observation and control
+
+### First-version direction
+
+Provide Chromium and Playwright in the workspace container with ordinary agent access.
+Use container/tool configuration and clear agent instructions to launch browsers with
+CDP enabled so Livecraft can connect from the host through a container relay. One
+verified launch-and-attach recipe is sufficient; transparent support for every possible
+launch path is not required.
+
+No creation broker, generic `host` command, approval flow, executable permission gates,
+or bypass prevention in v1. Agents may launch browsers directly. A small launcher helper
+or wrapper is optional if it simplifies configuration, not a mandatory interception
+layer. Missing an unmanaged browser is an accepted limitation.
+
+Prove the usable end-to-end path first: agent launches in the container, Livecraft
+finds or receives the endpoint, and the human can view/interact while agent automation
+continues. CDP enabled inside the container alone is insufficient: the host relay must
+also work. Browser observability remains independent of the container execution core.
+
+### Alternatives retained for reference
 
 Browser tooling ultimately launches an executable (Chromium for the current viewer).
 It may use Playwright CLI, Playwright scripts/tests, another automation library, or a
@@ -173,9 +193,9 @@ Livecraft's existing viewer needs a reachable CDP connection [4].
 | Livecraft creation tool / CLI broker | Create/list/release with reliable attribution and registration; can reuse upstream automation after attachment | Adds a managed creation path; unrestricted shell/scripts can bypass it |
 | Restricted automation gateway | Can mediate access/control through the gateway | Preventing independent launches also needs execution restrictions; out of prototype scope |
 
-### Promising prototype: executable wrapper plus discovery
+### Optional convenience: executable wrapper plus discovery
 
-Configure the supplied Chromium launch paths to use a wrapper that:
+If configuration and instructions need a launcher helper, it can:
 
 1. Adds `--remote-debugging-port=0` when no debugging port was supplied.
 2. Preserves caller arguments and profile; supplies a separate non-default profile
@@ -202,9 +222,8 @@ Discovery must discard stale endpoints and not identify a browser solely by a re
 port. Container-local loopback endpoints need a relay, not just a host-visible URL.
 
 The prototype may therefore promise **visibility of supported, CDP-enabled browsers**,
-not visibility of every arbitrary browser process. A broker remains an option if
-wrapper/discovery compatibility proves too fragile. Tokens could gate a future relay,
-but do not make independent browser launches impossible.
+not visibility of every arbitrary browser process. The alternatives above are retained
+for later consideration, not requirements or fallback work scheduled for v1.
 
 ## Staged validation and decisions
 
@@ -217,11 +236,12 @@ but do not make independent browser launches impossible.
 3. **Lifecycle contract:** specify persistence and behavior for each restart/stop
    event, then validate reconnect/recovery. Use the focused manager lifecycle tests
    named in `MANAGER-LIFECYCLE.md` when changing that boundary.
-4. **Independent browser spike:** compare upstream CLI discovery/dashboard with
-   wrapper plus CDP discovery. Test direct Chromium, Playwright CLI, and a Playwright
-   script; simultaneous instances; tabs/popups; concurrent automation and viewing;
-   process exit; and backend reconnection. Existing `test/browser-smoke.test.ts` is a
-   starting point, not proof of the new container contract.
+4. **Independent browser spike:** establish one documented launch-and-attach recipe
+   using the supplied Chromium/Playwright tooling and the host relay. Validate
+   simultaneous instances, tabs/popups, concurrent automation and viewing, process
+   exit, and backend reconnection. Compare discovery mechanisms or add a wrapper only
+   if needed for this path. Existing `test/browser-smoke.test.ts` is a starting point,
+   not proof of the new container contract.
 5. **Incremental UX:** workspace state/terminal/apps first; browser instance/tab
    selection next; naming, sharing, and control handoff when useful.
 
