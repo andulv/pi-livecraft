@@ -67,7 +67,9 @@
   gap: 3px 8px;
   margin: 4px 0 8px;
   padding-bottom: 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 40%, transparent);
+  /* Turn separator: a step darker than the muted stats above it so the
+     boundary between turns reads clearly. */
+  border-bottom: 1px solid color-mix(in srgb, var(--muted) 50%, var(--ink));
   color: var(--muted);
   font: 10px ui-monospace, monospace;
   animation: turn-usage-fade-in 300ms ease-out both;
