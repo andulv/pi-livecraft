@@ -28,11 +28,11 @@ shipping workspace containers**. Its implementation must not determine where Pi 
 - Agents can use shell commands, automation libraries, and browser executables
   directly. Instructions discourage unmanaged browsers but do not prevent them.
 
-Existing contracts: [architecture](ARCHITECTURE.md),
-[manager lifecycle](MANAGER-LIFECYCLE.md), and
-[browser feature reference](../src/features/browser/README.md). The older
-[browser specification](BROWSER-BRIDGE.md) includes historical decisions; the feature
-reference and source describe current behavior.
+Existing contracts: [architecture](/docs/ARCHITECTURE.md),
+[manager lifecycle](/docs/MANAGER-LIFECYCLE.md), and
+[browser feature reference](/src/features/browser/README.md). Historical browser decisions
+are in [the archived plan](../archive/browser-bridge.md); the feature reference and source
+describe current behavior.
 
 ## Goals and scope
 

@@ -551,7 +551,7 @@ export interface BrowserInstanceTarget {
   browserId: string
 }
 
-/** Status payload for one browser instance (see docs/BROWSER-BRIDGE.md). */
+/** Status payload for one browser instance. */
 export interface BrowserSessionStatus {
   state: BrowserSessionState
   /** Current page URL while a session is live. */

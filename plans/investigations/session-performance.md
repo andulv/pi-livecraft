@@ -326,8 +326,8 @@ this work order's baseline, not as a continuation of A's numbers.
 
 ### C0. Measured baseline
 
-Tested revision: the A/B close-out tree plus uncommitted `docs/SUBAGENT-SPEC.md` and
-`AUDIT-RESPONSE.md`. Vite development server on `127.0.0.1:5173`, React development build,
+Tested revision: the A/B close-out tree plus uncommitted subagent-v2 and audit-response
+planning documents. Vite development server on `127.0.0.1:5173`, React development build,
 software-rendered shared Chrome, a second client attached to a live session of 36 visible
 messages and 61 tool calls. Backend 5.6 % and manager 4.2 % CPU throughout. CPU convention:
 one fully used core is 100 %.

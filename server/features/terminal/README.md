@@ -15,6 +15,6 @@ HTTP routing and working-directory resolution remain in `server/backend.ts`. Mai
 - input/resize: `pty.write` / `pty.resize` with validated payloads (`data` ≤ 10 000 chars; `cols`/`rows` integers 1–1000). Resize before start is remembered and applied at spawn.
 - lifecycle: `off | starting | live | exited | crashed`. Linux PTYs report signal 0 on normal exit, so only a non-zero signal counts as `crashed`. A restart clears the buffer and resets offsets. Concurrency caps at 4 sessions per workspace (routes answer 429 beyond that), and the registry kills every child when the backend exits.
 
-A shell keeps producing while nobody watches — unlike the browser screencast, releasing the last viewer pauses nothing. Sessions die with the backend; tmux backing is the named durability path (see docs/EMBEDDED-TERMINAL.md). HTTP routing, workspace resolution, and the SSE resume framing stay in `server/backend.ts` and `server/sse-response.ts`.
+A shell keeps producing while nobody watches — unlike the browser screencast, releasing the last viewer pauses nothing. Sessions die with the backend; tmux backing is the named durability path. HTTP routing, workspace resolution, and the SSE resume framing stay in `server/backend.ts` and `server/sse-response.ts`.
 
 Focused coverage: `test/terminal-session.test.ts`.

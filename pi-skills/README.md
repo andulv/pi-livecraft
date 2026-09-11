@@ -7,4 +7,4 @@ Skills Livecraft injects into every persistent Pi session it spawns.
 
 `server/pi-process.ts` owns the skill paths (passed via `--skill`) and injects
 the matching `LIVECRAFT_BROWSER_URL` and `PLAYWRIGHT_CLI_SESSION` environment.
-Keep skill content aligned with [`docs/BROWSER-BRIDGE.md`](/docs/BROWSER-BRIDGE.md).
+Keep skill content aligned with the browser feature contracts.

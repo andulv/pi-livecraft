@@ -1,6 +1,7 @@
 # Pi settings UI specification
 
-Status: **proposed** — for review before implementation.
+Status: **completed.** Historical implementation design; current behavior belongs in the
+[settings guide](/docs/HOW-TO-SETTINGS.md) and feature source.
 
 ## Goal
 
@@ -37,7 +38,7 @@ remembered layout state resettable.
 - Do not read, render, or edit `~/.pi/agent/auth.json` or any credential store.
 - Do not add a code-editor dependency. A validated `<textarea>` is sufficient.
 - Do not change Pi's trust model. The project scope only warns when the workspace
-  is not trusted; it does not grant trust. See [PROJECT-TRUST.md](/docs/PROJECT-TRUST.md).
+  is not trusted; it does not grant trust. See [the project-trust proposal](../proposals/project-trust.md).
 - Do not move Pi process ownership or persistence conventions. Extension settings
   remain the pattern this feature copies.
 

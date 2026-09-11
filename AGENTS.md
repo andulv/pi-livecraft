@@ -12,6 +12,7 @@ If the task names an exact file or symbol, start there. Still read the applicabl
 - Read [`docs/MANAGER-LIFECYCLE.md`](docs/MANAGER-LIFECYCLE.md) before changing manager runtime, supervision, or restart behavior.
 - Treat facts stated by the selected guide as established evidence. Start with its named paths and verify a fact only when source contradicts it or an implementation decision remains unresolved.
 - Source code and shared TypeScript types are authoritative for implementation details. Keep affected documentation aligned when its contract changes.
+- `plans/` contains proposals, investigations, and history; it is never an implementation contract unless the task explicitly names it.
 
 ## Choose the exploration mode
 

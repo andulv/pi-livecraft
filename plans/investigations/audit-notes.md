@@ -222,7 +222,7 @@ The parser layer (`shared/quota-parsers.ts`) defensively handles multiple upstre
 
 **Browser (server/features/browser + src/features/browser):**
 
-- The livecast stack (hand-rolled minimal CDP client with injectable transport, screencast frame ack pacing, viewer counting, iframe fallback) is intrinsically complex but serves a documented spec (BROWSER-BRIDGE.md). The `#appearAsNormalChrome` UA/webdriver spoofing is best-effort with swallowed CDP errors — consistent with its comment, acceptable.
+- The livecast stack (hand-rolled minimal CDP client with injectable transport, screencast frame ack pacing, viewer counting, iframe fallback) is intrinsically complex but serves documented browser behavior. The `#appearAsNormalChrome` UA/webdriver spoofing is best-effort with swallowed CDP errors — consistent with its comment, acceptable.
 - `BrowserView.tsx` accumulates the repo's densest cluster of `.catch(() => {})` (navigate, viewport, start, clipboard). A failed address-bar navigation is completely silent — user sees nothing happen. This contradicts the project's error-surfacing bar and should ride the stream status or a toast.
 - `browser-debug` surface (`BrowserDebugWidget` 353 lines + `/api/browser/debug`) is a diagnostics panel shipped in the production UI. Useful while the feature matures; candidate for a debug-only gate once stable.
 

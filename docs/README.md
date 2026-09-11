@@ -1,15 +1,10 @@
 # Documentation
 
-Pi Livecraft is documented in layers: begin with the system you want to build on, then follow a deeper link only when the change crosses a boundary. Implementation guides describe the project's supported composition points; feature README files record their local contracts.
+Pi Livecraft is documented in layers: begin with the system you want to build on, then follow a deeper link only when the change crosses a boundary. Implementation guides describe supported composition points; feature README files record their local contracts.
 
-- **[Andulv fork feature overview](/docs/ANDULV-FORK-FEATURES.md)** — additions and improvements made by `andulv/pi-livecraft`, with screenshots from the running fork.
-- **[Workspace containers specification](/docs/WORKSPACE-CONTAINERS.md)** — draft workspace execution environments, replaceable Pi placement, lifecycle/UX direction, and browser discovery/control alternatives. Not implemented.
-- **[Browser bridge specification](/docs/BROWSER-BRIDGE.md)** — CDP livecast browser for the viewer pane; the spec records the design and is now implemented.
-- **[Embedded terminal specification](/docs/EMBEDDED-TERMINAL.md)** — server-side PTY shell in a viewer-pane Terminal tab; the spec records the transport decision and is now implemented.
-- **[Pi settings UI specification](/docs/PI-SETTINGS-SPEC.md)** — proposed settings tabs to view and edit Pi's global and project `settings.json` (curated fields plus a raw JSON editor) and to expose Pi Livecraft's own browser-stored preferences. Not yet implemented.
-- **[Project trust UI specification](/docs/PROJECT-TRUST.md)** — proposed workspace trust indicator and exact-workspace trust controls backed by Pi's native trust model.
-- **[Session data performance spec](/docs/SESSION-PERFORMANCE-SPEC.md)** — measured findings and task plans for snapshot cost, workspace switching, session data reading, and the cost of rendering a streamed turn. Work orders A and B are closed; work order C (streaming render cost) is open with its own baseline. A specification and task plan, not a guide.
-- **[shub-agents specification](/docs/SUBAGENT-SPEC.md)** — generic delegated-agent extension with declarative profiles, bounded persisted child runs, and owner-grouped session visibility. Implemented.
+- **[Andulv fork feature overview](/docs/ANDULV-FORK-FEATURES.md)** — additions and improvements made by `andulv/pi-livecraft`.
+
+Current documentation belongs here. Proposals, completed implementation plans, and investigations live in [plans](/plans/README.md); they are not implementation contracts.
 
 ## Find the right place
 
@@ -26,7 +21,8 @@ Pi Livecraft is documented in layers: begin with the system you want to build on
 - **Change a tool call display:** [step-by-step guide](/docs/HOW-TO-TOOL-PRESENTATION.md), then [conversation contract](/src/features/conversation/README.md).
 - **Change extension dialogs or questionnaires:** [dialog protocol](/src/features/dialogs/README.md), then [Pi extensions](/pi-extensions/README.md).
 - **Change transient notices or errors:** [notifications](/src/features/notifications/README.md).
-- **Change Git, quotas, or terminal on the server:** [backend capabilities](/server/features/README.md).
+- **Change Git, quotas, browser, or terminal on the server:** [backend capabilities](/server/features/README.md).
+- **Change the browser viewer or embedded terminal UI:** [frontend feature map](/src/features/README.md).
 - **Change manager runtime, supervision, or restart behavior:** [manager lifecycle](/docs/MANAGER-LIFECYCLE.md).
 - **Send a command to a Pi session or inspect its data:** [how to talk to Pi](/docs/HOW-TO-TALK-TO-PI.md), which explains how to locate the upstream RPC reference installed with Pi.
 - **Run an isolated one-shot prompt without touching the session:** [how to run an isolated prompt](/docs/HOW-TO-RUN-ISOLATED-PROMPT.md).

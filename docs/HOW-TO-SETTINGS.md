@@ -39,8 +39,7 @@ views and edits Pi's own `settings.json` files through the [Pi settings
 capability](/server/features/pi-settings/README.md); both surfaces write values that
 also apply to the `pi` command line. The `livecraft` tab owns the terminal command
 and resets Pi Livecraft's own browser-stored preferences from a declarative registry
-(`src/features/settings/livecraft-preferences.ts`). See the [Pi settings UI
-specification](/docs/PI-SETTINGS-SPEC.md) for the full design.
+(`src/features/settings/livecraft-preferences.ts`).
 
 ## Add a new tab
 

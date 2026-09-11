@@ -8,7 +8,7 @@
  * Pi process (`runner.ts`) that persists its own session with durable ownership
  * (`session-marker.ts`) and a hard tool-call ceiling (`budget-guard.ts`).
  *
- * Specification: `docs/SUBAGENT-SPEC.md`.
+ * Implements the generic `shub_agent` extension.
  */
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'

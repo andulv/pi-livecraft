@@ -2,8 +2,7 @@
 
 Owns workspace-scoped livecast browsers. Each browser instance is one isolated headless
 Chrome whose CDP endpoint is the tool-neutral attachment boundary for agent browser
-tooling (Chrome DevTools MCP, Playwright, Puppeteer, or raw CDP). See the
-[bridge specification](/docs/BROWSER-BRIDGE.md) for the full contract.
+tooling (Chrome DevTools MCP, Playwright, Puppeteer, or raw CDP).
 
 - `chrome-launcher.ts` resolves the browser binary (`PI_LIVECRAFT_BROWSER_BIN`
   overrides, then platform candidates), spawns it with a deterministic

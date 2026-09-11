@@ -54,7 +54,7 @@ export interface PiSettingsSnapshot {
   projectAvailable: boolean
   /**
    * Whether the project is trusted, when known. Left `undefined` until the
-   * project-trust capability (see docs/PROJECT-TRUST.md) can supply it; the
+   * project-trust capability can supply it; the
    * untrusted banner shows only when this is explicitly `false`.
    */
   projectTrusted?: boolean

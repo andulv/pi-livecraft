@@ -123,7 +123,7 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173) and you should see Livecraft
 
 - **Provider quotas:** see OpenAI Codex and GitHub Copilot usage windows in one panel (I only use these, ahah. Feel free to add your provider.)
 
-- **Terminal:** open an installed native Windows, Linux, or WSL terminal in the current workspace from the rail, palette, or a shortcut
+- **Browser and terminal:** use a shared CDP browser or an embedded PTY terminal in the viewer pane; open a native terminal from the rail, palette, or a shortcut
 
 ### Shape the workbench
 
@@ -171,6 +171,7 @@ The list above shows what exists. The guides below show where a change belongs a
 | Present UI from a Pi extension | [Dialog contract](/src/features/dialogs/README.md) and [Pi extensions](/pi-extensions/README.md) |
 | Send another command to Pi | [Pi RPC guide](/docs/HOW-TO-TALK-TO-PI.md) |
 | Run a prompt without touching the session | [Isolated prompt guide](/docs/HOW-TO-RUN-ISOLATED-PROMPT.md) |
+| Change the browser viewer or embedded terminal | [Feature map](/src/features/README.md) |
 | Understand how the browser, local services, and Pi connect | [Architecture guide](/docs/ARCHITECTURE.md) |
 
 The [documentation index](/docs/README.md) links the feature contracts, backend capabilities, widgets, and focused checks behind each surface.
