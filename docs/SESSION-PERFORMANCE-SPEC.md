@@ -318,6 +318,217 @@ session content as current. One request failure must not leave an endless loadin
 Load the `livecraft-ui` skill before any visual change. This task does not reintroduce the
 excluded panel-persistence fix.
 
+## Work order C — remove wasted renders while Pi streams (measured 2026-09-11)
+
+A and B reduced snapshot bytes and hidden-tab work. Neither changed how often the interface
+re-renders while Pi streams a turn. C owns that cost. Its measurements are new: treat them as
+this work order's baseline, not as a continuation of A's numbers.
+
+### C0. Measured baseline
+
+Tested revision: the A/B close-out tree plus uncommitted `docs/SUBAGENT-SPEC.md` and
+`AUDIT-RESPONSE.md`. Vite development server on `127.0.0.1:5173`, React development build,
+software-rendered shared Chrome, a second client attached to a live session of 36 visible
+messages and 61 tool calls. Backend 5.6 % and manager 4.2 % CPU throughout. CPU convention:
+one fully used core is 100 %.
+
+| Phase | Main thread blocked | Long tasks | Median | Max | DOM mutations |
+|---|---|---|---|---|---|
+| Streaming | 42 % | 66 / 40 s | 154 ms | 1400 ms | 221 |
+| Idle | 8 % | 12 / 31 s | 229 ms | 373 ms | 50 |
+
+Spending 42 % of the main thread to commit 221 mutations is the signature of discarded work.
+The cost is render and reconciliation, not DOM, paint, parsing, or transfer.
+
+A 45-second sampling profile attributes self time as follows.
+
+| Self | Symbol | Reading |
+|---|---|---|
+| 9.0 % | `jsxDEV` / `jsxDEVImpl` | React element creation dominates every other cost |
+| 2.7 % | `formatSessionTime` | the workspace sidebar re-renders during assistant streaming |
+| 2.5 % | `TurnUsage`, `formatTurnCost` | unmemoized turn footers re-run for every visible turn |
+| 0.3 % | `Conversation.tsx:97` memo | the history-wide derivation chain |
+| 0.2 % | `ToolCallCard` `useInView` | tool cards re-render even when unchanged |
+
+The remainder is react-dom reconciliation plus development-only validation
+(`validatePropertiesInDevelopment`, `validateProperty`, `addObjectDiffToProperties`,
+`logComponentRender`).
+
+One 75-second window of ordinary work carried 1183 SSE frames and 566 KB:
+
+| Event | Count | Batched today |
+|---|---|---|
+| `message_update/toolcall_delta` | 498 | no |
+| `message_update/thinking_delta` | 468 | yes, one frame |
+| `message_update/text_delta` | 51 | yes, one frame |
+| `tool_execution_update` | 30 | no |
+
+History-wide derivation was benchmarked directly against a real 124-message snapshot and
+scaled copies of it, outside React: 0.86 ms at 124 messages, 2.72 ms at 372, and 5.18 ms at
+868, of which 3.47 ms is `JSON.stringify`. This is per streamed frame, so the cost of a turn
+grows with the length of the session displaying it.
+
+Incremental argument parsing was benchmarked the same way: a 4 KB argument costs 1.0 ms
+across 68 deltas, 20 KB costs 4.3 ms across 334, and 60 KB costs 46.5 ms across 1001.
+
+### C0.1 What the evidence rules out
+
+Do not re-investigate these without new data: Markdown and `remark-gfm` parsing (absent from
+the profile; sampled assistant text parts have a median of 128 characters), syntax
+highlighting (already lazy and viewport-gated), snapshot payloads (already addressed by B),
+DOM and paint work, CSS animations (all gated on activity state and reduced motion), and
+backend, manager, or Pi CPU.
+
+### C0.2 Ranked causes
+
+1. Streamed tool-call state bypasses the frame batcher, so a minority event channel produces
+   a majority of the renders.
+2. Streamed tool arguments are re-parsed in full on every delta, which is quadratic in the
+   argument size and, for incomplete JSON, discarded.
+3. Every streamed update re-renders the whole application, because the runtime's state lives
+   in `App` and most of its children are unmemoized.
+4. Per-render locale formatting constructs `Intl` formatters that could be shared.
+5. Pure protocol helpers return fresh objects for unchanged messages, so leaf `memo` fails.
+6. Background sessions trigger effects in the selected session's view.
+
+### C1. Commit streamed tool-call state through the existing frame batcher
+
+Owner: `src/features/conversation/useConversationRuntime.ts`.
+
+The runtime already batches streamed assistant messages with `requestAnimationFrame`
+(`queueLiveMessage` and `flushLiveUpdates`). Streamed tool-call state does not use it: each
+`toolcall_delta` calls `flushLiveUpdates()` and then `setToolExecutions` directly, so 498
+events became 498 unbatched renders while 519 text and thinking deltas shared at most one
+render per frame.
+
+1. Route streamed tool-execution updates through the same pending-reference and frame flush
+   that already serve live messages. Commit both in one flush so their order is preserved by
+   construction rather than by an explicit pre-flush.
+2. Remove the `flushLiveUpdates()` calls that exist only to re-synchronize the two channels.
+   Keep the deliberate flushes: blocking dialogs, optimistic user messages, selection change,
+   settlement, and snapshot application.
+3. Do not add a second scheduler, a timer, or a coalescing window. B1 already established
+   that one scheduler is sufficient.
+
+Proof: extend `test/conversation-runtime.test.ts` with a delta burst that asserts one commit
+per frame and preserved ordering between a tool call and the message that contains it.
+
+### C2. Stop re-parsing streamed tool arguments on every delta
+
+Owner: `applyToolCallUpdate` in `src/features/conversation/tool-protocol.ts`.
+
+The `delta` branch runs `parseToolArguments` over the whole accumulated string on every
+delta. Incomplete JSON fails to parse, so almost every call throws and the result is
+discarded. The presentation layer does not depend on it: `toolCallPresentation` in
+`src/features/conversation/tool-presentation.ts` reads incomplete arguments itself through
+`streamedToolArguments` and `partialJsonObject`, and `ToolCallCard` displays
+`streamingArguments` while a call is streaming or interrupted.
+
+1. Accumulate `rawArguments` during `delta` and parse once at `end`. Keep the existing
+   `end`-phase behavior and the final call identity unchanged.
+2. Confirm the interrupted case still presents raw arguments, because an interrupted call
+   never reaches `end`.
+
+Proof: `test/tool-protocol.test.ts` or the nearest owning test — assert accumulated raw
+arguments during streaming, final parsed arguments after `end`, and unchanged interrupted
+presentation.
+
+### C3. Return stable values for unchanged messages
+
+Owners: `toolCallsInMessage` in `src/features/conversation/tool-protocol.ts` and
+`messageMatchKey` in `src/features/conversation/message-reconciliation.ts`.
+
+Both are pure functions over message objects that are stable for the lifetime of a snapshot,
+and both allocate fresh results on every call. `toolCallsInMessage` is called in
+`Conversation`'s render body for every history message, so every `ToolCallCard` receives a
+new `args` identity and its `memo` can never hold. `messageMatchKey` serializes assistant
+content on every frame; that serialization is the 3.47 ms measured at 868 messages.
+
+1. Cache each result on its message with a module-level `WeakMap`. Treat the returned value
+   as immutable, which the current callers already do.
+2. Do not key the cache on message identifiers, counts, or timestamps. Message object
+   identity is the dependency, and the deferred session-index note already records why
+   identifier-plus-count keys are insufficient.
+3. Make `onOpenShubAgentSession` in `src/App.tsx` a `useCallback`, matching the handlers
+   beside it, so a stable `args` identity is not undone by a new callback identity.
+
+Proof: existing `test/tool-protocol.test.ts` and reconciliation coverage must pass unchanged;
+add one assertion that a repeated call for the same message returns the same reference.
+
+### C4. Share locale formatters
+
+Owners: `formatSessionTime` in `src/features/workspace/session-time.ts` and `TurnUsage` in
+`src/features/conversation/MessageCard.tsx`.
+
+`formatSessionTime` calls `toLocaleDateString` and `toLocaleTimeString`, which construct a
+formatter per call. It runs twice per session row for every row on every application render,
+and it measured 2.7 % of total CPU while the assistant was streaming. `TurnUsage` formats a
+time for every visible turn on every render.
+
+1. Hoist the formatters to module-level `Intl.DateTimeFormat` constants and format from them.
+   Output must not change.
+2. Wrap `TurnUsage` in `memo`. It is exported and rendered per turn, and it is the only
+   conversation component in the profile that is not already memoized. Its benefit depends on
+   C3 and C5 stabilizing its `usage` prop; measure after those, not before.
+
+Proof: keep or extend the existing `session-time` coverage for same-year and older
+timestamps. Locale formatting is observable behavior: assert the rendered strings.
+
+### C5. Scope background-session effects to their workspace
+
+Owner: the manager-event subscription in `src/App.tsx`.
+
+`if (event.type === 'tool_execution_end') scheduleGitRefresh()` runs for every session,
+including sessions in other workspaces, so unrelated background work refreshes Git and
+re-renders the selected project. This contributes to the 8 % idle baseline.
+
+1. Resolve the event's session working directory from the known session list and refresh only
+   that workspace. `scheduleGitRefresh` already accepts a working directory.
+2. Two sessions can share one working directory, so do not filter on session identity. When
+   the working directory cannot be resolved, keep the current refresh rather than skip it.
+3. `analyzeSession` in `src/App.tsx` reads `toolExecutions` and re-runs on every streamed
+   update while the analysis widget is open. Confirm whether it needs streamed executions or
+   only settled ones before changing it; record the answer either way.
+
+Proof: a focused test that a `tool_execution_end` for another workspace schedules no refresh
+for the selected one, and that an unresolved working directory still refreshes.
+
+### C6. Re-baseline on the production build before judging the result
+
+The baseline was taken against the development server. `jsxDEV`,
+`validatePropertiesInDevelopment`, `validateProperty`, `addObjectDiffToProperties`, and
+`logComponentRender` do not exist in a production build, and they are a material share of the
+profile. Repeat C0 under `npm run start` and report both numbers. Do not attribute a
+development-only cost to application code, and do not claim an improvement by comparing a
+production run against the development baseline.
+
+### C7. Decision gate before narrowing the render blast radius
+
+`useConversationRuntime` is called in `src/App.tsx`, so each streamed commit re-renders the
+whole application. Of the components `App` renders, only `Composer` and `ChatTopBar` are
+memoized. `liveMessages` and `pendingSteering` reach only `Conversation`; `toolExecutions`
+additionally reaches `analyzeSession`.
+
+Moving that ownership, or memoizing large unmemoized children, is a contract change across
+`src/App.tsx` and the conversation feature. Do not start it as part of C1 to C6. Run C1 to C6,
+repeat C0 and C6, and start this only if streaming still exceeds the target below. If it does,
+write the ownership proposal first and read [architecture](/docs/ARCHITECTURE.md); the panel
+worker's loading-state contract and B1's scheduler ownership both touch the same files.
+
+### C8. Targets and completion
+
+Measured on the C0 case and setup, after C1 to C6 and re-baselined per C6:
+
+- Main thread blocked while streaming: below 15 %, from 42 %.
+- No long task above 300 ms, from a 1400 ms maximum.
+- Renders committed per streamed turn reduced in proportion to the batched event counts, with
+  identical rendered output.
+
+Correctness must hold in the same run: streamed text, thinking, tool arguments, tool results,
+interrupted calls, queue state, and turn usage all unchanged. Report metrics that did not
+improve. Repeat the measurement on a long session as well as the C0 session, because the
+history-wide costs scale with message count while the C0 session does not exercise them.
+
 ## Deferred changes — require new evidence and a separate design
 
 ### Incremental snapshot messages (implemented 2026-09-07, commit c2a3bec)
@@ -416,6 +627,9 @@ subscription fix done (commits 6f11890, c2a3bec, 88c19e9). B3 deferred (single r
 project cannot exercise it). B4 deferred → recommended next (delta metadata is now most of
 the remaining warm-settle bytes). B5 owned by the panel worker. Ready for the observability
 step; do not add caching beyond B4 without a new measurement.
+
+Reopened 2026-09-11: A and B measured transfer and request counts, not render frequency.
+Work order C above owns the streaming render cost and carries its own baseline and targets.
 
 ## Handoff to the next two project steps
 
