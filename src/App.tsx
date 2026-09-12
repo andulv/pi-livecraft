@@ -128,15 +128,13 @@ import type { ConversationNavigationTarget } from './features/conversation/conve
 import './features/commands/commands.css'
 
 const emptyAgentOptions: string[] = []
-const conversationViewDetails = {
-  simple: { label: 'Simplified view', description: 'Messages only, without tool calls' },
-  'semi-detailed': {
-    label: 'Semi-detailed view',
-    description: 'Tool headers only; click one to expand it',
-  },
-  detailed: { label: 'Detailed view', description: 'Visible calls with expandable preview' },
-} as const
-type ConversationView = keyof typeof conversationViewDetails
+type ConversationView = 'simple' | 'semi-detailed' | 'detailed'
+
+function nextConversationView(current: ConversationView): ConversationView {
+  if (current === 'simple') return 'semi-detailed'
+  if (current === 'semi-detailed') return 'detailed'
+  return 'simple'
+}
 
 /** The file pane shows either one open file, the browser tab, or the terminal tab. */
 type PaneView =
@@ -147,12 +145,6 @@ type PaneView =
 const gitRefreshDelayMs = 250
 const managerUnavailableMessage = 'Pi manager is unavailable'
 const managerUnavailableToastDelayMs = 1_000
-
-function nextConversationView(current: ConversationView): ConversationView {
-  if (current === 'simple') return 'semi-detailed'
-  if (current === 'semi-detailed') return 'detailed'
-  return 'simple'
-}
 
 /** Compact VS Code mark for the workspace launcher in the tool rail. */
 function VSCodeIcon() {
@@ -301,7 +293,10 @@ function LivecraftProjectApp(
       ? 'simple'
       : 'detailed'
   })
-  const conversationViewDetail = conversationViewDetails[conversationView]
+  const changeConversationView = useCallback((next: ConversationView) => {
+    setConversationView(next)
+    window.localStorage.setItem('pi-livecraft.conversation-view', next)
+  }, [])
 
   // Dialogs and notifications
   const [agentOptions, setAgentOptions] = useState<Record<string, string[]>>({})
@@ -1675,6 +1670,8 @@ function LivecraftProjectApp(
                 session={selectedSession}
                 stats={snapshot.stats}
                 compacting={displayedActivity?.kind === 'compacting'}
+                conversationView={conversationView}
+                onConversationViewChange={changeConversationView}
               />
               {(snapshotSessionId === selectedSession.id || loadingPhase === 'exiting') && (
                 <>
@@ -1699,54 +1696,6 @@ function LivecraftProjectApp(
                       toolDurations={observedToolDurations}
                       toolExecutions={toolExecutions}
                     />
-                    <div className={`chat-detail-control ${conversationView}`}>
-                      <button
-                        aria-label={`${conversationViewDetail.label}. ${conversationViewDetail.description}. Hover or focus to choose another view.`}
-                        className={`chat-detail-toggle ${conversationView}`}
-                        onClick={() =>
-                          setConversationView((current) => {
-                            const next = nextConversationView(current)
-                            window.localStorage.setItem('pi-livecraft.conversation-view', next)
-                            return next
-                          })}
-                        type='button'
-                      >
-                        <span aria-hidden='true' className='chat-detail-toggle-icon'>⌘</span>
-                        <span className='chat-detail-toggle-copy'>
-                          <strong>{conversationViewDetail.label}</strong>
-                          <small>{conversationViewDetail.description}</small>
-                        </span>
-                      </button>
-                      <div
-                        aria-label='Conversation view options'
-                        className='chat-detail-view-menu'
-                        role='group'
-                      >
-                        {(['simple', 'semi-detailed', 'detailed'] as const).map((view) => {
-                          const detail = conversationViewDetails[view]
-                          return (
-                            <button
-                              aria-pressed={view === conversationView}
-                              className={`chat-detail-option ${view}${
-                                view === conversationView ? ' selected' : ''
-                              }`}
-                              key={view}
-                              onClick={() => {
-                                setConversationView(view)
-                                window.localStorage.setItem('pi-livecraft.conversation-view', view)
-                              }}
-                              type='button'
-                            >
-                              <span aria-hidden='true' className='chat-detail-option-mark' />
-                              <span className='chat-detail-option-copy'>
-                                <strong>{detail.label}</strong>
-                                <small>{detail.description}</small>
-                              </span>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
                   </div>
                   <div className='composer-area'>
                     {questionnaire && questionnaireInComposer && (

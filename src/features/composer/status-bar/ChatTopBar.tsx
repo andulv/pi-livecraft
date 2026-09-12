@@ -4,14 +4,18 @@ import { formatSessionStats } from '../composer-utils.ts'
 import { SessionInfo } from './SessionInfo.tsx'
 import { SessionStats as SessionStatsBar } from './SessionStats.tsx'
 
-/** Two-line session strip: identity on the first line, usage on the second.
-    Workspace and Git context live in the sidebar; context usage in the composer. */
+type ConversationView = 'simple' | 'semi-detailed' | 'detailed'
+
+/** Two-line session strip: identity first, usage and view controls second.
+    Workspace and Git context live in the sidebar; context usage lives in the composer. */
 export const ChatTopBar = memo(function ChatTopBar(
-  { session, running, compacting, stats }: {
+  { session, running, compacting, stats, conversationView, onConversationViewChange }: {
     session: SessionSummary
     running: boolean
     compacting: boolean
     stats: SessionStats | null
+    conversationView: ConversationView
+    onConversationViewChange: (view: ConversationView) => void
   },
 ) {
   const formattedStats = formatSessionStats(stats)
@@ -25,6 +29,16 @@ export const ChatTopBar = memo(function ChatTopBar(
             </div>
           )
           : <SessionInfo name={session.name} active={running} />}
+        <select
+          aria-label='Conversation view'
+          className='chat-view-select'
+          onChange={(event) => onConversationViewChange(event.target.value as ConversationView)}
+          value={conversationView}
+        >
+          <option value='simple'>Simplified view</option>
+          <option value='semi-detailed'>Semi-detailed view</option>
+          <option value='detailed'>Detailed view</option>
+        </select>
       </div>
       <div className='chat-topbar-stats'>
         <SessionStatsBar {...formattedStats} />

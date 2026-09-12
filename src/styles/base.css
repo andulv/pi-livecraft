@@ -254,10 +254,6 @@ button:disabled, select:disabled {
   }
 
   /* ── conversation ── */
-  .chat-detail-toggle.active {
-    border-color: var(--accent);
-    color: var(--accent-hover);
-  }
   .slash-command-item:hover,
   .slash-command-item.selected {
     color: var(--accent-hover);

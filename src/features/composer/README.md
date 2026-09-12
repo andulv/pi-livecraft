@@ -30,7 +30,7 @@ and rejects programmatic submission.
 | `selects/SummarySelect.tsx` | Reasoning summary — per-session override sent through the `/livecraft-response-controls` extension command, shown only for supported models |
 | `selects/PromptSelect.tsx` | Prompt templates — previews, inserts, and saves Pi-discovered templates |
 | `selects/BehaviorSelect.tsx` | Steer / Follow-up toggle, only rendered while Pi is running |
-| `status-bar/ChatTopBar.tsx` | Two-line session strip pinned to the top of the chat window: session identity first, then usage stats. Workspace context lives in the sidebar; context usage in `ContextUsage` |
+| `status-bar/ChatTopBar.tsx` | Two-line session strip pinned to the top of the chat window: session identity and conversation-view selector first, then usage stats. Workspace context lives in the sidebar; context usage in `ContextUsage` |
 | `status-bar/SessionInfo.tsx` | Session name and active status dot |
 | `status-bar/SessionStats.tsx` | `SessionStats` renders input/cache/output tokens, message and tool counts, and cost; `ContextUsage` renders context-window pressure as a compact two-line block in the composer's action row |
 

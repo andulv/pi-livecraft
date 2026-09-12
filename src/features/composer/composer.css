@@ -344,6 +344,39 @@
   padding-top: 3px;
   color: var(--muted);
 }
+.chat-view-select {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: min(180px, 42%);
+  height: 22px;
+  margin-left: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 1px 7px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  font: 10px ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    border-color 180ms ease-out,
+    background 180ms ease-out,
+    color 180ms ease-out;
+}
+.chat-view-select:hover {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--line-strong));
+  background: var(--surface);
+  color: var(--ink);
+}
+.chat-view-select:focus-visible {
+  outline: 0;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent);
+}
+.chat-view-select:active {
+  transform: scale(0.99);
+}
 .composer-session, .composer-stats {
   display: flex;
   align-items: center;
