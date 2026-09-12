@@ -711,8 +711,11 @@
 .composer-select-content.thinking {
   border-color: color-mix(in srgb, var(--warning) 38%, var(--line-strong));
 }
-.thinking-menu {
+.composer-select-menu {
   position: fixed;
+  min-width: 0;
+  max-height: min(320px, calc(100vh - 16px));
+  overflow-y: auto;
   animation: none;
 }
 .composer-select-content.agent {

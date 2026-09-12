@@ -22,7 +22,7 @@ and rejects programmatic submission.
 | `composer.css` | All composer styles |
 | `composer-images.ts` | Image paste, resize, compress (`maxComposerImages` = 4) |
 | `composer-utils.ts` | Label/token formatting, command detection, local `compact`/`name` command fallbacks, draft loading, `isObject` |
-| `selects/ComposerSelect.tsx` | Generic Radix Select wrapper with tone-based icons |
+| `selects/ComposerSelect.tsx` | Lightweight non-modal select menu with tone-based icons |
 | `selects/AgentSelect.tsx` | Agent picker — derives label from options, calls `onAgentChange` |
 | `selects/ModelSelect.tsx` | Model picker — searchable popover with collapsible provider groups, issues RPC `set_model` from selection |
 | `selects/ThinkingSelect.tsx` | Thinking level — lightweight non-modal picker that renders the levels Pi reports for the current model and maps the choice to `set_thinking_level` RPC |
@@ -49,10 +49,11 @@ and rejects programmatic submission.
 ## Selects
 
 The agent, model, thinking, and prompt dropdowns each live in `selects/` as standalone
-custom components. `ComposerSelect` is the generic Radix Select wrapper used by the agent,
-behavior, and response-control dropdowns. Model and thinking use lightweight non-modal menus so
-opening them does not isolate the full conversation DOM. Each select encapsulates its own option
-derivation and `onValueChange` logic. `onCommand()` sends the corresponding RPC command (`set_model`,
+custom components. `ComposerSelect` is the lightweight non-modal menu used by the agent,
+behavior, response-control, prompt, improve, and thinking controls. The model picker remains a
+separate searchable menu because of its larger grouped catalog. None of these menus isolate the
+full conversation DOM. Each select encapsulates its own option derivation and `onValueChange`
+logic. `onCommand()` sends the corresponding RPC command (`set_model`,
 `set_thinking_level`) to Pi. `PromptSelect` previews and inserts templates, and saves the
 current draft through `onSavePrompt()`.
 

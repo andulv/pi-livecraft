@@ -14,7 +14,7 @@ composer/
 ├── composer-utils.ts         # capitalizeLabel, formatTokens, readComposerDraft
 ├── prompt-title.ts           # Immediate session title
 ├── selects/
-│   ├── ComposerSelect.tsx    # Generic Radix Select wrapper + icon
+│   ├── ComposerSelect.tsx    # Lightweight non-modal select menu + icon
 │   ├── AgentSelect.tsx       # Agent picker (props → RPC)
 │   ├── ModelSelect.tsx       # Model picker (snapshot → RPC)
 │   ├── PromptSelect.tsx      # Prompt template preview, insertion, and saving
@@ -102,8 +102,9 @@ onMyAction: () => void
 ## 3. Add a dropdown
 
 Dropdowns live in `selects/`. Each is a standalone component built on
-[`ComposerSelect`](/src/features/composer/selects/ComposerSelect.tsx), the generic
-Radix Select wrapper.
+[`ComposerSelect`](/src/features/composer/selects/ComposerSelect.tsx), the lightweight
+non-modal select menu. The model picker is the exception because it owns a larger searchable
+catalog.
 
 **Create the select component:**
 
