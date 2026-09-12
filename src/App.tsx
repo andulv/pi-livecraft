@@ -81,7 +81,7 @@ import { projectFaviconHref, projectPageTitle } from './features/workspace/proje
 import { worktreeColor } from './features/workspace/project-definition.ts'
 import type { Project } from './features/workspace/projects.ts'
 import { useProjects } from './features/workspace/useProjects.ts'
-import { sidebarSessions } from './features/workspace/sidebar-sessions.ts'
+import { isShubAgentSession, sidebarSessions } from './features/workspace/sidebar-sessions.ts'
 import { useWorkspaceSessions } from './features/workspace/useWorkspaceSessions.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
 import { FileContentPane } from './features/files/FileContentPane.tsx'
@@ -1088,6 +1088,9 @@ function LivecraftProjectApp(
 
   // Selected session and loading state
   const selectedSession = sessions.find((session) => session.id === selectedId)
+  const selectedSessionIsShubAgent = selectedSession
+    ? isShubAgentSession(selectedSession, recentSessions)
+    : false
   const currentProjectWorkspace = projectWorkspaces[project.root]?.workspaces.find(
     (workspace) => workspace.path === workspacePath,
   )
@@ -1148,6 +1151,7 @@ function LivecraftProjectApp(
       behavior: 'steer' | 'followUp',
       isCommand: boolean,
     ) => {
+      if (selectedSessionIsShubAgent) return
       const command: JsonObject = { type: 'prompt', message, images }
       const isSteering = !isCommand && selectedSessionStatus === 'running' && behavior === 'steer'
       if (selectedSessionStatus === 'running') command.streamingBehavior = behavior
@@ -1173,6 +1177,7 @@ function LivecraftProjectApp(
       removePendingSteering,
       retainNewSession,
       selectedId,
+      selectedSessionIsShubAgent,
       selectedSessionStatus,
       titleSessionFromPrompt,
     ],
@@ -1785,6 +1790,7 @@ function LivecraftProjectApp(
                       onImprovePrompt={handlePromptImprovement}
                       onSavePrompt={handleSavePrompt}
                       onError={handleConversationError}
+                      readOnly={selectedSessionIsShubAgent}
                       requestedSelect={requestedSelect}
                       onSelectOpened={handleComposerSelectOpened}
                       submitRequest={submitRequest}

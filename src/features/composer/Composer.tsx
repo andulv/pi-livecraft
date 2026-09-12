@@ -71,6 +71,7 @@ export const Composer = memo(function Composer({
   draftRequest,
   onDraftApplied,
   persistDrafts = true,
+  readOnly = false,
 }: {
   session: SessionSummary
   snapshot: SessionSnapshot
@@ -109,6 +110,7 @@ export const Composer = memo(function Composer({
   draftRequest?: { id: string; message: string }
   onDraftApplied?: (id: string) => void
   persistDrafts?: boolean
+  readOnly?: boolean
 }) {
   const draftStorageKey = `pi-livecraft.composer-draft.${session.id}`
   const [message, setMessage] = useState(() =>
@@ -359,6 +361,7 @@ export const Composer = memo(function Composer({
   /** Sends text and images in the same RPC command, restoring the draft on failure. */
   async function submit(event: FormEvent): Promise<void> {
     event.preventDefault()
+    if (readOnly) return
     const nextMessage = message.trim()
     if (preparingImages || (!nextMessage && images.length === 0)) return
     if (images.length > 0 && !supportsImages) {
@@ -451,6 +454,22 @@ export const Composer = memo(function Composer({
     } finally {
       setPreparingImages(false)
     }
+  }
+
+  if (readOnly) {
+    return (
+      <form
+        className='composer composer-read-only'
+        onSubmit={(event) => void submit(event)}
+        ref={formRef}
+      >
+        <span aria-hidden='true' className='composer-read-only-icon'>↳</span>
+        <span>
+          <strong>Subagent session</strong>
+          <small>This session is read-only.</small>
+        </span>
+      </form>
+    )
   }
 
   return (

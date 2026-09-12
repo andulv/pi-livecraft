@@ -10,7 +10,9 @@ state reference below.
 `App.tsx` → props → `Composer.tsx` → `onSend()` / `onCommand()` / `onAbort()` /
 `onImprovePrompt()` / `onSavePrompt()` → `src/api.ts` → backend or Pi
 
-All data arrives through props. The Composer never calls the backend directly.
+All data arrives through props. The Composer never calls the backend directly. Shub-agent
+child sessions pass `readOnly`; the Composer then replaces its controls with a read-only notice
+and rejects programmatic submission.
 
 ## Sub-modules
 

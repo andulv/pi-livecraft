@@ -7,6 +7,16 @@ export interface SessionActionTarget {
   sessionPath?: string
 }
 
+/** Identifies a live session from its persisted shub-agent marker. */
+export function isShubAgentSession(
+  session: Pick<SessionSummary, 'sessionPath'>,
+  recentSessions: readonly RecentSession[],
+): boolean {
+  return recentSessions.some((recent) =>
+    recent.sessionPath === session.sessionPath && recent.shubAgent !== undefined
+  )
+}
+
 /** Returns the newest known activity across persisted and optimistic sessions in a workspace. */
 export function workspaceActivity(
   workspacePath: string,

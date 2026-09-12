@@ -3,6 +3,7 @@ import test from 'node:test'
 import type { RecentSession, SessionSummary } from '../shared/types.ts'
 import {
   compareWorkspaces,
+  isShubAgentSession,
   newestWorkspaceSession,
   reusableNewSession,
   sidebarSessions,
@@ -60,6 +61,30 @@ test('includes owned shub-agent children directly below their owner when request
     persisted,
     child,
   ])
+})
+
+test('identifies an opened shub-agent session by its persisted path', () => {
+  const opened: SessionSummary = {
+    id: 'live-child-id',
+    cwd: '/workspace',
+    name: 'shub-agent/research: map the session store',
+    sessionPath: '/sessions/child.jsonl',
+    status: 'idle',
+    pendingUi: [],
+  }
+  const child: RecentSession = {
+    ...persisted,
+    id: 'persisted-child-id',
+    shubAgent: 'research',
+    ownerSessionId: persisted.id,
+    sessionPath: opened.sessionPath!,
+  }
+
+  assert.equal(isShubAgentSession(opened, [persisted, child]), true)
+  assert.equal(
+    isShubAgentSession({ ...opened, sessionPath: persisted.sessionPath }, [persisted, child]),
+    false,
+  )
 })
 
 test('does not include unowned or cross-workspace shub-agent children', () => {
