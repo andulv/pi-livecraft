@@ -23,12 +23,14 @@ export function SessionEnvironmentWidget(
     commands,
     environment,
     onRefresh,
+    shubAgentName,
     stats,
     state,
   }: {
     commands: readonly JsonObject[]
     environment: SessionEnvironmentSnapshot | null
     onRefresh: () => Promise<void>
+    shubAgentName?: string
     stats: SessionStats | null
     state: JsonObject | null
   },
@@ -102,6 +104,28 @@ export function SessionEnvironmentWidget(
     () => (systemPrompt ? buildPromptSections(systemPrompt) : null),
     [systemPrompt],
   )
+
+  // A shub-agent child session is displayed through an ordinary viewer process
+  // whose environment would misdescribe the isolated one-shot run, so only a
+  // notice is shown and no reading is offered.
+  if (shubAgentName) {
+    return (
+      <>
+        <header className='widget-header environment-header'>
+          <div>
+            <strong>Environment</strong>
+            <span>Isolated subagent run</span>
+          </div>
+        </header>
+        <div className='widget-content environment-content'>
+          <p className='environment-empty'>
+            {`Isolated subagent run (${shubAgentName}). It ran with only its declared tools — no extensions, context files, or skills. Reopening the session spawns an ordinary viewer process, so its environment is not shown here.`}
+          </p>
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
       <header className='widget-header environment-header'>

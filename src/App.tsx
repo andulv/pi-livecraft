@@ -81,7 +81,7 @@ import { projectFaviconHref, projectPageTitle } from './features/workspace/proje
 import { worktreeColor } from './features/workspace/project-definition.ts'
 import type { Project } from './features/workspace/projects.ts'
 import { useProjects } from './features/workspace/useProjects.ts'
-import { isShubAgentSession, sidebarSessions } from './features/workspace/sidebar-sessions.ts'
+import { shubAgentMarker, sidebarSessions } from './features/workspace/sidebar-sessions.ts'
 import { useWorkspaceSessions } from './features/workspace/useWorkspaceSessions.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
 import { FileContentPane } from './features/files/FileContentPane.tsx'
@@ -400,6 +400,7 @@ function LivecraftProjectApp(
   quotasRef.current = quotas
   const environmentRef = useRef(environment)
   environmentRef.current = environment
+  const selectedShubAgentRef = useRef(false)
 
   const dismissingRef = useRef(new Set<string>())
   const pendingManagerUnavailableToastsRef = useRef(new Map<string, number>())
@@ -856,10 +857,13 @@ function LivecraftProjectApp(
     void getQuotas().then(setQuotas).catch(() => undefined)
   }, [])
 
-  // Per-session environment: the selected session's report only.
+  // Per-session environment: the selected session's report only. Subagent child
+  // sessions are skipped: fetching would describe the ordinary viewer process
+  // reopened for display, not the isolated one-shot run.
   useEffect(() => {
     setEnvironment(null)
-    if (selectedId) void getEnvironment(selectedId).then(setEnvironment).catch(() => undefined)
+    if (!selectedId || selectedShubAgentRef.current) return
+    void getEnvironment(selectedId).then(setEnvironment).catch(() => undefined)
   }, [selectedId])
 
   // Pi extension settings: published by the extensions themselves, read when the modal opens.
@@ -978,7 +982,7 @@ function LivecraftProjectApp(
         event.type === 'extension_ui_request' && event.method === 'setStatus'
         && event.statusKey === 'pi-livecraft.environment'
       ) {
-        if (sessionId === selectedIdRef.current)
+        if (sessionId === selectedIdRef.current && !selectedShubAgentRef.current)
           void getEnvironment(sessionId).then(setEnvironment).catch(() => undefined)
       }
       if (
@@ -1083,9 +1087,12 @@ function LivecraftProjectApp(
 
   // Selected session and loading state
   const selectedSession = sessions.find((session) => session.id === selectedId)
-  const selectedSessionIsShubAgent = selectedSession
-    ? isShubAgentSession(selectedSession, recentSessions)
-    : false
+  const selectedRecentSession = selectedSession
+    ? shubAgentMarker(selectedSession, recentSessions)
+    : undefined
+  const selectedSessionIsShubAgent = selectedRecentSession !== undefined
+  selectedShubAgentRef.current = selectedSessionIsShubAgent
+  const selectedShubAgentName = selectedRecentSession?.shubAgent
   const currentProjectWorkspace = projectWorkspaces[project.root]?.workspaces.find(
     (workspace) => workspace.path === workspacePath,
   )
@@ -1934,6 +1941,7 @@ function LivecraftProjectApp(
         sessionRequestDurations={observedRequestDurations}
         quotas={quotas}
         environment={environment}
+        shubAgentName={selectedShubAgentName}
         sessionCommands={snapshot.commands}
         sessionState={snapshot.state}
         sessionStats={snapshot.stats}

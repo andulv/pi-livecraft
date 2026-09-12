@@ -50,6 +50,7 @@ export function RightSidebar({
   sessionState,
   sessionStats,
   quotas,
+  shubAgentName,
   width,
   workspacePath,
   railActions,
@@ -74,6 +75,7 @@ export function RightSidebar({
   sessionState: JsonObject | null
   sessionStats: SessionStats | null
   quotas: QuotaSnapshot | null
+  shubAgentName?: string
   width: number
   workspacePath: string
   railActions: RailAction[]
@@ -211,6 +213,7 @@ export function RightSidebar({
                 commands={sessionCommands}
                 environment={environment}
                 onRefresh={onEnvironmentRefresh}
+                shubAgentName={shubAgentName}
                 stats={sessionStats}
                 state={sessionState}
               />

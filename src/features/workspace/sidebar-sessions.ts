@@ -7,12 +7,12 @@ export interface SessionActionTarget {
   sessionPath?: string
 }
 
-/** Identifies a live session from its persisted shub-agent marker. */
-export function isShubAgentSession(
+/** Finds the persisted shub-agent marker for a live session path, when it has one. */
+export function shubAgentMarker(
   session: Pick<SessionSummary, 'sessionPath'>,
   recentSessions: readonly RecentSession[],
-): boolean {
-  return recentSessions.some((recent) =>
+): RecentSession | undefined {
+  return recentSessions.find((recent) =>
     recent.sessionPath === session.sessionPath && recent.shubAgent !== undefined
   )
 }

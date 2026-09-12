@@ -3,7 +3,7 @@ import test from 'node:test'
 import type { RecentSession, SessionSummary } from '../shared/types.ts'
 import {
   compareWorkspaces,
-  isShubAgentSession,
+  shubAgentMarker,
   newestWorkspaceSession,
   reusableNewSession,
   sidebarSessions,
@@ -80,10 +80,10 @@ test('identifies an opened shub-agent session by its persisted path', () => {
     sessionPath: opened.sessionPath!,
   }
 
-  assert.equal(isShubAgentSession(opened, [persisted, child]), true)
+  assert.equal(shubAgentMarker(opened, [persisted, child]), child)
   assert.equal(
-    isShubAgentSession({ ...opened, sessionPath: persisted.sessionPath }, [persisted, child]),
-    false,
+    shubAgentMarker({ ...opened, sessionPath: persisted.sessionPath }, [persisted, child]),
+    undefined,
   )
 })
 
