@@ -215,7 +215,7 @@
   .composer-session {
     width: 100%;
   }
-  .composer-stats {
+  .chat-topbar-stats > .composer-stats {
     width: 100%;
     justify-content: space-between;
   }
