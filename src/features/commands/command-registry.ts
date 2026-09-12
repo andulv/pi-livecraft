@@ -30,6 +30,15 @@ export interface CommandDefinition {
   description?: string
 }
 
+/** Session-scoped commands that cannot run on a read-only shub-agent child session. */
+export const shubReadOnlyCommands: readonly CommandId[] = [
+  'send',
+  'focus-composer',
+  'open-thinking',
+  'open-model',
+  'open-agent',
+]
+
 export const commandDefinitions: CommandDefinition[] = [
   { id: 'new-session', label: 'New session' },
   { id: 'send', label: 'Send message' },

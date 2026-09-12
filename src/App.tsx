@@ -103,6 +103,7 @@ import {
   lastAssistantText,
   migrateLegacyShortcut,
   rightWidgetFromCommand,
+  shubReadOnlyCommands,
   shortcutFromEvent,
   type CommandId,
 } from './features/commands/command-registry.ts'
@@ -1298,6 +1299,9 @@ function LivecraftProjectApp(
   // Commands and keyboard shortcuts
   /** Executes a productivity command in the context of the active session. */
   const executeCommand = useCallback((id: CommandId): void => {
+    // Read-only shub-agent child sessions have no composer or session selects;
+    // their shortcuts and palette entries would be silent no-ops.
+    if (selectedShubAgentRef.current && shubReadOnlyCommands.includes(id)) return
     const rightWidget = rightWidgetFromCommand(id)
     if (rightWidget) {
       if (rightWidget === 'analysis' && !analysisAvailable) return
@@ -1439,6 +1443,7 @@ function LivecraftProjectApp(
               'copy-last-response',
             ] as CommandId[])
               .includes(definition.id) && !selectedSession
+          || (selectedSessionIsShubAgent && shubReadOnlyCommands.includes(definition.id))
           || (definition.id === 'abort' && selectedSession?.status !== 'running')
           || (definition.id === 'workspace-previous' && recentWorkspacePaths.length < 2)
           || (definition.id === 'next-session'
@@ -1453,6 +1458,7 @@ function LivecraftProjectApp(
     recentWorkspacePaths,
     selectedId,
     selectedSession,
+    selectedSessionIsShubAgent,
     sentSessions,
     analysisAvailable,
     shortcuts,
