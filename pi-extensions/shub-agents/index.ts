@@ -99,7 +99,7 @@ function registerSubagent<TArguments extends Record<string, unknown>>(
         maximum: MAX_REPORT_CHARS,
         default: agent.maxOutputChars,
         description:
-          `Maximum characters in the returned report. Defaults to ${agent.maxOutputChars}. This limits the report, not the investigation.`,
+          `Maximum characters in the returned report. Pick the size you want: ~1500 for a terse answer, ~6000 for a focused report, ${agent.maxOutputChars}+ for a full investigation. This limits the report, not the investigation.`,
       }),
     ),
     ...imageParameter,
