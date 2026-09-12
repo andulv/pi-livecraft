@@ -22,6 +22,7 @@ import type { ConversationNavigationTarget } from './conversation-navigation.ts'
 import { ActivityIndicator } from './ActivityIndicator.tsx'
 import { Markdown } from './Markdown.tsx'
 import { MessageCard, TurnUsage } from './MessageCard.tsx'
+import { RetractButton } from './RetractButton.tsx'
 import {
   isVisibleConversationMessage,
   providerError,
@@ -55,6 +56,7 @@ export function Conversation(
     onFork,
     onOpenShubAgentSession,
     onRetry,
+    onRetractSteering,
   }: {
     activity: Activity | null
     agentName?: string
@@ -74,6 +76,7 @@ export function Conversation(
     /** Opens the session a shub-agent run persisted, from its tool call card. */
     onOpenShubAgentSession?: (cwd: string, sessionPath: string) => Promise<void>
     onRetry?: (prompt: string) => Promise<void>
+    onRetractSteering: (index: number, message: string) => Promise<void>
   },
 ) {
   const showToolCalls = conversationView !== 'simple'
@@ -548,6 +551,12 @@ export function Conversation(
             className='message user pending-steering conversation-entry'
             key={`${message}-${index}`}
           >
+            <div className='conversation-actions message-actions'>
+              <RetractButton
+                onError={onError}
+                onRetract={() => onRetractSteering(index, message)}
+              />
+            </div>
             <div className='content'>
               <Markdown>{message || 'Image attached'}</Markdown>
             </div>

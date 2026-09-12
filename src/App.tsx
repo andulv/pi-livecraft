@@ -1177,6 +1177,32 @@ function LivecraftProjectApp(
       titleSessionFromPrompt,
     ],
   )
+  /** Retracts one queued steering message while preserving the rest of Pi's queues. */
+  const handleRetractSteering = useCallback(
+    async (index: number, message: string): Promise<void> => {
+      const response = await sendPiCommand(selectedId, { type: 'clear_queue' })
+      const data = isObject(response.data) ? response.data : null
+      const steering = Array.isArray(data?.steering)
+        ? data.steering.filter((message): message is string => typeof message === 'string')
+        : []
+      const followUp = Array.isArray(data?.followUp)
+        ? data.followUp.filter((message): message is string => typeof message === 'string')
+        : []
+      const targetIndex = index >= 0 && index < steering.length && steering[index] === message
+        ? index
+        : steering.indexOf(message)
+      const remainingSteering = targetIndex >= 0
+        ? steering.toSpliced(targetIndex, 1)
+        : steering
+      for (const message of remainingSteering) {
+        await sendPiCommand(selectedId, { type: 'steer', message })
+      }
+      for (const message of followUp) {
+        await sendPiCommand(selectedId, { type: 'follow_up', message })
+      }
+    },
+    [selectedId],
+  )
   const handleComposerAbort = useCallback(() => sendPiCommand(selectedId, { type: 'abort' }), [
     selectedId,
   ])
@@ -1688,6 +1714,7 @@ function LivecraftProjectApp(
                       onFork={handleForkConversation}
                       onOpenShubAgentSession={handleOpenShubAgentSession}
                       onRetry={retryConversationPrompt}
+                      onRetractSteering={handleRetractSteering}
                       pendingSteering={pendingSteering}
                       repositoryRoot={workspaceGit[workspacePath]?.root}
                       requestDurations={observedRequestDurations}
