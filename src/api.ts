@@ -70,11 +70,20 @@ export function subscribeManagerEvents(
   onError: () => void,
 ): () => void {
   const source = new EventSource('/api/events')
+  let droppedAt: number | undefined
   source.onmessage = ({ data }) => {
     const event = parseManagerEvent(data)
     if (event) onEvent(event)
   }
+  source.onopen = () => {
+    if (droppedAt === undefined) return
+    const durationMs = Math.max(0, Math.round(performance.now() - droppedAt))
+    droppedAt = undefined
+    void postClientLog('sse-reopen', `manager event stream recovered after ${durationMs} ms`)
+  }
   source.onerror = () => {
+    if (droppedAt !== undefined) return
+    droppedAt = performance.now()
     void postClientLog('sse-drop', 'manager event stream error')
     onError()
   }

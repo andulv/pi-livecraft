@@ -23,7 +23,8 @@ and work from that evidence instead of simulating heavy usage.
 
 Client sources: `window-error`, `unhandled-rejection`, `fetch-failure` (network errors
 and HTTP ≥ 500 only — 4xx is user-visible validation, not instability), `sse-drop`,
-`sse-reopen`.
+`sse-reopen`. The manager event stream records one drop per outage and one recovery with its
+bounded duration; repeated EventSource retry errors during the same outage stay silent.
 
 ## Policy
 
