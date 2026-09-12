@@ -25,7 +25,7 @@ and rejects programmatic submission.
 | `selects/ComposerSelect.tsx` | Generic Radix Select wrapper with tone-based icons |
 | `selects/AgentSelect.tsx` | Agent picker — derives label from options, calls `onAgentChange` |
 | `selects/ModelSelect.tsx` | Model picker — searchable popover with collapsible provider groups, issues RPC `set_model` from selection |
-| `selects/ThinkingSelect.tsx` | Thinking level — renders the levels Pi reports for the current model and maps the choice to `set_thinking_level` RPC |
+| `selects/ThinkingSelect.tsx` | Thinking level — lightweight non-modal picker that renders the levels Pi reports for the current model and maps the choice to `set_thinking_level` RPC |
 | `selects/VerbositySelect.tsx` | Response verbosity — per-session override sent through the `/livecraft-response-controls` extension command, shown only for supported models |
 | `selects/SummarySelect.tsx` | Reasoning summary — per-session override sent through the `/livecraft-response-controls` extension command, shown only for supported models |
 | `selects/PromptSelect.tsx` | Prompt templates — previews, inserts, and saves Pi-discovered templates |
@@ -49,9 +49,10 @@ and rejects programmatic submission.
 ## Selects
 
 The agent, model, thinking, and prompt dropdowns each live in `selects/` as standalone
-custom components. `ComposerSelect` is the generic Radix Select wrapper the agent,
-thinking, and behavior dropdowns use. Each select encapsulates its own option derivation and
-`onValueChange` logic. `onCommand()` sends the corresponding RPC command (`set_model`,
+custom components. `ComposerSelect` is the generic Radix Select wrapper used by the agent,
+behavior, and response-control dropdowns. Model and thinking use lightweight non-modal menus so
+opening them does not isolate the full conversation DOM. Each select encapsulates its own option
+derivation and `onValueChange` logic. `onCommand()` sends the corresponding RPC command (`set_model`,
 `set_thinking_level`) to Pi. `PromptSelect` previews and inserts templates, and saves the
 current draft through `onSavePrompt()`.
 

@@ -711,6 +711,10 @@
 .composer-select-content.thinking {
   border-color: color-mix(in srgb, var(--warning) 38%, var(--line-strong));
 }
+.thinking-menu {
+  position: fixed;
+  animation: none;
+}
 .composer-select-content.agent {
   border-color: color-mix(in srgb, var(--accent) 42%, var(--line-strong));
 }
