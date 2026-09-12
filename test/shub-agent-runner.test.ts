@@ -95,16 +95,27 @@ test('the event stream yields the session id, counters, usage, and the answer', 
       result: { content: [{ type: 'text', text: 'server/pi-session-store.ts:50' }] },
     }),
   )
+  applyShubEvent(
+    stream,
+    JSON.stringify({
+      type: 'message_end',
+      message: {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'The store scans one workspace folder.' }],
+        usage: { totalTokens: 673, cost: { total: 0.000051 } },
+      },
+    }),
+  )
   equal(
     applyShubEvent(
       stream,
       JSON.stringify({
-        type: 'message_end',
+        type: 'turn_end',
         message: {
           role: 'assistant',
           content: [{ type: 'text', text: 'The store scans one workspace folder.' }],
-          usage: { totalTokens: 673, cost: { total: 0.000051 } },
         },
+        toolResults: [],
       }),
     ),
     'answer',
@@ -119,6 +130,42 @@ test('the event stream yields the session id, counters, usage, and the answer', 
   equal(stream.costUsd, 0.000051)
   equal(stream.output, 'The store scans one workspace folder.')
   ok(stream.evidence.includes('server/pi-session-store.ts:50'), 'tool evidence is retained')
+})
+
+test('keeps intermediate assistant messages out of the parent report', () => {
+  const stream = createShubStream()
+  applyShubEvent(
+    stream,
+    JSON.stringify({
+      type: 'message_end',
+      message: {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Let me inspect the files.' }],
+      },
+    }),
+  )
+  applyShubEvent(
+    stream,
+    JSON.stringify({
+      type: 'message_end',
+      message: {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Now I can synthesize this.' }],
+      },
+    }),
+  )
+  equal(stream.output, '')
+  ok(stream.partialOutput.includes('Let me inspect the files.'))
+
+  applyShubEvent(
+    stream,
+    JSON.stringify({
+      type: 'turn_end',
+      message: { role: 'assistant', content: [{ type: 'text', text: 'Final report.' }] },
+      toolResults: [],
+    }),
+  )
+  equal(stream.output, 'Final report.')
 })
 
 test('usage sums completed turns without counting cumulative streaming updates twice', () => {
@@ -138,7 +185,7 @@ test('usage sums completed turns without counting cumulative streaming updates t
   equal(stream.costUsd, 0.25)
 })
 
-test('accumulated assistant output stays bounded', () => {
+test('assistant output and partial diagnostics stay bounded', () => {
   const stream = createShubStream()
   for (let index = 0; index < 30; index++) {
     applyShubEvent(
@@ -152,8 +199,18 @@ test('accumulated assistant output stays bounded', () => {
       }),
     )
   }
-  ok(stream.output.length <= 100_000, 'output must be tail-capped')
-  ok(stream.output.endsWith('x'), 'the tail (the final report) is preserved')
+  ok(stream.partialOutput.length <= 100_000, 'partial output must be tail-capped')
+
+  applyShubEvent(
+    stream,
+    JSON.stringify({
+      type: 'turn_end',
+      message: { role: 'assistant', content: [{ type: 'text', text: 'x'.repeat(100_001) }] },
+      toolResults: [],
+    }),
+  )
+  ok(stream.output.length <= 100_000, 'final output must be capped')
+  ok(stream.output.endsWith('x'), 'the final report is preserved')
 })
 
 test('an already cancelled call never attempts to spawn a child', async () => {

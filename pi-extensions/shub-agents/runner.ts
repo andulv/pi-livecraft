@@ -19,8 +19,8 @@ import { isObject } from '../../shared/is-object.ts'
 import { workspaceSessionFolderName } from '../../shared/pi-session-paths.ts'
 
 const MAX_RAW_EVENT_TAIL_CHARS = 50_000
-/** Assistant text is accumulated tail-only so a verbose child cannot grow memory without bound. */
-const MAX_OUTPUT_TAIL_CHARS = 100_000
+/** Partial assistant text is accumulated tail-only for bounded failure diagnostics. */
+const MAX_OUTPUT_CHARS = 100_000
 const MAX_PARTIAL_EVIDENCE_CHARS = 20_000
 const MAX_EVIDENCE_ITEM_CHARS = 2_000
 const PROGRESS_THROTTLE_MS = 300
@@ -135,8 +135,10 @@ export interface ShubStream {
   lastTool?: string
   totalTokens: number
   costUsd: number
-  /** Assistant text, tail-capped; the answer the parent receives comes from here. */
+  /** The final assistant message from `turn_end`; this is the only answer returned to the parent. */
   output: string
+  /** Tail of intermediate assistant text, used only as partial evidence after a timeout. */
+  partialOutput: string
   /** Tail of completed tool results, used as partial evidence after a timeout. */
   evidence: string
 }
@@ -149,6 +151,7 @@ export function createShubStream(): ShubStream {
     totalTokens: 0,
     costUsd: 0,
     output: '',
+    partialOutput: '',
     evidence: '',
   }
 }
@@ -193,18 +196,24 @@ export function applyShubEvent(
     }
     return 'tool'
   }
-  if (
-    event.type === 'message_end' && isObject(event.message) && event.message.role === 'assistant'
-  ) {
+  if (event.type === 'message_end' && isObject(event.message)) {
+    if (event.message.role !== 'assistant') return undefined
     applyUsage(stream, event.message.usage)
     const text = contentText(event.message).trim()
     if (text) {
-      stream.output = stream.output ? `${stream.output}\n\n${text}` : text
-      // Keep only the tail so accumulated output stays bounded across many turns.
-      if (stream.output.length > MAX_OUTPUT_TAIL_CHARS) {
-        stream.output = stream.output.slice(-MAX_OUTPUT_TAIL_CHARS)
+      stream.partialOutput = stream.partialOutput ? `${stream.partialOutput}\n\n${text}` : text
+      // Keep only the tail so intermediate output stays bounded in memory.
+      if (stream.partialOutput.length > MAX_OUTPUT_CHARS) {
+        stream.partialOutput = stream.partialOutput.slice(-MAX_OUTPUT_CHARS)
       }
     }
+    return undefined
+  }
+  if (event.type === 'turn_end' && isObject(event.message) && event.message.role === 'assistant') {
+    // A turn may contain several assistant messages around tool calls. Only the
+    // authoritative turn-end message is the report; earlier messages are model
+    // scratch work and stay out of the parent conversation.
+    stream.output = contentText(event.message).trim().slice(0, MAX_OUTPUT_CHARS)
     return 'answer'
   }
   return undefined
@@ -361,14 +370,15 @@ export function runShubChild(options: ShubChildOptions): Promise<ShubChildResult
       fn()
     }
 
-    /** Bounded diagnostics: assistant tail, completed evidence, stderr, raw event tail. */
+    /** Bounded diagnostics: final/partial assistant text, tool evidence, stderr, raw event tail. */
     const failureDiagnostics = (message: string): string => {
       const evidence = stream.evidence.trim()
+      const answer = stream.output.trim() || stream.partialOutput.trim()
       const diagnostics = [
-        stream.output.trim(),
+        answer,
         evidence ? `Completed tool evidence:${evidence}` : '',
         stderr.trim(),
-        !stream.output.trim() && !evidence ? rawEventTail.trim() : '',
+        !answer && !evidence ? rawEventTail.trim() : '',
       ]
         .filter(Boolean)
         .join('\n\n')
