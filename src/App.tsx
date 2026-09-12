@@ -1079,7 +1079,7 @@ function LivecraftProjectApp(
       setPiConnection('connecting')
       clearActivity()
       showToast('error', 'Connection to backend lost; retrying.')
-    }), [
+    }, () => setPiConnection('connected')), [
     clearActivity,
     clearManagerUnavailableToasts,
     resetEventSequence,

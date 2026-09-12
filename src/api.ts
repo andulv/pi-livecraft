@@ -64,10 +64,15 @@ export function parseManagerEvent(data: string): ManagerEvent | null {
   }
 }
 
-/** Subscribes to validated manager events while preserving EventSource reconnection. */
+/**
+ * Subscribes to validated manager events while preserving EventSource reconnection.
+ * Opening proves the backend transport recovered; its first event still reports whether the
+ * manager itself is connected or disconnected.
+ */
 export function subscribeManagerEvents(
   onEvent: (event: ManagerEvent) => void,
   onError: () => void,
+  onOpen?: () => void,
 ): () => void {
   const source = new EventSource('/api/events')
   let droppedAt: number | undefined
@@ -76,6 +81,7 @@ export function subscribeManagerEvents(
     if (event) onEvent(event)
   }
   source.onopen = () => {
+    onOpen?.()
     if (droppedAt === undefined) return
     const durationMs = Math.max(0, Math.round(performance.now() - droppedAt))
     droppedAt = undefined

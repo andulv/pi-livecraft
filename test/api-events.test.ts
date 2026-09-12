@@ -64,8 +64,17 @@ test('reports one manager stream drop and its recovery per outage', async () => 
 
   try {
     let errors = 0
-    const unsubscribe = subscribeManagerEvents(() => undefined, () => errors += 1)
+    let opens = 0
+    const unsubscribe = subscribeManagerEvents(
+      () => undefined,
+      () => errors += 1,
+      () => opens += 1,
+    )
     const source = FakeEventSource.latest!
+
+    source.onopen?.(new Event('open'))
+    assert.equal(opens, 1)
+    assert.equal(logs.length, 0)
 
     source.onerror?.(new Event('error'))
     source.onerror?.(new Event('error'))
@@ -75,6 +84,7 @@ test('reports one manager stream drop and its recovery per outage', async () => 
 
     source.onopen?.(new Event('open'))
     await new Promise<void>((resolve) => setImmediate(resolve))
+    assert.equal(opens, 2)
     assert.equal(logs[1]?.source, 'sse-reopen')
     assert.match(logs[1]?.message ?? '', /^manager event stream recovered after \d+ ms$/)
 
