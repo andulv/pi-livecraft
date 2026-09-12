@@ -5,6 +5,8 @@ export interface ToolCall {
   id: string
   name: string
   args: unknown
+  /** Extension-reported run metadata; present on settled calls and live subagent progress. */
+  details?: unknown
 }
 
 export interface ToolResult {

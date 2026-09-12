@@ -114,6 +114,47 @@ test('extracts a usable file path from read and write calls', () => {
   assert.equal(toolFilePath({}), null)
 })
 
+test('shows the delegated task with resolved effort and model for subagent calls', () => {
+  assert.deepEqual(
+    toolCallPresentation({
+      id: 'call_1',
+      name: 'subagent_repo_explore',
+      args: { task: 'Map the session store.', effort: 'deep', max_chars: 20000 },
+      details: {
+        agent: 'repo_explore',
+        effort: 'deep',
+        model: 'fireworks/accounts/fireworks/models/deepseek-v4-flash-0731',
+      },
+    }),
+    {
+      headerDetail: {
+        text: 'Map the session store.',
+        title: 'Map the session store.',
+        suffix: 'deep · deepseek-v4-flash-0731',
+      },
+    },
+  )
+})
+
+test('shows web-research questions and truncates long delegated tasks', () => {
+  const question = 'q'.repeat(81)
+  assert.deepEqual(
+    toolCallPresentation({ id: 'call_2', name: 'subagent_web_research', args: { question } }),
+    { headerDetail: { text: `${'q'.repeat(80)}…`, title: question } },
+  )
+})
+
+test('ignores invalid subagent arguments', () => {
+  assert.deepEqual(
+    toolCallPresentation({ id: 'call_3', name: 'subagent_repo_explore', args: {} }),
+    {},
+  )
+  assert.deepEqual(
+    toolCallPresentation({ id: 'call_4', name: 'subagent_web_research', args: { question: 5 } }),
+    {},
+  )
+})
+
 test('uses the Bash presentation while preserving the generic fallback', () => {
   const command = 'a'.repeat(81)
   assert.deepEqual(

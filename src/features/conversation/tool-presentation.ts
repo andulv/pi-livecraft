@@ -191,7 +191,7 @@ export function toolCallPresentation(
   const presenter = toolCallPresentations[call.name]
   if (!presenter) return {}
 
-  return presenter(streamedToolArguments(call.args, rawArguments), repositoryRoot)
+  return presenter(streamedToolArguments(call.args, rawArguments), repositoryRoot, call.details)
 }
 
 /** Merges safe scalar values from incomplete JSON without changing final call arguments. */
@@ -205,6 +205,8 @@ function streamedToolArguments(args: unknown, rawArguments?: string): unknown {
     'offset',
     'limit',
     'timeout',
+    'task',
+    'question',
   ])
   if (Object.keys(values).length === 0) return args
 

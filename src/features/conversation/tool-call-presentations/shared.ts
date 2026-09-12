@@ -7,6 +7,7 @@ export interface ToolCallPresentation {
 export type ToolCallPresenter = (
   args: unknown,
   repositoryRoot?: string | null,
+  details?: unknown,
 ) => ToolCallPresentation
 
 export function truncateToolText(

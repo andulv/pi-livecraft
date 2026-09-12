@@ -9,7 +9,9 @@ is the reference — open it to follow its shape.
 
 Add a new `.ts` file in `src/features/conversation/tool-call-presentations/`.
 
-**Signature:** `(args: unknown, repositoryRoot?: string | null) => ToolCallPresentation`
+**Signature:** `(args: unknown, repositoryRoot?: string | null, details?: unknown) => ToolCallPresentation`.
+The third argument carries the extension-reported result details (settled runs only);
+`subagent.ts` is the reference for using it.
 
 **Contract:**
 - `args` is `unknown` — always validate before accessing fields. Use `isObject()` to
@@ -117,3 +119,4 @@ Every presentation lives in [`src/features/conversation/tool-call-presentations/
 - [`file.ts`](/src/features/conversation/tool-call-presentations/file.ts) — repo-relative path via `pathFromRepositoryRoot`, shared by `edit` and `write`
 - [`read.ts`](/src/features/conversation/tool-call-presentations/read.ts) — enriches `file.ts` with a line-range suffix
 - [`search.ts`](/src/features/conversation/tool-call-presentations/search.ts) — pattern with optional directory, shared by `find` and `grep`
+- [`subagent.ts`](/src/features/conversation/tool-call-presentations/subagent.ts) — delegated task in the header plus a resolved effort/model chip from result details, shared by `subagent_repo_explore` and `subagent_web_research`

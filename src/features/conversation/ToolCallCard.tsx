@@ -118,7 +118,7 @@ export const ToolCallCard = memo(function ToolCallCard({
   const durationLabel = durationMs === undefined ? undefined : formatDuration(durationMs)
   const displayedOutput = output || 'No output.'
   const presentation = toolCallPresentation(
-    { id, name: toolName, args },
+    { id, name: toolName, args, details: resultDetails },
     repositoryRoot,
     streamingArguments,
   )
@@ -129,7 +129,7 @@ export const ToolCallCard = memo(function ToolCallCard({
   const commandText = presentation.headerDetail?.text
   const bashCommandMatch = toolName === 'bash' ? commandText?.match(/^\s*(\S+)/) : undefined
   const bashCommandName = bashCommandMatch?.[1]
-  const headingName = bashCommandName ?? (toolName || 'tool')
+  const headingName = bashCommandName ?? (toolName || 'tool').replace(/^subagent_/, '')
   const displayedCommand = bashCommandMatch && commandText
     ? commandText.slice(bashCommandMatch[0].length).trimStart()
     : commandText
@@ -236,7 +236,7 @@ export const ToolCallCard = memo(function ToolCallCard({
           )}
           {presentation.headerDetail?.suffix && (
             <span className='tool-call-range'>
-              <code aria-label={`Read range: ${presentation.headerDetail.suffix}`}>
+              <code aria-label={`Detail: ${presentation.headerDetail.suffix}`}>
                 {presentation.headerDetail.suffix}
               </code>
             </span>
