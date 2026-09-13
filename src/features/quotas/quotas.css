@@ -155,9 +155,9 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 6px;
+  gap: 4px;
   margin-bottom: 4px;
-  font-size: 12px;
+  font-size: 11px;
 }
 .quota-row-copy strong {
   min-width: 0;

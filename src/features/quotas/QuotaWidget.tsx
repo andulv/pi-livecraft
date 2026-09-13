@@ -702,7 +702,7 @@ function formatQuotaUsage(
   const shortWindow = period === '5h' || period === 'session'
   const total = shortWindow ? 5 : 7
   const elapsed = total * Math.max(0, Math.min(100, periodProgress)) / 100
-  return `${formatPeriodNumber(elapsed)}/${total} ${shortWindow ? 'hours' : 'days'} - ${usage}`
+  return `${formatPeriodNumber(elapsed)} of ${total} ${shortWindow ? 'hours' : 'days'} - ${usage}`
 }
 
 function formatPeriodNumber(value: number): string {
