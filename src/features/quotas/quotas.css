@@ -59,8 +59,8 @@
 .quota-content {
   display: grid;
   align-content: start;
-  gap: 10px;
-  padding: 12px 12px 20px;
+  gap: 8px;
+  padding: 10px 12px 16px;
 }
 .quota-legend {
   display: flex;
@@ -92,7 +92,7 @@
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 13px 14px 14px;
+  padding: 11px 14px 10px;
   background: color-mix(in srgb, var(--surface) 88%, var(--canvas));
 }
 .quota-provider-heading {
@@ -100,7 +100,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 .quota-provider-heading h2 {
   display: inline-flex;
@@ -149,14 +149,14 @@
   font-weight: 700;
 }
 .quota-row + .quota-row {
-  margin-top: 13px;
+  margin-top: 10px;
 }
 .quota-row-copy {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   font-size: 12px;
 }
 .quota-row-copy strong {
@@ -228,7 +228,7 @@
 }
 .quota-row small {
   display: block;
-  margin-top: 6px;
+  margin-top: 4px;
   color: var(--muted);
   font-size: 10px;
   text-align: right;
@@ -238,17 +238,17 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 8px;
   border: 1px solid var(--panel-line);
   border-radius: 8px;
-  padding: 8px 9px;
+  padding: 6px 9px;
   background: var(--surface-raised);
   color: var(--muted);
   font-size: 10px;
 }
 /* Inside a GLM window row the reset row sits tighter under the reset time. */
 .quota-resets-compact {
-  margin-top: 5px;
+  margin-top: 4px;
 }
 .quota-resets span {
   min-width: 0;
@@ -285,9 +285,9 @@
   transform: none;
 }
 .quota-peak {
-  margin-top: 14px;
+  margin-top: 10px;
   border-top: 1px solid var(--panel-line);
-  padding-top: 12px;
+  padding-top: 9px;
 }
 .quota-peak h3 {
   margin: 0 0 7px;
