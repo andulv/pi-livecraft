@@ -59,75 +59,132 @@
 .quota-content {
   display: grid;
   align-content: start;
-  gap: 8px;
-  padding: 10px 10px 20px;
+  gap: 10px;
+  padding: 12px 12px 20px;
+}
+.quota-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.02em;
+}
+.quota-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.quota-legend i {
+  display: block;
+  width: 14px;
+  height: 7px;
+  border-radius: 3px;
+}
+.quota-legend-usage {
+  background: var(--accent);
+}
+.quota-legend-period {
+  border: 1px solid var(--secondary);
 }
 .quota-provider {
   min-width: 0;
-  border: 1px solid var(--panel-line);
-  border-radius: 10px;
-  padding: 10px 12px 11px;
-  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 13px 14px 14px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--canvas));
 }
 .quota-provider-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 9px;
+  gap: 10px;
+  margin-bottom: 14px;
 }
 .quota-provider-heading h2 {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  min-width: 0;
+  gap: 10px;
   margin: 0;
-  font-size: 12px;
+  font-size: 15px;
+  letter-spacing: -0.01em;
 }
 .quota-provider-icon {
   display: inline-flex;
+  flex: 0 0 34px;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid color-mix(in srgb, currentColor 28%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, currentColor 12%, var(--surface));
   color: var(--secondary);
+}
+.quota-provider-icon svg {
+  width: 20px;
+  height: 20px;
+}
+.quota-provider-openai .quota-provider-icon {
+  color: var(--accent);
+}
+.quota-provider-anthropic .quota-provider-icon {
+  color: var(--warning);
+}
+.quota-provider-copilot .quota-provider-icon {
+  color: var(--secondary);
+}
+.quota-provider-glm .quota-provider-icon {
+  color: var(--accent);
 }
 .quota-provider-heading span {
   flex: 0 0 auto;
   border-radius: 10px;
-  padding: 3px 6px;
+  padding: 4px 7px;
   background: var(--danger-soft);
   color: var(--danger);
   font-size: 9px;
   font-weight: 700;
 }
 .quota-row + .quota-row {
-  margin-top: 9px;
+  margin-top: 13px;
 }
 .quota-row-copy {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 4px;
-  font-size: 11px;
+  margin-bottom: 6px;
+  font-size: 12px;
 }
 .quota-row-copy strong {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 600;
+  font-weight: 650;
   white-space: nowrap;
 }
 .quota-row-copy b {
   flex: 0 0 auto;
   color: var(--ink);
-  font: 700 10px ui-monospace, monospace;
+  font: 700 11px ui-monospace, monospace;
 }
-.quota-bars {
-  display: grid;
-  gap: 3px;
+.quota-row-copy b.quota-value-on-track {
+  color: var(--success);
+}
+.quota-row-copy b.quota-value-caution {
+  color: var(--warning);
+}
+.quota-row-copy b.quota-value-high {
+  color: var(--danger);
 }
 .quota-bar-row {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .quota-bar-label {
   color: var(--muted);
@@ -135,25 +192,43 @@
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }
+/* The period is an outline, while usage is the shorter inner fill. Keeping
+   both in one track makes usage ahead of the period unmistakable. */
 .quota-bar {
+  position: relative;
+  isolation: isolate;
   overflow: hidden;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--line);
+  height: 16px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--line) 70%, var(--surface));
 }
-.quota-bar span {
+.quota-bar > span {
   display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent);
+  border-radius: 4px;
   transition: width 180ms cubic-bezier(0.25, 1, 0.5, 1);
 }
-.quota-bar-period span {
-  background: var(--secondary);
+.quota-bar-period {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border: 1px solid var(--secondary);
+  background: color-mix(in srgb, var(--secondary) 5%, transparent);
+  pointer-events: none;
+}
+.quota-bar-usage {
+  position: absolute;
+  z-index: 1;
+  top: 4px;
+  bottom: 4px;
+  left: 3px;
+  min-width: 0;
+  background: var(--accent);
 }
 .quota-row small {
   display: block;
-  margin-top: 3px;
+  margin-top: 6px;
   color: var(--muted);
   font-size: 10px;
   text-align: right;
@@ -163,7 +238,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 9px;
+  margin-top: 12px;
+  border: 1px solid var(--panel-line);
+  border-radius: 8px;
+  padding: 8px 9px;
+  background: var(--surface-raised);
   color: var(--muted);
   font-size: 10px;
 }
@@ -206,11 +285,13 @@
   transform: none;
 }
 .quota-peak {
-  margin-top: 8px;
+  margin-top: 14px;
+  border-top: 1px solid var(--panel-line);
+  padding-top: 12px;
 }
 .quota-peak h3 {
-  margin: 0 0 6px;
-  font-size: 11px;
+  margin: 0 0 7px;
+  font-size: 12px;
 }
 .quota-peak-labels {
   position: relative;
@@ -298,6 +379,20 @@
   color: var(--muted);
   font: 10px ui-monospace, monospace;
   text-align: center;
+}
+@media (max-width: 480px) {
+  .quota-content {
+    padding-inline: 9px;
+  }
+  .quota-provider {
+    padding-inline: 11px;
+  }
+  .quota-provider-heading h2 {
+    font-size: 14px;
+  }
+  .quota-legend {
+    justify-content: flex-start;
+  }
 }
 .quota-skeleton {
   display: grid;
