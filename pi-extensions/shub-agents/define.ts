@@ -1,3 +1,6 @@
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+
 export const MAX_REPORT_CHARS = 100_000
 
 export interface SubagentEffort {
@@ -16,6 +19,8 @@ export type SubagentTool =
   | 'ls'
   | 'fffind'
   | 'ffgrep'
+  | 'codex-research'
+  | 'codex-search'
 
 export interface SubagentDefinition<
   TArguments extends Record<string, unknown> = Record<string, unknown>,
@@ -28,12 +33,23 @@ export interface SubagentDefinition<
   task: (args: TArguments) => string
   systemPrompt: string
   tools: readonly SubagentTool[]
+  /** Extra extension entry files loaded into the child; the child loads no other extensions. */
+  extensions?: readonly string[]
+  /** Extra CLI flags and environment this agent's toolchain needs inside the child. */
+  providerArgs?: readonly string[]
+  providerEnv?: Readonly<Record<string, string>>
   model: string
   thinking: 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
   effort: Readonly<Record<string, SubagentEffort>>
   defaultEffort: string
   maxOutputChars: number
   images?: boolean
+}
+
+/** Entry file of an installed user package, resolved from Pi's agent home (`PI_CODING_AGENT_DIR` or `~/.pi/agent`). */
+export function agentPackageEntry(packageName: string, entryPath: string): string {
+  const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), '.pi', 'agent')
+  return join(agentDir, 'npm', 'node_modules', packageName, entryPath)
 }
 
 /** Gives an agent definition schema-derived argument types without registering it. */

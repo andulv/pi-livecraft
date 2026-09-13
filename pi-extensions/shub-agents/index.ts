@@ -23,23 +23,12 @@ const extensionDirectory = dirname(fileURLToPath(import.meta.url))
 const SESSION_MARKER_EXTENSION = resolve(extensionDirectory, 'session-marker.ts')
 const BUDGET_GUARD_EXTENSION = resolve(extensionDirectory, 'budget-guard.ts')
 const DEFAULT_PI_BIN = 'pi'
-const DEFAULT_FFF_EXTENSION = '/home/anders/.pi/agent/npm/node_modules/@ff-labs/pi-fff/src/index.ts'
 const SESSION_HEAD_BYTES = 8192
 
 export const SHUB_SETTINGS: ExtensionSettingGroup = {
   name: 'shub-agents',
-  description: 'Environment paths used by bounded delegated agents.',
+  description: 'Runtime path used by bounded delegated agents.',
   settings: [
-    {
-      id: 'fffExtension',
-      label: 'FFF extension path',
-      description: 'Entry file loaded when an agent declares fffind or ffgrep.',
-      type: 'string',
-      defaultValue: DEFAULT_FFF_EXTENSION,
-      env: 'PI_SHUB_FFF_EXTENSION',
-      effect: 'next-call',
-      advanced: true,
-    },
     {
       id: 'piExecutable',
       label: 'Pi executable',
@@ -125,9 +114,7 @@ function registerSubagent<TArguments extends Record<string, unknown>>(
 
       const settings = await resolveExtensionSettings(SHUB_SETTINGS)
       const piExecutable = stringSetting(settings, 'piExecutable') ?? DEFAULT_PI_BIN
-      const fffExtension = stringSetting(settings, 'fffExtension') ?? DEFAULT_FFF_EXTENSION
-      const usesFff = agent.tools.some((tool) => tool === 'fffind' || tool === 'ffgrep')
-      if (usesFff) await access(fffExtension)
+      for (const extension of agent.extensions ?? []) await access(extension)
 
       const images: string[] = []
       for (const image of runParams.images ?? []) {
@@ -162,12 +149,14 @@ function registerSubagent<TArguments extends Record<string, unknown>>(
 
       const result = await runShubChild({
         piExecutable,
-        extensions: usesFff
-          ? [SESSION_MARKER_EXTENSION, BUDGET_GUARD_EXTENSION, fffExtension]
-          : [SESSION_MARKER_EXTENSION, BUDGET_GUARD_EXTENSION],
+        extensions: [
+          SESSION_MARKER_EXTENSION,
+          BUDGET_GUARD_EXTENSION,
+          ...(agent.extensions ?? []),
+        ],
         tools: [...agent.tools],
-        providerArgs: usesFff ? ['--fff-mode', 'tools-only'] : [],
-        providerEnv: usesFff ? { PI_FFF_MODE: 'tools-only', PI_FFF_MULTIGREP: '0' } : {},
+        providerArgs: [...(agent.providerArgs ?? [])],
+        providerEnv: { ...(agent.providerEnv ?? {}) },
         cwd: ctx.cwd,
         task,
         images,

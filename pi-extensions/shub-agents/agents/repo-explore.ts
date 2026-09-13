@@ -1,5 +1,5 @@
 import { Type } from 'typebox'
-import { defineSubagent } from '../define.ts'
+import { agentPackageEntry, defineSubagent } from '../define.ts'
 
 const parameters = Type.Object({
   task: Type.String({
@@ -28,6 +28,9 @@ Use fffind for path and concept discovery, ffgrep for identifiers and short evid
 
 Report the relevant files, key symbols with line-number evidence when available, how the pieces connect, the next files or ranges the caller should read, and any uncertainty. Use absolute paths when possible. Do not emit conversational preambles before tool calls.`,
   tools: ['fffind', 'ffgrep', 'read'],
+  extensions: [agentPackageEntry('@ff-labs/pi-fff', 'src/index.ts')],
+  providerArgs: ['--fff-mode', 'tools-only'],
+  providerEnv: { PI_FFF_MODE: 'tools-only', PI_FFF_MULTIGREP: '0' },
   model: 'fireworks/accounts/fireworks/models/deepseek-v4-flash-0731',
   thinking: 'off',
   effort: {

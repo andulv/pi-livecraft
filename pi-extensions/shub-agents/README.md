@@ -8,8 +8,9 @@ isolation, tool-budget enforcement, progress, persistence, and result shaping.
 Each call starts one `pi --mode json --print` child in the parent's workspace.
 Global and project extensions, skills, prompt templates, themes, and context
 files are disabled. The child receives only its definition's tools plus the
-internal budget and ownership-marker extensions. Declaring `bash` grants full
-Bash access; there is no sandbox yet.
+internal budget and ownership-marker extensions. Definitions may declare extra
+extension entries and toolchain flags via `extensions`, `providerArgs`, and
+`providerEnv`. Declaring `bash` grants full Bash access; there is no sandbox yet.
 
 The caller may select a declared effort level and `max_chars` from 1 to 100,000.
 Effort controls the hard process timeout and soft/hard tool-call counts;
