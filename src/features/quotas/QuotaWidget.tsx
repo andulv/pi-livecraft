@@ -118,7 +118,7 @@ export function QuotaWidget(
                     <div className='quota-row-copy'>
                       <strong>{window.period === '5h' ? '5-hour window' : '7-day window'}</strong>
                       <b className={pace ? `quota-value-${pace}` : undefined}>
-                        {formatPercent(usedPercent)} used
+                        {formatQuotaUsage(usedPercent, periodProgress, window.period)}
                       </b>
                     </div>
                     <QuotaBar
@@ -164,7 +164,7 @@ export function QuotaWidget(
                     <div className='quota-row-copy'>
                       <strong>{window.label}</strong>
                       <b className={pace ? `quota-value-${pace}` : undefined}>
-                        {formatPercent(window.usedPercent)} used
+                        {formatQuotaUsage(window.usedPercent, periodProgress, period)}
                       </b>
                     </div>
                     <QuotaBar
@@ -239,7 +239,11 @@ export function QuotaWidget(
                       <strong>{glmLabel(window.kind)}</strong>
                       <b className={pace ? `quota-value-${pace}` : undefined}>
                         {isPercent
-                          ? `${formatPercent(window.usedPercent ?? 0)} used`
+                          ? formatQuotaUsage(
+                            window.usedPercent ?? 0,
+                            periodProgress,
+                            window.kind === 'session' ? 'session' : 'weekly',
+                          )
                           : `${formatNumber(window.used ?? 0)} / ${
                             formatNumber(window.limit ?? 0)
                           }`}
@@ -684,6 +688,25 @@ function formatPercent(value: number): string {
   return `${
     new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 }).format(value)
   } %`
+}
+
+function formatQuotaUsage(
+  usedPercent: number,
+  periodProgress: number | undefined,
+  period: '5h' | '7d' | 'session' | 'weekly',
+): string {
+  const usage = `${
+    new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 }).format(usedPercent)
+  }% used`
+  if (periodProgress === undefined) return usage
+  const shortWindow = period === '5h' || period === 'session'
+  const total = shortWindow ? 5 : 7
+  const elapsed = total * Math.max(0, Math.min(100, periodProgress)) / 100
+  return `${formatPeriodNumber(elapsed)}/${total} ${shortWindow ? 'hours' : 'days'} - ${usage}`
+}
+
+function formatPeriodNumber(value: number): string {
+  return new Intl.NumberFormat(navigator.language, { maximumFractionDigits: 1 }).format(value)
 }
 
 function formatNumber(value: number): string {

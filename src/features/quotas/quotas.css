@@ -155,7 +155,7 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
+  gap: 6px;
   margin-bottom: 4px;
   font-size: 12px;
 }
@@ -169,7 +169,7 @@
 .quota-row-copy b {
   flex: 0 0 auto;
   color: var(--ink);
-  font: 700 11px ui-monospace, monospace;
+  font: 700 10px ui-monospace, monospace;
 }
 .quota-row-copy b.quota-value-on-track {
   color: var(--success);
