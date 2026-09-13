@@ -228,6 +228,7 @@ function registerSubagent<TArguments extends Record<string, unknown>>(
           costUsd: result.costUsd,
           elapsedMs: result.elapsedMs,
           truncated,
+          outputChars: brief.length,
           stderr: result.stderr.slice(0, 10_000),
         },
       }

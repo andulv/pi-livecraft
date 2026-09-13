@@ -19,6 +19,10 @@ export interface RecentSession {
   shubAgent?: string
   /** Owner session id from the marker of a shub-agent child run. */
   ownerSessionId?: string
+  /** Tokens the child's LLM calls processed, measured from its session file. */
+  shubTotalTokens?: number
+  /** Characters of final report text the child delivered, measured likewise. */
+  shubOutputChars?: number
   /** Timestamp of the session's first message; falls back to the header timestamp. */
   firstMessageAt?: number
   updatedAt: number

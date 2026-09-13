@@ -90,6 +90,52 @@ test('extracts the persisted ownership marker and keeps the display name whole',
   ])
 })
 
+test('measures a shub-agent child run from the usage recorded in its session', async () => {
+  const { directory, workspace } = await fixture()
+  const sessions = workspaceSessionDir(workspace, directory)
+  await mkdir(sessions, { recursive: true })
+  const path = join(sessions, 'measured.jsonl')
+  const timestamp = '2026-07-19T09:00:00.000Z'
+  const turn = (tokens: number, text: string) =>
+    JSON.stringify({
+      type: 'message',
+      timestamp,
+      message: {
+        role: 'assistant',
+        content: [{ type: 'text', text }],
+        usage: { totalTokens: tokens },
+      },
+    })
+  await writeFile(
+    path,
+    [
+      JSON.stringify({ type: 'session', version: 3, id: 'measured-id', timestamp, cwd: workspace }),
+      JSON.stringify({
+        type: 'custom',
+        id: 'marker0',
+        parentId: null,
+        timestamp,
+        customType: 'livecraft.shub-agent',
+        data: { version: 1, ownerSessionId: 'owner-id', agent: 'research' },
+      }),
+      JSON.stringify({ type: 'session_info', name: 'shub-agent/research: measured run' }),
+      JSON.stringify({
+        type: 'message',
+        timestamp,
+        message: { role: 'user', content: 'measured task' },
+      }),
+      turn(30000, 'Reading the session store...'),
+      turn(18190, 'Final report.'),
+    ]
+      .join('\n'),
+  )
+
+  const [recent] = await listRecentPiSessions(workspace, directory)
+  assert.equal(recent.shubAgent, 'research')
+  assert.equal(recent.shubTotalTokens, 48190)
+  assert.equal(recent.shubOutputChars, 'Final report.'.length)
+})
+
 test('a session without an ownership marker stays an ordinary session', async () => {
   const { directory, workspace } = await fixture()
   const sessions = workspaceSessionDir(workspace, directory)

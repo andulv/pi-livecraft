@@ -5,6 +5,7 @@ import {
   sessionIdFromFilePath,
   shubAgentSessionName,
   SHUB_MARKER_CUSTOM_TYPE,
+  shubCompactTokens,
   shubMarkerFromEntry,
 } from '../shared/shub-agent-session.ts'
 
@@ -82,4 +83,11 @@ test('Pi session ids are extracted from persisted filenames', () => {
   )
   strictEqual(sessionIdFromFilePath(undefined), undefined)
   strictEqual(sessionIdFromFilePath('/sessions/plain.jsonl'), undefined)
+})
+
+test('compact token counts stay readable at any magnitude', () => {
+  strictEqual(shubCompactTokens(940), '940')
+  strictEqual(shubCompactTokens(1200), '1.2k')
+  strictEqual(shubCompactTokens(48190), '48.2k')
+  strictEqual(shubCompactTokens(621723), '622k')
 })

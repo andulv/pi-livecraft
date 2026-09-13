@@ -1,4 +1,4 @@
-import { readdir, open, realpath, stat } from 'node:fs/promises'
+import { readdir, open, readFile, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { isAbsolute, join, relative, sep } from 'node:path'
 import type { RecentSession } from '../shared/types.ts'
@@ -221,6 +221,13 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
   }
 
   if (!hasMessage) return null
+
+  // Only child runs are measured: tokens their LLM calls processed versus the
+  // report size they delivered. See childSessionUsage for the cache contract.
+  const usage = shubAgent === undefined
+    ? undefined
+    : await childSessionUsage(canonicalPath, size, updatedAt)
+  const measured = usage !== undefined && usage.totalTokens > 0 && usage.outputChars > 0
   const createdAt = Date.parse(header.timestamp)
   const rawName = name || prompt || 'New session'
   return {
@@ -229,6 +236,9 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
     name: rawName,
     sessionPath: canonicalPath,
     ...(shubAgent !== undefined ? { shubAgent, ownerSessionId } : {}),
+    ...(measured
+      ? { shubTotalTokens: usage.totalTokens, shubOutputChars: usage.outputChars }
+      : {}),
     firstMessageAt: firstMessageAt ?? (Number.isNaN(createdAt) ? undefined : createdAt),
     updatedAt: lastMessageAt ?? (Number.isNaN(createdAt) ? updatedAt : createdAt),
   }
@@ -296,6 +306,54 @@ async function scanSessionTail(
 /** Cheap pre-filter so only lines that can carry a session name or message timestamp are parsed. */
 function mayCarrySessionMetadata(line: string): boolean {
   return line.includes('session_info') || line.includes('"message"')
+}
+
+interface ChildSessionUsage {
+  totalTokens: number
+  outputChars: number
+}
+
+/** Usage measurements per shub-agent child session, keyed by canonical path.
+ *  A child file stops growing when its run settles, so the whole-file scan runs
+ *  once per file version; an in-flight run is simply re-measured as it grows. */
+const childUsageCache = new Map<
+  string,
+  { size: number; mtimeMs: number; usage: ChildSessionUsage }
+>()
+
+/** Sums the tokens a shub-agent child's LLM calls processed and the size of the
+ *  final report text it delivered, from the usage Pi records on every assistant
+ *  message in the session file. */
+async function childSessionUsage(
+  path: string,
+  size: number,
+  mtimeMs: number,
+): Promise<ChildSessionUsage | undefined> {
+  const cached = childUsageCache.get(path)
+  if (cached && cached.size === size && cached.mtimeMs === mtimeMs) return cached.usage
+
+  let content: string
+  try {
+    content = await readFile(path, 'utf8')
+  } catch {
+    return undefined
+  }
+  let totalTokens = 0
+  let outputChars = 0
+  for (const line of content.split('\n')) {
+    const value = parseLine(line)
+    if (!value || value.type !== 'message') continue
+    if (!isObject(value.message) || value.message.role !== 'assistant') continue
+    const usage = value.message.usage
+    if (isObject(usage) && typeof usage.totalTokens === 'number') {
+      totalTokens += usage.totalTokens
+    }
+    const text = textContent(value.message.content) ?? ''
+    if (text.trim()) outputChars = text.length
+  }
+  const usage = { totalTokens, outputChars }
+  childUsageCache.set(path, { size, mtimeMs, usage })
+  return usage
 }
 
 /** Reads a byte range from a file without streaming the full content. */

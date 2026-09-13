@@ -124,13 +124,15 @@ test('shows the delegated task with resolved effort and model for subagent calls
         agent: 'repo_explore',
         effort: 'deep',
         model: 'fireworks/accounts/fireworks/models/deepseek-v4-flash-0731',
+        totalTokens: 12000,
+        outputChars: 1800,
       },
     }),
     {
       headerDetail: {
         text: 'Map the session store.',
         title: 'Map the session store.',
-        suffix: 'deep · deepseek-v4-flash-0731',
+        suffix: 'deep · deepseek-v4-flash-0731 · 12.0k→450 tok',
       },
     },
   )

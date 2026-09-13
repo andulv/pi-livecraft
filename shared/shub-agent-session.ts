@@ -50,6 +50,12 @@ export function shubMarkerFromEntry(value: unknown): ShubMarkerData | undefined 
   return { version: 1, ownerSessionId, agent }
 }
 
+/** Compact token count for measurement displays; e.g. 48190 becomes "48.2k". */
+export function shubCompactTokens(tokens: number): string {
+  if (tokens >= 1000) return `${(tokens / 1000).toFixed(tokens >= 100_000 ? 0 : 1)}k`
+  return String(Math.round(tokens))
+}
+
 /** Builds the persisted child display name; the marker, not this name, carries ownership. */
 export function shubAgentSessionName(agent: string, task: string): string {
   return `${SHUB_SESSION_PREFIX}${agent}: ${task.trim().slice(0, 120)}`

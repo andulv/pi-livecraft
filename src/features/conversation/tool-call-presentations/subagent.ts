@@ -1,4 +1,5 @@
 import { isObject } from '../../../../shared/is-object.ts'
+import { shubCompactTokens } from '../../../../shared/shub-agent-session.ts'
 import { truncateToolText, type ToolCallPresentation } from './shared.ts'
 
 /**
@@ -15,12 +16,14 @@ export function subagentPresentation(
   const task = taskText(args)
   if (task === undefined) return {}
 
-  const suffix = resolvedDetail(details)
+  const chipParts = [resolvedDetail(details), measurement(details)].filter(
+    (part) => part !== undefined,
+  )
   return {
     headerDetail: {
       text: truncateToolText(task, 80).text,
       title: task,
-      ...(suffix ? { suffix } : {}),
+      ...(chipParts.length > 0 ? { suffix: chipParts.join(' · ') } : {}),
     },
   }
 }
@@ -42,4 +45,15 @@ function resolvedDetail(details: unknown): string | undefined {
     : undefined
   if (!effort && !model) return undefined
   return [effort, model].filter((part) => part !== undefined).join(' · ')
+}
+
+/** Context efficiency of the run: child tokens processed versus delivered report
+ *  tokens, estimated at four characters per token like the other footprint estimates. */
+function measurement(details: unknown): string | undefined {
+  if (!isObject(details)) return undefined
+  const { totalTokens, outputChars } = details
+  if (typeof totalTokens !== 'number' || totalTokens <= 0) return undefined
+  if (typeof outputChars !== 'number' || outputChars <= 0) return undefined
+  const deliveredTokens = Math.round(outputChars / 4)
+  return `${shubCompactTokens(totalTokens)}→${shubCompactTokens(deliveredTokens)} tok`
 }
