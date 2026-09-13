@@ -88,6 +88,7 @@ export const ToolCallCard = memo(function ToolCallCard({
   workingDirectory,
 }: ToolCallCardProps) {
   const toolName = name || provisionalToolName(args, streamingArguments) || ''
+  const subagentCall = toolName.startsWith('subagent_')
   const pending = !hasResult
   const active = pending && !interrupted
   const filePath = toolName === 'read' || toolName === 'write' || toolName === 'edit'
@@ -198,11 +199,11 @@ export const ToolCallCard = memo(function ToolCallCard({
 
   return (
     <article
-      className={`tool-call${animateLiveChanges && streaming ? ' entering' : ''}${
-        contentError ? ' error' : ''
-      }${interrupted ? ' interrupted' : ''}${semiDetailed ? ' semi-detailed' : ''}${
-        targeted ? ' conversation-target' : ''
-      }`}
+      className={`tool-call${subagentCall ? ' subagent-call' : ''}${
+        animateLiveChanges && streaming ? ' entering' : ''
+      }${contentError ? ' error' : ''}${interrupted ? ' interrupted' : ''}${
+        semiDetailed ? ' semi-detailed' : ''
+      }${targeted ? ' conversation-target' : ''}`}
       data-tool-call-id={id}
       ref={cardRef}
     >

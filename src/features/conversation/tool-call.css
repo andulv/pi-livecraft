@@ -19,6 +19,13 @@
   background: color-mix(in srgb, var(--warning) 5%, var(--surface));
   color: var(--warning-strong);
 }
+.tool-call.subagent-call {
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+.tool-call.subagent-call > .tool-call-heading > span:first-child {
+  color: var(--accent);
+}
 .tool-call-heading {
   position: relative;
   display: flex;
