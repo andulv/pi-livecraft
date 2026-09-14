@@ -77,6 +77,10 @@ export interface ShubChildResult {
   code: number | null
   text: string
   stderr: string
+  /** True when the run failed without producing a report and the failure looks
+   *  provider-shaped (model call or startup failed), i.e. worth retrying on the
+   *  next model of the agent's list. */
+  providerError: boolean
   sessionId?: string
   turnCount: number
   toolCount: number
@@ -433,6 +437,7 @@ export function runShubChild(options: ShubChildOptions): Promise<ShubChildResult
           code,
           text: stream.output,
           stderr,
+          providerError: code !== null && code !== 0 && !stream.output.trim(),
           sessionId: stream.sessionId,
           turnCount: stream.turnCount,
           toolCount: stream.toolCount,

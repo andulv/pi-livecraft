@@ -16,8 +16,18 @@ import {
   stringSetting,
 } from '../extension-settings-store.ts'
 import { subagents } from './agents/index.ts'
-import { composeSubagentPrompt, MAX_REPORT_CHARS, type SubagentDefinition } from './define.ts'
-import { findShubSessionPath, runShubChild, type ShubProgress } from './runner.ts'
+import {
+  composeSubagentPrompt,
+  MAX_REPORT_CHARS,
+  pickSubagentModel,
+  type SubagentDefinition,
+} from './define.ts'
+import {
+  findShubSessionPath,
+  runShubChild,
+  type ShubChildResult,
+  type ShubProgress,
+} from './runner.ts'
 
 const extensionDirectory = dirname(fileURLToPath(import.meta.url))
 const SESSION_MARKER_EXTENSION = resolve(extensionDirectory, 'session-marker.ts')
@@ -124,13 +134,17 @@ function registerSubagent<TArguments extends Record<string, unknown>>(
       }
 
       const ownerSessionId = sessionIdFromFilePath(ctx.sessionManager.getSessionFile())
+      const attemptModels = agent.modelSelection === 'random'
+        ? [pickSubagentModel(agent.models, 'random', Math.random())]
+        : [...agent.models]
+      let ranModel = attemptModels[0]
       const report = (progress: ShubProgress): void => {
         onUpdate?.({
           content: [{ type: 'text', text: progress.text }],
           details: {
             agent: agent.name,
             cwd: ctx.cwd,
-            model: agent.model,
+            model: ranModel,
             effort: effortName,
             timeoutMs: effort.timeoutMs,
             maxOutputChars,
@@ -147,38 +161,54 @@ function registerSubagent<TArguments extends Record<string, unknown>>(
         })
       }
 
-      const result = await runShubChild({
-        piExecutable,
-        extensions: [
-          SESSION_MARKER_EXTENSION,
-          BUDGET_GUARD_EXTENSION,
-          ...(agent.extensions ?? []),
-        ],
-        tools: [...agent.tools],
-        providerArgs: [...(agent.providerArgs ?? [])],
-        providerEnv: { ...(agent.providerEnv ?? {}) },
-        cwd: ctx.cwd,
-        task,
-        images,
-        ownerSessionId,
-        agentName: agent.name,
-        sessionName: shubAgentSessionName(agent.name, task),
-        systemPrompt: composeSubagentPrompt(
-          agent.systemPrompt,
-          effortName,
-          effort,
+      const runAttempt = (model: string): Promise<ShubChildResult> =>
+        runShubChild({
+          piExecutable,
+          extensions: [
+            SESSION_MARKER_EXTENSION,
+            BUDGET_GUARD_EXTENSION,
+            ...(agent.extensions ?? []),
+          ],
+          tools: [...agent.tools],
+          providerArgs: [...(agent.providerArgs ?? [])],
+          providerEnv: { ...(agent.providerEnv ?? {}) },
+          cwd: ctx.cwd,
+          task,
+          images,
+          ownerSessionId,
+          agentName: agent.name,
+          sessionName: shubAgentSessionName(agent.name, task),
+          systemPrompt: composeSubagentPrompt(
+            agent.systemPrompt,
+            effortName,
+            effort,
+            maxOutputChars,
+          ),
+          model,
+          thinking: agent.thinking,
+          effort: effortName,
+          softToolCalls: effort.softToolCalls,
+          hardToolCalls: effort.hardToolCalls,
+          timeoutMs: effort.timeoutMs,
           maxOutputChars,
-        ),
-        model: agent.model,
-        thinking: agent.thinking,
-        effort: effortName,
-        softToolCalls: effort.softToolCalls,
-        hardToolCalls: effort.hardToolCalls,
-        timeoutMs: effort.timeoutMs,
-        maxOutputChars,
-        signal,
-        onProgress: report,
-      })
+          signal,
+          onProgress: report,
+        })
+
+      // Only provider-shaped failures (model/provider/startup errors without a
+      // report) justify falling back to the next declared model; timeouts and
+      // other failures are final, and caller cancellation always stops.
+      let result = await runAttempt(ranModel)
+      for (let index = 1; result.providerError && index < attemptModels.length; index++) {
+        ranModel = attemptModels[index]
+        onUpdate?.({
+          content: [{
+            type: 'text',
+            text: `${agent.name}: falling back to ${ranModel}.`,
+          }],
+        })
+        result = await runAttempt(ranModel)
+      }
 
       const sessionPath = result.sessionId
         ? await findShubSessionPath(ctx.cwd, result.sessionId, ctx.sessionManager.getSessionFile())
@@ -212,7 +242,7 @@ function registerSubagent<TArguments extends Record<string, unknown>>(
         details: {
           agent: agent.name,
           cwd: ctx.cwd,
-          model: agent.model,
+          model: ranModel,
           effort: effortName,
           timeoutMs: effort.timeoutMs,
           maxOutputChars,

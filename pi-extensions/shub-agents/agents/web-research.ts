@@ -25,7 +25,7 @@ export default defineSubagent<{ question: string }>({
 Answer directly, cite factual claims with numbered references, and finish with a Sources section containing the matching URLs. State material uncertainty or contradictions. Do not emit conversational preambles before tool calls.`,
   tools: ['bash', 'codex-research', 'codex-search'],
   extensions: [agentPackageEntry('pi-gpt-search', 'src/index.ts')],
-  model: 'openrouter/z-ai/glm-5.3-flash',
+  models: ['openrouter/z-ai/glm-5.3-flash'],
   thinking: 'off',
   effort: {
     quick: { timeoutMs: 60_000, softToolCalls: 4, hardToolCalls: 6 },

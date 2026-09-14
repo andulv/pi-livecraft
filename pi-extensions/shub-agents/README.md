@@ -1,8 +1,8 @@
 # Shub agents
 
 `index.ts` registers one `subagent_<name>` Pi tool for each bundled definition in
-`agents/index.ts`. A definition owns its caller arguments, prompt, tools, model,
-effort levels, and default report size. The extension shares child-process
+`agents/index.ts`. A definition owns its caller arguments, prompt, tools, model
+list, effort levels, and default report size. The extension shares child-process
 isolation, tool-budget enforcement, progress, persistence, and result shaping.
 
 Each call starts one `pi --mode json --print` child in the parent's workspace.
@@ -17,6 +17,12 @@ Effort controls the hard process timeout and soft/hard tool-call counts;
 `max_chars` independently controls the report returned to the parent. The child
 is told both values. Progress updates stay in tool UI state rather than parent
 conversation context.
+
+Each definition declares an ordered `models` list. `modelSelection` sets how the
+list is used: `fallback` (default) starts every call at the first model and
+retries the next one only when a run fails with a provider error (auth,
+credits, network, unknown model) without a report; `random` picks one model per
+call and never retries.
 
 Runs persist as ordinary Pi session files with a `livecraft.shub-agent` ownership
 entry. The server uses that marker to hide child sessions by default and group

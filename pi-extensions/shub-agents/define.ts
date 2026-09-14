@@ -38,7 +38,11 @@ export interface SubagentDefinition<
   /** Extra CLI flags and environment this agent's toolchain needs inside the child. */
   providerArgs?: readonly string[]
   providerEnv?: Readonly<Record<string, string>>
-  model: string
+  /** Acceptable models, in fallback priority order. */
+  models: readonly string[]
+  /** How the model list is used: 'fallback' (ordered; retry the next model when a
+   *  run fails with a provider error) or 'random' (pick one per call). Default 'fallback'. */
+  modelSelection?: 'fallback' | 'random'
   thinking: 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
   effort: Readonly<Record<string, SubagentEffort>>
   defaultEffort: string
@@ -50,6 +54,20 @@ export interface SubagentDefinition<
 export function agentPackageEntry(packageName: string, entryPath: string): string {
   const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), '.pi', 'agent')
   return join(agentDir, 'npm', 'node_modules', packageName, entryPath)
+}
+
+/** Resolves the model for one child run. 'fallback' always picks the first entry
+ *  (the runner retries the next entry on provider errors); 'random' picks one per
+ *  call using `roll` in [0, 1). */
+export function pickSubagentModel(
+  models: readonly string[],
+  selection: 'fallback' | 'random' | undefined,
+  roll: number,
+): string {
+  if (selection === 'random') {
+    return models[Math.min(models.length - 1, Math.floor(roll * models.length))]
+  }
+  return models[0]
 }
 
 /** Gives an agent definition schema-derived argument types without registering it. */

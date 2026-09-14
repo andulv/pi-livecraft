@@ -1,5 +1,8 @@
 import { deepEqual, equal, ok, rejects } from 'node:assert/strict'
 import { test } from 'node:test'
+import { chmod, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
   applyShubEvent,
   createShubStream,
@@ -250,4 +253,52 @@ test('progress reports the agent, tool budget, and soft-target warning', () => {
   stream.lastTool = 'read'
   ok(progressText(stream, budget).includes('research [standard]: read (12/12 target, 16 max)'))
   ok(progressText(stream, budget).includes('Target reached'))
+})
+
+test('flags a provider error when a child fails without producing a report', async () => {
+  const script = join(tmpdir(), `shub-fake-pi-fail-${process.pid}.sh`)
+  await writeFile(
+    script,
+    '#!/bin/sh\necho "{\\"type\\":\\"session\\",\\"id\\":\\"fake\\"}"\nexit 1\n',
+  )
+  await chmod(script, 0o755)
+
+  const result = await runShubChild({
+    ...baseOptions,
+    piExecutable: script,
+    cwd: process.cwd(),
+    effort: 'quick',
+    softToolCalls: 6,
+    hardToolCalls: 8,
+    timeoutMs: 5000,
+    maxOutputChars: 1000,
+  })
+
+  equal(result.code, 1)
+  equal(result.providerError, true)
+})
+
+test('a successful report is not a provider error', async () => {
+  const script = join(tmpdir(), `shub-fake-pi-ok-${process.pid}.sh`)
+  const turnEnd = JSON.stringify({
+    type: 'turn_end',
+    message: { role: 'assistant', content: [{ type: 'text', text: 'The final report.' }] },
+  })
+  await writeFile(script, `#!/bin/sh\necho '{"type":"session","id":"fake"}'\necho '${turnEnd}'\n`)
+  await chmod(script, 0o755)
+
+  const result = await runShubChild({
+    ...baseOptions,
+    piExecutable: script,
+    cwd: process.cwd(),
+    effort: 'quick',
+    softToolCalls: 6,
+    hardToolCalls: 8,
+    timeoutMs: 5000,
+    maxOutputChars: 1000,
+  })
+
+  equal(result.code, 0)
+  equal(result.providerError, false)
+  equal(result.text, 'The final report.')
 })
