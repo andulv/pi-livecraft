@@ -31,7 +31,11 @@ Report the relevant files, key symbols with line-number evidence when available,
   extensions: [agentPackageEntry('@ff-labs/pi-fff', 'src/index.ts')],
   providerArgs: ['--fff-mode', 'tools-only'],
   providerEnv: { PI_FFF_MODE: 'tools-only', PI_FFF_MULTIGREP: '0' },
-  models: ['fireworks/accounts/fireworks/models/deepseek-v4-flash-0731'],
+  models: [
+    'fireworks/accounts/fireworks/models/deepseek-v4p1-flash',
+    'fireworks/accounts/fireworks/models/glm-5p3-flash',
+    'openai-codex/gpt-5.6-luna',
+  ],
   modelSelection: 'fallback',
   thinking: 'off',
   effort: {
