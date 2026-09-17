@@ -10,7 +10,6 @@ import {
   getExtensionSettings,
   getPiSettings,
   getQuotas,
-  getVSCodeTitleBarColor,
   improvePrompt,
   openExplorer,
   openSession,
@@ -147,25 +146,6 @@ const gitRefreshDelayMs = 250
 const managerUnavailableMessage = 'Pi manager is unavailable'
 const managerUnavailableToastDelayMs = 1_000
 
-/** Compact VS Code mark for the workspace launcher in the tool rail. */
-function VSCodeIcon() {
-  return (
-    <svg
-      aria-hidden='true'
-      fill='none'
-      height='18'
-      stroke='currentColor'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      strokeWidth='1.8'
-      viewBox='0 0 24 24'
-      width='18'
-    >
-      <path d='m17.1 2.8-7.3 7-4.5-3.4-2.4 1.3v8.6l2.4 1.3 4.5-3.4 7.3 7 4-1.8V4.6l-4-1.8Z' />
-      <path d='m15.7 7.7-4.1 4.3 4.1 4.3' />
-    </svg>
-  )
-}
 /** Routes between the project registry and one URL-addressable Livecraft project. */
 function App() {
   useClientErrorLog()
@@ -320,7 +300,6 @@ function LivecraftProjectApp(
     )
   )
   const [workspaceGit, setWorkspaceGit] = useState<Record<string, GitSnapshot>>({})
-  const [vscodeTitleBarColor, setVSCodeTitleBarColor] = useState<string | null>(null)
   const [quotas, setQuotas] = useState<QuotaSnapshot | null>(null)
   const [environment, setEnvironment] = useState<SessionEnvironmentSnapshot | null>(null)
   const [extensionSettings, setExtensionSettings] = useState<ExtensionSettingsSnapshot | null>(
@@ -842,18 +821,6 @@ function LivecraftProjectApp(
     }
   }, [])
 
-  /** Refreshes the branded title bar color so the launcher button matches the VS Code window. */
-  const refreshVSCodeTitleBarColor = useCallback(async (cwd = workspacePath): Promise<void> => {
-    try {
-      setVSCodeTitleBarColor(await getVSCodeTitleBarColor(cwd))
-    } catch {
-      setVSCodeTitleBarColor(null)
-    }
-  }, [workspacePath])
-
-  useEffect(() => {
-    void refreshVSCodeTitleBarColor()
-  }, [refreshVSCodeTitleBarColor])
   useEffect(() => {
     void getQuotas().then(setQuotas).catch(() => undefined)
   }, [])
@@ -1330,12 +1297,7 @@ function LivecraftProjectApp(
         vscodeColor,
         isMainWorktree,
       )
-        .then(() => {
-          void refreshVSCodeTitleBarColor()
-        })
-        .catch((
-          cause,
-        ) => showToast('error', messageOf(cause)))
+        .catch((cause) => showToast('error', messageOf(cause)))
       return
     }
     if (id === 'new-session') {
@@ -1419,7 +1381,6 @@ function LivecraftProjectApp(
     workspacePath,
     project.name,
     vscodeColor,
-    refreshVSCodeTitleBarColor,
   ])
 
   const paletteCommands: PaletteCommand[] = useMemo(() => {
@@ -1504,87 +1465,6 @@ function LivecraftProjectApp(
     }
     setConversationNavigation((current) => ({ id: (current?.id ?? 0) + 1, target }))
   }, [])
-
-  // Right sidebar composition
-  /** Actions pinned to the right rail without an associated panel. */
-  const railActions = useMemo(() => [
-    {
-      key: 'explorer',
-      icon: (
-        <svg aria-hidden='true' viewBox='0 0 24 24' width='18' height='18'>
-          <path
-            d='M3 6.5A2.5 2.5 0 0 1 5.5 4h4l2 2h7A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z'
-            fill='none'
-            stroke='currentColor'
-            strokeLinecap='round'
-            strokeLinejoin='round'
-            strokeWidth='1.8'
-          />
-          <path
-            d='M3 9h18'
-            fill='none'
-            stroke='currentColor'
-            strokeLinecap='round'
-            strokeLinejoin='round'
-            strokeWidth='1.8'
-          />
-        </svg>
-      ),
-      label: 'Open folder',
-      onClick: () => {
-        void openExplorer(workspacePath).catch((cause) => showToast('error', messageOf(cause)))
-      },
-    },
-    {
-      key: 'terminal',
-      icon: <span aria-hidden='true'>›_</span>,
-      label: 'Open terminal',
-      onClick: () => {
-        void openTerminal(workspacePath, terminalCommand).catch((cause) =>
-          showToast('error', messageOf(cause))
-        )
-      },
-    },
-    {
-      key: 'vscode',
-      icon: vscodeTitleBarColor
-        ? (
-          <span
-            className='vscode-chip'
-            style={{ '--vscode-title-bar': vscodeTitleBarColor } as CSSProperties}
-          >
-            <VSCodeIcon />
-          </span>
-        )
-        : <VSCodeIcon />,
-      label: `Open ${vscodeWorkspaceName} in VS Code`,
-      onClick: () => {
-        void openVSCode(
-          workspacePath,
-          project.name,
-          vscodeWorkspaceName,
-          vscodeColor,
-          isMainWorktree,
-        )
-          .then(() => {
-            void refreshVSCodeTitleBarColor()
-          })
-          .catch((
-            cause,
-          ) => showToast('error', messageOf(cause)))
-      },
-    },
-  ], [
-    isMainWorktree,
-    project.name,
-    refreshVSCodeTitleBarColor,
-    showToast,
-    vscodeColor,
-    vscodeTitleBarColor,
-    terminalCommand,
-    vscodeWorkspaceName,
-    workspacePath,
-  ])
 
   // Application layout
   const rightPanelVisible = activeRightWidget === 'index'
@@ -1953,7 +1833,6 @@ function LivecraftProjectApp(
         sessionStats={snapshot.stats}
         width={rightSidebarWidth}
         workspacePath={workspacePath}
-        railActions={railActions}
         onEnvironmentRefresh={() => refreshSessionEnvironment(selectedId)}
         onQuotaRefresh={() => refreshSessionQuotas(selectedId, false)}
         onQuotaReset={redeemQuotaReset}

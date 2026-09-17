@@ -540,25 +540,37 @@ export function WorkspaceSidebar({
         </Tooltip>
       </div>
       {mainWorkspace && (
-        <Tooltip label={`${mainWorkspace.branch ?? mainWorkspace.path} — ${mainWorkspace.path}`}>
-          <button
-            aria-current={mainWorkspaceCurrent ? 'page' : undefined}
-            className={`workspace-card${mainWorkspaceCurrent ? ' current' : ''}`}
-            onClick={() =>
-              onSelectWorkspace(mainWorkspace.path)}
-            type='button'
-          >
-            <span className='workspace-card-head'>
-              <span aria-hidden='true' className='workspace-card-glyph'>⎇</span>
-              <span className='workspace-card-branch'>{mainWorkspace.branch ?? 'main'}</span>
-              <span className='workspace-card-pill'>Main</span>
-            </span>
-            <span className='workspace-card-path' title={mainWorkspace.path}>
-              {mainWorkspace.path}
-            </span>
-            {mainGit && <GitLine snapshot={mainGit} />}
-          </button>
-        </Tooltip>
+        <div className='workspace-row'>
+          <Tooltip label={`${mainWorkspace.branch ?? mainWorkspace.path} — ${mainWorkspace.path}`}>
+            <button
+              aria-current={mainWorkspaceCurrent ? 'page' : undefined}
+              className={`workspace-card${mainWorkspaceCurrent ? ' current' : ''}`}
+              onClick={() => onSelectWorkspace(mainWorkspace.path)}
+              type='button'
+            >
+              <span className='workspace-card-head'>
+                <span aria-hidden='true' className='workspace-card-glyph'>⎇</span>
+                <span className='workspace-card-branch'>{mainWorkspace.branch ?? 'main'}</span>
+                <span className='workspace-card-pill'>Main</span>
+              </span>
+              <span className='workspace-card-path' title={mainWorkspace.path}>
+                {mainWorkspace.path}
+              </span>
+              {mainGit && <GitLine snapshot={mainGit} />}
+            </button>
+          </Tooltip>
+          <Tooltip label={`Workspace actions for ${mainWorkspace.branch ?? mainWorkspace.path}`}>
+            <button
+              aria-haspopup='menu'
+              aria-label={`Workspace actions for ${mainWorkspace.branch ?? mainWorkspace.path}`}
+              className='session-actions workspace-actions'
+              onClick={(event) => openWorkspaceMenu(mainWorkspace, event)}
+              type='button'
+            >
+              …
+            </button>
+          </Tooltip>
+        </div>
       )}
       <section className='project-list' aria-label={`${project.name} worktrees`}>
         <div className='project-item'>

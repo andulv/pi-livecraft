@@ -349,7 +349,8 @@
   gap: 2px;
   min-width: 0;
 }
-.workspace-row .workspace-path {
+.workspace-row .workspace-path,
+.workspace-row .workspace-card {
   flex: 1;
   min-width: 0;
   width: auto;

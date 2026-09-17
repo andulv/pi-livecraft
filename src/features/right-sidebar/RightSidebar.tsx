@@ -1,7 +1,6 @@
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
-  type ReactNode,
 } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type {
@@ -24,14 +23,6 @@ import { DiagnosticsWidget } from '../diagnostics/DiagnosticsWidget.tsx'
 import { maxRightSidebarWidth, minRightSidebarWidth, type RightWidget } from './right-sidebar.ts'
 import { WidgetLayout } from './WidgetLayout.tsx'
 
-export interface RailAction {
-  key: string
-  icon: ReactNode
-  label: string
-  disabled?: boolean
-  onClick: () => void
-}
-
 /** Coordinates the sidebar panels, their common rail, and resizing. */
 export function RightSidebar({
   activeSessionId,
@@ -53,7 +44,6 @@ export function RightSidebar({
   shubAgentName,
   width,
   workspacePath,
-  railActions,
   onEnvironmentRefresh,
   onQuotaRefresh,
   onQuotaReset,
@@ -78,7 +68,6 @@ export function RightSidebar({
   shubAgentName?: string
   width: number
   workspacePath: string
-  railActions: RailAction[]
   onEnvironmentRefresh: () => Promise<void>
   onQuotaRefresh: () => Promise<void>
   onQuotaReset: (target: QuotaResetTarget) => Promise<{ ok: boolean; error?: string }>
@@ -288,21 +277,6 @@ export function RightSidebar({
               </span>
             </button>
           </Tooltip>
-        </div>
-        <div aria-label='Current workspace' className='right-sidebar-rail-group' role='group'>
-          {railActions.map((action) => (
-            <Tooltip key={action.key} label={action.label}>
-              <button
-                aria-label={action.label}
-                className='rail-tab'
-                disabled={action.disabled}
-                onClick={action.onClick}
-                type='button'
-              >
-                {action.icon}
-              </button>
-            </Tooltip>
-          ))}
         </div>
         <div aria-label='Global' className='right-sidebar-rail-group' role='group'>
           <Tooltip label='Browser system'>
