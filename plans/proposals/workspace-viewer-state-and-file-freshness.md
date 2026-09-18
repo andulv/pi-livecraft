@@ -1,6 +1,6 @@
 # Workspace viewer state and file freshness specification
 
-Status: **proposed** — for review before implementation.
+Status: **in progress** — steps 1–3 implemented, steps 4–10 remain.
 
 ## Goal
 
@@ -219,8 +219,11 @@ export interface PersistedWorkspaceViewerStates {
 }
 ```
 
-The exact shape may separate persisted and runtime types, but these invariants are
-required:
+The implementation uses `PaneView` (not `WorkspacePaneView`) as the union type name,
+and the persisted document shape is module-private. The hook lives in
+`useWorkspaceViewerState.ts` rather than inline in `App.tsx`.
+
+These invariants are required and enforced:
 
 - `openFilePaths` are ordered, unique, non-empty relative paths;
 - an active file must be present in `openFilePaths`;
@@ -584,12 +587,24 @@ persistence types remain frontend-local.
 
 ## Implementation outline
 
-1. Add the pure workspace viewer-state model, sanitizing reader/writer, bounds, and
+1. ✅ Add the pure workspace viewer-state model, sanitizing reader/writer, bounds, and
    transition tests.
-2. Replace flat `App` viewer state with the workspace-keyed map while preserving
+2. ✅ Replace flat `App` viewer state with the workspace-keyed map while preserving
    existing open/close fallback behavior.
-3. Restore file/browser/embedded-terminal tabs per workspace and register the storage
+3. ✅ Restore file/browser/embedded-terminal tabs per workspace and register the storage
    key with Livecraft reset.
+
+Steps 1–3 landed in commit `1211624`. The implementation added
+`workspace-viewer-state.ts` (pure model), `useWorkspaceViewerState.ts` (React hook),
+and 37 focused tests. `App.tsx` lost 50 lines: four flat `useState` calls
+(`openFilePaths`, `activePaneView`, `browserOpen`, `terminalOpen`), the
+`handleWorkspaceSelected` callback, and ~50 lines of inline fallback logic in JSX.
+`onWorkspaceSelected` was removed from the `useWorkspaceSessions` interface. Workspace
+switching is now a map-key lookup with zero viewer-state `setState` calls. Two latent
+bugs were fixed: `browserOpen`/`terminalOpen` leaking between workspaces, and a stale
+closure in the `onClose` fallback. The hook was also added to
+`useWorkspaceViewerState.ts` instead of `App.tsx`, which exports the `PaneView` type
+from `workspace-viewer-state.ts`.
 4. Retarget `open-terminal` command, shortcut, and rail action to the embedded terminal
    tab.
 5. Remove the obsolete external-terminal route, API, launcher, setting, CSS, tests, and
@@ -607,9 +622,13 @@ persistence types remain frontend-local.
 
 Expected implementation files:
 
-- `src/features/workspace/workspace-viewer-state.ts` — new
-- `src/features/workspace/README.md`
-- `src/App.tsx`
+- `src/features/workspace/workspace-viewer-state.ts` — ✅ new
+- `src/features/workspace/useWorkspaceViewerState.ts` — ✅ new (React hook)
+- `src/features/workspace/useWorkspaceSessions.ts` — ✅ removed `onWorkspaceSelected`
+- `src/features/workspace/README.md` — ✅ documented per-workspace viewer state
+- `src/features/settings/livecraft-preferences.ts` — ✅ registered reset key
+- `test/workspace-viewer-state.test.ts` — ✅ new (37 tests)
+- `src/App.tsx` — ✅ replaced flat state with hook
 - `src/api.ts`
 - `shared/types.ts`
 - `src/features/files/FileExplorer.tsx`
@@ -625,10 +644,9 @@ Expected implementation files:
 - `src/features/settings/SettingsPanel.tsx`
 - `src/features/settings/LivecraftSettings.tsx`
 - `src/features/settings/settings.css`
-- `src/features/settings/livecraft-preferences.ts`
+- `src/features/settings/livecraft-preferences.ts` — ✅ done
 - `src/features/commands/command-registry.ts` only if its terminal description changes
 - `docs/ARCHITECTURE.md`
-- `test/workspace-viewer-state.test.ts` — new
 - `test/workspace-file.test.ts`
 - `test/workspace-watcher.test.ts` — new
 - embedded terminal client/session tests as affected
@@ -641,13 +659,13 @@ already explicitly authorized their removal.
 
 ## Validation
 
-Focused automated coverage:
+Focused automated coverage (✅ = covered by `test/workspace-viewer-state.test.ts`):
 
-- malformed/old-version viewer state fails safely;
-- workspace records and file tabs are bounded and deduplicated;
-- A → B → A restores distinct ordered tabs and active views;
-- invalid active views follow the documented fallback order;
-- Browser and Terminal openness/selection do not leak between workspaces;
+- ✅ malformed/old-version viewer state fails safely;
+- ✅ workspace records and file tabs are bounded and deduplicated;
+- ✅ A → B → A restores distinct ordered tabs and active views;
+- ✅ invalid active views follow the documented fallback order;
+- ✅ Browser and Terminal openness/selection do not leak between workspaces;
 - the `open-terminal` command and rail action open the embedded terminal for the
   selected workspace;
 - expanded tree directories remain expanded across refresh;
@@ -695,10 +713,10 @@ Visual verification with the `livecraft-browser` skill:
 
 ## Acceptance criteria
 
-- Each canonical workspace owns and restores its own ordered file tabs, active view,
+- ✅ Each canonical workspace owns and restores its own ordered file tabs, active view,
   Browser-tab openness, and embedded-Terminal-tab openness.
-- Switching workspaces never copies or clears another workspace's viewer state.
-- Reload restores serializable viewer state without persisting file content, shell
+- ✅ Switching workspaces never copies or clears another workspace's viewer state.
+- ✅ Reload restores serializable viewer state without persisting file content, shell
   output, frames, blobs, or false backend-process status.
 - Restoring Terminal reattaches to the workspace-scoped embedded terminal session and
   never launches a separate local terminal application.
