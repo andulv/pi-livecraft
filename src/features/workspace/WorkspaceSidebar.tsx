@@ -806,7 +806,12 @@ export function WorkspaceSidebar({
                   && recentSession.shubOutputChars !== undefined
                 ? `\nContext: ${shubCompactTokens(recentSession.shubTotalTokens)} in → ${
                   shubCompactTokens(Math.round(recentSession.shubOutputChars / 4))
-                } out`
+                } out${
+                  recentSession.shubContextTokens !== undefined
+                    && recentSession.shubContextTokens > 0
+                    ? ` · ${shubCompactTokens(recentSession.shubContextTokens)} ctx`
+                    : ''
+                }`
                 : ''
               const tooltipLabel = `${recentSession.name}\nFirst: ${
                 firstMessageAt === undefined

@@ -69,6 +69,7 @@ export interface ShubProgress {
   completedToolCount: number
   lastTool?: string
   totalTokens: number
+  contextTokens: number
   costUsd: number
   elapsedMs: number
 }
@@ -85,6 +86,7 @@ export interface ShubChildResult {
   turnCount: number
   toolCount: number
   totalTokens: number
+  contextTokens: number
   costUsd: number
   elapsedMs: number
 }
@@ -138,6 +140,8 @@ export interface ShubStream {
   completedToolCount: number
   lastTool?: string
   totalTokens: number
+  /** Input context size on the last assistant message; overwritten per message. */
+  contextTokens: number
   costUsd: number
   /** The final assistant message from `turn_end`; this is the only answer returned to the parent. */
   output: string
@@ -153,6 +157,7 @@ export function createShubStream(): ShubStream {
     toolCount: 0,
     completedToolCount: 0,
     totalTokens: 0,
+    contextTokens: 0,
     costUsd: 0,
     output: '',
     partialOutput: '',
@@ -227,6 +232,10 @@ export function applyShubEvent(
 function applyUsage(stream: ShubStream, usage: unknown): void {
   if (!isObject(usage)) return
   if (typeof usage.totalTokens === 'number') stream.totalTokens += usage.totalTokens
+  const inputContext = (typeof usage.input === 'number' ? usage.input : 0)
+    + (typeof usage.cacheRead === 'number' ? usage.cacheRead : 0)
+    + (typeof usage.cacheWrite === 'number' ? usage.cacheWrite : 0)
+  if (inputContext > 0) stream.contextTokens = inputContext
   const cost = usage.cost
   if (isObject(cost) && typeof cost.total === 'number') stream.costUsd += cost.total
 }
@@ -329,6 +338,7 @@ export function runShubChild(options: ShubChildOptions): Promise<ShubChildResult
         completedToolCount: stream.completedToolCount,
         lastTool: stream.lastTool,
         totalTokens: stream.totalTokens,
+        contextTokens: stream.contextTokens,
         costUsd: stream.costUsd,
         elapsedMs: Date.now() - startedAt,
       })
@@ -442,6 +452,7 @@ export function runShubChild(options: ShubChildOptions): Promise<ShubChildResult
           turnCount: stream.turnCount,
           toolCount: stream.toolCount,
           totalTokens: stream.totalTokens,
+          contextTokens: stream.contextTokens,
           costUsd: stream.costUsd,
           elapsedMs: Date.now() - startedAt,
         })

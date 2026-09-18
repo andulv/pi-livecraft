@@ -2,6 +2,8 @@
 export interface ToolCallPresentation {
   headerDetail?: { text: string; title: string; suffix?: string }
   pendingDetail?: string
+  /** Full input text rendered above the result when the card is expanded. */
+  expandedInput?: string
 }
 
 export type ToolCallPresenter = (

@@ -42,8 +42,17 @@
   color: var(--subtle);
   font-size: 12px;
 }
+.composer-read-only-body {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+}
 .composer-read-only small {
   font-size: 11px;
+}
+.composer-read-only-context {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 .composer-images {
   display: flex;

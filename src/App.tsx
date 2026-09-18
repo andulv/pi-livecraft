@@ -1646,6 +1646,7 @@ function LivecraftProjectApp(
                       onSavePrompt={handleSavePrompt}
                       onError={handleConversationError}
                       readOnly={selectedSessionIsShubAgent}
+                      shubContextTokens={selectedRecentSession?.shubContextTokens}
                       requestedSelect={requestedSelect}
                       onSelectOpened={handleComposerSelectOpened}
                       submitRequest={submitRequest}

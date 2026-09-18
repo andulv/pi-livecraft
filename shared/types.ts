@@ -21,6 +21,8 @@ export interface RecentSession {
   ownerSessionId?: string
   /** Tokens the child's LLM calls processed, measured from its session file. */
   shubTotalTokens?: number
+  /** Input context size on the child's last message, measured likewise. */
+  shubContextTokens?: number
   /** Characters of final report text the child delivered, measured likewise. */
   shubOutputChars?: number
   /** Timestamp of the session's first message; falls back to the header timestamp. */

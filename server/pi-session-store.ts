@@ -237,7 +237,11 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
     sessionPath: canonicalPath,
     ...(shubAgent !== undefined ? { shubAgent, ownerSessionId } : {}),
     ...(measured
-      ? { shubTotalTokens: usage.totalTokens, shubOutputChars: usage.outputChars }
+      ? {
+        shubTotalTokens: usage.totalTokens,
+        shubContextTokens: usage.contextTokens,
+        shubOutputChars: usage.outputChars,
+      }
       : {}),
     firstMessageAt: firstMessageAt ?? (Number.isNaN(createdAt) ? undefined : createdAt),
     updatedAt: lastMessageAt ?? (Number.isNaN(createdAt) ? updatedAt : createdAt),
@@ -310,6 +314,7 @@ function mayCarrySessionMetadata(line: string): boolean {
 
 interface ChildSessionUsage {
   totalTokens: number
+  contextTokens: number
   outputChars: number
 }
 
@@ -339,6 +344,7 @@ async function childSessionUsage(
     return undefined
   }
   let totalTokens = 0
+  let contextTokens = 0
   let outputChars = 0
   for (const line of content.split('\n')) {
     const value = parseLine(line)
@@ -348,10 +354,16 @@ async function childSessionUsage(
     if (isObject(usage) && typeof usage.totalTokens === 'number') {
       totalTokens += usage.totalTokens
     }
+    if (isObject(usage)) {
+      const inputContext = (typeof usage.input === 'number' ? usage.input : 0)
+        + (typeof usage.cacheRead === 'number' ? usage.cacheRead : 0)
+        + (typeof usage.cacheWrite === 'number' ? usage.cacheWrite : 0)
+      if (inputContext > 0) contextTokens = inputContext
+    }
     const text = textContent(value.message.content) ?? ''
     if (text.trim()) outputChars = text.length
   }
-  const usage = { totalTokens, outputChars }
+  const usage = { totalTokens, contextTokens, outputChars }
   childUsageCache.set(path, { size, mtimeMs, usage })
   return usage
 }

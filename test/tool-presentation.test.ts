@@ -134,6 +134,7 @@ test('shows the delegated task with resolved effort and model for subagent calls
         title: 'Map the session store.',
         suffix: 'deep · deepseek-v4-flash-0731 · 12.0k→450 tok',
       },
+      expandedInput: 'Map the session store.',
     },
   )
 })
@@ -142,7 +143,10 @@ test('shows web-research questions and truncates long delegated tasks', () => {
   const question = 'q'.repeat(81)
   assert.deepEqual(
     toolCallPresentation({ id: 'call_2', name: 'subagent_web_research', args: { question } }),
-    { headerDetail: { text: `${'q'.repeat(80)}…`, title: question } },
+    {
+      headerDetail: { text: `${'q'.repeat(80)}…`, title: question },
+      expandedInput: question,
+    },
   )
 })
 

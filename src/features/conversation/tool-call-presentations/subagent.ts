@@ -6,7 +6,8 @@ import { truncateToolText, type ToolCallPresentation } from './shared.ts'
  * Shows the delegated task in the header with the resolved effort and model as
  * a suffix chip. The chip needs the extension-reported result details, so it
  * appears only once the run has settled; live progress already carries the
- * effort and tool budget in its streamed text.
+ * effort and tool budget in its streamed text. The full task is available in
+ * `expandedInput` so the expanded card separates it from the result.
  */
 export function subagentPresentation(
   args: unknown,
@@ -25,6 +26,7 @@ export function subagentPresentation(
       title: task,
       ...(chipParts.length > 0 ? { suffix: chipParts.join(' · ') } : {}),
     },
+    expandedInput: task,
   }
 }
 
@@ -48,12 +50,16 @@ function resolvedDetail(details: unknown): string | undefined {
 }
 
 /** Context efficiency of the run: child tokens processed versus delivered report
- *  tokens, estimated at four characters per token like the other footprint estimates. */
+ *  tokens, plus the final context size, all estimated at four characters per
+ *  token where the raw metric is character-based. */
 function measurement(details: unknown): string | undefined {
   if (!isObject(details)) return undefined
-  const { totalTokens, outputChars } = details
+  const { totalTokens, contextTokens, outputChars } = details
   if (typeof totalTokens !== 'number' || totalTokens <= 0) return undefined
   if (typeof outputChars !== 'number' || outputChars <= 0) return undefined
   const deliveredTokens = Math.round(outputChars / 4)
-  return `${shubCompactTokens(totalTokens)}→${shubCompactTokens(deliveredTokens)} tok`
+  const parts = [`${shubCompactTokens(totalTokens)}→${shubCompactTokens(deliveredTokens)} tok`]
+  if (typeof contextTokens === 'number' && contextTokens > 0)
+    parts.push(`${shubCompactTokens(contextTokens)} ctx`)
+  return parts.join(' · ')
 }

@@ -361,6 +361,14 @@ export const ToolCallCard = memo(function ToolCallCard({
           )}
           {hasResult && (
             <div className={animateLiveChanges ? 'tool-call-result entering' : 'tool-call-result'}>
+              {expanded && presentation
+                .expandedInput
+                && (
+                  <div className='tool-call-input'>
+                    <strong>Task</strong>
+                    <pre>{presentation.expandedInput}</pre>
+                  </div>
+                )}
               {expanded
                 ? (
                   <ToolCallContent

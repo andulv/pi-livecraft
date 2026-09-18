@@ -36,6 +36,7 @@ import { ThinkingSelect } from './selects/ThinkingSelect.tsx'
 import { VerbositySelect } from './selects/VerbositySelect.tsx'
 import { ComposerSelect } from './selects/ComposerSelect.tsx'
 import { ContextUsage } from './status-bar/SessionStats.tsx'
+import { shubCompactTokens } from '../../../shared/shub-agent-session.ts'
 
 /** Static options for the Improve-prompt dropdown; hoisted to a module constant so the select never re-renders for it. */
 const improveOptions = [
@@ -72,6 +73,7 @@ export const Composer = memo(function Composer({
   onDraftApplied,
   persistDrafts = true,
   readOnly = false,
+  shubContextTokens,
 }: {
   session: SessionSummary
   snapshot: SessionSnapshot
@@ -111,6 +113,8 @@ export const Composer = memo(function Composer({
   onDraftApplied?: (id: string) => void
   persistDrafts?: boolean
   readOnly?: boolean
+  /** Input context size on the child's last message, shown in the read-only stub. */
+  shubContextTokens?: number
 }) {
   const draftStorageKey = `pi-livecraft.composer-draft.${session.id}`
   const [message, setMessage] = useState(() =>
@@ -457,6 +461,9 @@ export const Composer = memo(function Composer({
   }
 
   if (readOnly) {
+    const contextLabel = shubContextTokens !== undefined && shubContextTokens > 0
+      ? `Context: ${shubCompactTokens(shubContextTokens)} tok`
+      : undefined
     return (
       <form
         className='composer composer-read-only'
@@ -464,9 +471,10 @@ export const Composer = memo(function Composer({
         ref={formRef}
       >
         <span aria-hidden='true' className='composer-read-only-icon'>↳</span>
-        <span>
+        <span className='composer-read-only-body'>
           <strong>Subagent session</strong>
           <small>This session is read-only.</small>
+          {contextLabel && <small className='composer-read-only-context'>{contextLabel}</small>}
         </span>
       </form>
     )

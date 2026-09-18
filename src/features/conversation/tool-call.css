@@ -138,6 +138,28 @@
   min-height: 0;
   overflow: hidden;
 }
+.tool-call-input {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--canvas));
+}
+.tool-call-input strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.tool-call-input pre {
+  margin: 0;
+  font: 12px/1.5 var(--font);
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .tool-call-raw-args {
   display: block;
   width: 100%;
