@@ -79,6 +79,7 @@ import { isObject } from '../shared/is-object.ts'
 import { providerFailure } from '../shared/provider-failure.ts'
 
 const host = '127.0.0.1'
+const browserStreamHeartbeatIntervalMs = 10_000
 const port = readPort('PI_LIVECRAFT_BACKEND_PORT', 43_121)
 const managerPort = readPort('PI_LIVECRAFT_MANAGER_PORT', 43_120)
 const manager = new ManagerClient(host, managerPort)
@@ -887,7 +888,11 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       if (currentUrl) writeEvent('url', JSON.stringify({ url: currentUrl }))
       const unsubscribe = browserSession.subscribe((event, json) => writeEvent(event, json))
       browserSession.addViewer()
+      const heartbeat = (): void => writeEvent('heartbeat', '{}')
+      heartbeat()
+      const heartbeatTimer = setInterval(heartbeat, browserStreamHeartbeatIntervalMs)
       request.on('close', () => {
+        clearInterval(heartbeatTimer)
         unsubscribe()
         browserSession.releaseViewer()
       })

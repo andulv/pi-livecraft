@@ -23,7 +23,10 @@ screencast as a viewer.
   rejected. `coordinates.ts` maps pane pointer positions into the captured frame
   (pure; both are unit-tested). The toolbar's **Reload page contents** action uses
   CDP `Page.reload`; **Reconnect live browser view** only reconnects the pane's
-  screencast stream and does not navigate the controlled page.
+  screencast stream and does not navigate the controlled page. The pane requires
+  a live stream heartbeat before enabling browser controls; a lost or stale stream
+  keeps the last frame dimmed, disables page interaction, and leaves only manual
+  reconnect enabled.
 - `BrowserService` (`server/features/browser/`) groups sessions by canonical workspace
   path and opaque browser ID. Each `BrowserSession` owns one Chrome, its scoped
   `/api/browser/instances/:browserId/*` frame/input/navigation routes, and the emulated

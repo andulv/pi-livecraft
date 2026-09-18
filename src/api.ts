@@ -536,10 +536,16 @@ function terminalSender(target: TerminalInstanceTarget): OrderedSender {
   return sender
 }
 
+export type BrowserStreamState = 'connecting' | 'connected' | 'stale'
+
+const browserStreamHeartbeatTimeoutMs = 30_000
+const browserStreamWatchdogIntervalMs = 1_000
+
 export interface BrowserEventHandlers {
   onFrame?: (data: string) => void
   onUrl?: (url: string) => void
   onStatus?: (status: BrowserSessionStatus) => void
+  onStreamState?: (state: BrowserStreamState) => void
 }
 
 /** Subscribes to one browser instance's livecast frame, url, and status streams. */
@@ -547,11 +553,24 @@ export function subscribeBrowserEvents(
   target: BrowserInstanceTarget,
   handlers: BrowserEventHandlers,
 ): () => void {
+  let disposed = false
+  let stale = false
+  let lastHeartbeatAt = Date.now()
+  let watchdog: ReturnType<typeof setInterval> | undefined
+  handlers.onStreamState?.('connecting')
   const source = new EventSource(
     `${browserInstanceUrl(target, 'frames')}?${browserWorkspaceQuery(target)}`,
   )
+  const markStale = (): void => {
+    if (disposed || stale) return
+    stale = true
+    source.close()
+    if (watchdog !== undefined) clearInterval(watchdog)
+    handlers.onStreamState?.('stale')
+  }
   const onNamedEvent = (name: string, handle: (data: unknown) => void): void => {
     source.addEventListener(name, (event) => {
+      if (disposed) return
       const data = (event as { data?: unknown }).data
       if (typeof data !== 'string') return
       try {
@@ -572,10 +591,24 @@ export function subscribeBrowserEvents(
       handlers.onStatus?.(value as unknown as BrowserSessionStatus)
     }
   })
+  onNamedEvent('heartbeat', () => {
+    if (stale) return
+    lastHeartbeatAt = Date.now()
+    handlers.onStreamState?.('connected')
+  })
   source.onerror = () => {
+    if (disposed) return
     void postClientLog('sse-drop', 'browser stream error')
+    markStale()
   }
-  return () => source.close()
+  watchdog = setInterval(() => {
+    if (Date.now() - lastHeartbeatAt >= browserStreamHeartbeatTimeoutMs) markStale()
+  }, browserStreamWatchdogIntervalMs)
+  return () => {
+    disposed = true
+    source.close()
+    if (watchdog !== undefined) clearInterval(watchdog)
+  }
 }
 
 /** Forwards typed bytes in order; a backlog of keystrokes merges into the next POST. */

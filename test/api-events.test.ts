@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { parseManagerEvent, subscribeManagerEvents } from '../src/api.ts'
+import { parseManagerEvent, subscribeBrowserEvents, subscribeManagerEvents } from '../src/api.ts'
 
 test('parses a valid manager event', () => {
   const event = parseManagerEvent(JSON.stringify({
@@ -96,6 +96,68 @@ test('reports one manager stream drop and its recovery per outage', async () => 
     unsubscribe()
     assert.equal(source.closed, true)
     assert.equal(source.url, '/api/events')
+  } finally {
+    globalThis.EventSource = originalEventSource
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('marks browser stream errors stale without automatic reconnect', async () => {
+  type Listener = (event: { data?: unknown }) => void
+  class FakeEventSource {
+    static latest: FakeEventSource | undefined
+    static instances = 0
+    onerror: ((event: Event) => void) | null = null
+    closed = false
+    readonly listeners = new Map<string, Listener[]>()
+    readonly url: string
+
+    constructor(url: string) {
+      this.url = url
+      FakeEventSource.latest = this
+      FakeEventSource.instances++
+    }
+
+    addEventListener(name: string, listener: Listener): void {
+      this.listeners.set(name, [...(this.listeners.get(name) ?? []), listener])
+    }
+
+    emit(name: string, data: unknown): void {
+      for (const listener of this.listeners.get(name) ?? []) {
+        listener({ data: JSON.stringify(data) })
+      }
+    }
+
+    close(): void {
+      this.closed = true
+    }
+  }
+
+  const originalEventSource = globalThis.EventSource
+  const originalFetch = globalThis.fetch
+  globalThis.EventSource = FakeEventSource as unknown as typeof EventSource
+  globalThis.fetch = (async () => new Response(null, { status: 202 })) as typeof fetch
+
+  try {
+    const states: string[] = []
+    const unsubscribe = subscribeBrowserEvents(
+      { browserId: 'main', workspacePath: '/workspace' },
+      { onStreamState: (state) => states.push(state) },
+    )
+    const source = FakeEventSource.latest!
+    assert.deepEqual(states, ['connecting'])
+
+    source.emit('heartbeat', {})
+    assert.deepEqual(states, ['connecting', 'connected'])
+
+    source.onerror?.(new Event('error'))
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    assert.deepEqual(states, ['connecting', 'connected', 'stale'])
+    assert.equal(source.closed, true)
+    assert.equal(FakeEventSource.instances, 1)
+
+    unsubscribe()
+    assert.equal(source.url, '/api/browser/instances/main/frames?workspacePath=%2Fworkspace')
   } finally {
     globalThis.EventSource = originalEventSource
     globalThis.fetch = originalFetch

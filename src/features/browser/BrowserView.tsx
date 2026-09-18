@@ -18,6 +18,7 @@ import {
   subscribeBrowserEvents,
 } from '../../api.ts'
 import type { BrowserSessionStatus, BrowserViewport } from '../../../shared/types.ts'
+import type { BrowserStreamState } from '../../api.ts'
 import { normalizeBrowserUrl } from './browser-url.ts'
 import { browserMouseButton, cdpModifiers, mapPointerToPage } from './coordinates.ts'
 import { useDocumentVisible } from './use-document-visible.ts'
@@ -79,6 +80,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
 }) {
   const [address, setAddress] = useState(url)
   const [status, setStatus] = useState<BrowserSessionStatus>({ state: 'off' })
+  const [streamState, setStreamState] = useState<BrowserStreamState>('connecting')
   const [hasFrame, setHasFrame] = useState(false)
   const [viewRefreshKey, setViewRefreshKey] = useState(0)
   const [zoomMode, setZoomMode] = useState<'auto' | 'natural'>('auto')
@@ -90,14 +92,25 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   const lastFrameRef = useRef<string | null>(null)
   const composeInputRef = useRef<HTMLInputElement>(null)
   const liveSurfaceRef = useRef<HTMLDivElement>(null)
-  const liveRef = useRef(false)
+  const interactiveRef = useRef(false)
   const onUrlCommitRef = useRef(onUrlCommit)
   const requestedUrlRef = useRef(url)
   const didInitialNavigateRef = useRef(false)
   const lastMoveSentRef = useRef(0)
   const documentVisible = useDocumentVisible()
   const live = status.state === 'live'
-  liveRef.current = live
+  const browserInteractive = live && streamState === 'connected'
+  const streamStatusKind: BrowserStreamState = browserInteractive
+    ? 'connected'
+    : streamState === 'connecting' || status.state === 'off' || status.state === 'starting'
+    ? 'connecting'
+    : 'stale'
+  const streamStatusLabel = streamStatusKind === 'connected'
+    ? 'Live view connected'
+    : streamStatusKind === 'connecting'
+    ? 'Connecting live view…'
+    : 'Live browser stream stale'
+  interactiveRef.current = browserInteractive
   onUrlCommitRef.current = onUrlCommit
   requestedUrlRef.current = url
 
@@ -128,6 +141,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   }, [hasFrame, zoomMode])
 
   function selectViewport(choice: string): void {
+    if (!browserInteractive) return
     setViewportChoice(choice)
     window.localStorage.setItem(viewportStorageKey, choice)
     const preset = viewportChoiceEntries.find(({ viewport }) => viewportKey(viewport) === choice)
@@ -156,6 +170,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
     if (previousTargetRef.current === target) return
     previousTargetRef.current = target
     setStatus({ state: 'off' })
+    setStreamState('connecting')
     setHasFrame(false)
     didInitialNavigateRef.current = false
   }, [target])
@@ -170,20 +185,28 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
     if (!documentVisible) return
     const shouldNavigateInitial = !didInitialNavigateRef.current
     didInitialNavigateRef.current = true
+    setStreamState('connecting')
     let active = true
     const unsubscribe = subscribeBrowserEvents(target, {
       // Frames bypass React state: writing the data URL straight to the image
       // avoids a full component re-render at frame rate.
       onFrame: (data) => {
+        if (!active) return
         lastFrameRef.current = data
         const image = frameImageRef.current
         if (image) image.src = `data:image/jpeg;base64,${data}`
         else setHasFrame(true)
       },
-      onUrl: (nextUrl) => onUrlCommitRef.current(nextUrl),
+      onUrl: (nextUrl) => {
+        if (active) onUrlCommitRef.current(nextUrl)
+      },
       onStatus: (next) => {
+        if (!active) return
         setStatus(next)
         if (next.state !== 'live') setHasFrame(false)
+      },
+      onStreamState: (next) => {
+        if (active) setStreamState(next)
       },
     })
     void startBrowserSession(target)
@@ -208,11 +231,11 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
 
   useEffect(() => {
     const element = liveSurfaceRef.current
-    if (!live || !element) return
+    if (!browserInteractive || !element) return
     const pending = { x: 0, y: 0, deltaX: 0, deltaY: 0 }
     let wheelFlushTimer: number | null = null
     const handleWheel = (nativeEvent: WheelEvent): void => {
-      if (!liveRef.current) return
+      if (!interactiveRef.current) return
       nativeEvent.preventDefault()
       const image = frameImageRef.current
       if (!image) return
@@ -247,18 +270,16 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
       pending.deltaX = 0
       pending.deltaY = 0
     }
-  }, [live, target])
+  }, [browserInteractive, target])
 
   function navigateWhenReady(next: string): void {
-    if (live) {
-      void navigateBrowser(target, next).catch(() => {})
-      return
-    }
-    void startBrowserSession(target).then(() => navigateBrowser(target, next)).catch(() => {})
+    if (!browserInteractive) return
+    void navigateBrowser(target, next).catch(() => {})
   }
 
   function navigate(event: FormEvent): void {
     event.preventDefault()
+    if (!browserInteractive) return
     const next = normalizeBrowserUrl(address)
     if (!next) {
       setAddress(url)
@@ -269,15 +290,12 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   }
 
   function reloadPage(): void {
-    if (!url) return
-    if (live) {
-      void reloadBrowser(target).catch(() => {})
-      return
-    }
-    navigateWhenReady(url)
+    if (!browserInteractive || !url) return
+    void reloadBrowser(target).catch(() => {})
   }
 
   function reconnectView(): void {
+    setStreamState('connecting')
     setViewRefreshKey((current) => current + 1)
   }
 
@@ -295,7 +313,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
     event: ReactPointerEvent<HTMLImageElement>,
     type: 'mouseMoved' | 'mousePressed' | 'mouseReleased',
   ): void {
-    if (!live) return
+    if (!browserInteractive) return
     const { x, y } = pageCoordinates(event)
     sendBrowserInput(target, {
       type,
@@ -310,7 +328,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   }
 
   function handlePointerDown(event: ReactPointerEvent<HTMLImageElement>): void {
-    if (!live) return
+    if (!browserInteractive) return
     // Prevent the browser's default focus shift to the container so the compose
     // input keeps focus and receives typing for IME composition.
     event.preventDefault()
@@ -322,7 +340,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLImageElement>): void {
-    if (!live) return
+    if (!browserInteractive) return
     const now = performance.now()
     if (now - lastMoveSentRef.current < 32) return
     lastMoveSentRef.current = now
@@ -330,7 +348,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   }
 
   function handlePointerUp(event: ReactPointerEvent<HTMLImageElement>): void {
-    if (!live) return
+    if (!browserInteractive) return
     if (event.button === 3 || event.button === 4) event.preventDefault()
     dispatchMouse(event, 'mouseReleased')
   }
@@ -340,7 +358,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   }
 
   function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
-    if (!live) return
+    if (!browserInteractive) return
     if (event.ctrlKey || event.metaKey) {
       // Let Ctrl+V through untouched: canceling its keydown would cancel the
       // paste event the forwarding handler depends on. Swallow other host
@@ -365,12 +383,12 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   }
 
   function handleCompositionEnd(event: CompositionEvent<HTMLDivElement>): void {
-    if (!live || !event.data) return
+    if (!browserInteractive || !event.data) return
     sendBrowserInput(target, { type: 'insertText', text: event.data })
   }
 
   function handlePaste(event: React.ClipboardEvent<HTMLDivElement>): void {
-    if (!live) return
+    if (!browserInteractive) return
     event.preventDefault()
     const text = event.clipboardData.getData('text')
     if (text) sendBrowserInput(target, { type: 'insertText', text: text.slice(0, 10_000) })
@@ -382,6 +400,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
         <select
           aria-label='Browser viewport size'
           className='browser-bar-select'
+          disabled={!browserInteractive}
           onChange={(event) => selectViewport(event.target.value)}
           title='Viewport size'
           value={viewportChoice}
@@ -397,6 +416,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
         <select
           aria-label='Frame zoom mode'
           className='browser-bar-select'
+          disabled={!browserInteractive}
           onChange={(event) => setZoomMode(event.target.value === 'natural' ? 'natural' : 'auto')}
           title='Frame zoom'
           value={zoomMode}
@@ -406,6 +426,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
         </select>
         {zoomMode === 'auto' && <span className='browser-zoom-value'>{zoomPercent}%</span>}
         <input
+          disabled={!browserInteractive}
           onChange={(event) => setAddress(event.target.value)}
           placeholder='Enter address — e.g. localhost:3000'
           spellCheck={false}
@@ -416,28 +437,24 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
           <button
             aria-label='Reload page contents'
             className='browser-reload'
-            disabled={!url}
+            disabled={!browserInteractive || !url}
             onClick={reloadPage}
             title='Reload page contents'
             type='button'
           >
             ↻
           </button>
-          <button
-            aria-label='Reconnect live browser view'
-            className='browser-view-refresh'
-            onClick={reconnectView}
-            title='Reconnect live browser view'
-            type='button'
-          >
-            ⟳
-          </button>
           {url && (
             <a
+              aria-disabled={!browserInteractive}
               aria-label='Open in new window'
-              className='browser-external'
+              className={`browser-external${browserInteractive ? '' : ' disabled'}`}
               href={url}
+              onClick={(event) => {
+                if (!browserInteractive) event.preventDefault()
+              }}
               rel='noreferrer'
+              tabIndex={browserInteractive ? 0 : -1}
               target='_blank'
             >
               ↗
@@ -452,18 +469,23 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
         </p>
       )}
       <div
-        className={`browser-live${zoomMode === 'natural' ? ' natural' : ''}`}
+        aria-disabled={!browserInteractive}
+        className={`browser-live${zoomMode === 'natural' ? ' natural' : ''}${
+          browserInteractive ? '' : ' unavailable'
+        }`}
         onCompositionEnd={handleCompositionEnd}
         onFocus={(event) => {
           // Paste and typing need an editable focus target; the hidden
           // compose input provides it whenever the surface itself gains
           // focus (for example after clicking the letterboxed area).
-          if (event.target === event.currentTarget) composeInputRef.current?.focus()
+          if (browserInteractive && event.target === event.currentTarget) {
+            composeInputRef.current?.focus()
+          }
         }}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
         ref={liveSurfaceRef}
-        tabIndex={0}
+        tabIndex={browserInteractive ? 0 : -1}
       >
         {hasFrame
           ? (
@@ -486,6 +508,20 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
               {status.state === 'crashed' ? 'Browser unavailable.' : 'Starting browser…'}
             </p>
           )}
+        {hasFrame && !browserInteractive && (
+          <div className='browser-stream-overlay' role='status'>
+            <strong>
+              {streamStatusKind === 'connecting'
+                ? 'Connecting to live browser…'
+                : 'Live browser stream stale'}
+            </strong>
+            <span>
+              {streamStatusKind === 'connecting'
+                ? 'Waiting for the stream to recover.'
+                : 'Reconnect to continue interacting with this page.'}
+            </span>
+          </div>
+        )}
         <input
           aria-hidden='true'
           className='browser-compose'
@@ -494,17 +530,41 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
           type='text'
         />
       </div>
-      {live && status.endpoint && (
+      {(status.endpoint || streamStatusKind !== 'connected') && (
         <div className='browser-attach'>
-          <span>Attach browser tooling</span>
-          <code>{status.endpoint}</code>
+          <span
+            aria-live='polite'
+            className='browser-stream-status'
+            data-state={streamStatusKind}
+          >
+            <span aria-hidden='true' className='browser-stream-dot' />
+            {streamStatusLabel}
+          </span>
+          {status.endpoint && (
+            <>
+              <span className='browser-attach-label'>Attach browser tooling</span>
+              <code>{status.endpoint}</code>
+            </>
+          )}
           <button
-            onClick={() =>
-              void navigator.clipboard?.writeText(status.endpoint ?? '').catch(() => {})}
+            aria-label='Reconnect live browser view'
+            className={`browser-stream-reconnect${streamStatusKind === 'stale' ? ' stale' : ''}`}
+            disabled={streamStatusKind === 'connecting'}
+            onClick={reconnectView}
+            title='Reconnect live browser view'
             type='button'
           >
-            Copy
+            ⟳
           </button>
+          {status.endpoint && (
+            <button
+              onClick={() =>
+                void navigator.clipboard?.writeText(status.endpoint ?? '').catch(() => {})}
+              type='button'
+            >
+              Copy
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -30,7 +30,8 @@ tooling (Chrome DevTools MCP, Playwright, Puppeteer, or raw CDP).
   events to SSE subscribers as pre-serialized event payloads (`wireFor`, pure
   and unit-tested): one serialization per event is shared by every connected
   viewer. While a viewer watches, capture runs at a steady 12 FPS ceiling —
-  pacing acknowledgement alone caps Chrome's encode rate.
+  pacing acknowledgement alone caps Chrome's encode rate. The frames SSE route
+  also sends heartbeat events for viewer-side stream liveness checks.
   Its diagnostics snapshot opens a short-lived connection
   to the browser-level CDP target for `SystemInfo.getProcessInfo`; it also reports the
   root PID, temporary profile, viewer count, and capture counters without starting a

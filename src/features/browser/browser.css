@@ -64,8 +64,16 @@
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
 }
+.browser-bar-select:disabled,
+.browser-bar input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.browser-bar input:disabled {
+  background: var(--surface);
+  color: var(--subtle);
+}
 .browser-reload,
-.browser-view-refresh,
 .browser-external {
   display: grid;
   place-items: center;
@@ -87,20 +95,17 @@
     transform 180ms ease;
 }
 .browser-reload:hover:not(:disabled),
-.browser-view-refresh:hover:not(:disabled),
 .browser-external:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
   background: var(--accent-soft);
   color: var(--accent-hover);
 }
 .browser-reload:focus-visible,
-.browser-view-refresh:focus-visible,
 .browser-external:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 .browser-reload:active:not(:disabled),
-.browser-view-refresh:active:not(:disabled),
 .browser-external:active {
   transform: scale(0.97);
 }
@@ -108,6 +113,11 @@
   cursor: not-allowed;
   opacity: 0.5;
   transform: none;
+}
+.browser-external.disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  pointer-events: none;
 }
 .browser-session-error {
   margin: 0;
@@ -139,6 +149,34 @@
   border: 0;
   user-select: none;
 }
+.browser-live.unavailable .browser-frame {
+  filter: grayscale(0.8);
+  opacity: 0.48;
+}
+.browser-stream-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--canvas) 78%, transparent);
+  color: var(--ink);
+  text-align: center;
+  pointer-events: auto;
+}
+.browser-stream-overlay strong {
+  color: var(--danger);
+  font-size: 12px;
+}
+.browser-stream-overlay span {
+  max-width: 260px;
+  color: var(--muted);
+  font-size: 11px;
+}
 .browser-live.natural {
   align-items: flex-start;
 }
@@ -161,14 +199,39 @@
 .browser-attach {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
   flex: 0 0 auto;
   border-top: 1px solid var(--line);
   padding: 6px 10px;
   color: var(--muted);
   font: 11px ui-sans-serif, system-ui, sans-serif;
 }
-.browser-attach span {
+.browser-stream-status {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  color: var(--muted);
+  font-weight: 650;
+  white-space: nowrap;
+}
+.browser-stream-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 14%, transparent);
+}
+.browser-stream-status[data-state="connected"] .browser-stream-dot {
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 14%, transparent);
+}
+.browser-stream-status[data-state="stale"] .browser-stream-dot {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 14%, transparent);
+}
+.browser-attach-label {
   flex: 0 0 auto;
 }
 .browser-attach code {
@@ -196,7 +259,7 @@
     color 180ms ease,
     transform 180ms ease;
 }
-.browser-attach button:hover {
+.browser-attach button:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
   background: var(--accent-soft);
   color: var(--accent-hover);
@@ -205,8 +268,27 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
-.browser-attach button:active {
+.browser-attach button:active:not(:disabled) {
   transform: scale(0.97);
+}
+.browser-attach button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+.browser-stream-reconnect {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+}
+.browser-stream-reconnect.stale {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 14%, transparent);
 }
 .browser-frame {
   flex: 1;
