@@ -24,6 +24,14 @@ export interface MetadataLoadResult<T> {
   cached: boolean
 }
 
+/** Returns a stable cache dependency for either legacy or current Pi model state. */
+export function modelDependency(model: unknown): string {
+  if (typeof model === 'string') return model
+  if (typeof model !== 'object' || model === null) return ''
+  const { id, provider } = model as Record<string, unknown>
+  return typeof id === 'string' && typeof provider === 'string' ? `${provider}/${id}` : ''
+}
+
 export class MetadataCache {
   readonly #ttlMs: number
   readonly #maxSessions: number

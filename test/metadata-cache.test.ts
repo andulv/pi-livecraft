@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { MetadataCache } from '../server/features/session-metadata/metadata-cache.ts'
+import {
+  MetadataCache,
+  modelDependency,
+} from '../server/features/session-metadata/metadata-cache.ts'
 
 test('serves repeated loads from the cache within the TTL', async () => {
   let calls = 0
@@ -26,13 +29,22 @@ test('reloads when the dependency string changes', async () => {
   await cache.load('thinking:s1', async () => {
     calls += 1
     return ['off']
-  }, 'model-a')
+  }, modelDependency({ provider: 'test', id: 'model-a' }))
   await cache.load('thinking:s1', async () => {
     calls += 1
     return ['off', 'high']
-  }, 'model-b')
+  }, modelDependency({ provider: 'test', id: 'model-b' }))
 
   assert.equal(calls, 2)
+})
+
+test('derives a distinct dependency from Pi’s object-shaped model state', () => {
+  assert.equal(
+    modelDependency({ provider: 'catherder-llama', id: 'qwen38' }),
+    'catherder-llama/qwen38',
+  )
+  assert.equal(modelDependency({ id: 'qwen38' }), '')
+  assert.equal(modelDependency('legacy-model-id'), 'legacy-model-id')
 })
 
 test('expires entries after the TTL', async () => {

@@ -44,7 +44,7 @@ import {
   DiagnosticsRecorder,
   type SnapshotStageMeasurement,
 } from './features/diagnostics/diagnostics.ts'
-import { MetadataCache } from './features/session-metadata/metadata-cache.ts'
+import { MetadataCache, modelDependency } from './features/session-metadata/metadata-cache.ts'
 import { openSseStream, parseSseLastEventId } from './sse-response.ts'
 import {
   openVSCodeApplication,
@@ -682,7 +682,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     )
     const state = await statePromise
     const stateData = objectData(state)
-    const modelId = typeof stateData?.model === 'string' ? stateData.model : ''
+    const modelId = modelDependency(stateData?.model)
     const thinkingResult = await metadata.load(
       `thinking:${sessionId}`,
       async () =>
