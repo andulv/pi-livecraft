@@ -80,8 +80,9 @@ export const livecraftPreferences: LivecraftPreference[] = [
     section: 'layout',
   },
   {
-    key: 'pi-livecraft.selected-session',
-    label: 'Last selected session',
+    key: 'pi-livecraft.workspace-session-selection',
+    label: 'Selected session per workspace',
+    description: 'The last selected session for each workspace.',
     section: 'layout',
   },
   {

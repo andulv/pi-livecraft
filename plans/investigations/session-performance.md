@@ -495,9 +495,11 @@ message-object contract as C3 and releases entries when messages become unreacha
 
 Owner: the manager-event subscription in `src/App.tsx`.
 
-`if (event.type === 'tool_execution_end') scheduleGitRefresh()` runs for every session,
-including sessions in other workspaces, so unrelated background work refreshes Git and
-re-renders the selected project. This contributes to the 8 % idle baseline.
+Previously, `if (event.type === 'tool_execution_end') scheduleGitRefresh()` ran for every
+session, including sessions in other workspaces, so unrelated background work refreshed
+Git for the selected project. This contributed to the 8 % idle baseline. The event handler
+now resolves the session cwd from a bounded runtime map and passes it to
+`scheduleGitRefresh`; unknown sessions retain the current-workspace fallback.
 
 1. Resolve the event's session working directory from the known session list and refresh only
    that workspace. `scheduleGitRefresh` already accepts a working directory.
@@ -507,8 +509,9 @@ re-renders the selected project. This contributes to the 8 % idle baseline.
    update while the analysis widget is open. Confirm whether it needs streamed executions or
    only settled ones before changing it; record the answer either way.
 
-Proof: a focused test that a `tool_execution_end` for another workspace schedules no refresh
-for the selected one, and that an unresolved working directory still refreshes.
+Implemented in `src/App.tsx`. A focused event-routing test remains desirable: a
+`tool_execution_end` for another workspace should schedule only that workspace, while an
+unresolved working directory should retain the current-workspace fallback.
 
 ### C6. Re-baseline on the production build before judging the result
 

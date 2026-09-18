@@ -235,16 +235,23 @@ These invariants are required and enforced:
 
 ### State ownership
 
-`App.tsx` continues to orchestrate this cross-feature state, but it owns one map:
+`useWorkspaceViewerState.ts` owns one map:
 
 ```ts
 Record<CanonicalWorkspacePath, WorkspaceViewerState>
 ```
 
 All open, close, activate, and reorder actions update the entry for the explicit
-workspace path. Workspace switching only selects another entry; it does not first save
-and then clear flat state. This avoids races between the previous and next
-`workspacePath`.
+workspace path. `App.tsx` selects the current entry and passes its derived state and
+actions to `FileContentPane`. Workspace switching only selects another entry; it does
+not first save and then clear flat state. This avoids races between the previous and
+next `workspacePath`.
+
+Session selection remains a separate concern owned by `useWorkspaceSessions`. Its
+`workspace-session-state.ts` persistence stores the last durable `sessionPath` per
+workspace, not a transient runtime session ID. Explicit URL and target selections take
+precedence; a missing remembered path falls back to the newest session. The old global
+`pi-livecraft.selected-session` value is not migrated or used.
 
 `FileContentPane` receives the selected workspace's derived state and callbacks as it
 does today. Its `key={workspacePath}` remount remains useful for disposing runtime file
@@ -263,14 +270,16 @@ Switching workspaces does not run this fallback unless the restored state is inv
 
 ### Persistence
 
-Use one versioned key:
+The viewer state uses one versioned key:
 
 ```text
 pi-livecraft.workspace-viewer-state
 ```
 
 The reader and writer live with the pure state module and follow existing defensive
-localStorage readers. Bound persisted state to prevent unbounded growth:
+localStorage readers. Session selection uses its own bounded key,
+`pi-livecraft.workspace-session-selection`, because session selection is owned by
+`useWorkspaceSessions`, not the viewer feature. Bound persisted state to prevent unbounded growth:
 
 - at most 24 workspace records, evicting least-recently-touched records;
 - at most 50 open file paths per workspace;
@@ -591,8 +600,8 @@ persistence types remain frontend-local.
    transition tests.
 2. ✅ Replace flat `App` viewer state with the workspace-keyed map while preserving
    existing open/close fallback behavior.
-3. ✅ Restore file/browser/embedded-terminal tabs per workspace and register the storage
-   key with Livecraft reset.
+3. ✅ Restore file/browser/embedded-terminal tabs and selected sessions per workspace;
+   register the storage keys with Livecraft reset.
 
 Steps 1–3 landed in commit `1211624`. The implementation added
 `workspace-viewer-state.ts` (pure model), `useWorkspaceViewerState.ts` (React hook),
@@ -604,7 +613,11 @@ switching is now a map-key lookup with zero viewer-state `setState` calls. Two l
 bugs were fixed: `browserOpen`/`terminalOpen` leaking between workspaces, and a stale
 closure in the `onClose` fallback. The hook was also added to
 `useWorkspaceViewerState.ts` instead of `App.tsx`, which exports the `PaneView` type
-from `workspace-viewer-state.ts`.
+from `workspace-viewer-state.ts`. A follow-up extension now remembers the last durable
+session path per workspace in `workspace-session-state.ts`; runtime session IDs remain owned
+by `useWorkspaceSessions`. Background Git invalidation resolves the event session's workspace,
+and session-keyed agent/quota caches are pruned on session exit. The obsolete global
+`pi-livecraft.selected-session` key is no longer read, written, or registered.
 4. Retarget `open-terminal` command, shortcut, and rail action to the embedded terminal
    tab.
 5. Remove the obsolete external-terminal route, API, launcher, setting, CSS, tests, and
@@ -624,11 +637,13 @@ Expected implementation files:
 
 - `src/features/workspace/workspace-viewer-state.ts` — ✅ new
 - `src/features/workspace/useWorkspaceViewerState.ts` — ✅ new (React hook)
-- `src/features/workspace/useWorkspaceSessions.ts` — ✅ removed `onWorkspaceSelected`
-- `src/features/workspace/README.md` — ✅ documented per-workspace viewer state
+- `src/features/workspace/useWorkspaceSessions.ts` — ✅ removed `onWorkspaceSelected`; remembers selected session paths
+- `src/features/workspace/workspace-session-state.ts` — ✅ new bounded session-selection persistence
+- `src/features/workspace/README.md` — ✅ documented per-workspace viewer and session state
 - `src/features/settings/livecraft-preferences.ts` — ✅ registered reset key
 - `test/workspace-viewer-state.test.ts` — ✅ new (37 tests)
-- `src/App.tsx` — ✅ replaced flat state with hook
+- `test/workspace-session-state.test.ts` — ✅ new (6 tests)
+- `src/App.tsx` — ✅ replaced flat state with hook; scopes Git invalidation and prunes session caches
 - `src/api.ts`
 - `shared/types.ts`
 - `src/features/files/FileExplorer.tsx`
@@ -666,6 +681,7 @@ Focused automated coverage (✅ = covered by `test/workspace-viewer-state.test.t
 - ✅ A → B → A restores distinct ordered tabs and active views;
 - ✅ invalid active views follow the documented fallback order;
 - ✅ Browser and Terminal openness/selection do not leak between workspaces;
+- ✅ A → B → A restores each workspace's remembered selected session when it still exists;
 - the `open-terminal` command and rail action open the embedded terminal for the
   selected workspace;
 - expanded tree directories remain expanded across refresh;
@@ -718,6 +734,8 @@ Visual verification with the `livecraft-browser` skill:
 - ✅ Switching workspaces never copies or clears another workspace's viewer state.
 - ✅ Reload restores serializable viewer state without persisting file content, shell
   output, frames, blobs, or false backend-process status.
+- ✅ A → B → A restores the selected session per workspace using durable session paths,
+  with explicit targets and newest-session fallback.
 - Restoring Terminal reattaches to the workspace-scoped embedded terminal session and
   never launches a separate local terminal application.
 - The existing `open-terminal` command, shortcut, and rail action activate the embedded

@@ -348,7 +348,7 @@ function LivecraftProjectApp(
   const [terminalCommand, setTerminalCommand] = useState(() => readTerminalCommand())
 
   // Workspace and session synchronization
-  const selectedIdRef = useRef(window.localStorage.getItem('pi-livecraft.selected-session') ?? '')
+  const selectedIdRef = useRef('')
   const replayPiEventRef = useRef<
     (sessionId: string, event: JsonObject, sequence?: number) => void
   >(() => undefined)
@@ -363,6 +363,7 @@ function LivecraftProjectApp(
   const loadingTimerRef = useRef<number>(0)
   const gitRefreshVersionsRef = useRef(new Map<string, number>())
   const gitRefreshTimerRef = useRef<number | undefined>(undefined)
+  const sessionCwdRef = useRef(new Map<string, string>())
   const agentResponsesSentRef = useRef(new Set<string>())
 
   // Conversation timing and quotas
@@ -514,6 +515,7 @@ function LivecraftProjectApp(
     onSessionsRefreshed: handleSessionsRefreshed,
   })
   selectedIdRef.current = selectedId
+  for (const session of sessions) sessionCwdRef.current.set(session.id, session.cwd)
 
   const viewerState = useWorkspaceViewerState(workspacePath, browserId, terminalId)
 
@@ -793,6 +795,24 @@ function LivecraftProjectApp(
       .finally(() => setAgentBusy((current) => ({ ...current, [sessionId]: false })))
   }, [agentBusy, refreshSnapshot, showToast])
 
+  /** Drops session-keyed caches when a Pi session exits. */
+  const clearSessionCaches = useCallback((sessionId: string): void => {
+    setAgentOptions((current) => removeRecordKey(current, sessionId))
+    setAgentBusy((current) => removeRecordKey(current, sessionId))
+    setAgentOptionsLoading((current) => removeRecordKey(current, sessionId))
+    setCompactingSessionIds((current) => {
+      if (!current.has(sessionId)) return current
+      const next = new Set(current)
+      next.delete(sessionId)
+      return next
+    })
+    quotaAutoRefreshAtRef.current.delete(sessionId)
+    const prefix = `${sessionId}:`
+    for (const key of agentResponsesSentRef.current) {
+      if (key.startsWith(prefix)) agentResponsesSentRef.current.delete(key)
+    }
+  }, [])
+
   // Initial application synchronization
   /** Every discovered workspace path, stable across renders via the joined key. */
   const gitWorkspacePaths = projectWorkspaces[project.root]
@@ -801,6 +821,19 @@ function LivecraftProjectApp(
     .join('\u0000')
   useEffect(() => {
     const paths = gitWorkspacePaths ? gitWorkspacePaths.split('\u0000') : [workspacePath]
+    if (gitWorkspacePaths) {
+      const knownPaths = new Set(paths)
+      setWorkspaceGit((current) => {
+        let next = current
+        for (const path of Object.keys(current)) {
+          if (!knownPaths.has(path)) {
+            if (next === current) next = { ...current }
+            delete next[path]
+          }
+        }
+        return next
+      })
+    }
     for (const path of paths) void refreshGit(path)
   }, [gitWorkspacePaths, refreshGit, workspacePath])
   useEffect(() => () => {
@@ -920,7 +953,8 @@ function LivecraftProjectApp(
           sessionId,
         )
       }
-      if (event.type === 'tool_execution_end') scheduleGitRefresh()
+      if (event.type === 'tool_execution_end')
+        scheduleGitRefresh(sessionCwdRef.current.get(sessionId))
       if (
         event.type === 'extension_ui_request' && event.method === 'setStatus'
         && event.statusKey === 'agent'
@@ -1020,6 +1054,8 @@ function LivecraftProjectApp(
         setManagerRuntimeStatus(managerEvent.data)
       if (managerEvent.event === 'session_exited') {
         updateSessionRef.current(managerEvent.sessionId, { status: 'exited' })
+        clearSessionCaches(managerEvent.sessionId)
+        sessionCwdRef.current.delete(managerEvent.sessionId)
       } else if (
         managerEvent.event === 'manager_connected' || managerEvent.event === 'session_created'
         || managerEvent.event === 'session_reassigned'
@@ -1038,6 +1074,7 @@ function LivecraftProjectApp(
     }, () => setPiConnection('connected')), [
     clearActivity,
     clearManagerUnavailableToasts,
+    clearSessionCaches,
     resetEventSequence,
     showToast,
   ])
@@ -1891,6 +1928,13 @@ function readShortcuts(): Partial<Record<CommandId, string>> {
 function readTerminalCommand(): string {
   const stored = window.localStorage.getItem('pi-livecraft.terminal-command')
   return stored && stored.trim() && stored.includes('{cwd}') ? stored : ''
+}
+
+function removeRecordKey<T>(record: Record<string, T>, key: string): Record<string, T> {
+  if (!(key in record)) return record
+  const next = { ...record }
+  delete next[key]
+  return next
 }
 
 function isManagerRuntimeStatus(value: unknown): value is ManagerRuntimeStatus {

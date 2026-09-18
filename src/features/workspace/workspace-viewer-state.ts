@@ -213,12 +213,13 @@ export function readPersistedStates(raw: string | null): Record<string, Workspac
     if (doc.version !== 1) return {}
     const workspaces = doc.workspaces
     if (!isObject(workspaces)) return {}
-    const result: Record<string, WorkspaceViewerState> = {}
-    for (const [key, entry] of Object.entries(workspaces as Record<string, unknown>)) {
-      const restored = restoreEntry(entry)
-      if (restored) result[key] = restored
-    }
-    return result
+    const entries = Object
+      .entries(workspaces as Record<string, unknown>)
+      .map(([key, entry]) => [key, restoreEntry(entry)] as const)
+      .filter((entry): entry is readonly [string, WorkspaceViewerState] => entry[1] !== null)
+      .sort(([, left], [, right]) => right.touchedAt - left.touchedAt)
+      .slice(0, MAX_WORKSPACES)
+    return Object.fromEntries(entries)
   } catch {
     return {}
   }

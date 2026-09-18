@@ -22,6 +22,14 @@ import {
 } from './archived-sessions.ts'
 import { readPinnedSessions, togglePinnedSession, writePinnedSessions } from './pinned-sessions.ts'
 import { recentWorkspaces } from './recent-workspaces.ts'
+import {
+  WORKSPACE_SESSION_SELECTION_STORAGE_KEY,
+  forgetWorkspaceSession,
+  readWorkspaceSessionSelections,
+  rememberWorkspaceSession,
+  type WorkspaceSessionSelections,
+  writeWorkspaceSessionSelections,
+} from './workspace-session-state.ts'
 import type { Project } from './projects.ts'
 import { fallbackSessionTitle } from '../../../shared/session-title.ts'
 import {
@@ -110,6 +118,13 @@ export function useWorkspaceSessions(
     return recentWorkspacePathsState.filter((path) => valid.has(path))
   }, [recentWorkspacePathsState, workspacePaths])
   const [selectedId, setSelectedId] = useState('')
+  const [workspaceSessionSelections, setWorkspaceSessionSelections] = useState<
+    WorkspaceSessionSelections
+  >(() =>
+    readWorkspaceSessionSelections(
+      window.localStorage.getItem(WORKSPACE_SESSION_SELECTION_STORAGE_KEY),
+    )
+  )
   const [creatingSession, setCreatingSession] = useState(false)
   const sessionsRef = useRef(sessions)
   const recentSessionsRef = useRef(recentSessions)
@@ -127,6 +142,8 @@ export function useWorkspaceSessions(
   completedSessionIdsRef.current = completedSessionIds
   pinnedSessionsRef.current = pinnedSessions
   selectedIdRef.current = selectedId
+  const workspaceSessionSelectionsRef = useRef(workspaceSessionSelections)
+  workspaceSessionSelectionsRef.current = workspaceSessionSelections
 
   useEffect(() => () => {
     const transientId = transientNewSessionIdRef.current
@@ -151,8 +168,6 @@ export function useWorkspaceSessions(
   }, [project.root, discoveryVersion])
 
   useEffect(() => {
-    if (selectedId) window.localStorage.setItem('pi-livecraft.selected-session', selectedId)
-    else window.localStorage.removeItem('pi-livecraft.selected-session')
     setCompletedSessionIds((current) => {
       const sessionKey = sessionsRef
         .current
@@ -164,6 +179,13 @@ export function useWorkspaceSessions(
       return next
     })
   }, [selectedId])
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      WORKSPACE_SESSION_SELECTION_STORAGE_KEY,
+      writeWorkspaceSessionSelections(workspaceSessionSelections),
+    )
+  }, [workspaceSessionSelections])
 
   useEffect(() => {
     writePinnedSessions(window.localStorage, project.id, pinnedSessions)
@@ -192,6 +214,20 @@ export function useWorkspaceSessions(
   useEffect(() => {
     void refreshPinnedSessions()
   }, [refreshPinnedSessions])
+
+  const rememberSessionPath = useCallback((cwd: string, sessionPath?: string): void => {
+    if (!sessionPath) return
+    setWorkspaceSessionSelections((current) => rememberWorkspaceSession(current, cwd, sessionPath))
+  }, [])
+
+  const rememberSessionId = useCallback((cwd: string, sessionId: string): void => {
+    const session = sessionsRef.current.find((candidate) => candidate.id === sessionId)
+    if (session) rememberSessionPath(cwd, session.sessionPath)
+  }, [rememberSessionPath])
+
+  const forgetSessionSelection = useCallback((cwd: string): void => {
+    setWorkspaceSessionSelections((current) => forgetWorkspaceSession(current, cwd))
+  }, [])
 
   /** Reloads sessions while discarding responses superseded by a newer workspace refresh. */
   const refreshSessions = useCallback(async (cwd = workspacePath) => {
@@ -239,6 +275,23 @@ export function useWorkspaceSessions(
           }
         }
         if (autoSelectId === undefined) {
+          const rememberedPath = workspaceSessionSelectionsRef.current[cwd]?.sessionPath
+          if (rememberedPath) {
+            const activeRemembered = nextSessions.find((session) =>
+              session.sessionPath === rememberedPath
+            )
+            if (activeRemembered) autoSelectId = activeRemembered.id
+            else {
+              try {
+                autoSelectId = await openTarget({ sessionPath: rememberedPath })
+              } catch {
+                // A remembered session may have been deleted; use the newest session instead.
+                autoSelectId = undefined
+              }
+            }
+          }
+        }
+        if (autoSelectId === undefined) {
           const target = newestTarget()
           if (target) autoSelectId = await openTarget(target)
         }
@@ -276,6 +329,10 @@ export function useWorkspaceSessions(
       if (shouldAutoSelect) {
         autoSelectOnRefreshRef.current = false
         setSelectedId(autoSelectId ?? '')
+        const selected = autoSelectId
+          ? nextSessions.find((session) => session.id === autoSelectId)
+          : undefined
+        rememberSessionPath(cwd, selected?.sessionPath)
       } else {
         setSelectedId((current) =>
           nextSessions.some((session) => session.id === current) ? current : ''
@@ -290,7 +347,7 @@ export function useWorkspaceSessions(
     } finally {
       if (version === refreshVersionRef.current) setIsRefreshingSessions(false)
     }
-  }, [onError, onSessionsRefreshed, workspacePath])
+  }, [onError, onSessionsRefreshed, rememberSessionPath, workspacePath])
 
   /** Re-runs project discovery after a failed load without leaving the project view. */
   const retryProjectDiscovery = useCallback((): void => {
@@ -317,8 +374,10 @@ export function useWorkspaceSessions(
 
   const selectSession = useCallback((sessionId: string): void => {
     discardTransientNewSession(sessionId)
+    const session = sessionsRef.current.find((candidate) => candidate.id === sessionId)
+    rememberSessionPath(session?.cwd ?? workspacePath, session?.sessionPath)
     setSelectedId(sessionId)
-  }, [discardTransientNewSession])
+  }, [discardTransientNewSession, rememberSessionPath, workspacePath])
 
   /** Selects a workspace, optionally preserving an explicit session over automatic selection. */
   const selectWorkspace = useCallback((path: string, targetSessionId?: string): void => {
@@ -330,12 +389,14 @@ export function useWorkspaceSessions(
     )
     setRecentWorkspacePathsState(nextRecentWorkspacePaths)
     discardTransientNewSession(targetSessionId)
+    if (targetSessionId) rememberSessionId(path, targetSessionId)
     setWorkspacePath(path)
     setSelectedId(targetSessionId ?? '')
     autoSelectOnRefreshRef.current = targetSessionId === undefined
     void refreshSessions(path)
   }, [
     discardTransientNewSession,
+    rememberSessionId,
     recentWorkspacePathsState,
     recentWorkspacePathsKey,
     refreshSessions,
@@ -377,6 +438,7 @@ export function useWorkspaceSessions(
       try {
         const session = await start()
         rememberStartedSession(session)
+        rememberSessionPath(options.refreshCwd ?? session.cwd, session.sessionPath)
         await refreshSessions(options.refreshCwd)
         setSelectedId(session.id)
         if (options.draftMessage) onDraftMessage(session.id, options.draftMessage)
@@ -404,6 +466,7 @@ export function useWorkspaceSessions(
       onError,
       onInitialMessageSent,
       refreshSessions,
+      rememberSessionPath,
       rememberStartedSession,
     ],
   )
@@ -423,6 +486,7 @@ export function useWorkspaceSessions(
       if (existing) {
         transientNewSessionIdRef.current = existing.id
         rememberStartedSession(existing)
+        rememberSessionPath(existing.cwd, existing.sessionPath)
         setSelectedId(existing.id)
         return existing
       }
@@ -431,7 +495,7 @@ export function useWorkspaceSessions(
       if (created) transientNewSessionIdRef.current = created.id
       return created
     },
-    [rememberStartedSession, startAndSelectSession, workspacePath],
+    [rememberSessionPath, rememberStartedSession, startAndSelectSession, workspacePath],
   )
 
   /** Keeps a new session once its first user message succeeds. */
@@ -559,9 +623,13 @@ export function useWorkspaceSessions(
       )
       : null
     await requestCloseSession(sessionId)
-    if (selectedIdRef.current === sessionId) setSelectedId(nextId ?? '')
+    if (selectedIdRef.current === sessionId) {
+      if (nextId) rememberSessionId(workspacePath, nextId)
+      else forgetSessionSelection(workspacePath)
+      setSelectedId(nextId ?? '')
+    }
     await refreshSessions()
-  }, [refreshSessions, workspacePath])
+  }, [forgetSessionSelection, rememberSessionId, refreshSessions, workspacePath])
 
   /** Adds or replaces a pending UI request for a session. */
   const addPendingRequest = useCallback((sessionId: string, request: JsonObject): void => {
@@ -610,9 +678,10 @@ export function useWorkspaceSessions(
 
   const selectCreatedSession = useCallback((sessionId: string): void => {
     if (!creatingSessionRef.current) return
+    rememberSessionId(workspacePath, sessionId)
     setSelectedId(sessionId)
     creatingSessionRef.current = false
-  }, [])
+  }, [rememberSessionId, workspacePath])
 
   return {
     addPendingRequest,
