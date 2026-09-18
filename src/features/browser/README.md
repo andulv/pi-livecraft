@@ -21,7 +21,9 @@ screencast as a viewer.
   `http(s)://` passes through, scheme-less input gets `http://` on localhost/IP
   hosts and `https://` otherwise, and any other scheme (`javascript:`, `data:`) is
   rejected. `coordinates.ts` maps pane pointer positions into the captured frame
-  (pure; both are unit-tested).
+  (pure; both are unit-tested). The toolbar's **Reload page contents** action uses
+  CDP `Page.reload`; **Reconnect live browser view** only reconnects the pane's
+  screencast stream and does not navigate the controlled page.
 - `BrowserService` (`server/features/browser/`) groups sessions by canonical workspace
   path and opaque browser ID. Each `BrowserSession` owns one Chrome, its scoped
   `/api/browser/instances/:browserId/*` frame/input/navigation routes, and the emulated

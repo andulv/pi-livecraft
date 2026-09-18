@@ -11,6 +11,7 @@ import {
 } from 'react'
 import {
   navigateBrowser,
+  reloadBrowser,
   sendBrowserInput,
   setBrowserViewport,
   startBrowserSession,
@@ -79,6 +80,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   const [address, setAddress] = useState(url)
   const [status, setStatus] = useState<BrowserSessionStatus>({ state: 'off' })
   const [hasFrame, setHasFrame] = useState(false)
+  const [viewRefreshKey, setViewRefreshKey] = useState(0)
   const [zoomMode, setZoomMode] = useState<'auto' | 'natural'>('auto')
   const [zoomPercent, setZoomPercent] = useState(100)
   const [viewportChoice, setViewportChoice] = useState(readStoredViewportChoice)
@@ -202,7 +204,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
       active = false
       unsubscribe()
     }
-  }, [documentVisible, target])
+  }, [documentVisible, target, viewRefreshKey])
 
   useEffect(() => {
     const element = liveSurfaceRef.current
@@ -266,8 +268,17 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
     navigateWhenReady(next)
   }
 
-  function reload(): void {
-    if (url) navigateWhenReady(url)
+  function reloadPage(): void {
+    if (!url) return
+    if (live) {
+      void reloadBrowser(target).catch(() => {})
+      return
+    }
+    navigateWhenReady(url)
+  }
+
+  function reconnectView(): void {
+    setViewRefreshKey((current) => current + 1)
   }
 
   function pageCoordinates(event: { clientX: number; clientY: number }): { x: number; y: number } {
@@ -401,26 +412,38 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
           type='text'
           value={address}
         />
-        <button
-          aria-label='Reload page'
-          className='browser-reload'
-          disabled={!url}
-          onClick={reload}
-          type='button'
-        >
-          ↻
-        </button>
-        {url && (
-          <a
-            aria-label='Open in new window'
-            className='browser-external'
-            href={url}
-            rel='noreferrer'
-            target='_blank'
+        <div className='browser-bar-actions'>
+          <button
+            aria-label='Reload page contents'
+            className='browser-reload'
+            disabled={!url}
+            onClick={reloadPage}
+            title='Reload page contents'
+            type='button'
           >
-            ↗
-          </a>
-        )}
+            ↻
+          </button>
+          <button
+            aria-label='Reconnect live browser view'
+            className='browser-view-refresh'
+            onClick={reconnectView}
+            title='Reconnect live browser view'
+            type='button'
+          >
+            ⟳
+          </button>
+          {url && (
+            <a
+              aria-label='Open in new window'
+              className='browser-external'
+              href={url}
+              rel='noreferrer'
+              target='_blank'
+            >
+              ↗
+            </a>
+          )}
+        </div>
       </form>
       {status.state === 'crashed' && status.error && (
         <p className='browser-session-error' role='alert'>

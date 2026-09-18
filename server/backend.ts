@@ -861,7 +861,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   }
 
   const browserInstanceMatch = url.pathname.match(
-    /^\/api\/browser\/instances\/([^/]+)\/(status|start|stop|navigate|viewport|input|frames)$/,
+    /^\/api\/browser\/instances\/([^/]+)\/(status|start|stop|navigate|reload|viewport|input|frames)$/,
   )
   if (browserInstanceMatch) {
     const browserId = parseBrowserId(decodeURIComponent(browserInstanceMatch[1]))
@@ -916,6 +916,15 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
           throw new HttpError(400, 'A URL is required')
         try {
           await browserSession.navigate(body.url)
+        } catch {
+          throw new HttpError(409, 'The browser session is not live')
+        }
+        sendJson(response, 200, { ok: true })
+        return
+      }
+      if (action === 'reload') {
+        try {
+          await browserSession.reload()
         } catch {
           throw new HttpError(409, 'The browser session is not live')
         }

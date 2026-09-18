@@ -13,6 +13,12 @@
   border-bottom: 1px solid var(--line);
   padding: 7px 10px;
 }
+.browser-bar-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+}
 .browser-bar-select {
   flex: 0 0 auto;
   height: 28px;
@@ -59,6 +65,7 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 .browser-reload,
+.browser-view-refresh,
 .browser-external {
   display: grid;
   place-items: center;
@@ -80,17 +87,20 @@
     transform 180ms ease;
 }
 .browser-reload:hover:not(:disabled),
+.browser-view-refresh:hover:not(:disabled),
 .browser-external:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
   background: var(--accent-soft);
   color: var(--accent-hover);
 }
 .browser-reload:focus-visible,
+.browser-view-refresh:focus-visible,
 .browser-external:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 .browser-reload:active:not(:disabled),
+.browser-view-refresh:active:not(:disabled),
 .browser-external:active {
   transform: scale(0.97);
 }

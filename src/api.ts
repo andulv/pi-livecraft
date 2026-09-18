@@ -444,6 +444,13 @@ export async function navigateBrowser(target: BrowserInstanceTarget, url: string
   })
 }
 
+export async function reloadBrowser(target: BrowserInstanceTarget): Promise<void> {
+  await request<void>(browserInstanceUrl(target, 'reload'), {
+    method: 'POST',
+    body: JSON.stringify({ workspacePath: target.workspacePath }),
+  })
+}
+
 export async function setBrowserViewport(
   target: BrowserInstanceTarget,
   viewport: BrowserViewport,

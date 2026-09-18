@@ -76,6 +76,13 @@ test(
     await waitFor(() => frames.length > framesAtAgentNavigation)
     await waitFor(() => evaluateBoolean(agent, '!!document.getElementById(\'b\')'))
 
+    // The page-reload operation must use browser reload semantics, not a
+    // same-URL navigation.
+    await session.reload()
+    await waitFor(() =>
+      evaluateBoolean(agent, 'performance.getEntriesByType(\'navigation\')[0]?.type === \'reload\'')
+    )
+
     // Human input from the pane: click the button through the shared session.
     await session.dispatchInput({
       type: 'mouseMoved',

@@ -490,6 +490,11 @@ export class BrowserSession {
     await this.#cdp.send('Page.navigate', { url })
   }
 
+  async reload(): Promise<void> {
+    if (this.#state !== 'live' || !this.#cdp) throw new Error('The browser session is not live')
+    await this.#cdp.send('Page.reload')
+  }
+
   async dispatchInput(event: BrowserInputEvent): Promise<void> {
     if (this.#state !== 'live' || !this.#cdp) throw new Error('The browser session is not live')
     const { method, params } = cdpInputCommand(event)
