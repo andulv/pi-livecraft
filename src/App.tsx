@@ -90,6 +90,7 @@ import {
   readBrowserUrl,
   writeBrowserUrl,
 } from './features/browser/browser-url.ts'
+import { useWorkspaceViewerState } from './features/workspace/useWorkspaceViewerState.ts'
 import {
   clampWorkspaceSidebarWidth,
   readWorkspaceSidebarCollapsed,
@@ -135,12 +136,6 @@ function nextConversationView(current: ConversationView): ConversationView {
   if (current === 'semi-detailed') return 'detailed'
   return 'simple'
 }
-
-/** The file pane shows either one open file, the browser tab, or the terminal tab. */
-type PaneView =
-  | { kind: 'browser'; browserId: string }
-  | { kind: 'terminal'; terminalId: string }
-  | { kind: 'file'; path: string }
 
 const gitRefreshDelayMs = 250
 const managerUnavailableMessage = 'Pi manager is unavailable'
@@ -308,10 +303,6 @@ function LivecraftProjectApp(
   const [extensionSettingsError, setExtensionSettingsError] = useState<string | null>(null)
   const [piSettings, setPiSettings] = useState<PiSettingsSnapshot | null>(null)
   const [piSettingsError, setPiSettingsError] = useState<string | null>(null)
-  const [openFilePaths, setOpenFilePaths] = useState<string[]>([])
-  const [activePaneView, setActivePaneView] = useState<PaneView | null>(null)
-  const [browserOpen, setBrowserOpen] = useState(false)
-  const [terminalOpen, setTerminalOpen] = useState(false)
   const [browserUrl, setBrowserUrl] = useState(
     () => readBrowserUrl(initialBrowserWorkspacePath, browserId),
   )
@@ -467,10 +458,6 @@ function LivecraftProjectApp(
       }
     }
   }, [showToast])
-  const handleWorkspaceSelected = useCallback((): void => {
-    setOpenFilePaths([])
-    setActivePaneView((current) => current?.kind === 'browser' ? current : null)
-  }, [])
   const handleSessionDraft = useCallback((sessionId: string, message: string): void => {
     setComposerDraftRequest({ id: crypto.randomUUID(), message, sessionId })
   }, [])
@@ -518,15 +505,17 @@ function LivecraftProjectApp(
     projectDiscoveryError,
   } = useWorkspaceSessions({
     project,
+
     initialWorkspacePath,
     initialSessionPath,
     onDraftMessage: handleSessionDraft,
     onError: handleWorkspaceError,
     onInitialMessageSent: handleInitialMessageSent,
     onSessionsRefreshed: handleSessionsRefreshed,
-    onWorkspaceSelected: handleWorkspaceSelected,
   })
   selectedIdRef.current = selectedId
+
+  const viewerState = useWorkspaceViewerState(workspacePath, browserId, terminalId)
 
   useEffect(() => {
     setBrowserUrl(readBrowserUrl(workspacePath, browserId))
@@ -1561,10 +1550,7 @@ function LivecraftProjectApp(
         onGitRevert={async (hash) => {
           return await revertGitCommit(workspacePath, hash)
         }}
-        onOpenFile={(path) => {
-          setOpenFilePaths((current) => current.includes(path) ? current : [...current, path])
-          setActivePaneView({ kind: 'file', path })
-        }}
+        onOpenFile={viewerState.handleOpenFile}
         onRenameSession={renameManagedSession}
         onResize={updateWorkspaceSidebarWidth}
         onToggleCollapsed={toggleWorkspaceSidebar}
@@ -1744,67 +1730,34 @@ function LivecraftProjectApp(
             </>
           )}
         <FileContentPane
-          activePath={activePaneView?.kind === 'file' ? activePaneView.path : null}
-          browserActive={activePaneView?.kind === 'browser'
-            && activePaneView.browserId === browserId}
+          activePath={viewerState.activeView?.kind === 'file'
+            ? viewerState.activeView.path
+            : null}
+          browserActive={viewerState.activeView?.kind === 'browser'
+            && viewerState.activeView.browserId === browserId}
           browserId={browserId}
-          browserOpen={browserOpen}
+          browserOpen={viewerState.browserOpen}
           browserUrl={browserUrl}
           key={workspacePath}
-          onActivate={(path) => setActivePaneView({ kind: 'file', path })}
-          onActivateBrowser={() => setActivePaneView({ kind: 'browser', browserId })}
-          onActivateTerminal={() => setActivePaneView({ kind: 'terminal', terminalId })}
+          onActivate={viewerState.handleActivateFile}
+          onActivateBrowser={viewerState.handleActivateBrowser}
+          onActivateTerminal={viewerState.handleActivateTerminal}
           onBrowserUrlCommit={(url) => {
             writeBrowserUrl(workspacePath, browserId, url)
             setBrowserUrl(url)
           }}
-          onOpenBrowser={() => {
-            setBrowserOpen(true)
-            setActivePaneView({ kind: 'browser', browserId })
-          }}
-          onOpenTerminal={() => {
-            setTerminalOpen(true)
-            setActivePaneView({ kind: 'terminal', terminalId })
-          }}
+          onOpenBrowser={viewerState.handleOpenBrowser}
+          onOpenTerminal={viewerState.handleOpenTerminal}
           onResize={updateFilePaneShare}
           share={filePaneShare}
-          terminalActive={activePaneView?.kind === 'terminal'
-            && activePaneView.terminalId === terminalId}
+          terminalActive={viewerState.activeView?.kind === 'terminal'
+            && viewerState.activeView.terminalId === terminalId}
           terminalId={terminalId}
-          terminalOpen={terminalOpen}
-          onClose={(path) => {
-            setOpenFilePaths((current) => current.filter((candidate) => candidate !== path))
-            setActivePaneView((current) => {
-              if (current?.kind !== 'file' || current.path !== path) return current
-              const remaining = openFilePaths.filter((candidate) => candidate !== path)
-              const last = remaining.at(-1)
-              if (last !== undefined) return { kind: 'file', path: last }
-              if (browserOpen) return { kind: 'browser', browserId }
-              if (terminalOpen) return { kind: 'terminal', terminalId }
-              return null
-            })
-          }}
-          onCloseBrowser={() => {
-            setBrowserOpen(false)
-            setActivePaneView((current) => {
-              if (current?.kind !== 'browser') return current
-              const last = openFilePaths.at(-1)
-              if (last !== undefined) return { kind: 'file', path: last }
-              if (terminalOpen) return { kind: 'terminal', terminalId }
-              return null
-            })
-          }}
-          onCloseTerminal={() => {
-            setTerminalOpen(false)
-            setActivePaneView((current) => {
-              if (current?.kind !== 'terminal') return current
-              const last = openFilePaths.at(-1)
-              if (last !== undefined) return { kind: 'file', path: last }
-              if (browserOpen) return { kind: 'browser', browserId }
-              return null
-            })
-          }}
-          openPaths={openFilePaths}
+          terminalOpen={viewerState.terminalOpen}
+          onClose={viewerState.handleCloseFile}
+          onCloseBrowser={viewerState.handleCloseBrowser}
+          onCloseTerminal={viewerState.handleCloseTerminal}
+          openPaths={viewerState.openFilePaths}
           workspacePath={workspacePath}
         />
       </main>
@@ -1816,10 +1769,7 @@ function LivecraftProjectApp(
         analysisAvailable={analysisAvailable}
         currentQuotaProvider={currentQuotaProvider}
         onConversationNavigate={navigateToConversationTarget}
-        onOpenBrowser={() => {
-          setBrowserOpen(true)
-          setActivePaneView({ kind: 'browser', browserId })
-        }}
+        onOpenBrowser={viewerState.handleOpenBrowser}
         onResize={updateRightSidebarWidth}
         sessionMessages={snapshot.messages}
         sessionMessagesAvailable={selectedSession !== undefined

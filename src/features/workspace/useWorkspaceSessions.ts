@@ -42,7 +42,6 @@ interface WorkspaceSessionsOptions {
   onError: (cause: unknown) => void
   onInitialMessageSent: () => void
   onSessionsRefreshed: (sessions: SessionSummary[]) => void
-  onWorkspaceSelected: () => void
 }
 
 interface StartSessionOptions {
@@ -64,7 +63,6 @@ export function useWorkspaceSessions(
     onError,
     onInitialMessageSent,
     onSessionsRefreshed,
-    onWorkspaceSelected,
   }: WorkspaceSessionsOptions,
 ) {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
@@ -332,14 +330,12 @@ export function useWorkspaceSessions(
     )
     setRecentWorkspacePathsState(nextRecentWorkspacePaths)
     discardTransientNewSession(targetSessionId)
-    onWorkspaceSelected()
     setWorkspacePath(path)
     setSelectedId(targetSessionId ?? '')
     autoSelectOnRefreshRef.current = targetSessionId === undefined
     void refreshSessions(path)
   }, [
     discardTransientNewSession,
-    onWorkspaceSelected,
     recentWorkspacePathsState,
     recentWorkspacePathsKey,
     refreshSessions,

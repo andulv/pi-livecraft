@@ -84,6 +84,12 @@ export const livecraftPreferences: LivecraftPreference[] = [
     label: 'Last selected session',
     section: 'layout',
   },
+  {
+    key: 'pi-livecraft.workspace-viewer-state',
+    label: 'Workspace viewer tabs',
+    description: 'Open file tabs, active view, and browser/terminal state per workspace.',
+    section: 'layout',
+  },
 ]
 
 /** The `localStorage` prefix that scopes every Livecraft preference. */
