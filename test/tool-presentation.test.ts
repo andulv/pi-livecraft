@@ -135,6 +135,7 @@ test('shows the delegated task with resolved effort and model for subagent calls
         suffix: 'deep · deepseek-v4-flash-0731 · 12.0k→450 tok',
       },
       expandedInput: 'Map the session store.',
+      expandedMeasurement: '12.0k read → 450 out (96% saved)',
     },
   )
 })

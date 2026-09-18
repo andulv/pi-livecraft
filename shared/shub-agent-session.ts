@@ -56,6 +56,36 @@ export function shubCompactTokens(tokens: number): string {
   return String(Math.round(tokens))
 }
 
+/**
+ * Formats the subagent efficiency measurement: total read tokens versus
+ * delivered report tokens with the percentage not in the final output,
+ * plus context size versus output. E.g. "67.0k read → 1.2k out (98% saved),
+ * 14.6k ctx → 1.2k out (92% saved)".
+ */
+export function shubMeasurementLabel(
+  totalTokens: number,
+  outputChars: number,
+  contextTokens?: number,
+): string {
+  const outputTokens = Math.round(outputChars / 4)
+  const readPart = `${shubCompactTokens(totalTokens)} read → ${
+    shubCompactTokens(outputTokens)
+  } out (${savedPercent(totalTokens, outputTokens)}% saved)`
+  const parts = [readPart]
+  if (contextTokens !== undefined && contextTokens > 0)
+    parts.push(
+      `${shubCompactTokens(contextTokens)} ctx → ${shubCompactTokens(outputTokens)} out (${
+        savedPercent(contextTokens, outputTokens)
+      }% saved)`,
+    )
+  return parts.join(', ')
+}
+
+function savedPercent(total: number, delivered: number): number {
+  if (total <= 0) return 0
+  return Math.round((1 - delivered / total) * 100)
+}
+
 /** Builds the persisted child display name; the marker, not this name, carries ownership. */
 export function shubAgentSessionName(agent: string, task: string): string {
   return `${SHUB_SESSION_PREFIX}${agent}: ${task.trim().slice(0, 120)}`

@@ -365,6 +365,11 @@ export const ToolCallCard = memo(function ToolCallCard({
                 .expandedInput
                 && (
                   <div className='tool-call-input'>
+                    {presentation.expandedMeasurement && (
+                      <div className='tool-call-measurement'>
+                        {presentation.expandedMeasurement}
+                      </div>
+                    )}
                     <strong>Task</strong>
                     <pre>{presentation.expandedInput}</pre>
                   </div>

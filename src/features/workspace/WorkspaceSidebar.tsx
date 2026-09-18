@@ -9,7 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
-import { shubCompactTokens } from '../../../shared/shub-agent-session.ts'
+import { shubMeasurementLabel } from '../../../shared/shub-agent-session.ts'
 import { FileExplorer } from '../files/FileExplorer.tsx'
 import { GitWidget } from '../git/GitWidget.tsx'
 import type {
@@ -804,13 +804,12 @@ export function WorkspaceSidebar({
               const firstMessageAt = recentSession.firstMessageAt
               const shubMeasurement = recentSession.shubTotalTokens !== undefined
                   && recentSession.shubOutputChars !== undefined
-                ? `\nContext: ${shubCompactTokens(recentSession.shubTotalTokens)} in → ${
-                  shubCompactTokens(Math.round(recentSession.shubOutputChars / 4))
-                } out${
-                  recentSession.shubContextTokens !== undefined
-                    && recentSession.shubContextTokens > 0
-                    ? ` · ${shubCompactTokens(recentSession.shubContextTokens)} ctx`
-                    : ''
+                ? `\n${
+                  shubMeasurementLabel(
+                    recentSession.shubTotalTokens,
+                    recentSession.shubOutputChars,
+                    recentSession.shubContextTokens,
+                  )
                 }`
                 : ''
               const tooltipLabel = `${recentSession.name}\nFirst: ${

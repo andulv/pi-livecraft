@@ -4,6 +4,8 @@ export interface ToolCallPresentation {
   pendingDetail?: string
   /** Full input text rendered above the result when the card is expanded. */
   expandedInput?: string
+  /** Efficiency measurement rendered above the input when the card is expanded. */
+  expandedMeasurement?: string
 }
 
 export type ToolCallPresenter = (

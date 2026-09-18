@@ -1,5 +1,5 @@
 import { isObject } from '../../../../shared/is-object.ts'
-import { shubCompactTokens } from '../../../../shared/shub-agent-session.ts'
+import { shubCompactTokens, shubMeasurementLabel } from '../../../../shared/shub-agent-session.ts'
 import { truncateToolText, type ToolCallPresentation } from './shared.ts'
 
 /**
@@ -20,6 +20,7 @@ export function subagentPresentation(
   const chipParts = [resolvedDetail(details), measurement(details)].filter(
     (part) => part !== undefined,
   )
+  const expandedMeasurement = measurementLabel(details)
   return {
     headerDetail: {
       text: truncateToolText(task, 80).text,
@@ -27,6 +28,7 @@ export function subagentPresentation(
       ...(chipParts.length > 0 ? { suffix: chipParts.join(' · ') } : {}),
     },
     expandedInput: task,
+    ...(expandedMeasurement !== undefined ? { expandedMeasurement } : {}),
   }
 }
 
@@ -49,9 +51,8 @@ function resolvedDetail(details: unknown): string | undefined {
   return [effort, model].filter((part) => part !== undefined).join(' · ')
 }
 
-/** Context efficiency of the run: child tokens processed versus delivered report
- *  tokens, plus the final context size, all estimated at four characters per
- *  token where the raw metric is character-based. */
+/** Compact chip: child tokens processed versus delivered report tokens,
+ *  plus the final context size. */
 function measurement(details: unknown): string | undefined {
   if (!isObject(details)) return undefined
   const { totalTokens, contextTokens, outputChars } = details
@@ -62,4 +63,17 @@ function measurement(details: unknown): string | undefined {
   if (typeof contextTokens === 'number' && contextTokens > 0)
     parts.push(`${shubCompactTokens(contextTokens)} ctx`)
   return parts.join(' · ')
+}
+
+/** Full measurement label for the expanded view and session list tooltip. */
+function measurementLabel(details: unknown): string | undefined {
+  if (!isObject(details)) return undefined
+  const { totalTokens, contextTokens, outputChars } = details
+  if (typeof totalTokens !== 'number' || totalTokens <= 0) return undefined
+  if (typeof outputChars !== 'number' || outputChars <= 0) return undefined
+  return shubMeasurementLabel(
+    totalTokens,
+    outputChars,
+    typeof contextTokens === 'number' && contextTokens > 0 ? contextTokens : undefined,
+  )
 }

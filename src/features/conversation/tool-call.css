@@ -144,6 +144,14 @@
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface) 92%, var(--canvas));
 }
+.tool-call-measurement {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 10%, transparent);
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
 .tool-call-input strong {
   display: block;
   margin-bottom: 4px;
