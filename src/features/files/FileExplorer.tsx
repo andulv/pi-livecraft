@@ -11,9 +11,11 @@ interface DirectoryState {
 export function FileExplorer({
   workspacePath,
   onOpenFile,
+  onPinFile,
 }: {
   workspacePath: string
   onOpenFile: (path: string) => void
+  onPinFile: (path: string) => void
 }) {
   const [directories, setDirectories] = useState<Record<string, DirectoryState>>({})
   const [expandedPaths, setExpandedPaths] = useState<ReadonlySet<string>>(() => new Set(['']))
@@ -113,6 +115,7 @@ export function FileExplorer({
             key={entry.path}
             level={1}
             onOpenFile={onOpenFile}
+            onPinFile={onPinFile}
             onToggleDirectory={toggleDirectory}
           />
         ))}
@@ -128,6 +131,7 @@ function FileTreeEntry({
   filter,
   level,
   onOpenFile,
+  onPinFile,
   onToggleDirectory,
 }: {
   directories: Record<string, DirectoryState>
@@ -136,6 +140,7 @@ function FileTreeEntry({
   filter: string
   level: number
   onOpenFile: (path: string) => void
+  onPinFile: (path: string) => void
   onToggleDirectory: (path: string) => void
 }) {
   const expanded = entry.kind === 'directory' && expandedPaths.has(entry.path)
@@ -158,6 +163,7 @@ function FileTreeEntry({
         className={`file-tree-row ${entry.kind}`}
         onClick={() =>
           entry.kind === 'directory' ? onToggleDirectory(entry.path) : onOpenFile(entry.path)}
+        onDoubleClick={() => entry.kind === 'file' && onPinFile(entry.path)}
         type='button'
       >
         <span aria-hidden='true' className='file-tree-chevron'>
@@ -181,6 +187,7 @@ function FileTreeEntry({
               key={child.path}
               level={level + 1}
               onOpenFile={onOpenFile}
+              onPinFile={onPinFile}
               onToggleDirectory={onToggleDirectory}
             />
           ))}

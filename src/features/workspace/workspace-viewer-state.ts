@@ -1,31 +1,28 @@
-/**
- * Pure workspace viewer-state model. Each canonical workspace path owns an
- * independent set of open file tabs, an active view, and browser/terminal
- * openness. All transitions are pure functions; persistence uses a versioned
- * localStorage document bounded by workspace count and file-tab count.
- *
- * This module has no React dependency and is tested independently.
- */
-
 import { isObject } from '../../../shared/is-object.ts'
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-/** The viewer pane shows either one open file, the browser tab, or the terminal tab. */
+/** The viewer pane shows an open file, Git diff, browser, or terminal. */
 export type PaneView =
   | { kind: 'file'; path: string }
+  | { kind: 'git-diff'; id: string }
   | { kind: 'browser'; browserId: string }
   | { kind: 'terminal'; terminalId: string }
 
-/** Per-workspace viewer state. Extensible with future per-workspace UI data. */
+/** A Git diff tab is deliberately runtime-only: diffs can be stale after reload. */
+export interface GitDiffTab {
+  id: string
+  path: string
+  commitHash?: string
+  diff: string
+}
+
 export interface WorkspaceViewerState {
   openFilePaths: string[]
+  gitDiffTabs: GitDiffTab[]
+  /** The unpinned tab that the next single-clicked file replaces. */
+  previewTabId: string | null
   activeView: PaneView | null
   browserOpen: boolean
   terminalOpen: boolean
-  /** Epoch ms — tracks recency for eviction during persistence. */
   touchedAt: number
 }
 
@@ -36,31 +33,22 @@ interface PersistedDocument {
 
 interface PersistedWorkspaceEntry {
   openFilePaths: string[]
+  previewTabId?: string | null
   activeView: PaneView | null
   browserOpen: boolean
   terminalOpen: boolean
   touchedAt: number
 }
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 export const STORAGE_KEY = 'pi-livecraft.workspace-viewer-state'
-
-/** Maximum workspace entries kept in localStorage. */
 const MAX_WORKSPACES = 24
-
-/** Maximum open file paths stored per workspace. */
 const MAX_OPEN_FILES = 50
-
-// ---------------------------------------------------------------------------
-// Default state
-// ---------------------------------------------------------------------------
 
 export function defaultViewerState(): WorkspaceViewerState {
   return {
     openFilePaths: [],
+    gitDiffTabs: [],
+    previewTabId: null,
     activeView: null,
     browserOpen: false,
     terminalOpen: false,
@@ -68,28 +56,72 @@ export function defaultViewerState(): WorkspaceViewerState {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Pure transitions
-// ---------------------------------------------------------------------------
-
-/** Opens a file tab (appending if new) and activates it. */
-export function openFile(state: WorkspaceViewerState, path: string): WorkspaceViewerState {
-  const openFilePaths = state.openFilePaths.includes(path)
-    ? state.openFilePaths
-    : [...state.openFilePaths, path]
-  return { ...state, openFilePaths, activeView: { kind: 'file', path }, touchedAt: Date.now() }
+function touch(
+  state: WorkspaceViewerState,
+  changes: Partial<WorkspaceViewerState>,
+): WorkspaceViewerState {
+  return { ...state, ...changes, touchedAt: Date.now() }
 }
 
-/** Activates an already-open file tab. No-op if the path is not open. */
+/** Opens a file as the single replaceable preview unless it is already open. */
+export function openFile(state: WorkspaceViewerState, path: string): WorkspaceViewerState {
+  if (state.openFilePaths.includes(path))
+    return touch(state, { activeView: { kind: 'file', path } })
+  const previewPath = state.previewTabId?.startsWith('file:') ? state.previewTabId.slice(5) : null
+  const openFilePaths = previewPath && state.openFilePaths.includes(previewPath)
+    ? state.openFilePaths.map((candidate) => candidate === previewPath ? path : candidate)
+    : [...state.openFilePaths, path]
+  const gitDiffTabs = state.previewTabId?.startsWith('git:')
+    ? state.gitDiffTabs.filter((tab) => tab.id !== state.previewTabId)
+    : state.gitDiffTabs
+  return touch(state, {
+    openFilePaths,
+    gitDiffTabs,
+    previewTabId: `file:${path}`,
+    activeView: { kind: 'file', path },
+  })
+}
+
+/** Opens a Git diff as the single replaceable preview. */
+export function openGitDiff(
+  state: WorkspaceViewerState,
+  path: string,
+  diff: string,
+  commitHash?: string,
+): WorkspaceViewerState {
+  const id = `git:${commitHash ?? 'working-tree'}:${path}`
+  if (state.gitDiffTabs.some((tab) => tab.id === id))
+    return touch(state, { activeView: { kind: 'git-diff', id } })
+  const previewPath = state.previewTabId?.startsWith('file:') ? state.previewTabId.slice(5) : null
+  const openFilePaths = previewPath
+    ? state.openFilePaths.filter((candidate) => candidate !== previewPath)
+    : state.openFilePaths
+  const gitDiffTabs = [
+    ...state.gitDiffTabs.filter((tab) => tab.id !== state.previewTabId),
+    { id, path, commitHash, diff },
+  ]
+  return touch(state, {
+    openFilePaths,
+    gitDiffTabs,
+    previewTabId: id,
+    activeView: { kind: 'git-diff', id },
+  })
+}
+
+export function pinTab(state: WorkspaceViewerState, id: string): WorkspaceViewerState {
+  return state.previewTabId === id ? touch(state, { previewTabId: null }) : state
+}
+
 export function activateFile(state: WorkspaceViewerState, path: string): WorkspaceViewerState {
   if (!state.openFilePaths.includes(path)) return state
-  return { ...state, activeView: { kind: 'file', path }, touchedAt: Date.now() }
+  return touch(state, { activeView: { kind: 'file', path } })
 }
 
-/**
- * Closes a file tab. When the closed tab was active, falls back to the nearest
- * remaining file, then browser, then terminal, then null.
- */
+export function activateGitDiff(state: WorkspaceViewerState, id: string): WorkspaceViewerState {
+  if (!state.gitDiffTabs.some((tab) => tab.id === id)) return state
+  return touch(state, { activeView: { kind: 'git-diff', id } })
+}
+
 export function closeFile(
   state: WorkspaceViewerState,
   path: string,
@@ -99,94 +131,112 @@ export function closeFile(
   const openFilePaths = state.openFilePaths.filter((candidate) => candidate !== path)
   if (openFilePaths.length === state.openFilePaths.length) return state
   const activeView = state.activeView?.kind === 'file' && state.activeView.path === path
-    ? fallbackView(openFilePaths, state.browserOpen, state.terminalOpen, browserId, terminalId)
+    ? fallbackView(
+      openFilePaths,
+      state.gitDiffTabs,
+      state.browserOpen,
+      state.terminalOpen,
+      browserId,
+      terminalId,
+    )
     : state.activeView
-  return { ...state, openFilePaths, activeView, touchedAt: Date.now() }
+  return touch(state, {
+    openFilePaths,
+    previewTabId: state.previewTabId === `file:${path}` ? null : state.previewTabId,
+    activeView,
+  })
 }
 
-/** Opens the browser tab and activates it. */
+export function closeGitDiff(
+  state: WorkspaceViewerState,
+  id: string,
+  browserId: string,
+  terminalId: string,
+): WorkspaceViewerState {
+  const gitDiffTabs = state.gitDiffTabs.filter((tab) => tab.id !== id)
+  if (gitDiffTabs.length === state.gitDiffTabs.length) return state
+  const activeView = state.activeView?.kind === 'git-diff' && state.activeView.id === id
+    ? fallbackView(
+      state.openFilePaths,
+      gitDiffTabs,
+      state.browserOpen,
+      state.terminalOpen,
+      browserId,
+      terminalId,
+    )
+    : state.activeView
+  return touch(state, {
+    gitDiffTabs,
+    previewTabId: state.previewTabId === id ? null : state.previewTabId,
+    activeView,
+  })
+}
+
 export function openBrowser(state: WorkspaceViewerState, browserId: string): WorkspaceViewerState {
-  return {
-    ...state,
-    browserOpen: true,
-    activeView: { kind: 'browser', browserId },
-    touchedAt: Date.now(),
-  }
+  return touch(state, { browserOpen: true, activeView: { kind: 'browser', browserId } })
 }
-
-/** Activates the browser tab. No-op if browser is not open. */
 export function activateBrowser(
   state: WorkspaceViewerState,
   browserId: string,
 ): WorkspaceViewerState {
-  if (!state.browserOpen) return state
-  return { ...state, activeView: { kind: 'browser', browserId }, touchedAt: Date.now() }
+  return state.browserOpen ? touch(state, { activeView: { kind: 'browser', browserId } }) : state
 }
-
-/**
- * Closes the browser tab. When it was active, falls back to the last open file,
- * then terminal, then null.
- */
 export function closeBrowser(
   state: WorkspaceViewerState,
   browserId: string,
   terminalId: string,
 ): WorkspaceViewerState {
   if (!state.browserOpen) return state
-  const activeView = state.activeView?.kind === 'browser'
-    ? fallbackView(state.openFilePaths, false, state.terminalOpen, browserId, terminalId)
-    : state.activeView
-  return { ...state, browserOpen: false, activeView, touchedAt: Date.now() }
+  return touch(state, {
+    browserOpen: false,
+    activeView: state.activeView?.kind === 'browser'
+      ? fallbackView(
+        state.openFilePaths,
+        state.gitDiffTabs,
+        false,
+        state.terminalOpen,
+        browserId,
+        terminalId,
+      )
+      : state.activeView,
+  })
 }
-
-/** Opens the terminal tab and activates it. */
 export function openTerminal(
   state: WorkspaceViewerState,
   terminalId: string,
 ): WorkspaceViewerState {
-  return {
-    ...state,
-    terminalOpen: true,
-    activeView: { kind: 'terminal', terminalId },
-    touchedAt: Date.now(),
-  }
+  return touch(state, { terminalOpen: true, activeView: { kind: 'terminal', terminalId } })
 }
-
-/** Activates the terminal tab. No-op if terminal is not open. */
 export function activateTerminal(
   state: WorkspaceViewerState,
   terminalId: string,
 ): WorkspaceViewerState {
-  if (!state.terminalOpen) return state
-  return { ...state, activeView: { kind: 'terminal', terminalId }, touchedAt: Date.now() }
+  return state.terminalOpen ? touch(state, { activeView: { kind: 'terminal', terminalId } }) : state
 }
-
-/**
- * Closes the terminal tab. When it was active, falls back to the last open file,
- * then browser, then null.
- */
 export function closeTerminal(
   state: WorkspaceViewerState,
   browserId: string,
   terminalId: string,
 ): WorkspaceViewerState {
   if (!state.terminalOpen) return state
-  const activeView = state.activeView?.kind === 'terminal'
-    ? fallbackView(state.openFilePaths, state.browserOpen, false, browserId, terminalId)
-    : state.activeView
-  return { ...state, terminalOpen: false, activeView, touchedAt: Date.now() }
+  return touch(state, {
+    terminalOpen: false,
+    activeView: state.activeView?.kind === 'terminal'
+      ? fallbackView(
+        state.openFilePaths,
+        state.gitDiffTabs,
+        state.browserOpen,
+        false,
+        browserId,
+        terminalId,
+      )
+      : state.activeView,
+  })
 }
 
-// ---------------------------------------------------------------------------
-// Fallback selection
-// ---------------------------------------------------------------------------
-
-/**
- * Deterministic fallback: last open file → browser (if open) → terminal (if
- * open) → null.
- */
 export function fallbackView(
   openFilePaths: readonly string[],
+  gitDiffTabs: readonly GitDiffTab[],
   browserOpen: boolean,
   terminalOpen: boolean,
   browserId: string,
@@ -194,38 +244,32 @@ export function fallbackView(
 ): PaneView | null {
   const lastFile = openFilePaths.at(-1)
   if (lastFile !== undefined) return { kind: 'file', path: lastFile }
+  const lastDiff = gitDiffTabs.at(-1)
+  if (lastDiff) return { kind: 'git-diff', id: lastDiff.id }
   if (browserOpen) return { kind: 'browser', browserId }
   if (terminalOpen) return { kind: 'terminal', terminalId }
   return null
 }
 
-// ---------------------------------------------------------------------------
-// Persistence — reading
-// ---------------------------------------------------------------------------
-
-/** Safely reads the persisted workspace viewer states from a raw localStorage value. */
 export function readPersistedStates(raw: string | null): Record<string, WorkspaceViewerState> {
   if (raw === null) return {}
   try {
     const parsed: unknown = JSON.parse(raw)
     if (!isObject(parsed)) return {}
     const doc = parsed as unknown as PersistedDocument
-    if (doc.version !== 1) return {}
-    const workspaces = doc.workspaces
-    if (!isObject(workspaces)) return {}
-    const entries = Object
-      .entries(workspaces as Record<string, unknown>)
-      .map(([key, entry]) => [key, restoreEntry(entry)] as const)
-      .filter((entry): entry is readonly [string, WorkspaceViewerState] => entry[1] !== null)
-      .sort(([, left], [, right]) => right.touchedAt - left.touchedAt)
-      .slice(0, MAX_WORKSPACES)
-    return Object.fromEntries(entries)
+    if (doc.version !== 1 || !isObject(doc.workspaces)) return {}
+    return Object.fromEntries(
+      Object
+        .entries(doc.workspaces as Record<string, unknown>)
+        .map(([key, entry]) => [key, restoreEntry(entry)] as const)
+        .filter((entry): entry is readonly [string, WorkspaceViewerState] => entry[1] !== null)
+        .sort(([, left], [, right]) => right.touchedAt - left.touchedAt)
+        .slice(0, MAX_WORKSPACES),
+    )
   } catch {
     return {}
   }
 }
-
-/** Validates and sanitizes one workspace entry from a persisted document. */
 function restoreEntry(raw: unknown): WorkspaceViewerState | null {
   if (!isObject(raw)) return null
   const entry = raw as Partial<PersistedWorkspaceEntry>
@@ -236,14 +280,22 @@ function restoreEntry(raw: unknown): WorkspaceViewerState | null {
   )
   const browserOpen = entry.browserOpen === true
   const terminalOpen = entry.terminalOpen === true
+  const previewTabId =
+    typeof entry.previewTabId === 'string' && entry.previewTabId.startsWith('file:')
+      && openFilePaths.includes(entry.previewTabId.slice(5))
+      ? entry.previewTabId
+      : null
   const activeView = restoreActiveView(entry.activeView, openFilePaths, browserOpen, terminalOpen)
-  const touchedAt = typeof entry.touchedAt === 'number' && entry.touchedAt > 0
-    ? entry.touchedAt
-    : 0
-  return { openFilePaths, activeView, browserOpen, terminalOpen, touchedAt }
+  return {
+    openFilePaths,
+    gitDiffTabs: [],
+    previewTabId,
+    activeView,
+    browserOpen,
+    terminalOpen,
+    touchedAt: typeof entry.touchedAt === 'number' && entry.touchedAt > 0 ? entry.touchedAt : 0,
+  }
 }
-
-/** Restores an activeView, repairing it through fallback when invalid. */
 function restoreActiveView(
   raw: unknown,
   openFilePaths: string[],
@@ -252,62 +304,37 @@ function restoreActiveView(
 ): PaneView | null {
   if (!isObject(raw)) return null
   const view = raw as PaneView
-  if (view.kind === 'file' && typeof view.path === 'string' && openFilePaths.includes(view.path)) {
+  if (view.kind === 'file' && typeof view.path === 'string' && openFilePaths.includes(view.path))
     return view
-  }
   if (view.kind === 'browser' && typeof view.browserId === 'string' && browserOpen) return view
   if (view.kind === 'terminal' && typeof view.terminalId === 'string' && terminalOpen) return view
-  // Invalid active view — do not guess; return null so the UI starts at the
-  // default empty state rather than activating a stale tab.
   return null
 }
-
-// ---------------------------------------------------------------------------
-// Persistence — writing
-// ---------------------------------------------------------------------------
-
-/** Serializes workspace viewer states for localStorage, bounded and evicted. */
 export function writePersistedStates(states: Record<string, WorkspaceViewerState>): string {
-  const entries = Object.entries(states)
-  // Evict least-recently-touched workspaces when over the limit.
-  entries.sort(([, a], [, b]) => b.touchedAt - a.touchedAt)
-  const kept = entries.slice(0, MAX_WORKSPACES)
   const workspaces: Record<string, PersistedWorkspaceEntry> = {}
-  for (const [key, state] of kept) {
+  for (
+    const [key, state] of Object
+      .entries(states)
+      .sort(([, a], [, b]) => b.touchedAt - a.touchedAt)
+      .slice(0, MAX_WORKSPACES)
+  ) {
     workspaces[key] = {
       openFilePaths: state.openFilePaths.slice(0, MAX_OPEN_FILES),
-      activeView: state.activeView,
+      previewTabId: state.previewTabId?.startsWith('file:') ? state.previewTabId : null,
+      activeView: state.activeView?.kind === 'git-diff' ? null : state.activeView,
       browserOpen: state.browserOpen,
       terminalOpen: state.terminalOpen,
       touchedAt: state.touchedAt,
     }
   }
-  const document: PersistedDocument = { version: 1, workspaces }
-  return JSON.stringify(document)
+  return JSON.stringify({ version: 1, workspaces } satisfies PersistedDocument)
 }
-
-// ---------------------------------------------------------------------------
-// Path validation
-// ---------------------------------------------------------------------------
-
-/** Returns true for non-empty relative paths without traversal. */
 function isValidRelativePath(value: unknown): value is string {
   if (typeof value !== 'string') return false
   const trimmed = value.trim()
-  if (trimmed === '' || trimmed.startsWith('/') || trimmed.startsWith('\\')) return false
-  const segments = trimmed.split(/[\\/]/)
-  return !segments.some((segment) => segment === '..' || segment === '.')
+  return trimmed !== '' && !trimmed.startsWith('/') && !trimmed.startsWith('\\')
+    && !trimmed.split(/[\\/]/).some((segment) => segment === '..' || segment === '.')
 }
-
-/** Deduplicates strings preserving order and caps at the given limit. */
 function deduplicateAndBound(values: string[], limit: number): string[] {
-  const seen = new Set<string>()
-  const result: string[] = []
-  for (const value of values) {
-    if (seen.has(value)) continue
-    seen.add(value)
-    result.push(value)
-    if (result.length >= limit) break
-  }
-  return result
+  return [...new Set(values)].slice(0, limit)
 }

@@ -1588,6 +1588,11 @@ function LivecraftProjectApp(
           return await revertGitCommit(workspacePath, hash)
         }}
         onOpenFile={viewerState.handleOpenFile}
+        onPinFile={(path) => viewerState.handlePinTab(`file:${path}`)}
+        onOpenGitDiff={(path, diff, commitHash, pin) => {
+          viewerState.handleOpenGitDiff(path, diff, commitHash)
+          if (pin) viewerState.handlePinTab(`git:${commitHash ?? 'working-tree'}:${path}`)
+        }}
         onRenameSession={renameManagedSession}
         onResize={updateWorkspaceSidebarWidth}
         onToggleCollapsed={toggleWorkspaceSidebar}
@@ -1768,6 +1773,9 @@ function LivecraftProjectApp(
             </>
           )}
         <FileContentPane
+          activeGitDiffId={viewerState.activeView?.kind === 'git-diff'
+            ? viewerState.activeView.id
+            : null}
           activePath={viewerState.activeView?.kind === 'file'
             ? viewerState.activeView.path
             : null}
@@ -1776,8 +1784,10 @@ function LivecraftProjectApp(
           browserId={browserId}
           browserOpen={viewerState.browserOpen}
           browserUrl={browserUrl}
+          gitDiffTabs={viewerState.gitDiffTabs}
           key={workspacePath}
           onActivate={viewerState.handleActivateFile}
+          onActivateGitDiff={viewerState.handleActivateGitDiff}
           onActivateBrowser={viewerState.handleActivateBrowser}
           onActivateTerminal={viewerState.handleActivateTerminal}
           onBrowserUrlCommit={(url) => {
@@ -1786,6 +1796,7 @@ function LivecraftProjectApp(
           }}
           onOpenBrowser={viewerState.handleOpenBrowser}
           onOpenTerminal={viewerState.handleOpenTerminal}
+          onPinTab={viewerState.handlePinTab}
           onResize={updateFilePaneShare}
           share={filePaneShare}
           terminalActive={viewerState.activeView?.kind === 'terminal'
@@ -1793,9 +1804,11 @@ function LivecraftProjectApp(
           terminalId={terminalId}
           terminalOpen={viewerState.terminalOpen}
           onClose={viewerState.handleCloseFile}
+          onCloseGitDiff={viewerState.handleCloseGitDiff}
           onCloseBrowser={viewerState.handleCloseBrowser}
           onCloseTerminal={viewerState.handleCloseTerminal}
           openPaths={viewerState.openFilePaths}
+          previewTabId={viewerState.previewTabId}
           workspacePath={workspacePath}
         />
       </main>

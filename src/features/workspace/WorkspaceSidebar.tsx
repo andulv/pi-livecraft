@@ -78,6 +78,8 @@ interface WorkspaceSidebarProps {
   onToggleSessionArchive: (target: SessionActionTarget) => void
   onError: (cause: unknown) => void
   onOpenFile: (path: string) => void
+  onPinFile: (path: string) => void
+  onOpenGitDiff: (path: string, diff: string, commitHash?: string, pin?: boolean) => void
   workspaceGit: Record<string, GitSnapshot>
   onGitCommit: (message: string) => Promise<void>
   onGitDiscard: (path?: string) => Promise<void>
@@ -121,6 +123,8 @@ export function WorkspaceSidebar({
   onToggleSessionArchive,
   onError,
   onOpenFile,
+  onPinFile,
+  onOpenGitDiff,
   workspaceGit,
   onGitCommit,
   onGitDiscard,
@@ -890,7 +894,12 @@ export function WorkspaceSidebar({
           id='workspace-files-panel'
           role='tabpanel'
         >
-          <FileExplorer key={workspacePath} onOpenFile={onOpenFile} workspacePath={workspacePath} />
+          <FileExplorer
+            key={workspacePath}
+            onOpenFile={onOpenFile}
+            onPinFile={onPinFile}
+            workspacePath={workspacePath}
+          />
         </section>
       )}
       {openWorkspacePanel === 'git' && (
@@ -906,6 +915,7 @@ export function WorkspaceSidebar({
                 onCommit={onGitCommit}
                 onDiscard={onGitDiscard}
                 onFileSelect={onGitFileSelect}
+                onOpenDiff={onOpenGitDiff}
                 onPull={onGitPull}
                 onPush={onGitPush}
                 onRefresh={onGitRefresh}

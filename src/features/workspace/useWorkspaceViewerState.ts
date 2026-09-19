@@ -14,14 +14,18 @@ import {
   STORAGE_KEY,
   activateBrowser,
   activateFile,
+  activateGitDiff,
   activateTerminal,
   closeBrowser,
   closeFile,
+  closeGitDiff,
   closeTerminal,
   defaultViewerState,
   openBrowser,
   openFile,
+  openGitDiff,
   openTerminal,
+  pinTab,
   readPersistedStates,
   writePersistedStates,
 } from './workspace-viewer-state.ts'
@@ -31,8 +35,12 @@ export type { PaneView, WorkspaceViewerState }
 /** Stable action callbacks for one workspace's viewer state. */
 export interface WorkspaceViewerActions {
   handleOpenFile: (path: string) => void
+  handleOpenGitDiff: (path: string, diff: string, commitHash?: string) => void
   handleActivateFile: (path: string) => void
+  handleActivateGitDiff: (id: string) => void
   handleCloseFile: (path: string) => void
+  handleCloseGitDiff: (id: string) => void
+  handlePinTab: (id: string) => void
   handleOpenBrowser: () => void
   handleActivateBrowser: () => void
   handleCloseBrowser: () => void
@@ -88,12 +96,30 @@ export function useWorkspaceViewerState(
     (path: string) => update((state) => openFile(state, path)),
     [update],
   )
+  const handleOpenGitDiff = useCallback(
+    (path: string, diff: string, commitHash?: string) =>
+      update((state) => openGitDiff(state, path, diff, commitHash)),
+    [update],
+  )
   const handleActivateFile = useCallback(
     (path: string) => update((state) => activateFile(state, path)),
     [update],
   )
+  const handleActivateGitDiff = useCallback(
+    (id: string) => update((state) => activateGitDiff(state, id)),
+    [update],
+  )
+  const handlePinTab = useCallback(
+    (id: string) => update((state) => pinTab(state, id)),
+    [update],
+  )
   const handleCloseFile = useCallback(
     (path: string) => update((state) => closeFile(state, path, browserId, terminalId)),
+    [browserId, terminalId, update],
+  )
+
+  const handleCloseGitDiff = useCallback(
+    (id: string) => update((state) => closeGitDiff(state, id, browserId, terminalId)),
     [browserId, terminalId, update],
   )
 
@@ -130,8 +156,12 @@ export function useWorkspaceViewerState(
   return {
     ...current,
     handleOpenFile,
+    handleOpenGitDiff,
     handleActivateFile,
+    handleActivateGitDiff,
     handleCloseFile,
+    handleCloseGitDiff,
+    handlePinTab,
     handleOpenBrowser,
     handleActivateBrowser,
     handleCloseBrowser,

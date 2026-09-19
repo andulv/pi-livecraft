@@ -10,6 +10,8 @@ import { BrowserView } from '../browser/BrowserView.tsx'
 import { TerminalView } from '../terminal/TerminalView.tsx'
 import { getWorkspaceFile } from '../../api.ts'
 import { maxFilePaneShare, minFilePaneShare } from './file-pane-width.ts'
+import { parseGitDiff } from '../git/git-diff.ts'
+import type { GitDiffTab } from '../workspace/workspace-viewer-state.ts'
 
 interface FileState {
   content: string
@@ -18,44 +20,56 @@ interface FileState {
 }
 
 export function FileContentPane({
+  activeGitDiffId,
   activePath,
   browserActive,
   browserId,
   browserOpen,
   browserUrl,
+  gitDiffTabs,
   onActivate,
+  onActivateGitDiff,
   onActivateBrowser,
   onActivateTerminal,
   onBrowserUrlCommit,
   onClose,
+  onCloseGitDiff,
   onCloseBrowser,
   onCloseTerminal,
   onOpenBrowser,
   onOpenTerminal,
+  onPinTab,
   onResize,
   openPaths,
+  previewTabId,
   share,
   terminalActive,
   terminalId,
   terminalOpen,
   workspacePath,
 }: {
+  activeGitDiffId: string | null
   activePath: string | null
   browserActive: boolean
+  gitDiffTabs: readonly GitDiffTab[]
   browserId: string
   browserOpen: boolean
   browserUrl: string
   onActivate: (path: string) => void
+  onActivateGitDiff: (id: string) => void
   onActivateBrowser: () => void
   onActivateTerminal: () => void
   onBrowserUrlCommit: (url: string) => void
   onClose: (path: string) => void
+  onCloseGitDiff: (id: string) => void
   onCloseBrowser: () => void
   onCloseTerminal: () => void
   onOpenBrowser: () => void
   onOpenTerminal: () => void
+  onPinTab: (id: string) => void
   onResize: (share: number) => void
   openPaths: readonly string[]
+  previewTabId: string | null
   share: number
   terminalActive: boolean
   terminalId: string
@@ -103,6 +117,7 @@ export function FileContentPane({
   }, [activePath, workspacePath])
 
   const activeFile = activePath ? files[activePath] : undefined
+  const activeGitDiff = gitDiffTabs.find((tab) => tab.id === activeGitDiffId)
   const isMarkdown = activePath !== null && /\.(md|markdown)$/i.test(activePath)
 
   /** Installs temporary listeners needed for pane pointer resizing. */
@@ -166,11 +181,16 @@ export function FileContentPane({
       />
       <div className='file-tabs' role='tablist' aria-label='Open files'>
         {openPaths.map((path) => (
-          <div className={`file-tab${path === activePath ? ' active' : ''}`} key={path}>
+          <div
+            className={`file-tab${path === activePath ? ' active' : ''}${
+              previewTabId === `file:${path}` ? ' preview' : ''
+            }`}
+            key={path}
+          >
             <button
               aria-selected={path === activePath}
-              onClick={() =>
-                onActivate(path)}
+              onClick={() => onActivate(path)}
+              onDoubleClick={() => onPinTab(`file:${path}`)}
               role='tab'
               title={path}
               type='button'
@@ -186,8 +206,40 @@ export function FileContentPane({
                   .at(-1)
               }`}
               className='file-tab-close'
-              onClick={() =>
-                onClose(path)}
+              onClick={() => onClose(path)}
+              type='button'
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        {gitDiffTabs.map((tab) => (
+          <div
+            className={`file-tab${
+              activeGitDiff?.id === tab.id
+                ? ' active'
+                : ''
+            }${
+              previewTabId === tab.id
+                ? ' preview'
+                : ''
+            }`}
+            key={tab.id}
+          >
+            <button
+              aria-selected={activeGitDiff?.id === tab.id}
+              onClick={() => onActivateGitDiff(tab.id)}
+              onDoubleClick={() => onPinTab(tab.id)}
+              role='tab'
+              title={`${tab.path}${tab.commitHash ? ` (${tab.commitHash.slice(0, 7)})` : ''} diff`}
+              type='button'
+            >
+              {tab.path.split(/[\\/]/).at(-1)} · Diff
+            </button>
+            <button
+              aria-label={`Close ${tab.path} diff`}
+              className='file-tab-close'
+              onClick={() => onCloseGitDiff(tab.id)}
               type='button'
             >
               ×
@@ -279,6 +331,8 @@ export function FileContentPane({
             />
           </div>
         )
+        : activeGitDiff
+        ? <GitDiffView diff={activeGitDiff.diff} path={activeGitDiff.path} />
         : activePath
         ? (
           <div className='file-content'>
@@ -335,6 +389,34 @@ export function FileContentPane({
 }
 
 /** Compact globe marking browser destinations. */
+function GitDiffView({ diff, path }: { diff: string; path: string }) {
+  const lines = parseGitDiff(diff)
+  return (
+    <div className='file-content'>
+      <div className='file-content-header'>
+        <span title={path}>{path}</span>
+        <small>Git diff</small>
+      </div>
+      {lines.length === 0
+        ? <p className='file-content-status'>No textual differences to display.</p>
+        : (
+          <section aria-label='File diff' className='git-diff'>
+            {lines.map((line, index) => (
+              <div className={`git-diff-line ${line.kind}`} key={index}>
+                <span>{line.oldLine ?? ''}</span>
+                <span>{line.newLine ?? ''}</span>
+                <i aria-hidden='true'>
+                  {line.kind === 'added' ? '+' : line.kind === 'removed' ? '−' : ' '}
+                </i>
+                <code>{line.content}</code>
+              </div>
+            ))}
+          </section>
+        )}
+    </div>
+  )
+}
+
 function GlobeIcon() {
   return (
     <svg

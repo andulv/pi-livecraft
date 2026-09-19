@@ -166,54 +166,6 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
-.git-diff {
-  overflow-x: auto;
-  margin: 0;
-  padding: 10px 0 18px;
-  font: 11px/1.5 ui-monospace, monospace;
-}
-.git-diff-line {
-  display: grid;
-  grid-template-columns: 38px 38px 14px minmax(0, 1fr);
-  padding: 0 14px;
-  white-space: pre-wrap;
-}
-.git-diff-line > span {
-  color: var(--subtle);
-  text-align: right;
-  user-select: none;
-}
-.git-diff-line > i {
-  color: var(--subtle);
-  font-style: normal;
-  text-align: center;
-  user-select: none;
-}
-.git-diff-line > code {
-  font: inherit;
-}
-.git-diff-line.added {
-  background: color-mix(in srgb, var(--success) 13%, var(--surface));
-  color: var(--success);
-}
-.git-diff-line.added > span, .git-diff-line.added > i {
-  color: var(--success);
-}
-.git-diff-line.removed {
-  background: var(--danger-soft);
-  color: var(--danger);
-}
-.git-diff-line.removed > span, .git-diff-line.removed > i {
-  color: color-mix(in srgb, var(--danger) 60%, var(--surface));
-}
-.git-diff-line.hunk {
-  margin: 7px 0 3px;
-  background: color-mix(in srgb, var(--surface) 70%, var(--canvas));
-  color: var(--accent);
-}
-.git-diff-line.hunk > span {
-  visibility: hidden;
-}
 .git-file-status {
   display: grid;
   place-items: center;

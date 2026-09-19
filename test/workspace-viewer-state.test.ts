@@ -12,7 +12,9 @@ import {
   fallbackView,
   openBrowser,
   openFile,
+  openGitDiff,
   openTerminal,
+  pinTab,
   readPersistedStates,
   writePersistedStates,
 } from '../src/features/workspace/workspace-viewer-state.ts'
@@ -46,6 +48,32 @@ describe('openFile', () => {
     const initial = state({ openFilePaths: ['a.ts', 'b.ts'] })
     const result = openFile(initial, 'c.ts')
     assert.deepEqual(result.openFilePaths, ['a.ts', 'b.ts', 'c.ts'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Preview tabs
+// ---------------------------------------------------------------------------
+
+describe('preview tabs', () => {
+  test('replaces an unpinned file preview', () => {
+    const result = openFile(openFile(defaultViewerState(), 'a.ts'), 'b.ts')
+    assert.deepEqual(result.openFilePaths, ['b.ts'])
+    assert.equal(result.previewTabId, 'file:b.ts')
+  })
+
+  test('keeps a pinned tab while opening a preview', () => {
+    const pinned = pinTab(openFile(defaultViewerState(), 'a.ts'), 'file:a.ts')
+    const result = openFile(pinned, 'b.ts')
+    assert.deepEqual(result.openFilePaths, ['a.ts', 'b.ts'])
+    assert.equal(result.previewTabId, 'file:b.ts')
+  })
+
+  test('replaces a file preview with a Git diff preview', () => {
+    const result = openGitDiff(openFile(defaultViewerState(), 'a.ts'), 'b.ts', '+new')
+    assert.deepEqual(result.openFilePaths, [])
+    assert.deepEqual(result.activeView, { kind: 'git-diff', id: 'git:working-tree:b.ts' })
+    assert.equal(result.previewTabId, 'git:working-tree:b.ts')
   })
 })
 
@@ -225,22 +253,22 @@ describe('terminal transitions', () => {
 
 describe('fallbackView', () => {
   test('prefers last file', () => {
-    const result = fallbackView(['a.ts', 'b.ts'], true, true, BROWSER, TERMINAL)
+    const result = fallbackView(['a.ts', 'b.ts'], [], true, true, BROWSER, TERMINAL)
     assert.deepEqual(result, { kind: 'file', path: 'b.ts' })
   })
 
   test('falls back to browser', () => {
-    const result = fallbackView([], true, true, BROWSER, TERMINAL)
+    const result = fallbackView([], [], true, true, BROWSER, TERMINAL)
     assert.deepEqual(result, { kind: 'browser', browserId: BROWSER })
   })
 
   test('falls back to terminal', () => {
-    const result = fallbackView([], false, true, BROWSER, TERMINAL)
+    const result = fallbackView([], [], false, true, BROWSER, TERMINAL)
     assert.deepEqual(result, { kind: 'terminal', terminalId: TERMINAL })
   })
 
   test('returns null when nothing available', () => {
-    assert.equal(fallbackView([], false, false, BROWSER, TERMINAL), null)
+    assert.equal(fallbackView([], [], false, false, BROWSER, TERMINAL), null)
   })
 })
 
@@ -253,7 +281,7 @@ describe('workspace switching', () => {
     const states: Record<string, WorkspaceViewerState> = {}
 
     // Workspace A: open two files, activate second
-    states['/a'] = openFile(defaultViewerState(), 'a1.ts')
+    states['/a'] = pinTab(openFile(defaultViewerState(), 'a1.ts'), 'file:a1.ts')
     states['/a'] = openFile(states['/a'], 'a2.ts')
     states['/a'] = openBrowser(states['/a'], BROWSER)
 

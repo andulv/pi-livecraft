@@ -28,7 +28,7 @@ Discard, reset, and revert ask for confirmation. Discard is destructive and can 
 
 ## Ownership and data flow
 
-`App.tsx` loads and mutates Git state through `src/api.ts`. `GitWidget` owns only its selected file, commit message, busy state, and currently displayed diff. Public response shapes live in `shared/types.ts`.
+`App.tsx` loads and mutates Git state through `src/api.ts`. `GitWidget` owns its commit message, busy state, and action errors; selecting an eligible file opens its diff in the shared file viewer. Public response shapes live in `shared/types.ts`.
 
 The [Git backend capability](/server/features/git/README.md) runs the validated Git commands in the selected workspace. Unified diff parsing remains pure in `git-diff.ts`.
 
