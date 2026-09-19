@@ -231,7 +231,9 @@ export async function getGitFileDiff(
   if (commitHash) {
     const commit = snapshot.commits.find(({ hash }) => hash === commitHash)
     const file = commit?.files.find((change) => change.path === path)
-    if (!file || (file.status !== 'added' && file.status !== 'modified'))
+    if (
+      !file || (file.status !== 'added' && file.status !== 'modified' && file.status !== 'deleted')
+    )
       throw new Error('This file cannot be displayed.')
     const result = await runGit(cwd, [
       'diff-tree',
@@ -244,26 +246,31 @@ export async function getGitFileDiff(
       '--',
       path,
     ])
+    const beforeAvailable = file.status !== 'added'
+    const afterAvailable = file.status !== 'deleted'
     const [before, after] = await Promise.all([
-      gitFileContent(cwd, `${commitHash}^`, path),
-      gitFileContent(cwd, commitHash, path),
+      beforeAvailable ? gitFileContent(cwd, `${commitHash}^`, path) : '',
+      afterAvailable ? gitFileContent(cwd, commitHash, path) : '',
     ])
-    return { path, diff: result.stdout, before, after }
+    return { path, diff: result.stdout, before, beforeAvailable, after, afterAvailable }
   }
 
   const file = snapshot.files.find((change) => change.path === path)
-  if (!file || (file.status !== 'added' && file.status !== 'modified'))
+  if (!file || (file.status !== 'added' && file.status !== 'modified' && file.status !== 'deleted'))
     throw new Error('This file cannot be displayed.')
 
+  const beforeAvailable = file.status !== 'added'
+  const afterAvailable = file.status !== 'deleted'
   const trackedDiff = await runGit(cwd, ['diff', 'HEAD', '--', path], [0, 128])
   const [before, after] = await Promise.all([
-    gitFileContent(cwd, 'HEAD', path),
-    readFile(resolve(cwd, path), 'utf8'),
+    beforeAvailable ? gitFileContent(cwd, 'HEAD', path) : '',
+    afterAvailable ? readFile(resolve(cwd, path), 'utf8') : '',
   ])
-  if (trackedDiff.stdout) return { path, diff: trackedDiff.stdout, before, after }
+  if (trackedDiff.stdout)
+    return { path, diff: trackedDiff.stdout, before, beforeAvailable, after, afterAvailable }
 
   const untrackedDiff = await runGit(cwd, ['diff', '--no-index', '--', '/dev/null', path], [0, 1])
-  return { path, diff: untrackedDiff.stdout, before: '', after }
+  return { path, diff: untrackedDiff.stdout, before, beforeAvailable, after, afterAvailable }
 }
 
 /** Reads a revision's file content; a newly-added file has no parent blob. */

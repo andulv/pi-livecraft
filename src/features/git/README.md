@@ -12,7 +12,7 @@ The Git widget keeps the state of the current repository beside the conversation
 - the 20 most recent commits reachable from `HEAD`, shown as compact summaries;
 - action errors without closing the panel or losing the current selection.
 
-Deleted and renamed files remain visible but are not selectable because the widget does not request a textual diff for them.
+Deleted files open a diff with an unavailable New view; renamed files remain visible but are not selectable.
 
 ## What you can do
 

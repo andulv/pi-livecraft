@@ -83,7 +83,9 @@ interface WorkspaceSidebarProps {
     path: string,
     diff: string,
     before: string,
+    beforeAvailable: boolean,
     after: string,
+    afterAvailable: boolean,
     commitHash?: string,
     pin?: boolean,
   ) => void

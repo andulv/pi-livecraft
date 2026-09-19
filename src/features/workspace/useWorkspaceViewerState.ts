@@ -39,7 +39,9 @@ export interface WorkspaceViewerActions {
     path: string,
     diff: string,
     before: string,
+    beforeAvailable: boolean,
     after: string,
+    afterAvailable: boolean,
     commitHash?: string,
   ) => void
   handleActivateFile: (path: string) => void
@@ -103,8 +105,18 @@ export function useWorkspaceViewerState(
     [update],
   )
   const handleOpenGitDiff = useCallback(
-    (path: string, diff: string, before: string, after: string, commitHash?: string) =>
-      update((state) => openGitDiff(state, path, diff, before, after, commitHash)),
+    (
+      path: string,
+      diff: string,
+      before: string,
+      beforeAvailable: boolean,
+      after: string,
+      afterAvailable: boolean,
+      commitHash?: string,
+    ) =>
+      update((state) =>
+        openGitDiff(state, path, diff, before, beforeAvailable, after, afterAvailable, commitHash)
+      ),
     [update],
   )
   const handleActivateFile = useCallback(

@@ -1589,8 +1589,25 @@ function LivecraftProjectApp(
         }}
         onOpenFile={viewerState.handleOpenFile}
         onPinFile={(path) => viewerState.handlePinTab(`file:${path}`)}
-        onOpenGitDiff={(path, diff, before, after, commitHash, pin) => {
-          viewerState.handleOpenGitDiff(path, diff, before, after, commitHash)
+        onOpenGitDiff={(
+          path,
+          diff,
+          before,
+          beforeAvailable,
+          after,
+          afterAvailable,
+          commitHash,
+          pin,
+        ) => {
+          viewerState.handleOpenGitDiff(
+            path,
+            diff,
+            before,
+            beforeAvailable,
+            after,
+            afterAvailable,
+            commitHash,
+          )
           if (pin) viewerState.handlePinTab(`git:${commitHash ?? 'working-tree'}:${path}`)
         }}
         onRenameSession={renameManagedSession}

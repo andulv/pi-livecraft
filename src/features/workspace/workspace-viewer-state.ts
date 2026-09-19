@@ -14,7 +14,9 @@ export interface GitDiffTab {
   commitHash?: string
   diff: string
   before: string
+  beforeAvailable: boolean
   after: string
+  afterAvailable: boolean
 }
 
 export interface WorkspaceViewerState {
@@ -90,7 +92,9 @@ export function openGitDiff(
   path: string,
   diff: string,
   before: string,
+  beforeAvailable: boolean,
   after: string,
+  afterAvailable: boolean,
   commitHash?: string,
 ): WorkspaceViewerState {
   const id = `git:${commitHash ?? 'working-tree'}:${path}`
@@ -102,7 +106,7 @@ export function openGitDiff(
     : state.openFilePaths
   const gitDiffTabs = [
     ...state.gitDiffTabs.filter((tab) => tab.id !== state.previewTabId),
-    { id, path, commitHash, diff, before, after },
+    { id, path, commitHash, diff, before, beforeAvailable, after, afterAvailable },
   ]
   return touch(state, {
     openFilePaths,

@@ -37,7 +37,9 @@ export function GitWidget(
       path: string,
       diff: string,
       before: string,
+      beforeAvailable: boolean,
       after: string,
+      afterAvailable: boolean,
       commitHash?: string,
       pin?: boolean,
     ) => void
@@ -88,7 +90,16 @@ export function GitWidget(
     clearError()
     try {
       const fileDiff = await onFileSelect(path, commitHash)
-      onOpenDiff(path, fileDiff.diff, fileDiff.before, fileDiff.after, commitHash, pin)
+      onOpenDiff(
+        path,
+        fileDiff.diff,
+        fileDiff.before,
+        fileDiff.beforeAvailable,
+        fileDiff.after,
+        fileDiff.afterAvailable,
+        commitHash,
+        pin,
+      )
     } catch (error) {
       reportError(error)
     }
@@ -320,6 +331,7 @@ export function GitWidget(
                 {snapshot.files.map((file) => (
                   <li className='git-file-item' key={file.path}>
                     {file.status === 'added' || file.status === 'modified'
+                        || file.status === 'deleted'
                       ? (
                         <button
                           className='git-file-button'
@@ -378,6 +390,7 @@ export function GitWidget(
                                 key={file.path}
                               >
                                 {file.status === 'added' || file.status === 'modified'
+                                    || file.status === 'deleted'
                                   ? (
                                     <button
                                       className='git-file-button'

@@ -335,8 +335,10 @@ export function FileContentPane({
         ? (
           <GitDiffView
             after={activeGitDiff.after}
+            afterAvailable={activeGitDiff.afterAvailable}
             key={activeGitDiff.id}
             before={activeGitDiff.before}
+            beforeAvailable={activeGitDiff.beforeAvailable}
             diff={activeGitDiff.diff}
             path={activeGitDiff.path}
           />
@@ -397,34 +399,40 @@ export function FileContentPane({
 }
 
 /** Lets a Git tab show its patch or either complete file version. */
-function GitDiffView({ after, before, diff, path }: {
+function GitDiffView({ after, afterAvailable, before, beforeAvailable, diff, path }: {
   after: string
+  afterAvailable: boolean
   before: string
+  beforeAvailable: boolean
   diff: string
   path: string
 }) {
   const [view, setView] = useState<'diff' | 'before' | 'after'>('diff')
   const lines = parseGitDiff(diff)
   const versionContent = view === 'before' ? before : after
-  const versionLabel = view === 'before' ? 'Original' : 'New'
 
   return (
     <div className='file-content'>
       <div className='file-content-header'>
         <span title={path}>{path}</span>
         <div aria-label='Git diff display' className='file-view-toggle' role='group'>
-          {(['diff', 'before', 'after'] as const).map((option) => (
-            <button
-              aria-pressed={view === option}
-              key={option}
-              onClick={() => setView(option)}
-              type='button'
-            >
-              {{ diff: 'Diff', before: 'Original', after: 'New' }[option]}
-            </button>
-          ))}
+          {(['diff', 'before', 'after'] as const).map((option) => {
+            const unavailable = (option === 'before' && !beforeAvailable)
+              || (option === 'after' && !afterAvailable)
+            return (
+              <button
+                aria-pressed={view === option}
+                disabled={unavailable}
+                key={option}
+                onClick={() => setView(option)}
+                type='button'
+              >
+                {{ diff: 'Diff', before: 'Original', after: 'New' }[option]}
+              </button>
+            )
+          })}
         </div>
-        <small>{view === 'diff' ? 'Git diff' : versionLabel}</small>
+        <small>Git diff</small>
       </div>
       {view === 'diff'
         ? lines.length === 0

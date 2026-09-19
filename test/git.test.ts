@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFile as execFileCallback } from 'node:child_process'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -108,10 +108,21 @@ test('returns diffs for modified and untracked files', async () => {
 
     assert.match(modified.diff, /-before\n\+after/)
     assert.equal(modified.before, 'before\n')
+    assert.equal(modified.beforeAvailable, true)
     assert.equal(modified.after, 'after\n')
+    assert.equal(modified.afterAvailable, true)
     assert.match(added.diff, /\+new file/)
     assert.equal(added.before, '')
+    assert.equal(added.beforeAvailable, false)
     assert.equal(added.after, 'new file\n')
+    assert.equal(added.afterAvailable, true)
+
+    await unlink(join(directory, 'tracked.ts'))
+    const deleted = await getGitFileDiff(directory, 'tracked.ts')
+    assert.equal(deleted.before, 'before\n')
+    assert.equal(deleted.beforeAvailable, true)
+    assert.equal(deleted.after, '')
+    assert.equal(deleted.afterAvailable, false)
   } finally {
     await rm(directory, { force: true, recursive: true })
   }
