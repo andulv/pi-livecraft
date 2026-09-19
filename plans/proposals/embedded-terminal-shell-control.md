@@ -42,7 +42,7 @@ changes.
 - **Schema (all keys optional):**
   ```json
   {
-    "command": "/usr/bin/fish",
+    "command": "/usr/bin/zsh",
     "args": ["-l"],
     "env": { "MY_TOOL": "value" }
   }
@@ -55,27 +55,28 @@ changes.
 - **Validation shape, not content:** non-empty command, at most 16 args of at most
   1000 chars, at most 32 env entries of bounded length. Values are never passed
   through a shell, so argv-style spawning stays shell-injection-free.
-- **Per-workspace history is Livecraft-managed, not configured per shell:** before
-  spawn, ensure the directory `<repo root>/terminal-history/` exists (sibling of the
-  app log, gitignored) and inject `HISTFILE=<dir>/<sha256(canonical workspace path)
-  first 16 hex>.history` into the environment. Livecraft never writes the file; the
-  shell owns its format and read/write timing.
-- **Windows v1 stays on default behavior.** PowerShell stores history via PSReadLine,
-  which env vars cannot retarget; isolation there needs a startup command and is
-  explicitly out of scope.
+- **Supported shells are bash and zsh; scope is restricted for now.** Per-workspace
+  history is Livecraft-managed, not configured per shell: before spawn, ensure the
+  directory `<repo root>/terminal-history/` exists (sibling of the app log,
+  gitignored) and inject `HISTFILE=<dir>/<sha256(canonical workspace path) first 16
+  hex>.history` plus `SAVEHIST=10000` into the environment. Livecraft never writes
+  the file; the shell owns its format and read/write timing.
+- **Windows stays on default behavior.** It has no supported shell here (PowerShell's
+  PSReadLine history cannot be retargeted by env vars), so the spawn path there is
+  intentionally untouched.
 - **No UI.** The file is hand-edited; the status pill already shows the running shell.
 
 ## Shell idiom table
 
-How the requested controls map per shell. Livecraft only injects env vars; everything
-else is the user's `args`.
+How the requested controls map for the supported shells (bash and zsh). Livecraft only
+injects env vars; everything else is the user's `args`.
 
-| Control         | bash                        | zsh                                | fish                          | pwsh (out of scope v1)            |
-| --------------- | --------------------------- | ---------------------------------- | ----------------------------- | --------------------------------- |
-| Login/profile   | `["-l"]`                    | `["-l"]`                           | `["-l"]`                      | `["-NoExit", "-Command", "..."]`  |
-| Startup script  | `["--rcfile", "<f>", "-i"]` | env `ZDOTDIR=<dir>` (dir holds `.zshrc`) | `["--init-command", "source <f>"]` | `["-NoExit", "-File", "<f>"]` |
-| Extra env       | `env` key, inherited        | `env` key, inherited               | `env` key, inherited          | `env` key, inherited              |
-| History control | `HISTFILE` env              | `HISTFILE` + `SAVEHIST` env (both imported) | `fish_history` env renames the file inside fish's data dir — no path control | PSReadLine `-HistorySavePath` needs a command |
+| Control         | bash                        | zsh                                      |
+| --------------- | --------------------------- | ---------------------------------------- |
+| Login/profile   | `["-l"]`                    | `["-l"]`                                 |
+| Startup script  | `["--rcfile", "<f>", "-i"]` | env `ZDOTDIR=<dir>` (dir holds `.zshrc`) |
+| Extra env       | `env` key, inherited        | `env` key, inherited                     |
+| History control | `HISTFILE` env              | `HISTFILE` + `SAVEHIST` env (both imported) |
 
 - bash honors `HISTFILE` from the environment (reads at start, writes on exit;
   last-writer-wins across concurrent shells in one workspace — acceptable, that is
@@ -83,22 +84,13 @@ else is the user's `args`.
 - zsh imports both `HISTFILE` and `SAVEHIST` from the environment; the `SAVEHIST`
   default of 0 applies only when the parameter is unset (zsh parameters manual,
   verified 2026-09-19).
-- ksh93 and mksh honor `HISTFILE` from the environment; ksh93 falls back to
-  `~/.sh_history` when it is unset, while mksh keeps no history file at all.
-- fish `fish_history` only renames the file inside fish's data dir
-  (`$XDG_DATA_HOME/fish/<name>_history`); redirecting `XDG_DATA_HOME` isolates history
-  but moves all fish data with it. v1 documents fish history as unisolated.
-- POSIX shells without history (dash, ash) need nothing: there is no history file to
-  isolate.
 - An rc file that sets `HISTFILE` itself (oh-my-zsh and similar frameworks do)
   overrides the injected env and silently reverts isolation; the mitigation is the
   custom-rc startup path above (`--rcfile` / `ZDOTDIR`).
-- tcsh, PowerShell, and Nushell cannot retarget history from the environment: tcsh
-  wants the `histfile` shell variable in `.tcshrc`; PSReadLine wants
-  `Set-PSReadLineOption -HistorySavePath`; Nushell removed `NU_CONFIG_DIR` and reads
-  the path only from its config. pwsh on Unix does honor `XDG_DATA_HOME` for its
-  PSReadLine default, but that relocates more than history. These shells keep default
-  behavior (spawn works; history isolation does not).
+- Any other configured shell is untested: injected history env is ignored by shells
+  that do not use it (ksh would honor it as a side effect), but per-workspace history
+  is claimed only for bash and zsh. Shells that cannot retarget history from the
+  environment at all (tcsh, PowerShell, Nushell) simply keep default behavior.
 
 ## Implementation sketch
 
@@ -106,7 +98,7 @@ else is the user's `args`.
   default the config file; pure parse function for tests.
 - `server/features/terminal/session.ts` (~30 lines): extend `PtySpawnOptions` with the
   resolved `{ command, args }`; `defaultPtySpawner` uses it with today's fallback;
-  `terminalEnvironment()` gains the workspace path and injects `HISTFILE`.
+  `terminalEnvironment()` gains the workspace path and injects `HISTFILE` + `SAVEHIST`.
 - `server/backend.ts` (~10 lines): mkdir `terminal-history/` beside the app log;
   `.gitignore` entry.
 - `test/terminal-session.test.ts` (+ `shell-config` cases): config parsing/fallback,
@@ -117,7 +109,8 @@ changes.
 
 ## Out of scope
 
-- Windows/PowerShell history isolation.
+- History isolation for any shell other than bash and zsh (including
+  PowerShell/PSReadLine on Windows, fish, tcsh, Nushell).
 - Per-session (instead of per-workspace) history.
 - A settings UI or hot-reload beyond "read at next shell start".
 - Editing the shell's rc files or managing their content.
