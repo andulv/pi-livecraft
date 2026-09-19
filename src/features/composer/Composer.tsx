@@ -616,6 +616,21 @@ export const Composer = memo(function Composer({
       <div className='composer-footer'>
         <div className='composer-actions'>
           <div className='composer-tools'>
+            <Tooltip label='More composer actions'>
+              <PromptSelect
+                canImprove={Boolean(message.trim()) && !improving && !submitting}
+                canSave={Boolean(message.trim()) && !previewingPrompt}
+                improving={improving}
+                improveOptions={improveOptions}
+                onImprove={(direction) => void improveDraft(direction)}
+                onOpenChange={handlePromptOpenChange}
+                onPreview={previewPrompt}
+                onPreviewEnd={endPromptPreview}
+                onSave={openPromptSaveDialog}
+                onSelect={selectPrompt}
+                prompts={promptTemplates}
+              />
+            </Tooltip>
             {showAgentSelector && (
               <AgentSelect
                 agentOptions={agentOptions}
@@ -661,21 +676,6 @@ export const Composer = memo(function Composer({
                 />
               </>
             )}
-            <Tooltip label='More composer actions'>
-              <PromptSelect
-                canImprove={Boolean(message.trim()) && !improving && !submitting}
-                canSave={Boolean(message.trim()) && !previewingPrompt}
-                improving={improving}
-                improveOptions={improveOptions}
-                onImprove={(direction) => void improveDraft(direction)}
-                onOpenChange={handlePromptOpenChange}
-                onPreview={previewPrompt}
-                onPreviewEnd={endPromptPreview}
-                onSave={openPromptSaveDialog}
-                onSelect={selectPrompt}
-                prompts={promptTemplates}
-              />
-            </Tooltip>
           </div>
           <div className='composer-primary-actions'>
             <ContextUsage
