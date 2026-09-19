@@ -2,8 +2,10 @@
 export interface ToolCallPresentation {
   headerDetail?: { text: string; title: string; suffix?: string }
   pendingDetail?: string
-  /** Full input text rendered above the result when the card is expanded. */
+  /** Full input text rendered above the progress or result when the card is expanded. */
   expandedInput?: string
+  /** Run arguments rendered above the input when the card is expanded. */
+  expandedArguments?: readonly { label: string; value: string }[]
   /** Efficiency measurement rendered above the input when the card is expanded. */
   expandedMeasurement?: string
 }

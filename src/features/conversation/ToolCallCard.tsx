@@ -55,6 +55,7 @@ interface ToolCallCardProps {
   onOpenShubAgentSession?: (cwd: string, sessionPath: string) => Promise<void>
   repositoryRoot?: string | null
   partialResultContent?: unknown
+  partialResultDetails?: unknown
   resultContent?: unknown
   resultDetails?: unknown
   resultError?: boolean
@@ -77,6 +78,7 @@ export const ToolCallCard = memo(function ToolCallCard({
   onError,
   onOpenShubAgentSession,
   partialResultContent,
+  partialResultDetails,
   repositoryRoot,
   resultContent,
   resultDetails,
@@ -119,7 +121,7 @@ export const ToolCallCard = memo(function ToolCallCard({
   const durationLabel = durationMs === undefined ? undefined : formatDuration(durationMs)
   const displayedOutput = output || 'No output.'
   const presentation = toolCallPresentation(
-    { id, name: toolName, args, details: resultDetails },
+    { id, name: toolName, args, details: resultDetails ?? partialResultDetails },
     repositoryRoot,
     streamingArguments,
   )
@@ -196,6 +198,7 @@ export const ToolCallCard = memo(function ToolCallCard({
 
   const showDetails = !semiDetailed || semiExpanded
   const hasBody = streaming || interrupted || hasResult || Boolean(partialOutput)
+    || Boolean(active && presentation.expandedInput)
 
   return (
     <article
@@ -303,6 +306,32 @@ export const ToolCallCard = memo(function ToolCallCard({
       </div>
       <div className={`tool-call-body${hasBody && showDetails ? ' visible' : ''}`}>
         <div>
+          {(active || (hasResult && expanded)) && presentation
+            .expandedInput
+            && (
+              <div className='tool-call-input'>
+                {presentation.expandedMeasurement && (
+                  <div className='tool-call-measurement'>
+                    {presentation.expandedMeasurement}
+                  </div>
+                )}
+                {presentation
+                  .expandedArguments && (
+                  <dl className='tool-call-arguments'>
+                    {presentation
+                      .expandedArguments
+                      .map(({ label, value }) => (
+                        <div key={label}>
+                          <dt>{label}</dt>
+                          <dd>{value}</dd>
+                        </div>
+                      ))}
+                  </dl>
+                )}
+                <strong>Input</strong>
+                <pre>{presentation.expandedInput}</pre>
+              </div>
+            )}
           {(streaming || interrupted) && (
             <>
               {argsExpanded
@@ -361,19 +390,6 @@ export const ToolCallCard = memo(function ToolCallCard({
           )}
           {hasResult && (
             <div className={animateLiveChanges ? 'tool-call-result entering' : 'tool-call-result'}>
-              {expanded && presentation
-                .expandedInput
-                && (
-                  <div className='tool-call-input'>
-                    {presentation.expandedMeasurement && (
-                      <div className='tool-call-measurement'>
-                        {presentation.expandedMeasurement}
-                      </div>
-                    )}
-                    <strong>Task</strong>
-                    <pre>{presentation.expandedInput}</pre>
-                  </div>
-                )}
               {expanded
                 ? (
                   <ToolCallContent

@@ -152,6 +152,28 @@
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+.tool-call-arguments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font: 11px/1.5 ui-monospace, monospace;
+}
+.tool-call-arguments > div {
+  display: flex;
+  gap: 4px;
+}
+.tool-call-arguments dt,
+.tool-call-arguments dd {
+  margin: 0;
+}
+.tool-call-arguments dt {
+  color: var(--subtle);
+}
+.tool-call-arguments dd {
+  color: var(--ink);
+}
 .tool-call-input strong {
   display: block;
   margin-bottom: 4px;

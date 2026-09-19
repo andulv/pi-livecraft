@@ -7,7 +7,7 @@ import { truncateToolText, type ToolCallPresentation } from './shared.ts'
  * a suffix chip. The chip needs the extension-reported result details, so it
  * appears only once the run has settled; live progress already carries the
  * effort and tool budget in its streamed text. The full task is available in
- * `expandedInput` so the expanded card separates it from the result.
+ * `expandedInput` and `expandedArguments` so running and settled cards separate them from progress or results.
  */
 export function subagentPresentation(
   args: unknown,
@@ -21,6 +21,7 @@ export function subagentPresentation(
     (part) => part !== undefined,
   )
   const expandedMeasurement = measurementLabel(details)
+  const expandedArguments = runArguments(args, details)
   return {
     headerDetail: {
       text: truncateToolText(task, 80).text,
@@ -28,6 +29,7 @@ export function subagentPresentation(
       ...(chipParts.length > 0 ? { suffix: chipParts.join(' · ') } : {}),
     },
     expandedInput: task,
+    ...(expandedArguments.length > 0 ? { expandedArguments } : {}),
     ...(expandedMeasurement !== undefined ? { expandedMeasurement } : {}),
   }
 }
@@ -38,6 +40,31 @@ function taskText(args: unknown): string | undefined {
   if (typeof args.task === 'string' && args.task.trim()) return args.task
   if (typeof args.question === 'string' && args.question.trim()) return args.question
   return undefined
+}
+
+/** Formats the optional run limits passed to both subagent tools. */
+function runArguments(
+  args: unknown,
+  details: unknown,
+): { label: string; value: string }[] {
+  const callArguments = isObject(args) ? args : {}
+  const runDetails = isObject(details) ? details : {}
+  const arguments_ = []
+  const effort = typeof runDetails.effort === 'string'
+    ? runDetails.effort
+    : callArguments.effort
+  if (typeof effort === 'string' && effort.trim()) {
+    arguments_.push({ label: 'Mode', value: effort })
+  }
+  const maxOutputChars = typeof runDetails.maxOutputChars === 'number'
+    ? runDetails.maxOutputChars
+    : callArguments.max_chars
+  if (
+    typeof maxOutputChars === 'number' && Number.isSafeInteger(maxOutputChars) && maxOutputChars > 0
+  ) {
+    arguments_.push({ label: 'Output', value: `${maxOutputChars.toLocaleString()} characters` })
+  }
+  return arguments_
 }
 
 /** Renders the extension-reported effort and short model name from the run details. */

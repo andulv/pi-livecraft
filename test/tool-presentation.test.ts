@@ -119,10 +119,11 @@ test('shows the delegated task with resolved effort and model for subagent calls
     toolCallPresentation({
       id: 'call_1',
       name: 'subagent_repo_explore',
-      args: { task: 'Map the session store.', effort: 'deep', max_chars: 20000 },
+      args: { task: 'Map the session store.' },
       details: {
         agent: 'repo_explore',
         effort: 'deep',
+        maxOutputChars: 20000,
         model: 'fireworks/accounts/fireworks/models/deepseek-v4-flash-0731',
         totalTokens: 12000,
         outputChars: 1800,
@@ -135,6 +136,10 @@ test('shows the delegated task with resolved effort and model for subagent calls
         suffix: 'deep · deepseek-v4-flash-0731 · 12.0k→450 tok',
       },
       expandedInput: 'Map the session store.',
+      expandedArguments: [
+        { label: 'Mode', value: 'deep' },
+        { label: 'Output', value: '20,000 characters' },
+      ],
       expandedMeasurement: '12.0k read → 450 out (96% saved)',
     },
   )

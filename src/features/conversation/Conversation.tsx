@@ -433,6 +433,7 @@ export function Conversation(
                       onError={onError}
                       onOpenShubAgentSession={onOpenShubAgentSession}
                       partialResultContent={execution?.partialResult?.content}
+                      partialResultDetails={execution?.partialResult?.details}
                       repositoryRoot={repositoryRoot}
                       resultContent={result?.content}
                       workingDirectory={workingDirectory}
@@ -504,6 +505,7 @@ export function Conversation(
                     onError={onError}
                     onOpenShubAgentSession={onOpenShubAgentSession}
                     partialResultContent={execution?.partialResult?.content}
+                    partialResultDetails={execution?.partialResult?.details}
                     repositoryRoot={repositoryRoot}
                     resultContent={result?.content}
                     workingDirectory={workingDirectory}
@@ -536,6 +538,7 @@ export function Conversation(
               onError={onError}
               onOpenShubAgentSession={onOpenShubAgentSession}
               partialResultContent={execution.partialResult?.content}
+              partialResultDetails={execution.partialResult?.details}
               repositoryRoot={repositoryRoot}
               resultContent={execution.result?.content}
               workingDirectory={workingDirectory}
