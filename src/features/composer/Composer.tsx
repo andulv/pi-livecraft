@@ -34,7 +34,6 @@ import { PromptSelect } from './selects/PromptSelect.tsx'
 import { SummarySelect } from './selects/SummarySelect.tsx'
 import { ThinkingSelect } from './selects/ThinkingSelect.tsx'
 import { VerbositySelect } from './selects/VerbositySelect.tsx'
-import { ComposerSelect } from './selects/ComposerSelect.tsx'
 import { ContextUsage } from './status-bar/SessionStats.tsx'
 import { shubCompactTokens } from '../../../shared/shub-agent-session.ts'
 
@@ -124,7 +123,6 @@ export const Composer = memo(function Composer({
   const [preparingImages, setPreparingImages] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [improving, setImproving] = useState(false)
-  const [improvePreset, setImprovePreset] = useState('')
   const [previewingPrompt, setPreviewingPrompt] = useState(false)
   const [savedPrompts, setSavedPrompts] = useState<PromptTemplate[]>([])
   const [promptSave, setPromptSave] = useState<{
@@ -417,15 +415,8 @@ export const Composer = memo(function Composer({
       onError(cause)
     } finally {
       setImproving(false)
-      setImprovePreset('')
     }
   }, [improving, onImprovePrompt, onError])
-
-  /** Triggers an isolated rewrite when the user picks an Improve preset. */
-  const handleImproveValueChange = useCallback((value: string) => {
-    setImprovePreset(value)
-    void improveDraft(value)
-  }, [improveDraft])
 
   /** Prepares pasted images locally to bound the HTTP body and context sent to the model. */
   async function handlePaste(event: ReactClipboardEvent<HTMLTextAreaElement>): Promise<void> {
@@ -670,28 +661,19 @@ export const Composer = memo(function Composer({
                 />
               </>
             )}
-            <Tooltip label='Insert a configured prompt'>
+            <Tooltip label='More composer actions'>
               <PromptSelect
+                canImprove={Boolean(message.trim()) && !improving && !submitting}
                 canSave={Boolean(message.trim()) && !previewingPrompt}
+                improving={improving}
+                improveOptions={improveOptions}
+                onImprove={(direction) => void improveDraft(direction)}
                 onOpenChange={handlePromptOpenChange}
                 onPreview={previewPrompt}
                 onPreviewEnd={endPromptPreview}
                 onSave={openPromptSaveDialog}
                 onSelect={selectPrompt}
                 prompts={promptTemplates}
-              />
-            </Tooltip>
-
-            <Tooltip label='Improve prompt'>
-              <ComposerSelect
-                ariaLabel='Improve prompt'
-                disabled={improving || submitting || !message.trim()}
-                onValueChange={handleImproveValueChange}
-                options={improveOptions}
-                loading={improving}
-                placeholder='Improve'
-                tone='improve'
-                value={improvePreset}
               />
             </Tooltip>
           </div>

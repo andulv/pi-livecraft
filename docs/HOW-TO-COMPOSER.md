@@ -17,7 +17,7 @@ composer/
 │   ├── ComposerSelect.tsx    # Lightweight non-modal select menu + icon
 │   ├── AgentSelect.tsx       # Agent picker (props → RPC)
 │   ├── ModelSelect.tsx       # Model picker (snapshot → RPC)
-│   ├── PromptSelect.tsx      # Prompt template preview, insertion, and saving
+│   ├── PromptSelect.tsx      # More-actions menu: prompt templates, save, and draft improvement
 │   ├── ThinkingSelect.tsx    # Thinking level picker (snapshot → RPC)
 │   └── BehaviorSelect.tsx    # Steer/Queue send-mode menu (running only; Queue disabled)
 └── status-bar/

@@ -28,7 +28,7 @@ and rejects programmatic submission.
 | `selects/ThinkingSelect.tsx` | Thinking level — lightweight non-modal picker that renders the levels Pi reports for the current model and maps the choice to `set_thinking_level` RPC |
 | `selects/VerbositySelect.tsx` | Response verbosity — per-session override sent through the `/livecraft-response-controls` extension command, shown only for supported models |
 | `selects/SummarySelect.tsx` | Reasoning summary — per-session override sent through the `/livecraft-response-controls` extension command, shown only for supported models |
-| `selects/PromptSelect.tsx` | Prompt templates — previews, inserts, and saves Pi-discovered templates |
+| `selects/PromptSelect.tsx` | More-actions menu — prompt templates, saving, and draft improvement |
 | `selects/BehaviorSelect.tsx` | Steer/Queue send-mode menu, beside the send control while Pi is running (Queue is disabled) |
 | `status-bar/ChatTopBar.tsx` | Two-line session strip pinned to the top of the chat window: session identity and conversation-view selector first, then usage stats. Workspace context lives in the sidebar; context usage in `ContextUsage` |
 | `status-bar/SessionInfo.tsx` | Session name and active status dot |
@@ -62,6 +62,9 @@ group (matched groups render expanded), provider group headers expand and collap
 Favorites (pinned models) expanded by default, and the filter resets when the menu closes.
 Keyboard navigation moves through visible rows only; the highlight follows model keys so it
 survives re-filtering and pin-driven regrouping.
+
+The compact more-actions menu combines draft improvement with prompt-template preview,
+insertion, and saving.
 
 `ThinkingSelect` lists `snapshot.thinkingLevels`, which the backend fills from Pi's
 `get_available_thinking_levels` for the current model. `VerbositySelect` and `SummarySelect`

@@ -714,6 +714,19 @@
 .composer-select-icon::before {
   content: "◇";
 }
+.composer-select.actions {
+  justify-content: center;
+  width: 30px;
+  padding: 0;
+}
+.composer-select.actions .composer-select-value {
+  display: none;
+}
+.composer-select.actions .composer-select-icon::before {
+  content: "…";
+  font-size: 18px;
+  line-height: 10px;
+}
 .composer-select.agent .composer-select-icon::before {
   content: "✦";
 }

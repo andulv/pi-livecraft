@@ -47,6 +47,7 @@ export const ComposerSelect = memo(function ComposerSelect(
     /** Secondary trigger label for controls whose values need a permanent name. */
     triggerLabel?: string
     tone:
+      | 'actions'
       | 'agent'
       | 'behavior'
       | 'command'
@@ -275,6 +276,7 @@ export const ComposerSelect = memo(function ComposerSelect(
 function ComposerSelectIcon(
   { tone }: {
     tone:
+      | 'actions'
       | 'agent'
       | 'behavior'
       | 'command'
