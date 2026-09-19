@@ -19,7 +19,7 @@ composer/
 │   ├── ModelSelect.tsx       # Model picker (snapshot → RPC)
 │   ├── PromptSelect.tsx      # Prompt template preview, insertion, and saving
 │   ├── ThinkingSelect.tsx    # Thinking level picker (snapshot → RPC)
-│   └── BehaviorSelect.tsx    # Steer / Follow-up (running only)
+│   └── BehaviorSelect.tsx    # Steer/Queue send-mode menu (running only; Queue disabled)
 └── status-bar/
     ├── ComposerStatusBar.tsx # Layout container
     ├── SessionInfo.tsx       # Name, cwd, active dot

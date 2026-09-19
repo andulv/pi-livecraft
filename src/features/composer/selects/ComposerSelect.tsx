@@ -15,6 +15,7 @@ const OPTION_HEIGHT = 34
 
 type ComposerSelectOption = {
   description?: string
+  disabled?: boolean
   kind?: 'action'
   label: string
   value: string
@@ -152,6 +153,7 @@ export const ComposerSelect = memo(function ComposerSelect(
   }, [isOpen, resolvedTriggerRef, setOpen])
 
   const selectOption = useCallback((option: ComposerSelectOption) => {
+    if (option.disabled) return
     setOpen(false)
     onValueChange(option.value)
   }, [onValueChange, setOpen])
@@ -173,14 +175,19 @@ export const ComposerSelect = memo(function ComposerSelect(
     if (options.length === 0) return
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault()
-      setHighlightIndex((index) =>
-        event.key === 'ArrowDown'
-          ? (index + 1) % options.length
-          : (index - 1 + options.length) % options.length
-      )
+      const direction = event.key === 'ArrowDown' ? 1 : -1
+      setHighlightIndex((index) => {
+        for (let step = 1; step <= options.length; step += 1) {
+          const nextIndex = (index + direction * step + options.length) % options.length
+          if (!options[nextIndex]?.disabled) return nextIndex
+        }
+        return index
+      })
     } else if (event.key === 'Home' || event.key === 'End') {
       event.preventDefault()
-      setHighlightIndex(event.key === 'Home' ? 0 : options.length - 1)
+      const enabled = options.filter((option) => !option.disabled)
+      const target = event.key === 'Home' ? enabled[0] : enabled.at(-1)
+      if (target) setHighlightIndex(options.indexOf(target))
     } else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       const option = options[highlightIndex]
@@ -235,8 +242,10 @@ export const ComposerSelect = memo(function ComposerSelect(
         >
           {options.map((option, index) => (
             <div
+              aria-disabled={option.disabled || undefined}
               aria-selected={option.value === value}
               className={`composer-select-option${option.kind === 'action' ? ' action' : ''}`}
+              data-disabled={option.disabled || undefined}
               data-highlighted={index === highlightIndex ? '' : undefined}
               data-state={option.value === value ? 'checked' : 'unchecked'}
               id={`${menuId}-${index}`}

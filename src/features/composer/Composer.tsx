@@ -682,7 +682,6 @@ export const Composer = memo(function Composer({
               />
             </Tooltip>
 
-            {running && <BehaviorSelect behavior={behavior} onChange={setBehavior} />}
             <Tooltip label='Improve prompt'>
               <ComposerSelect
                 ariaLabel='Improve prompt'
@@ -719,27 +718,40 @@ export const Composer = memo(function Composer({
                 </Tooltip>
               )}
             </span>
-            <Tooltip label={commandPending ? 'Run command (Enter)' : 'Send message (Enter)'}>
-              <button
-                aria-label={commandPending ? 'Run command' : 'Send message'}
-                className={`icon-button send${commandPending ? ' command' : ''}`}
-                disabled={submitting || preparingImages
-                  || (!message.trim() && images.length === 0)}
-                type='submit'
+            <div className={`composer-send-group${running ? ' running' : ''}`}>
+              <Tooltip
+                label={running
+                  ? 'Steer agent (Enter)'
+                  : commandPending
+                  ? 'Run command (Enter)'
+                  : 'Send message (Enter)'}
               >
-                {commandPending
-                  ? (
-                    <svg aria-hidden='true' viewBox='0 0 16 16'>
-                      <path d='M9.2 1.5 3.5 8.4h3.2l-.3 6.1 6.1-7.4H9.1l.1-5.6Z' />
-                    </svg>
-                  )
-                  : (
-                    <svg aria-hidden='true' viewBox='0 0 16 16'>
-                      <path d='m2.5 2.5 11 5.5-11 5.5 1.8-5.1L9 8 4.3 7.6z' />
-                    </svg>
-                  )}
-              </button>
-            </Tooltip>
+                <button
+                  aria-label={running
+                    ? 'Steer agent'
+                    : commandPending
+                    ? 'Run command'
+                    : 'Send message'}
+                  className={`icon-button send${commandPending ? ' command' : ''}`}
+                  disabled={submitting || preparingImages
+                    || (!message.trim() && images.length === 0)}
+                  type='submit'
+                >
+                  {commandPending
+                    ? (
+                      <svg aria-hidden='true' viewBox='0 0 16 16'>
+                        <path d='M9.2 1.5 3.5 8.4h3.2l-.3 6.1 6.1-7.4H9.1l.1-5.6Z' />
+                      </svg>
+                    )
+                    : (
+                      <svg aria-hidden='true' viewBox='0 0 16 16'>
+                        <path d='m2.5 2.5 11 5.5-11 5.5 1.8-5.1L9 8 4.3 7.6z' />
+                      </svg>
+                    )}
+                </button>
+              </Tooltip>
+              {running && <BehaviorSelect behavior={behavior} onChange={setBehavior} />}
+            </div>
           </div>
         </div>
       </div>

@@ -29,7 +29,7 @@ and rejects programmatic submission.
 | `selects/VerbositySelect.tsx` | Response verbosity — per-session override sent through the `/livecraft-response-controls` extension command, shown only for supported models |
 | `selects/SummarySelect.tsx` | Reasoning summary — per-session override sent through the `/livecraft-response-controls` extension command, shown only for supported models |
 | `selects/PromptSelect.tsx` | Prompt templates — previews, inserts, and saves Pi-discovered templates |
-| `selects/BehaviorSelect.tsx` | Steer / Follow-up toggle, only rendered while Pi is running |
+| `selects/BehaviorSelect.tsx` | Steer/Queue send-mode menu, beside the send control while Pi is running (Queue is disabled) |
 | `status-bar/ChatTopBar.tsx` | Two-line session strip pinned to the top of the chat window: session identity and conversation-view selector first, then usage stats. Workspace context lives in the sidebar; context usage in `ContextUsage` |
 | `status-bar/SessionInfo.tsx` | Session name and active status dot |
 | `status-bar/SessionStats.tsx` | `SessionStats` renders input/cache/output tokens, message and tool counts, and cost; `ContextUsage` renders context-window pressure as a compact two-line block in the composer's action row |
@@ -40,7 +40,7 @@ and rejects programmatic submission.
   (`pi-livecraft.composer-draft.<sessionId>`). Pending sessions pass `persistDrafts={false}` so an abandoned, not-yet-created session leaves no stored draft.
 - `slashOpen`, `slashFilter`, `slashIndex` — slash-command popover.
 - `openSelect` — which dropdown (agent/model/thinking) is open.
-- `behavior` — `steer` vs `followUp`, only visible while Pi is running.
+- `behavior` — `steer` vs `followUp`; its send-mode menu is only visible while Pi is running. Queue (`followUp`) is currently disabled.
 - `submitting` — prevents double-send during the API call.
 - `preparingImages` — blocks send while clipboard images are being converted.
 - `improving`, `improvePreset`, `suggestion` — isolated rewrite request and explicit comparison.
