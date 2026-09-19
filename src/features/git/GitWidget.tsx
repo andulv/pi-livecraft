@@ -33,7 +33,14 @@ export function GitWidget(
     onCommit: (message: string) => Promise<void>
     onDiscard: (path?: string) => Promise<void>
     onFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
-    onOpenDiff: (path: string, diff: string, commitHash?: string, pin?: boolean) => void
+    onOpenDiff: (
+      path: string,
+      diff: string,
+      before: string,
+      after: string,
+      commitHash?: string,
+      pin?: boolean,
+    ) => void
     onPull: () => Promise<void>
     onPush: () => Promise<GitPushResult>
     onRefresh: () => Promise<void>
@@ -81,7 +88,7 @@ export function GitWidget(
     clearError()
     try {
       const fileDiff = await onFileSelect(path, commitHash)
-      onOpenDiff(path, fileDiff.diff, commitHash, pin)
+      onOpenDiff(path, fileDiff.diff, fileDiff.before, fileDiff.after, commitHash, pin)
     } catch (error) {
       reportError(error)
     }

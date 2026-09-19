@@ -70,7 +70,7 @@ describe('preview tabs', () => {
   })
 
   test('replaces a file preview with a Git diff preview', () => {
-    const result = openGitDiff(openFile(defaultViewerState(), 'a.ts'), 'b.ts', '+new')
+    const result = openGitDiff(openFile(defaultViewerState(), 'a.ts'), 'b.ts', '+new', '', 'new')
     assert.deepEqual(result.openFilePaths, [])
     assert.deepEqual(result.activeView, { kind: 'git-diff', id: 'git:working-tree:b.ts' })
     assert.equal(result.previewTabId, 'git:working-tree:b.ts')

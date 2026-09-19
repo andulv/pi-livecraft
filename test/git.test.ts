@@ -107,7 +107,11 @@ test('returns diffs for modified and untracked files', async () => {
     const added = await getGitFileDiff(directory, 'new.ts')
 
     assert.match(modified.diff, /-before\n\+after/)
+    assert.equal(modified.before, 'before\n')
+    assert.equal(modified.after, 'after\n')
     assert.match(added.diff, /\+new file/)
+    assert.equal(added.before, '')
+    assert.equal(added.after, 'new file\n')
   } finally {
     await rm(directory, { force: true, recursive: true })
   }
@@ -163,6 +167,8 @@ test('reports, resets, and reverts unpushed commits', async () => {
     const commit = snapshot.commits.find(({ subject }) => subject === 'Local commit')
     const diff = await getGitFileDiff(directory, 'tracked.ts', commit?.hash)
     assert.match(diff.diff, /\+changed/)
+    assert.equal(diff.before, 'initial\n')
+    assert.equal(diff.after, 'initial\nchanged\n')
 
     await assert.rejects(
       resetGitCommit(directory, commit?.hash ?? ''),

@@ -332,7 +332,15 @@ export function FileContentPane({
           </div>
         )
         : activeGitDiff
-        ? <GitDiffView diff={activeGitDiff.diff} path={activeGitDiff.path} />
+        ? (
+          <GitDiffView
+            after={activeGitDiff.after}
+            key={activeGitDiff.id}
+            before={activeGitDiff.before}
+            diff={activeGitDiff.diff}
+            path={activeGitDiff.path}
+          />
+        )
         : activePath
         ? (
           <div className='file-content'>
@@ -388,33 +396,68 @@ export function FileContentPane({
   )
 }
 
-/** Compact globe marking browser destinations. */
-function GitDiffView({ diff, path }: { diff: string; path: string }) {
+/** Lets a Git tab show its patch or either complete file version. */
+function GitDiffView({ after, before, diff, path }: {
+  after: string
+  before: string
+  diff: string
+  path: string
+}) {
+  const [view, setView] = useState<'diff' | 'before' | 'after'>('diff')
   const lines = parseGitDiff(diff)
+  const versionContent = view === 'before' ? before : after
+  const versionLabel = view === 'before' ? 'Original' : 'New'
+
   return (
     <div className='file-content'>
       <div className='file-content-header'>
         <span title={path}>{path}</span>
-        <small>Git diff</small>
+        <div aria-label='Git diff display' className='file-view-toggle' role='group'>
+          {(['diff', 'before', 'after'] as const).map((option) => (
+            <button
+              aria-pressed={view === option}
+              key={option}
+              onClick={() => setView(option)}
+              type='button'
+            >
+              {{ diff: 'Diff', before: 'Original', after: 'New' }[option]}
+            </button>
+          ))}
+        </div>
+        <small>{view === 'diff' ? 'Git diff' : versionLabel}</small>
       </div>
-      {lines.length === 0
-        ? <p className='file-content-status'>No textual differences to display.</p>
-        : (
-          <section aria-label='File diff' className='git-diff'>
-            {lines.map((line, index) => (
-              <div className={`git-diff-line ${line.kind}`} key={index}>
-                <span>{line.oldLine ?? ''}</span>
-                <span>{line.newLine ?? ''}</span>
-                <i aria-hidden='true'>
-                  {line.kind === 'added' ? '+' : line.kind === 'removed' ? '−' : ' '}
-                </i>
-                <code>{line.content}</code>
-              </div>
-            ))}
-          </section>
-        )}
+      {view === 'diff'
+        ? lines.length === 0
+          ? <p className='file-content-status'>No textual differences to display.</p>
+          : (
+            <section aria-label='File diff' className='git-diff'>
+              {lines.map((line, index) => (
+                <div className={`git-diff-line ${line.kind}`} key={index}>
+                  <span>{line.oldLine ?? ''}</span>
+                  <span>{line.newLine ?? ''}</span>
+                  <i aria-hidden='true'>
+                    {line.kind === 'added' ? '+' : line.kind === 'removed' ? '−' : ' '}
+                  </i>
+                  <code>{line.content}</code>
+                </div>
+              ))}
+            </section>
+          )
+        : <FileVersionView content={versionContent} path={path} />}
     </div>
   )
+}
+
+/** Renders a version through the same content dispatch point used by future viewers. */
+function FileVersionView({ content, path }: { content: string; path: string }) {
+  const isMarkdown = /\.(md|markdown)$/i.test(path)
+  return isMarkdown
+    ? (
+      <div className='file-content-markdown'>
+        <Markdown renderFrontmatter>{content}</Markdown>
+      </div>
+    )
+    : <textarea aria-label={`${path} ${'version'}`} readOnly spellCheck={false} value={content} />
 }
 
 function GlobeIcon() {

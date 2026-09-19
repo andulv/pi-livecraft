@@ -35,7 +35,13 @@ export type { PaneView, WorkspaceViewerState }
 /** Stable action callbacks for one workspace's viewer state. */
 export interface WorkspaceViewerActions {
   handleOpenFile: (path: string) => void
-  handleOpenGitDiff: (path: string, diff: string, commitHash?: string) => void
+  handleOpenGitDiff: (
+    path: string,
+    diff: string,
+    before: string,
+    after: string,
+    commitHash?: string,
+  ) => void
   handleActivateFile: (path: string) => void
   handleActivateGitDiff: (id: string) => void
   handleCloseFile: (path: string) => void
@@ -97,8 +103,8 @@ export function useWorkspaceViewerState(
     [update],
   )
   const handleOpenGitDiff = useCallback(
-    (path: string, diff: string, commitHash?: string) =>
-      update((state) => openGitDiff(state, path, diff, commitHash)),
+    (path: string, diff: string, before: string, after: string, commitHash?: string) =>
+      update((state) => openGitDiff(state, path, diff, before, after, commitHash)),
     [update],
   )
   const handleActivateFile = useCallback(

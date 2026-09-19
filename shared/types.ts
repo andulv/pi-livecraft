@@ -116,6 +116,10 @@ export interface GitRevertResult {
 export interface GitFileDiff {
   path: string
   diff: string
+  /** File content before the diff; empty when the file was newly added. */
+  before: string
+  /** File content after the diff. */
+  after: string
 }
 
 export interface WorkspaceFile {

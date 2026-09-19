@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { stat } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type {
   GitCommit,
@@ -244,7 +244,11 @@ export async function getGitFileDiff(
       '--',
       path,
     ])
-    return { path, diff: result.stdout }
+    const [before, after] = await Promise.all([
+      gitFileContent(cwd, `${commitHash}^`, path),
+      gitFileContent(cwd, commitHash, path),
+    ])
+    return { path, diff: result.stdout, before, after }
   }
 
   const file = snapshot.files.find((change) => change.path === path)
@@ -252,10 +256,20 @@ export async function getGitFileDiff(
     throw new Error('This file cannot be displayed.')
 
   const trackedDiff = await runGit(cwd, ['diff', 'HEAD', '--', path], [0, 128])
-  if (trackedDiff.stdout) return { path, diff: trackedDiff.stdout }
+  const [before, after] = await Promise.all([
+    gitFileContent(cwd, 'HEAD', path),
+    readFile(resolve(cwd, path), 'utf8'),
+  ])
+  if (trackedDiff.stdout) return { path, diff: trackedDiff.stdout, before, after }
 
   const untrackedDiff = await runGit(cwd, ['diff', '--no-index', '--', '/dev/null', path], [0, 1])
-  return { path, diff: untrackedDiff.stdout }
+  return { path, diff: untrackedDiff.stdout, before: '', after }
+}
+
+/** Reads a revision's file content; a newly-added file has no parent blob. */
+async function gitFileContent(cwd: string, revision: string, path: string): Promise<string> {
+  const result = await runGit(cwd, ['show', `${revision}:${path}`], [0, 128])
+  return result.exitCode === 0 ? result.stdout : ''
 }
 
 /** Lists the commits in `revisions` (e.g. `@{upstream}..HEAD`) and each commit's files. */

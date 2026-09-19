@@ -79,7 +79,14 @@ interface WorkspaceSidebarProps {
   onError: (cause: unknown) => void
   onOpenFile: (path: string) => void
   onPinFile: (path: string) => void
-  onOpenGitDiff: (path: string, diff: string, commitHash?: string, pin?: boolean) => void
+  onOpenGitDiff: (
+    path: string,
+    diff: string,
+    before: string,
+    after: string,
+    commitHash?: string,
+    pin?: boolean,
+  ) => void
   workspaceGit: Record<string, GitSnapshot>
   onGitCommit: (message: string) => Promise<void>
   onGitDiscard: (path?: string) => Promise<void>
