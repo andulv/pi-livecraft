@@ -279,6 +279,30 @@ async function gitFileContent(cwd: string, revision: string, path: string): Prom
   return result.exitCode === 0 ? result.stdout : ''
 }
 
+/** Returns one patch covering every outgoing commit against its integration base. */
+export async function getGitOutgoingDiff(cwd: string): Promise<GitFileDiff> {
+  const snapshot = await getGitSnapshot(cwd)
+  if (snapshot.commits.length === 0) throw new Error('There are no outgoing commits to display.')
+
+  const upstream = await runGit(cwd, ['rev-parse', '--verify', '--quiet', '@{upstream}'], [0, 1])
+  const base = upstream.exitCode === 0
+    ? '@{upstream}'
+    : snapshot.worktree && snapshot.baseBranch
+    ? snapshot.baseBranch
+    : null
+  if (!base) throw new Error('No integration branch is available for these outgoing commits.')
+
+  const result = await runGit(cwd, ['diff', `${base}...HEAD`])
+  return {
+    path: 'Outgoing changes',
+    diff: result.stdout,
+    before: '',
+    beforeAvailable: false,
+    after: '',
+    afterAvailable: false,
+  }
+}
+
 /** Lists the commits in `revisions` (e.g. `@{upstream}..HEAD`) and each commit's files. */
 async function unpushedCommits(cwd: string, revisions: string[]): Promise<GitCommit[]> {
   const result = await runGit(cwd, ['log', '--format=%H%x00%s%x00', ...revisions])

@@ -22,6 +22,7 @@ export function GitWidget(
     onCommit,
     onDiscard,
     onFileSelect,
+    onOutgoingDiff,
     onOpenDiff,
     onPull,
     onPush,
@@ -33,6 +34,7 @@ export function GitWidget(
     onCommit: (message: string) => Promise<void>
     onDiscard: (path?: string) => Promise<void>
     onFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
+    onOutgoingDiff: () => Promise<GitFileDiff>
     onOpenDiff: (
       path: string,
       diff: string,
@@ -99,6 +101,24 @@ export function GitWidget(
         fileDiff.afterAvailable,
         commitHash,
         pin,
+      )
+    } catch (error) {
+      reportError(error)
+    }
+  }
+
+  /** Opens one patch covering all commits waiting to be integrated. */
+  async function selectOutgoingDiff(): Promise<void> {
+    clearError()
+    try {
+      const fileDiff = await onOutgoingDiff()
+      onOpenDiff(
+        fileDiff.path,
+        fileDiff.diff,
+        fileDiff.before,
+        fileDiff.beforeAvailable,
+        fileDiff.after,
+        fileDiff.afterAvailable,
       )
     } catch (error) {
       reportError(error)
@@ -369,6 +389,13 @@ export function GitWidget(
                 }`}
                 aria-label='Unpushed commits'
               >
+                <button
+                  className='git-outgoing-diff'
+                  onClick={() => void selectOutgoingDiff()}
+                  type='button'
+                >
+                  View all changes
+                </button>
                 {snapshot.commits.map((commit, index) => (
                   <div
                     className={`git-commit${exitingCommits.has(commit.hash) ? ' exiting' : ''}`}

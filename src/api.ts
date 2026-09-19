@@ -139,6 +139,10 @@ export async function getGitProject(cwd: string): Promise<GitProject> {
   return request<GitProject>(`/api/git/project?cwd=${encodeURIComponent(cwd)}`)
 }
 
+export async function getGitOutgoingDiff(cwd: string): Promise<GitFileDiff> {
+  return request<GitFileDiff>(`/api/git/outgoing-diff?cwd=${encodeURIComponent(cwd)}`)
+}
+
 export async function getGitFileDiff(
   cwd: string,
   path: string,

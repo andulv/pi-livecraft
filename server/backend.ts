@@ -11,6 +11,7 @@ import {
   discardChanges,
   discardFileChanges,
   getGitFileDiff,
+  getGitOutgoingDiff,
   getGitProject,
   getGitSnapshot,
   pullCommits,
@@ -414,6 +415,12 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     const project = await getGitProject(cwd)
     if (!project) throw new HttpError(400, 'Choose a directory inside a Git repository.')
     sendJson(response, 200, project)
+    return
+  }
+
+  if (method === 'GET' && url.pathname === '/api/git/outgoing-diff') {
+    const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
+    sendJson(response, 200, await getGitOutgoingDiff(cwd))
     return
   }
 

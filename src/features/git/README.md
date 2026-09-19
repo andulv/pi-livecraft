@@ -8,7 +8,7 @@ The Git widget keeps the state of the current repository beside the conversation
 - a count on Pull when its local tracking ref reports commits waiting;
 - added, modified, deleted, and renamed files, with line counts when Git provides them;
 - a line-numbered textual diff for added and modified files;
-- commits ahead of the tracked remote branch, including their subject and changed files;
+- commits ahead of the tracked remote branch, including their subject and changed files, plus one aggregate patch against the integration branch;
 - the 20 most recent commits reachable from `HEAD`, shown as compact summaries;
 - action errors without closing the panel or losing the current selection.
 
@@ -19,6 +19,7 @@ Deleted files open a diff with an unavailable New view; renamed files remain vis
 - refresh repository state manually without contacting the remote;
 - commit all current changes with a message;
 - pull the tracked branch with `--ff-only`, which never creates a merge commit;
+- view the aggregate patch for all outgoing commits against the tracked branch (or a linked worktree's primary branch);
 - push every commit ahead of the tracked branch;
 - discard one file or all uncommitted changes;
 - reset the latest unpushed commit while keeping its changes in the working tree;
