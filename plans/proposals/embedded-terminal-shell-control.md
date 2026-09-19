@@ -75,17 +75,30 @@ else is the user's `args`.
 | Login/profile   | `["-l"]`                    | `["-l"]`                           | `["-l"]`                      | `["-NoExit", "-Command", "..."]`  |
 | Startup script  | `["--rcfile", "<f>", "-i"]` | env `ZDOTDIR=<dir>` (dir holds `.zshrc`) | `["--init-command", "source <f>"]` | `["-NoExit", "-File", "<f>"]` |
 | Extra env       | `env` key, inherited        | `env` key, inherited               | `env` key, inherited          | `env` key, inherited              |
-| History control | `HISTFILE` env              | `HISTFILE` env (+ `SAVEHIST`; verify import) | `fish_history` env names a file inside fish's data dir — no path control | PSReadLine `-HistorySavePath` needs a command |
+| History control | `HISTFILE` env              | `HISTFILE` + `SAVEHIST` env (both imported) | `fish_history` env renames the file inside fish's data dir — no path control | PSReadLine `-HistorySavePath` needs a command |
 
 - bash honors `HISTFILE` from the environment (reads at start, writes on exit;
   last-writer-wins across concurrent shells in one workspace — acceptable, that is
   exactly "one history per workspace").
-- zsh additionally needs `SAVEHIST > 0` for saving; confirm at implementation that an
-  exported `SAVEHIST` is imported as the parameter, otherwise document the `args`
-  workaround (`["-c", "..."]` wrappers are rejected as a design; prefer env that works).
-- fish cannot point `fish_history` at an arbitrary path; a workspace could redirect all
-  fish data via `XDG_DATA_HOME`, which is heavier than requested. v1 documents fish
-  history as unisolated.
+- zsh imports both `HISTFILE` and `SAVEHIST` from the environment; the `SAVEHIST`
+  default of 0 applies only when the parameter is unset (zsh parameters manual,
+  verified 2026-09-19).
+- ksh93 and mksh honor `HISTFILE` from the environment; ksh93 falls back to
+  `~/.sh_history` when it is unset, while mksh keeps no history file at all.
+- fish `fish_history` only renames the file inside fish's data dir
+  (`$XDG_DATA_HOME/fish/<name>_history`); redirecting `XDG_DATA_HOME` isolates history
+  but moves all fish data with it. v1 documents fish history as unisolated.
+- POSIX shells without history (dash, ash) need nothing: there is no history file to
+  isolate.
+- An rc file that sets `HISTFILE` itself (oh-my-zsh and similar frameworks do)
+  overrides the injected env and silently reverts isolation; the mitigation is the
+  custom-rc startup path above (`--rcfile` / `ZDOTDIR`).
+- tcsh, PowerShell, and Nushell cannot retarget history from the environment: tcsh
+  wants the `histfile` shell variable in `.tcshrc`; PSReadLine wants
+  `Set-PSReadLineOption -HistorySavePath`; Nushell removed `NU_CONFIG_DIR` and reads
+  the path only from its config. pwsh on Unix does honor `XDG_DATA_HOME` for its
+  PSReadLine default, but that relocates more than history. These shells keep default
+  behavior (spawn works; history isolation does not).
 
 ## Implementation sketch
 
