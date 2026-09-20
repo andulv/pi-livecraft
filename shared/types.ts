@@ -113,6 +113,10 @@ export interface GitRevertResult {
   hash: string
 }
 
+export interface GitOutgoingChanges {
+  files: GitFileChange[]
+}
+
 export interface GitFileDiff {
   path: string
   diff: string

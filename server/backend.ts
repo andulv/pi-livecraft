@@ -11,7 +11,8 @@ import {
   discardChanges,
   discardFileChanges,
   getGitFileDiff,
-  getGitOutgoingDiff,
+  getGitOutgoingChanges,
+  getGitOutgoingFileDiff,
   getGitProject,
   getGitSnapshot,
   pullCommits,
@@ -418,9 +419,17 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     return
   }
 
-  if (method === 'GET' && url.pathname === '/api/git/outgoing-diff') {
+  if (method === 'GET' && url.pathname === '/api/git/outgoing') {
     const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
-    sendJson(response, 200, await getGitOutgoingDiff(cwd))
+    sendJson(response, 200, await getGitOutgoingChanges(cwd))
+    return
+  }
+
+  if (method === 'GET' && url.pathname === '/api/git/outgoing/diff') {
+    const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
+    const path = url.searchParams.get('path')
+    if (!path) throw new HttpError(400, 'File path is required')
+    sendJson(response, 200, await getGitOutgoingFileDiff(cwd, path))
     return
   }
 

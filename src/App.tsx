@@ -5,7 +5,8 @@ import {
   createSession,
   discardChanges,
   getGitFileDiff,
-  getGitOutgoingDiff,
+  getGitOutgoingChanges,
+  getGitOutgoingFileDiff,
   getGitSnapshot,
   getEnvironment,
   getExtensionSettings,
@@ -1581,7 +1582,8 @@ function LivecraftProjectApp(
         onGitPull={() => pullCommits(workspacePath)}
         onGitPush={() => pushCommits(workspacePath)}
         onGitFileSelect={(path, commitHash) => getGitFileDiff(workspacePath, path, commitHash)}
-        onGitOutgoingDiff={() => getGitOutgoingDiff(workspacePath)}
+        onGitOutgoingChanges={() => getGitOutgoingChanges(workspacePath)}
+        onGitOutgoingFileSelect={(path) => getGitOutgoingFileDiff(workspacePath, path)}
         onGitRefresh={() => refreshGit(workspacePath, true)}
         onGitReset={async (hash) => {
           return await resetGitCommit(workspacePath, hash)

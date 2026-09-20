@@ -10,7 +10,8 @@ import {
   discardChanges,
   discardFileChanges,
   getGitFileDiff,
-  getGitOutgoingDiff,
+  getGitOutgoingChanges,
+  getGitOutgoingFileDiff,
   getGitProject,
   getGitSnapshot,
   isLinkedWorktree,
@@ -176,11 +177,16 @@ test('reports, resets, and reverts unpushed commits', async () => {
       'Initial commit',
     ])
 
-    const outgoing = await getGitOutgoingDiff(directory)
-    assert.match(outgoing.diff, /\+changed/)
-    assert.equal(outgoing.path, 'Outgoing changes')
-    assert.equal(outgoing.beforeAvailable, false)
-    assert.equal(outgoing.afterAvailable, false)
+    const outgoing = await getGitOutgoingChanges(directory)
+    assert.deepEqual(outgoing.files.map(({ path }) => path), [
+      'second.ts',
+      'tracked.ts',
+      'unpushed.ts',
+    ])
+    const outgoingFile = await getGitOutgoingFileDiff(directory, 'tracked.ts')
+    assert.match(outgoingFile.diff, /\+changed/)
+    assert.equal(outgoingFile.before, 'initial\n')
+    assert.equal(outgoingFile.after, 'initial\nchanged\n')
 
     const commit = snapshot.commits.find(({ subject }) => subject === 'Local commit')
     const diff = await getGitFileDiff(directory, 'tracked.ts', commit?.hash)

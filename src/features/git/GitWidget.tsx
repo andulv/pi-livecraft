@@ -3,6 +3,7 @@ import { Tooltip } from '../../components/Tooltip.tsx'
 import type {
   GitFileDiff,
   GitHistoryCommit,
+  GitOutgoingChanges,
   GitPushResult,
   GitResetResult,
   GitRevertResult,
@@ -22,7 +23,8 @@ export function GitWidget(
     onCommit,
     onDiscard,
     onFileSelect,
-    onOutgoingDiff,
+    onOutgoingChanges,
+    onOutgoingFileSelect,
     onOpenDiff,
     onPull,
     onPush,
@@ -34,7 +36,8 @@ export function GitWidget(
     onCommit: (message: string) => Promise<void>
     onDiscard: (path?: string) => Promise<void>
     onFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
-    onOutgoingDiff: () => Promise<GitFileDiff>
+    onOutgoingChanges: () => Promise<GitOutgoingChanges>
+    onOutgoingFileSelect: (path: string) => Promise<GitFileDiff>
     onOpenDiff: (
       path: string,
       diff: string,
@@ -56,6 +59,7 @@ export function GitWidget(
   const [activeView, setActiveView] = useState<GitView>('changes')
   const [busy, setBusy] = useState(false)
   const [exitingCommits, setExitingCommits] = useState<ReadonlySet<string>>(new Set())
+  const [outgoingFiles, setOutgoingFiles] = useState<GitOutgoingChanges['files'] | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [errorTarget, setErrorTarget] = useState<ErrorTarget | null>(null)
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -107,18 +111,30 @@ export function GitWidget(
     }
   }
 
-  /** Opens one patch covering all commits waiting to be integrated. */
-  async function selectOutgoingDiff(): Promise<void> {
+  /** Loads the aggregate changed-file list for all outgoing commits. */
+  async function selectOutgoingChanges(): Promise<void> {
     clearError()
     try {
-      const fileDiff = await onOutgoingDiff()
+      setOutgoingFiles((await onOutgoingChanges()).files)
+    } catch (error) {
+      reportError(error)
+    }
+  }
+
+  /** Opens one aggregate file diff in the viewer-pane preview tab. */
+  async function selectOutgoingFile(path: string, pin?: boolean): Promise<void> {
+    clearError()
+    try {
+      const fileDiff = await onOutgoingFileSelect(path)
       onOpenDiff(
-        fileDiff.path,
+        path,
         fileDiff.diff,
         fileDiff.before,
         fileDiff.beforeAvailable,
         fileDiff.after,
         fileDiff.afterAvailable,
+        undefined,
+        pin,
       )
     } catch (error) {
       reportError(error)
@@ -391,11 +407,45 @@ export function GitWidget(
               >
                 <button
                   className='git-outgoing-diff'
-                  onClick={() => void selectOutgoingDiff()}
+                  aria-expanded={outgoingFiles !== null}
+                  onClick={() => void selectOutgoingChanges()}
                   type='button'
                 >
                   View all changes
                 </button>
+                {outgoingFiles && (
+                  <ul aria-label='All outgoing files' className='git-file-list git-commit-files'>
+                    {outgoingFiles
+                      .map((file) => (
+                        <li
+                          className='git-file-item'
+                          key={file.path}
+                        >
+                          {file
+                                  .status === 'added'
+                              || file
+                                  .status === 'modified'
+                              || file
+                                  .status === 'deleted'
+                            ? (
+                              <button
+                                className='git-file-button'
+                                onClick={(event) =>
+                                  void selectOutgoingFile(
+                                    file.path,
+                                    event
+                                      .detail === 2,
+                                  )}
+                                type='button'
+                              >
+                                <GitFileRow file={file} />
+                              </button>
+                            )
+                            : <GitFileRow file={file} />}
+                        </li>
+                      ))}
+                  </ul>
+                )}
                 {snapshot.commits.map((commit, index) => (
                   <div
                     className={`git-commit${exitingCommits.has(commit.hash) ? ' exiting' : ''}`}

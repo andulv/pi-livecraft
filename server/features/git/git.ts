@@ -6,6 +6,7 @@ import type {
   GitFileChange,
   GitFileDiff,
   GitHistoryCommit,
+  GitOutgoingChanges,
   GitProject,
   GitResetResult,
   GitRevertResult,
@@ -279,8 +280,32 @@ async function gitFileContent(cwd: string, revision: string, path: string): Prom
   return result.exitCode === 0 ? result.stdout : ''
 }
 
-/** Returns one patch covering every outgoing commit against its integration base. */
-export async function getGitOutgoingDiff(cwd: string): Promise<GitFileDiff> {
+/** Lists aggregate file changes for every outgoing commit against its integration base. */
+export async function getGitOutgoingChanges(cwd: string): Promise<GitOutgoingChanges> {
+  const { files } = await outgoingComparison(cwd)
+  return { files }
+}
+
+/** Returns an aggregate diff for one outgoing file, with its base and HEAD contents. */
+export async function getGitOutgoingFileDiff(cwd: string, path: string): Promise<GitFileDiff> {
+  const { base, files } = await outgoingComparison(cwd)
+  const file = files.find((change) => change.path === path)
+  if (!file || (file.status !== 'added' && file.status !== 'modified' && file.status !== 'deleted'))
+    throw new Error('This file cannot be displayed.')
+
+  const mergeBase = await runGit(cwd, ['merge-base', base, 'HEAD'])
+  const beforeAvailable = file.status !== 'added'
+  const afterAvailable = file.status !== 'deleted'
+  const [diff, before, after] = await Promise.all([
+    runGit(cwd, ['diff', `${base}...HEAD`, '--', path]),
+    beforeAvailable ? gitFileContent(cwd, mergeBase.stdout.trim(), path) : '',
+    afterAvailable ? gitFileContent(cwd, 'HEAD', path) : '',
+  ])
+  return { path, diff: diff.stdout, before, beforeAvailable, after, afterAvailable }
+}
+
+/** Resolves the comparison base and its changed files without contacting the remote. */
+async function outgoingComparison(cwd: string): Promise<{ base: string; files: GitFileChange[] }> {
   const snapshot = await getGitSnapshot(cwd)
   if (snapshot.commits.length === 0) throw new Error('There are no outgoing commits to display.')
 
@@ -292,14 +317,18 @@ export async function getGitOutgoingDiff(cwd: string): Promise<GitFileDiff> {
     : null
   if (!base) throw new Error('No integration branch is available for these outgoing commits.')
 
-  const result = await runGit(cwd, ['diff', `${base}...HEAD`])
+  const [status, stats] = await Promise.all([
+    runGit(cwd, ['diff', '--name-status', '-z', `${base}...HEAD`]),
+    runGit(cwd, ['diff', '--numstat', '-z', `${base}...HEAD`]),
+  ])
+  const counts = mergeNumstats(stats.stdout)
   return {
-    path: 'Outgoing changes',
-    diff: result.stdout,
-    before: '',
-    beforeAvailable: false,
-    after: '',
-    afterAvailable: false,
+    base,
+    files: parseGitNameStatus(status.stdout).map((change) => ({
+      ...change,
+      additions: counts.get(change.path)?.additions ?? null,
+      deletions: counts.get(change.path)?.deletions ?? null,
+    })),
   }
 }
 

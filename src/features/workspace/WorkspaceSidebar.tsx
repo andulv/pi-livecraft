@@ -14,6 +14,7 @@ import { FileExplorer } from '../files/FileExplorer.tsx'
 import { GitWidget } from '../git/GitWidget.tsx'
 import type {
   GitFileDiff,
+  GitOutgoingChanges,
   GitProject,
   GitPushResult,
   GitResetResult,
@@ -93,7 +94,8 @@ interface WorkspaceSidebarProps {
   onGitCommit: (message: string) => Promise<void>
   onGitDiscard: (path?: string) => Promise<void>
   onGitFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
-  onGitOutgoingDiff: () => Promise<GitFileDiff>
+  onGitOutgoingChanges: () => Promise<GitOutgoingChanges>
+  onGitOutgoingFileSelect: (path: string) => Promise<GitFileDiff>
   onGitPull: () => Promise<void>
   onGitPush: () => Promise<GitPushResult>
   onGitRefresh: () => Promise<void>
@@ -139,7 +141,8 @@ export function WorkspaceSidebar({
   onGitCommit,
   onGitDiscard,
   onGitFileSelect,
-  onGitOutgoingDiff,
+  onGitOutgoingChanges,
+  onGitOutgoingFileSelect,
   onGitPull,
   onGitPush,
   onGitRefresh,
@@ -926,7 +929,8 @@ export function WorkspaceSidebar({
                 onCommit={onGitCommit}
                 onDiscard={onGitDiscard}
                 onFileSelect={onGitFileSelect}
-                onOutgoingDiff={onGitOutgoingDiff}
+                onOutgoingChanges={onGitOutgoingChanges}
+                onOutgoingFileSelect={onGitOutgoingFileSelect}
                 onOpenDiff={onOpenGitDiff}
                 onPull={onGitPull}
                 onPush={onGitPush}
