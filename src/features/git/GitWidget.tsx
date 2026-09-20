@@ -408,10 +408,13 @@ export function GitWidget(
                 <button
                   className='git-outgoing-diff'
                   aria-expanded={outgoingFiles !== null}
-                  onClick={() => void selectOutgoingChanges()}
+                  onClick={() => {
+                    if (outgoingFiles) setOutgoingFiles(null)
+                    else void selectOutgoingChanges()
+                  }}
                   type='button'
                 >
-                  View all changes
+                  {outgoingFiles ? 'Hide all changes' : 'View all changes'}
                 </button>
                 {outgoingFiles && (
                   <ul aria-label='All outgoing files' className='git-file-list git-commit-files'>
