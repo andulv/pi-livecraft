@@ -63,6 +63,14 @@ test(
     await agent.connect(page.webSocketDebuggerUrl as string)
     await agent.send('Runtime.enable')
 
+    // Same-document navigations must update the pane's address just like full
+    // document navigations do.
+    const sameDocumentUrl = `${pageUrl}#spa-route`
+    await agent.send('Runtime.evaluate', {
+      expression: `history.pushState({}, '', ${JSON.stringify(sameDocumentUrl)})`,
+    })
+    await waitFor(() => urls.includes(sameDocumentUrl))
+
     // The page must not advertise the headless fingerprint to bot filters.
     assert.ok(await evaluateBoolean(agent, '!navigator.userAgent.includes("Headless")'))
     assert.ok(await evaluateBoolean(agent, 'navigator.webdriver === false'))

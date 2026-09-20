@@ -220,6 +220,7 @@ export class BrowserSession {
   #endpoint: string | undefined
   #browser: LaunchedBrowser | null = null
   #cdp: CdpConnection | null = null
+  #mainFrameId: string | undefined
   #subscribers = new Set<(event: string, json: string) => void>()
   #startPromise: Promise<BrowserSessionStatus> | null = null
   #viewers = 0
@@ -417,11 +418,22 @@ export class BrowserSession {
       cdp.on('Page.frameNavigated', (params) => {
         const frame = isObject(params.frame) ? params.frame : null
         if (frame && frame.parentId === undefined && typeof frame.url === 'string') {
+          if (typeof frame.id === 'string') this.#mainFrameId = frame.id
           this.#url = frame.url
           this.#emit({ type: 'url', url: frame.url })
         }
       })
+      cdp.on('Page.navigatedWithinDocument', (params) => {
+        const frameId = params.frameId
+        if (frameId !== this.#mainFrameId || typeof params.url !== 'string') return
+        this.#url = params.url
+        this.#emit({ type: 'url', url: params.url })
+      })
       await cdp.send('Page.enable')
+      const frameTree = await cdp.send('Page.getFrameTree')
+      const root = isObject(frameTree.frameTree) ? frameTree.frameTree : null
+      const frame = root && isObject(root.frame) ? root.frame : null
+      this.#mainFrameId = frame && typeof frame.id === 'string' ? frame.id : undefined
       await this.#appearAsNormalChrome(cdp)
       await cdp.send('Emulation.setDeviceMetricsOverride', {
         width: this.#viewport.width,
@@ -503,6 +515,7 @@ export class BrowserSession {
 
   async #teardown(): Promise<void> {
     this.#clearPendingAck()
+    this.#mainFrameId = undefined
     this.#cdp?.close()
     this.#cdp = null
     const browser = this.#browser

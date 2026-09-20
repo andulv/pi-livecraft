@@ -94,6 +94,8 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   const liveSurfaceRef = useRef<HTMLDivElement>(null)
   const interactiveRef = useRef(false)
   const onUrlCommitRef = useRef(onUrlCommit)
+  const addressEditingRef = useRef(false)
+  const currentUrlRef = useRef(url)
   const requestedUrlRef = useRef(url)
   const didInitialNavigateRef = useRef(false)
   const lastMoveSentRef = useRef(0)
@@ -114,7 +116,10 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   onUrlCommitRef.current = onUrlCommit
   requestedUrlRef.current = url
 
-  useEffect(() => setAddress(url), [url])
+  useEffect(() => {
+    currentUrlRef.current = url
+    if (!addressEditingRef.current) setAddress(url)
+  }, [url])
 
   // Paint the frame that mounted the image: on a fresh mount the first (and,
   // for a settled static page, only) frame can arrive before the image exists,
@@ -169,6 +174,8 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   useEffect(() => {
     if (previousTargetRef.current === target) return
     previousTargetRef.current = target
+    addressEditingRef.current = false
+    setAddress(currentUrlRef.current)
     setStatus({ state: 'off' })
     setStreamState('connecting')
     setHasFrame(false)
@@ -198,7 +205,10 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
         else setHasFrame(true)
       },
       onUrl: (nextUrl) => {
-        if (active) onUrlCommitRef.current(nextUrl)
+        if (!active) return
+        currentUrlRef.current = nextUrl
+        if (!addressEditingRef.current) setAddress(nextUrl)
+        onUrlCommitRef.current(nextUrl)
       },
       onStatus: (next) => {
         if (!active) return
@@ -282,9 +292,13 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
     if (!browserInteractive) return
     const next = normalizeBrowserUrl(address)
     if (!next) {
-      setAddress(url)
+      addressEditingRef.current = false
+      setAddress(currentUrlRef.current)
       return
     }
+    addressEditingRef.current = false
+    currentUrlRef.current = next
+    setAddress(next)
     onUrlCommit(next)
     navigateWhenReady(next)
   }
@@ -427,7 +441,14 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
         {zoomMode === 'auto' && <span className='browser-zoom-value'>{zoomPercent}%</span>}
         <input
           disabled={!browserInteractive}
-          onChange={(event) => setAddress(event.target.value)}
+          onBlur={() => {
+            addressEditingRef.current = false
+            setAddress(currentUrlRef.current)
+          }}
+          onChange={(event) => {
+            addressEditingRef.current = true
+            setAddress(event.target.value)
+          }}
           placeholder='Enter address — e.g. localhost:3000'
           spellCheck={false}
           type='text'
