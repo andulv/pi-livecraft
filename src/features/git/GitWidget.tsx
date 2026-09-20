@@ -414,7 +414,7 @@ export function GitWidget(
                   }}
                   type='button'
                 >
-                  {outgoingFiles ? 'Hide all changes' : 'View all changes'}
+                  {outgoingFiles ? 'Show commits' : 'Show unified changes'}
                 </button>
                 {outgoingFiles && (
                   <ul aria-label='All outgoing files' className='git-file-list git-commit-files'>
@@ -449,7 +449,7 @@ export function GitWidget(
                       ))}
                   </ul>
                 )}
-                {snapshot.commits.map((commit, index) => (
+                {!outgoingFiles && snapshot.commits.map((commit, index) => (
                   <div
                     className={`git-commit${exitingCommits.has(commit.hash) ? ' exiting' : ''}`}
                     key={commit.hash}
