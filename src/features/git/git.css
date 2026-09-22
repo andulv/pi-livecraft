@@ -159,22 +159,61 @@
 .git-file-tree {
   gap: 1px;
 }
-.git-file-tree ul {
-  display: grid;
-  margin: 0 0 0 8px;
-  border-left: 1px solid var(--line);
-  padding: 0 0 0 4px;
-  list-style: none;
-}
-.git-file-tree-directory > span {
-  display: block;
+.git-file-tree-directory {
   min-width: 0;
-  padding: 5px 6px 3px;
+}
+.git-file-tree-row {
+  display: grid;
+  grid-template-columns: 14px 17px minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  min-height: 27px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0 5px;
+  background: transparent;
   color: var(--muted);
   font: 700 10px ui-monospace, monospace;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+.git-file-tree-row:hover {
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--line));
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.git-file-tree-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.git-file-tree-row:active {
+  transform: scale(0.97);
+}
+.git-file-tree-row > span:last-child {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.git-file-tree-row > span:nth-child(1) {
+  color: var(--subtle);
+  font-size: 16px;
+  line-height: 1;
+}
+.git-file-tree-row > span:nth-child(2) {
+  color: var(--file-icon-yellow);
+}
+.git-file-tree-children {
+  display: grid;
+  margin: 0 0 0 11px;
+  border-left: 1px solid var(--line);
+  padding: 0 0 0 2px;
+  list-style: none;
 }
 .git-file-button {
   display: grid;

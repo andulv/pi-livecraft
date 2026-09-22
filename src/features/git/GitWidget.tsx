@@ -559,7 +559,7 @@ interface GitFileTreeNode {
   files: GitFileChange[]
 }
 
-/** Renders Git paths as an expanded directory tree while retaining file actions. */
+/** Renders Git paths with the same collapsible tree interaction as the file explorer. */
 function GitFileTree({
   discardDisabled,
   files,
@@ -571,6 +571,34 @@ function GitFileTree({
   onDiscard?: (path: string) => void
   onSelect: (path: string, pin: boolean) => void
 }) {
+  const [expandedPaths, setExpandedPaths] = useState<ReadonlySet<string>>(() => new Set())
+  const root = buildGitFileTree(files)
+  const toggleDirectory = (path: string): void => {
+    setExpandedPaths((current) => {
+      const next = new Set(current)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+  }
+
+  return (
+    <ul aria-label='Git files in tree view' className='git-file-list git-file-tree' role='tree'>
+      <GitFileTreeBranch
+        discardDisabled={discardDisabled}
+        expandedPaths={expandedPaths}
+        level={1}
+        node={root}
+        onDiscard={onDiscard}
+        onSelect={onSelect}
+        onToggleDirectory={toggleDirectory}
+        parentPath=''
+      />
+    </ul>
+  )
+}
+
+function buildGitFileTree(files: readonly GitFileChange[]): GitFileTreeNode {
   const root: GitFileTreeNode = { children: new Map(), files: [] }
   for (const file of files) {
     const segments = file.path.split(/[\\/]/)
@@ -587,47 +615,74 @@ function GitFileTree({
     }
     node.files.push(file)
   }
-
-  return (
-    <ul aria-label='Git files in tree view' className='git-file-list git-file-tree'>
-      <GitFileTreeBranch
-        discardDisabled={discardDisabled}
-        node={root}
-        onDiscard={onDiscard}
-        onSelect={onSelect}
-      />
-    </ul>
-  )
+  return root
 }
 
 function GitFileTreeBranch({
   discardDisabled,
+  expandedPaths,
+  level,
   node,
   onDiscard,
   onSelect,
+  onToggleDirectory,
+  parentPath,
 }: {
   discardDisabled?: boolean
+  expandedPaths: ReadonlySet<string>
+  level: number
   node: GitFileTreeNode
   onDiscard?: (path: string) => void
   onSelect: (path: string, pin: boolean) => void
+  onToggleDirectory: (path: string) => void
+  parentPath: string
 }) {
   return (
     <>
-      {[...node.children].map(([name, child]) => (
-        <li className='git-file-tree-directory' key={name}>
-          <span>{name}</span>
-          <ul>
-            <GitFileTreeBranch
-              discardDisabled={discardDisabled}
-              node={child}
-              onDiscard={onDiscard}
-              onSelect={onSelect}
-            />
-          </ul>
-        </li>
-      ))}
+      {[...node.children].map(([name, child]) => {
+        const path = parentPath ? `${parentPath}/${name}` : name
+        const expanded = expandedPaths.has(path)
+        return (
+          <li
+            aria-expanded={expanded}
+            aria-level={level}
+            className='git-file-tree-directory'
+            key={path}
+            role='treeitem'
+          >
+            <button
+              className='git-file-tree-row'
+              onClick={() => onToggleDirectory(path)}
+              type='button'
+            >
+              <span aria-hidden='true'>{expanded ? '⌄' : '›'}</span>
+              <span aria-hidden='true'>{expanded ? '▾' : '▸'}</span>
+              <span title={name}>{name}</span>
+            </button>
+            {expanded && (
+              <ul className='git-file-tree-children' role='group'>
+                <GitFileTreeBranch
+                  discardDisabled={discardDisabled}
+                  expandedPaths={expandedPaths}
+                  level={level + 1}
+                  node={child}
+                  onDiscard={onDiscard}
+                  onSelect={onSelect}
+                  onToggleDirectory={onToggleDirectory}
+                  parentPath={path}
+                />
+              </ul>
+            )}
+          </li>
+        )
+      })}
       {node.files.map((file) => (
-        <li className='git-file-item' key={file.path}>
+        <li
+          aria-level={level}
+          className='git-file-item'
+          key={file.path}
+          role='treeitem'
+        >
           {file.status === 'added' || file.status === 'modified' || file.status === 'deleted'
             ? (
               <button
