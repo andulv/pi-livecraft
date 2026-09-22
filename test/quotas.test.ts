@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   glmBusinessError,
+  parseAnthropicResets,
   parseAnthropicUsage,
   parseCopilotUsage,
   parseGlmResets,
@@ -109,6 +110,55 @@ test('reads Z.AI reset cards from the ZCode status response', () => {
   )
   assert.deepEqual(parseGlmResets({ code: 0, data: {} }), undefined)
   assert.deepEqual(parseGlmResets('nope'), undefined)
+})
+
+test('reads Anthropic promotional reset grants from the OAuth usage response', () => {
+  assert.deepEqual(
+    parseAnthropicResets({
+      cedar_ember: {
+        next_grant_id: 'opus-reset',
+        weekly_resets_at: '2030-01-07T00:00:00Z',
+        grants: [{
+          id: 'opus-reset',
+          label: 'Explore Opus 5.5',
+          resets_total: 1,
+          resets_left: 1,
+          ends_at: '2030-01-22T00:00:00Z',
+          usable_now: true,
+        }],
+      },
+    }),
+    {
+      available: true,
+      expiresAt: Date.parse('2030-01-22T00:00:00Z'),
+      grantId: 'opus-reset',
+      label: 'Explore Opus 5.5',
+      program: 'cedar_ember',
+      resetsLeft: 1,
+      resetsTotal: 1,
+      weeklyResetsAt: Date.parse('2030-01-07T00:00:00Z'),
+    },
+  )
+  assert.deepEqual(
+    parseAnthropicResets({
+      juniper_tide: {
+        available: true,
+        next_available_at: '2030-01-08T00:00:00Z',
+        weekly_resets_at: '2030-01-07T00:00:00Z',
+        resets_per_week: 1,
+      },
+    }),
+    {
+      available: true,
+      nextAvailableAt: Date.parse('2030-01-08T00:00:00Z'),
+      program: 'juniper_tide',
+      resetsLeft: 1,
+      resetsPerWeek: 1,
+      weeklyResetsAt: Date.parse('2030-01-07T00:00:00Z'),
+    },
+  )
+  assert.equal(parseAnthropicResets({ cedar_ember: { grants: [] } })?.available, false)
+  assert.equal(parseAnthropicResets({ juniper_tide: null }), undefined)
 })
 
 test('normalizes Claude subscription quota windows', () => {
@@ -326,6 +376,45 @@ test('shows the primary quota for the provider selected by the model', () => {
   })
 })
 
+test('confirms an Anthropic reset when its refreshed offer is no longer available', async () => {
+  let service: QuotaService
+  const manager = {
+    request: async (request: { command?: { message?: unknown } }) => {
+      assert.equal(request.command?.message, '/livecraft-quotas-reset anthropic')
+      setTimeout(() => {
+        service.receiveManagerEvent(statusEvent({
+          protocol: 'pi-livecraft.quotas',
+          version: 1,
+          refreshedAt: 200,
+          openai: { ok: true, data: [] },
+          anthropic: {
+            ok: true,
+            data: [],
+            resets: { available: false, program: 'cedar_ember', resetsLeft: 0 },
+          },
+          copilot: { ok: true, data: [] },
+        }))
+      }, 0)
+      return { type: 'response', command: 'prompt', success: true }
+    },
+  } as unknown as ManagerClient
+  service = new QuotaService(manager)
+  service.receiveManagerEvent(statusEvent({
+    protocol: 'pi-livecraft.quotas',
+    version: 1,
+    refreshedAt: 100,
+    openai: { ok: true, data: [] },
+    anthropic: {
+      ok: true,
+      data: [],
+      resets: { available: true, program: 'cedar_ember', resetsLeft: 1 },
+    },
+    copilot: { ok: true, data: [] },
+  }))
+
+  assert.deepEqual(await service.reset('session-id', 'anthropic'), { ok: true })
+})
+
 test('confirms a reset from the extension’s normal refreshed quota report', async () => {
   let service: QuotaService
   const manager = {
@@ -425,6 +514,7 @@ test('carries Claude subscription windows through the quota snapshot', () => {
         usedPercent: 12.5,
         resetsAt: 1_800_000_000_000,
       }],
+      resets: { available: true, program: 'cedar_ember', resetsLeft: 1 },
     },
     copilot: { ok: true, data: [] },
   }))
@@ -438,6 +528,7 @@ test('carries Claude subscription windows through the quota snapshot', () => {
     }],
     updatedAt: 250,
     stale: false,
+    resets: { available: true, program: 'cedar_ember', resetsLeft: 1 },
   })
 })
 

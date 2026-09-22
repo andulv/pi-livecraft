@@ -1,5 +1,8 @@
 import { isObject } from '../../../shared/is-object.ts'
 import type {
+  AnthropicQuotaReport,
+  AnthropicQuotaResets,
+  AnthropicQuotaSnapshot,
   AnthropicQuotaWindow,
   CopilotQuotaWindow,
   GlmQuotaReport,
@@ -22,7 +25,7 @@ const emptyProvider = <T>(): QuotaProviderSnapshot<T> => ({ data: [], stale: fal
 /** Keeps each provider's last valid snapshot when the next one fails. */
 export class QuotaCache {
   #openai: OpenAiQuotaSnapshot = emptyProvider<OpenAiQuotaWindow>()
-  #anthropic = emptyProvider<AnthropicQuotaWindow>()
+  #anthropic: AnthropicQuotaSnapshot = emptyProvider<AnthropicQuotaWindow>()
   #copilot = emptyProvider<CopilotQuotaWindow>()
   #glm: GlmQuotaSnapshot = emptyProvider<GlmQuotaWindow>()
   #refreshing = false
@@ -75,7 +78,7 @@ export class QuotaCache {
     if (!report) return false
     this.#openai = mergeOpenAi(this.#openai, report.openai, report.refreshedAt)
     if (report.anthropic)
-      this.#anthropic = mergeProvider(this.#anthropic, report.anthropic, report.refreshedAt)
+      this.#anthropic = mergeAnthropic(this.#anthropic, report.anthropic, report.refreshedAt)
     this.#copilot = mergeProvider(this.#copilot, report.copilot, report.refreshedAt)
     if (report.glm) this.#glm = mergeGlm(this.#glm, report.glm, report.refreshedAt)
     this.#refreshing = false
@@ -119,6 +122,18 @@ function mergeProvider<T>(
   return { ...current, stale: current.updatedAt !== undefined, error: report.error }
 }
 
+function mergeAnthropic(
+  current: AnthropicQuotaSnapshot,
+  report: AnthropicQuotaReport,
+  updatedAt: number,
+): AnthropicQuotaSnapshot {
+  if (report.ok) {
+    const base = { data: report.data, updatedAt, stale: false }
+    return report.resets ? { ...base, resets: report.resets } : base
+  }
+  return { ...current, stale: current.updatedAt !== undefined, error: report.error }
+}
+
 function parseQuotaReport(value: unknown): QuotaReport | undefined {
   const report = object(value)
   if (
@@ -126,7 +141,7 @@ function parseQuotaReport(value: unknown): QuotaReport | undefined {
     || !finiteNumber(report.refreshedAt)
   ) return undefined
   const openai = parseOpenAiReport(report.openai)
-  const anthropic = parseProvider(report.anthropic, parseAnthropicWindow)
+  const anthropic = parseAnthropicReport(report.anthropic)
   const copilot = parseProvider(report.copilot, parseCopilotWindow)
   if (!openai || !copilot) return undefined
   const glm = parseGlmReport(report.glm)
@@ -139,6 +154,13 @@ function parseQuotaReport(value: unknown): QuotaReport | undefined {
     ...(anthropic ? { anthropic } : {}),
     ...(glm ? { glm } : {}),
   }
+}
+
+function parseAnthropicReport(value: unknown): AnthropicQuotaReport | undefined {
+  const provider = parseProvider(value, parseAnthropicWindow)
+  if (!provider || provider.ok === false) return provider
+  const resets = parseAnthropicResets(object(value)?.resets)
+  return resets ? { ...provider, resets } : provider
 }
 
 function parseProvider<T>(
@@ -198,6 +220,41 @@ function parseResets(value: unknown): OpenAiQuotaResets | undefined {
   const count = Math.max(0, Math.round(resets.availableCount))
   const nearestExpiry = finiteNumber(resets.nearestExpiry) ? resets.nearestExpiry : undefined
   return { availableCount: count, ...(nearestExpiry ? { nearestExpiry } : {}) }
+}
+
+function parseAnthropicResets(value: unknown): AnthropicQuotaResets | undefined {
+  const resets = object(value)
+  if (
+    resets === undefined
+    || typeof resets.available !== 'boolean'
+    || (resets.program !== 'cedar_ember' && resets.program !== 'juniper_tide')
+    || !finiteNumber(resets.resetsLeft)
+  ) return undefined
+  const expiresAt = finiteNumber(resets.expiresAt) ? resets.expiresAt : undefined
+  const grantId = typeof resets.grantId === 'string' ? resets.grantId.slice(0, 80) : undefined
+  const label = typeof resets.label === 'string' ? resets.label.slice(0, 160) : undefined
+  const nextAvailableAt = finiteNumber(resets.nextAvailableAt)
+    ? resets.nextAvailableAt
+    : undefined
+  const resetsPerWeek = finiteNumber(resets.resetsPerWeek)
+    ? Math.max(0, Math.round(resets.resetsPerWeek))
+    : undefined
+  const resetsTotal = finiteNumber(resets.resetsTotal)
+    ? Math.max(0, Math.round(resets.resetsTotal))
+    : undefined
+  const weeklyResetsAt = finiteNumber(resets.weeklyResetsAt) ? resets.weeklyResetsAt : undefined
+  return {
+    available: resets.available,
+    ...(expiresAt ? { expiresAt } : {}),
+    ...(grantId ? { grantId } : {}),
+    ...(label ? { label } : {}),
+    ...(nextAvailableAt ? { nextAvailableAt } : {}),
+    program: resets.program,
+    resetsLeft: Math.max(0, Math.round(resets.resetsLeft)),
+    ...(resetsPerWeek !== undefined ? { resetsPerWeek } : {}),
+    ...(resetsTotal !== undefined ? { resetsTotal } : {}),
+    ...(weeklyResetsAt ? { weeklyResetsAt } : {}),
+  }
 }
 
 function parseOpenAiWindow(value: unknown): OpenAiQuotaWindow | undefined {

@@ -282,7 +282,9 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     const body = await readJsonBody(request)
     if (typeof body.sessionId !== 'string' || !body.sessionId)
       throw new HttpError(409, 'An open Pi session is required to redeem a reset.')
-    const target = body.target === 'glm-five-hour' || body.target === 'glm-week'
+    const target = body.target === 'anthropic'
+        || body.target === 'glm-five-hour'
+        || body.target === 'glm-week'
       ? body.target
       : 'openai'
     sendJson(response, 200, await quotas.reset(body.sessionId, target))

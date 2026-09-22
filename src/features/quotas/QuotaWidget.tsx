@@ -25,6 +25,7 @@ export function QuotaWidget(
   const [resetError, setResetError] = useState('')
   const now = useCurrentTime()
   const resets = quotas?.openai.resets
+  const anthropicResets = quotas?.anthropic.resets
   const glmResets = quotas?.glm.resets
   const updatedAt = Math.max(
     quotas?.openai.updatedAt ?? 0,
@@ -142,7 +143,6 @@ export function QuotaWidget(
                   using={usingReset === 'openai'}
                 />
               )}
-              {resetError && <p className='quota-error' role='status'>{resetError}</p>}
             </ProviderSection>
             <ProviderSection
               icon={<AnthropicIcon />}
@@ -178,6 +178,21 @@ export function QuotaWidget(
                   </div>
                 )
               })}
+              {anthropicResets?.available && (
+                <ResetRow
+                  count={anthropicResets.resetsLeft}
+                  disabled={quotas.sessionRequired}
+                  expiry={anthropicResets.expiresAt}
+                  label={anthropicResets.label ?? 'Anthropic reset'}
+                  onUse={() =>
+                    redeemReset(
+                      'anthropic',
+                      anthropicResets.label ?? 'Anthropic reset',
+                      anthropicResets.resetsLeft,
+                    )}
+                  using={usingReset === 'anthropic'}
+                />
+              )}
             </ProviderSection>
             <ProviderSection
               icon={<CopilotIcon />}
@@ -303,6 +318,7 @@ export function QuotaWidget(
               })}
               {quotas.glm.data.length > 0 && <GlmPeakHoursBar now={now} />}
             </ProviderSection>
+            {resetError && <p className='quota-error' role='status'>{resetError}</p>}
             <p className='quota-now'>Now {formatNowDate(now)} · {formatNow(now)}</p>
           </>
         )}

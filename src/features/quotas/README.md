@@ -7,6 +7,7 @@ The quotas widget gives a quick answer to a practical question: how much of the 
 - OpenAI Codex five-hour and seven-day windows, with used percentage, elapsed-period progress, and reset time;
 - Anthropic Claude Pro five-hour, weekly all-model, and provider-returned model-specific weekly windows, read through Pi's Anthropic OAuth connection;
 - banked OpenAI resets — how many are available, when the soonest expires, and a confirmed "Use reset" action that redeems one through the extension's `/livecraft-quotas-reset` command (irreversible; requires an open session);
+- Anthropic promotional resets when Claude returns an eligible `cedar_ember` grant, including its label and expiry, with a confirmed "Use reset" action through the same command (irreversible; requires an open session);
 - Z.AI reset cards per quota window when ZCode is signed in on this machine — count, soonest expiry, and a confirmed "Use reset" action routed through the same command (irreversible; requires an open session);
 - GitHub Copilot usage categories, with used and total values, elapsed calendar-month progress, and reset times when available;
 - time-bound usage bars stack green, yellow, and red segments to show how much usage is within pace, close to pace, or well ahead of pace; GLM web searches retain the standard bar because their period is unknown;

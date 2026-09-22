@@ -1,4 +1,5 @@
 import type {
+  AnthropicQuotaResets,
   AnthropicQuotaWindow,
   CopilotQuotaWindow,
   GlmQuotaResets,
@@ -114,6 +115,81 @@ export function parseOpenAiUsage(value: unknown): OpenAiQuotaWindow[] {
     .filter((window, index, windows) =>
       windows.findIndex(({ period }) => period === window.period) === index
     )
+}
+
+/** Reads Anthropic's current promotional reset grant, with legacy fallback support. */
+export function parseAnthropicResets(value: unknown): AnthropicQuotaResets | undefined {
+  const root = object(value)
+  if (!root) return undefined
+  const cedar = object(root.cedar_ember)
+  if (cedar) return parseCedarEmberResets(cedar)
+  const juniper = object(root.juniper_tide)
+  if (!juniper || typeof juniper.available !== 'boolean') return undefined
+  const nextAvailableAt = dateValue(juniper.next_available_at)
+  const weeklyResetsAt = dateValue(juniper.weekly_resets_at)
+  const resetsPerWeek = numberField(juniper, 'resets_per_week')
+  return {
+    available: juniper.available,
+    ...(nextAvailableAt ? { nextAvailableAt } : {}),
+    program: 'juniper_tide',
+    resetsLeft: juniper.available ? 1 : 0,
+    ...(resetsPerWeek !== undefined
+      ? { resetsPerWeek: Math.max(0, Math.round(resetsPerWeek)) }
+      : {}),
+    ...(weeklyResetsAt ? { weeklyResetsAt } : {}),
+  }
+}
+
+interface AnthropicResetGrant {
+  endsAt?: number
+  grantId: string
+  label?: string
+  resetsLeft: number
+  resetsTotal?: number
+  usableNow: boolean
+}
+
+function parseCedarEmberResets(
+  status: Record<string, unknown>,
+): AnthropicQuotaResets {
+  const grants = Array.isArray(status.grants)
+    ? status.grants.flatMap(parseAnthropicResetGrant)
+    : []
+  const nextGrantId = typeof status.next_grant_id === 'string' ? status.next_grant_id : undefined
+  const usableGrants = status.eligible === false
+    ? []
+    : grants.filter((grant) => grant.resetsLeft > 0 && grant.usableNow)
+  const grant = usableGrants.find((candidate) => candidate.grantId === nextGrantId)
+    ?? usableGrants[0]
+  const weeklyResetsAt = dateValue(status.weekly_resets_at)
+  return {
+    available: grant !== undefined,
+    ...(grant?.endsAt ? { expiresAt: grant.endsAt } : {}),
+    ...(grant ? { grantId: grant.grantId } : {}),
+    ...(grant?.label ? { label: grant.label } : {}),
+    program: 'cedar_ember',
+    resetsLeft: grant?.resetsLeft ?? 0,
+    ...(grant?.resetsTotal !== undefined ? { resetsTotal: grant.resetsTotal } : {}),
+    ...(weeklyResetsAt ? { weeklyResetsAt } : {}),
+  }
+}
+
+function parseAnthropicResetGrant(value: unknown): AnthropicResetGrant[] {
+  const grant = object(value)
+  if (!grant) return []
+  const grantId = typeof grant.id === 'string' && grant.id ? grant.id : undefined
+  const resetsLeft = numberField(grant, 'resets_left')
+  if (!grantId || !/^[a-z0-9_-]{1,40}$/.test(grantId) || resetsLeft === undefined) return []
+  const label = typeof grant.label === 'string' && grant.label ? grant.label : undefined
+  const resetsTotal = numberField(grant, 'resets_total')
+  return [{
+    ...(dateValue(grant.ends_at) ? { endsAt: dateValue(grant.ends_at) } : {}),
+    grantId,
+    ...(label ? { label } : {}),
+    resetsLeft: Math.max(0, Math.round(resetsLeft)),
+    ...(resetsTotal !== undefined ? { resetsTotal: Math.max(0, Math.round(resetsTotal)) } : {}),
+    usableNow: grant.usable_now === true,
+  }]
 }
 
 /** Extracts only the subscription windows actually returned by Anthropic. */
