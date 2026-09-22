@@ -16,6 +16,7 @@ Deleted files open a diff with an unavailable New view; renamed files remain vis
 
 ## What you can do
 
+- switch changed-file lists between flat and expanded tree views from the Git options menu;
 - refresh repository state manually without contacting the remote;
 - commit all current changes with a message;
 - pull the tracked branch with `--ff-only`, which never creates a merge commit;

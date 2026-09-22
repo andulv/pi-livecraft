@@ -1,3 +1,66 @@
+.git-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.git-options {
+  position: relative;
+}
+.git-options summary {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  list-style: none;
+}
+.git-options summary::-webkit-details-marker {
+  display: none;
+}
+.git-options summary:hover,
+.git-options[open] summary {
+  background: color-mix(in srgb, var(--surface) 70%, var(--canvas));
+  color: var(--ink);
+}
+.git-options summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.git-options [role="menu"] {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: max-content;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+.git-options [role="menu"] button {
+  width: 100%;
+  min-height: 30px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--ink);
+  font: 11px ui-sans-serif, system-ui, sans-serif;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.git-options [role="menu"] button:hover,
+.git-options [role="menu"] button:focus-visible {
+  outline: 0;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
 .git-refresh {
   display: grid;
   place-items: center;
@@ -92,6 +155,26 @@
 }
 .git-file-item:hover {
   background: color-mix(in srgb, var(--surface) 50%, var(--canvas));
+}
+.git-file-tree {
+  gap: 1px;
+}
+.git-file-tree ul {
+  display: grid;
+  margin: 0 0 0 8px;
+  border-left: 1px solid var(--line);
+  padding: 0 0 0 4px;
+  list-style: none;
+}
+.git-file-tree-directory > span {
+  display: block;
+  min-width: 0;
+  padding: 5px 6px 3px;
+  color: var(--muted);
+  font: 700 10px ui-monospace, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .git-file-button {
   display: grid;
