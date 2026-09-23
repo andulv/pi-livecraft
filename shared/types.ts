@@ -340,6 +340,7 @@ export type ClientLogSource =
   | 'sse-drop'
   | 'sse-reopen'
   | 'session-reconcile'
+  | 'connection-stall'
 
 export interface ClientLogRequestBody {
   source: ClientLogSource

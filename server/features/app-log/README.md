@@ -24,10 +24,10 @@ and work from that evidence instead of simulating heavy usage.
 
 Client sources: `window-error`, `unhandled-rejection`, `fetch-failure` (network errors
 and HTTP ≥ 500 only — 4xx is user-visible validation, not instability), `sse-drop`,
-`sse-reopen`, and `session-reconcile`. Every client message begins with a random, page-lifetime
+`sse-reopen`, `session-reconcile`, and `connection-stall`. Every client message begins with a random, page-lifetime
 `view=<8 hex digits>` token to correlate reports across open tabs without identifying a project,
-workspace, or Pi session. Manager-stream drops and recoveries include browser visibility and
-time since the last valid SSE frame. That interval can also mean an idle stream; it is not proof
+workspace, or Pi session. Manager-stream drops and recoveries include browser visibility, EventSource `readyState`
+(`connecting`, `open`, or `closed`), and time since the last valid SSE frame. That interval can also mean an idle stream; it is not proof
 of a broken connection. The recovery duration uses wall-clock time, so laptop suspension counts.
 Repeated EventSource retry errors during the same outage stay silent.
 
@@ -36,6 +36,11 @@ returning to a tab that was hidden for at least 10 seconds, received appended me
 could not apply its snapshot. It includes reason, elapsed hidden and snapshot times, counts of selected Pi events and settle
 events handled while hidden (which can include snapshot replay), time since the last selected Pi
 event and manager SSE frame, result (`applied`, `failed`, or `stale`), message count (appended messages for delta, returned history for full), and Pi streaming status.
+`connection-stall` is sent once when the in-conversation cable label remains current for at
+least ten seconds in an existing view, including a background tab. It distinguishes a connecting backend SSE transport from
+a session still starting and includes the browser's EventSource state, session status (not ID),
+visibility, and stream silence. The timer is not a heartbeat and says nothing about Pi work.
+
 A fetch failure while the backend is unreachable cannot be reported until a later successful
 request; a page reload loses the old page's token and pending report.
 

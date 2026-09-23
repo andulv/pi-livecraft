@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { parseManagerEvent, subscribeBrowserEvents, subscribeManagerEvents } from '../src/api.ts'
+import {
+  managerEventStreamState,
+  parseManagerEvent,
+  subscribeBrowserEvents,
+  subscribeManagerEvents,
+} from '../src/api.ts'
 
 test('parses a valid manager event', () => {
   const event = parseManagerEvent(JSON.stringify({
@@ -41,6 +46,7 @@ test('reports one manager stream drop and its recovery per outage', async () => 
     onopen: ((event: Event) => void) | null = null
     onerror: ((event: Event) => void) | null = null
     closed = false
+    readyState = 0
     readonly url: string
 
     constructor(url: string) {
@@ -74,10 +80,14 @@ test('reports one manager stream drop and its recovery per outage', async () => 
     )
     const source = FakeEventSource.latest!
 
+    assert.equal(managerEventStreamState(), 'connecting')
+    source.readyState = 1
     source.onopen?.(new Event('open'))
+    assert.equal(managerEventStreamState(), 'open')
     assert.equal(opens, 1)
     assert.equal(logs.length, 0)
 
+    source.readyState = 0
     source.onerror?.(new Event('error'))
     source.onerror?.(new Event('error'))
     await new Promise<void>((resolve) => setImmediate(resolve))
@@ -85,30 +95,35 @@ test('reports one manager stream drop and its recovery per outage', async () => 
     assert.equal(logs[0]?.source, 'sse-drop')
     assert.match(
       logs[0]?.message ?? '',
-      /^view=[a-f0-9]{8} manager event stream error; silenceMs=none; hidden=false$/,
+      /^view=[a-f0-9]{8} manager event stream error; silenceMs=none; hidden=false; state=connecting$/,
     )
 
+    source.readyState = 1
     source.onopen?.(new Event('open'))
     await new Promise<void>((resolve) => setImmediate(resolve))
     assert.equal(opens, 2)
     assert.equal(logs[1]?.source, 'sse-reopen')
     assert.match(
       logs[1]?.message ?? '',
-      /^view=[a-f0-9]{8} manager event stream recovered after \d+ ms; silenceMs=none; hidden=false$/,
+      /^view=[a-f0-9]{8} manager event stream recovered after \d+ ms; silenceMs=none; hidden=false; state=open$/,
     )
     source.onmessage?.({
       data: JSON.stringify({ kind: 'event', event: 'manager_connected', sessionId: '' }),
     } as MessageEvent)
     assert.deepEqual(events, ['manager_connected'])
 
+    source.readyState = 0
     source.onerror?.(new Event('error'))
     await new Promise<void>((resolve) => setImmediate(resolve))
     assert.equal(errors, 2)
     assert.equal(logs[2]?.source, 'sse-drop')
-    assert.match(logs[2]?.message ?? '', /silenceMs=\d+; hidden=false$/)
+    assert.match(logs[2]?.message ?? '', /silenceMs=\d+; hidden=false; state=connecting$/)
     assert.equal(logs[0]?.message.slice(0, 13), logs[2]?.message.slice(0, 13))
 
+    source.readyState = 2
+    assert.equal(managerEventStreamState(), 'closed')
     unsubscribe()
+    assert.equal(managerEventStreamState(), 'none')
     assert.equal(source.closed, true)
     assert.equal(source.url, '/api/events')
   } finally {

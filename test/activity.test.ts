@@ -4,6 +4,7 @@ import {
   activityAfterSnapshot,
   activityForPiEvent,
   activityText,
+  connectingCause,
   sessionActivity,
   sessionStatusAfterSnapshot,
 } from '../src/features/conversation/activity.ts'
@@ -110,6 +111,13 @@ test('restores reliable activity from connection and session status', () => {
   assert.deepEqual(sessionActivity({ kind: 'compacting' }, 'idle', 'connected'), {
     kind: 'compacting',
   })
+})
+
+test('distinguishes the two causes of a lingering connection cable', () => {
+  assert.equal(connectingCause('idle', 'connecting'), 'backend-stream')
+  assert.equal(connectingCause('starting', 'connected'), 'session-starting')
+  assert.equal(connectingCause('starting', 'connecting'), 'backend-stream')
+  assert.equal(connectingCause('idle', 'connected'), undefined)
 })
 
 test('a settled snapshot clears stale thinking after missed completion events', () => {

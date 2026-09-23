@@ -3,6 +3,16 @@ import { isObject } from '../../../shared/is-object.ts'
 
 export type PiConnection = 'connecting' | 'connected' | 'disconnected'
 
+/** The cable label combines these two distinct causes; log which one persisted. */
+export function connectingCause(
+  status: SessionSummary['status'],
+  connection: PiConnection,
+): 'backend-stream' | 'session-starting' | undefined {
+  if (connection === 'connecting') return 'backend-stream'
+  if (connection === 'connected' && status === 'starting') return 'session-starting'
+  return undefined
+}
+
 export interface Activity {
   kind:
     | 'connecting'

@@ -17,6 +17,9 @@ import {
   openSession,
   openTerminal,
   openVSCode,
+  managerEventStreamState,
+  managerStreamSilenceMs,
+  postClientLog,
   pullCommits,
   pushCommits,
   refreshEnvironment,
@@ -52,6 +55,7 @@ import { ChatTopBar } from './features/composer/status-bar/ChatTopBar.tsx'
 import { Composer } from './features/composer/Composer.tsx'
 import { ToastStack, type Toast } from './features/notifications/ToastStack.tsx'
 import {
+  connectingCause,
   sessionActivity,
   sessionStatusAfterSnapshot,
   type PiConnection,
@@ -1160,6 +1164,23 @@ function LivecraftProjectApp(
     : selectedSession
     ? sessionActivity(activity, selectedSession.status, piConnection)
     : null
+
+  // Report one prolonged cable label per episode without recording session identity.
+  useEffect(() => {
+    if (displayedActivity?.kind !== 'connecting' || !selectedSessionId || !selectedSessionStatus)
+      return
+    const timer = window.setTimeout(() => {
+      const cause = connectingCause(selectedSessionStatus, piConnection)
+      if (cause)
+        void postClientLog(
+          'connection-stall',
+          `cause=${cause}; connection=${piConnection}; sessionStatus=${selectedSessionStatus}; stream=${managerEventStreamState()}; silenceMs=${
+            managerStreamSilenceMs() ?? 'none'
+          }; hidden=${document.hidden}`,
+        )
+    }, 10_000)
+    return () => window.clearTimeout(timer)
+  }, [displayedActivity?.kind, piConnection, selectedSessionId, selectedSessionStatus])
 
   // Composer and session lifecycle
   const handleConversationError = useCallback(

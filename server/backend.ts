@@ -1193,6 +1193,7 @@ function isClientLogBody(body: unknown): body is ClientLogRequestBody {
     'sse-drop',
     'sse-reopen',
     'session-reconcile',
+    'connection-stall',
   ]
   return typeof body.source === 'string'
     && knownSources.includes(body.source)

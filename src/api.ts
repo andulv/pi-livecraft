@@ -38,6 +38,15 @@ import { isObject } from '../shared/is-object.ts'
 
 const viewId = crypto.randomUUID().slice(0, 8)
 let lastManagerMessageAt: number | undefined
+let managerStream: EventSource | undefined
+
+/** The browser's manager EventSource state, not the backend-to-manager connection state. */
+export function managerEventStreamState(): 'connecting' | 'open' | 'closed' | 'none' {
+  if (!managerStream) return 'none'
+  if (managerStream.readyState === 0) return 'connecting'
+  if (managerStream.readyState === 1) return 'open'
+  return 'closed'
+}
 
 /** Time since this page received a validated manager SSE frame; idle streams can be silent. */
 export function managerStreamSilenceMs(): number | undefined {
@@ -87,6 +96,7 @@ export function subscribeManagerEvents(
   isHidden?: () => boolean,
 ): () => void {
   const source = new EventSource('/api/events')
+  managerStream = source
   let droppedAt: number | undefined
   lastManagerMessageAt = undefined
   source.onmessage = ({ data }) => {
@@ -105,7 +115,7 @@ export function subscribeManagerEvents(
       'sse-reopen',
       `manager event stream recovered after ${durationMs} ms; silenceMs=${
         managerStreamSilenceMs() ?? 'none'
-      }; hidden=${isHidden?.() ?? 'unknown'}`,
+      }; hidden=${isHidden?.() ?? 'unknown'}; state=${managerEventStreamState()}`,
     )
   }
   source.onerror = () => {
@@ -115,11 +125,14 @@ export function subscribeManagerEvents(
       'sse-drop',
       `manager event stream error; silenceMs=${managerStreamSilenceMs() ?? 'none'}; hidden=${
         isHidden?.() ?? 'unknown'
-      }`,
+      }; state=${managerEventStreamState()}`,
     )
     onError()
   }
-  return () => source.close()
+  return () => {
+    source.close()
+    if (managerStream === source) managerStream = undefined
+  }
 }
 
 export async function listSessions(): Promise<SessionSummary[]> {
