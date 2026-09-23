@@ -6,7 +6,7 @@ import {
 } from '../../../shared/assistant-message-stream.ts'
 import { isObject } from '../../../shared/is-object.ts'
 import type { JsonObject, SessionSnapshot, SessionSnapshotResponse } from '../../../shared/types.ts'
-import { activityForPiEvent, type Activity } from './activity.ts'
+import { activityAfterSnapshot, activityForPiEvent, type Activity } from './activity.ts'
 import { advanceEventSequence } from './event-sequence.ts'
 import { addMessageUsage, messageUsage } from './message-usage.ts'
 import { mergeSnapshotResponse } from './snapshot-merge.ts'
@@ -48,6 +48,7 @@ export function useConversationRuntime(
   selectedId: string,
   onError: (cause: unknown) => void,
   replayEvent: (sessionId: string, event: JsonObject, sequence?: number) => void,
+  onSnapshotState: (sessionId: string, state: SessionSnapshot['state']) => void,
 ) {
   const [snapshot, setSnapshot] = useState<SessionSnapshot>(emptySnapshot)
   const [snapshotSessionId, setSnapshotSessionId] = useState('')
@@ -62,6 +63,8 @@ export function useConversationRuntime(
     ReadonlyMap<number, number>
   >(new Map())
   const selectedIdRef = useRef(selectedId)
+  const onSnapshotStateRef = useRef(onSnapshotState)
+  onSnapshotStateRef.current = onSnapshotState
   const snapshotSessionIdRef = useRef('')
   const snapshotRefreshVersionRef = useRef(0)
   const snapshotRefreshRef = useRef<SnapshotRefreshRequest | undefined>(undefined)
@@ -176,6 +179,7 @@ export function useConversationRuntime(
         delayNextRefresh = true
         request.needsRefresh = false
         const version = ++snapshotRefreshVersionRef.current
+        const sequenceAtStart = appliedPiEventSequenceRef.current
         try {
           const since = snapshotCursorRef.current || undefined
           nextSnapshot = await getSnapshot(
@@ -200,12 +204,17 @@ export function useConversationRuntime(
             setActivity(null)
             appliedPiEventSequenceRef.current = 0
             for (const liveEvent of response.liveEvents) {
-              replayEvent(
-                sessionId,
-                liveEvent.data,
-                liveEvent.sequence,
-              )
+              replayEvent(sessionId, liveEvent.data, liveEvent.sequence)
             }
+          } else if (appliedPiEventSequenceRef.current === sequenceAtStart) {
+            // A settled turn clears the backend's live-event buffer. Reconcile transient
+            // state from Pi rather than retaining the last thinking/tool event we saw.
+            onSnapshotStateRef.current(sessionId, response.state)
+            if (response.state?.isStreaming === false && response.state.isCompacting !== true)
+              clearLiveUpdates()
+            setActivity((current) =>
+              activityAfterSnapshot(current, response.state, response.liveEvents)
+            )
           }
         } catch (cause) {
           snapshotCursorRef.current = ''
@@ -216,7 +225,7 @@ export function useConversationRuntime(
           ) onError(cause)
           return nextSnapshot
         }
-        if (snapshotGateRef.current?.followUp(sessionId, request.needsRefresh))
+        if (snapshotGateRef.current?.followUp(request.needsRefresh))
           request.needsRefresh = false
       } while (request.needsRefresh && !request.cancelled)
       return nextSnapshot
@@ -230,11 +239,11 @@ export function useConversationRuntime(
 
   /** Runs an automatic snapshot now, or defers it while the page is hidden. */
   const scheduleSnapshot = useCallback((sessionId: string): void => {
-    if (snapshotGateRef.current?.schedule(sessionId) === 'deferred') return
+    if (snapshotGateRef.current?.schedule() === 'deferred') return
     void refreshSnapshot(sessionId)
   }, [refreshSnapshot])
 
-  /** On return to a visible page, one catch-up snapshot reconciles deferred updates. */
+  /** Returning to a tab reconciles even if its SSE stream missed every event. */
   useEffect(() => {
     const onVisibilityChange = (): void => {
       if (
@@ -259,7 +268,7 @@ export function useConversationRuntime(
         )
         const version = ++queueUpdateVersionRef.current
         setPendingSteering((current) => steering.length > current.length ? steering : current)
-        const reconciled = snapshotGateRef.current?.schedule(sessionId) === 'run'
+        const reconciled = snapshotGateRef.current?.schedule() === 'run'
           ? refreshSnapshot(sessionId)
           : undefined
         void (reconciled ?? Promise.resolve()).finally(() => {
@@ -359,7 +368,7 @@ export function useConversationRuntime(
       if (event.type === 'message_end' || event.type === 'agent_settled') {
         queueToolExecutions(interruptToolCallGeneration)
         flushLiveUpdates()
-        const settledSnapshot = snapshotGateRef.current?.schedule(sessionId) === 'run'
+        const settledSnapshot = snapshotGateRef.current?.schedule() === 'run'
           ? refreshSnapshot(sessionId)
           : undefined
         void settledSnapshot?.then((nextSnapshot) => {
@@ -379,7 +388,6 @@ export function useConversationRuntime(
   )
 
   useEffect(() => {
-    snapshotGateRef.current?.selectionChanged()
     snapshotCursorRef.current = ''
     clearLiveUpdates()
     appliedPiEventSequenceRef.current = 0

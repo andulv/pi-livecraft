@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  activityAfterSnapshot,
   activityForPiEvent,
   activityText,
   sessionActivity,
+  sessionStatusAfterSnapshot,
 } from '../src/features/conversation/activity.ts'
 
 test('keeps a current activity through thinking, tool preparation, execution, and writing', () => {
@@ -107,6 +109,35 @@ test('restores reliable activity from connection and session status', () => {
   assert.deepEqual(sessionActivity(null, 'exited', 'connected'), { kind: 'exited' })
   assert.deepEqual(sessionActivity({ kind: 'compacting' }, 'idle', 'connected'), {
     kind: 'compacting',
+  })
+})
+
+test('a settled snapshot clears stale thinking after missed completion events', () => {
+  const thinking = { kind: 'thinking' as const, thinking: 'Old work' }
+  assert.equal(activityAfterSnapshot(thinking, { isStreaming: false }, []), null)
+  assert.deepEqual(activityAfterSnapshot(thinking, { isStreaming: true }, []), {
+    kind: 'working',
+  })
+  assert.deepEqual(activityAfterSnapshot(thinking, { isCompacting: true }, []), {
+    kind: 'compacting',
+  })
+  assert.equal(activityAfterSnapshot(thinking, null, []), thinking)
+})
+
+test('Pi state reconciles a session status even when its settle event was missed', () => {
+  assert.equal(sessionStatusAfterSnapshot({ isStreaming: false }), 'idle')
+  assert.equal(sessionStatusAfterSnapshot({ isStreaming: true }), 'running')
+  assert.equal(sessionStatusAfterSnapshot({ isStreaming: false, isCompacting: true }), 'running')
+  assert.equal(sessionStatusAfterSnapshot(null), undefined)
+})
+
+test('an active snapshot reconstructs activity from the current turn', () => {
+  const liveEvents = [{
+    sequence: 9,
+    data: { type: 'message_update', assistantMessageEvent: { type: 'text_delta' } },
+  }]
+  assert.deepEqual(activityAfterSnapshot(null, { isStreaming: true }, liveEvents), {
+    kind: 'writing',
   })
 })
 

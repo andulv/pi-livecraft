@@ -46,7 +46,7 @@ import {
   DiagnosticsRecorder,
   type SnapshotStageMeasurement,
 } from './features/diagnostics/diagnostics.ts'
-import { MetadataCache, modelDependency } from './features/session-metadata/metadata-cache.ts'
+import { MetadataCache } from './features/session-metadata/metadata-cache.ts'
 import { openSseStream, parseSseLastEventId } from './sse-response.ts'
 import {
   openVSCodeApplication,
@@ -65,6 +65,7 @@ import {
   sliceSnapshotDelta,
   snapshotCursor,
 } from './session-snapshot.ts'
+import { loadSnapshotRequests } from './snapshot-requests.ts'
 import { AppLog, slowSnapshotThresholdMs } from './features/app-log/app-log.ts'
 import { loadPromptTemplates, savePromptTemplate } from './prompt-templates.ts'
 import { responseControlsReport } from '../shared/response-controls.ts'
@@ -682,45 +683,21 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     const snapshotStartedAt = performance.now()
     // State, entries, and stats must stay fresh; models, commands, thinking levels, fork
     // messages, and templates go through the metadata cache (see its README policy table).
-    const statePromise = piCommand(sessionId, { type: 'get_state' })
-    const entriesPromise = piCommand(sessionId, { type: 'get_entries' })
-    const statsPromise = piCommand(sessionId, { type: 'get_session_stats' })
-    const modelsResult = await metadata.load(
-      `models:${sessionId}`,
-      async () => arrayData(await piCommand(sessionId, { type: 'get_available_models' }), 'models'),
-    )
-    const commandsResult = await metadata.load(
-      `commands:${sessionId}`,
-      async () => arrayData(await piCommand(sessionId, { type: 'get_commands' }), 'commands'),
-    )
-    const forkResult = await metadata.load(
-      `fork:${sessionId}`,
-      async () => arrayData(await piCommand(sessionId, { type: 'get_fork_messages' }), 'messages'),
-    )
-    const state = await statePromise
-    const stateData = objectData(state)
-    const modelId = modelDependency(stateData?.model)
-    const thinkingResult = await metadata.load(
-      `thinking:${sessionId}`,
-      async () =>
-        stringArrayData(
-          await piCommand(sessionId, { type: 'get_available_thinking_levels' }),
-          'levels',
-        ),
-      modelId,
-    )
-    for (const result of [modelsResult, commandsResult, forkResult, thinkingResult]) {
-      if (result.cached) diagnostics.cacheHit()
+    const {
+      stateData,
+      entries,
+      leafId,
+      stats,
+      models,
+      commands,
+      forkMessages,
+      thinkingLevels,
+      cacheHits,
+    } = await loadSnapshotRequests(sessionId, piCommand, metadata)
+    for (const cached of cacheHits) {
+      if (cached) diagnostics.cacheHit()
       else diagnostics.cacheMiss()
     }
-    const [entries, models, commands, stats, forkMessages, thinkingLevels] = await Promise.all([
-      entriesPromise,
-      modelsResult.value,
-      commandsResult.value,
-      statsPromise,
-      forkResult.value,
-      thinkingResult.value,
-    ])
     const rpcMs = Math.round((performance.now() - snapshotStartedAt) * 100) / 100
     const commandList = commands
     const forkEntryIds = new Set(
@@ -729,11 +706,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       ),
     )
     const buildStartedAt = performance.now()
-    const messages = activeSessionMessages(
-      arrayData(entries, 'entries'),
-      objectData(entries)?.leafId,
-      forkEntryIds,
-    )
+    const messages = activeSessionMessages(entries, leafId, forkEntryIds)
     const buildMs = Math.round((performance.now() - buildStartedAt) * 100) / 100
     const templatesStartedAt = performance.now()
     const templatesResult = await metadata.load(
@@ -752,14 +725,14 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         models,
         thinkingLevels,
         responseControls: responseControlsReport(
-          arrayData(entries, 'entries'),
-          objectData(entries)?.leafId,
+          entries,
+          leafId,
           stateData?.model,
           commandList.some((command) => command.name === 'livecraft-response-controls'),
         ),
         commands: commandList,
         promptTemplates,
-        stats: objectData(stats),
+        stats,
         liveEvents: liveSessionEvents.get(sessionId)?.snapshot() ?? [],
         mode: 'delta',
         appended: delta.appended,
@@ -782,14 +755,14 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       models,
       thinkingLevels,
       responseControls: responseControlsReport(
-        arrayData(entries, 'entries'),
-        objectData(entries)?.leafId,
+        entries,
+        leafId,
         stateData?.model,
         commandList.some((command) => command.name === 'livecraft-response-controls'),
       ),
       commands: commandList,
       promptTemplates,
-      stats: objectData(stats),
+      stats,
       liveEvents: liveSessionEvents.get(sessionId)?.snapshot() ?? [],
       cursor,
     }
@@ -1071,21 +1044,6 @@ async function piCommand(sessionId: string, command: JsonObject): Promise<JsonOb
   const response = await manager.request({ action: 'command', sessionId, command })
   if (!isObject(response)) throw new Error('Invalid response from Pi manager')
   return response
-}
-
-function objectData(response: JsonObject): JsonObject | null {
-  return isObject(response.data) ? response.data : null
-}
-
-function arrayData(response: JsonObject, key: string): JsonObject[] {
-  if (!isObject(response.data) || !Array.isArray(response.data[key])) return []
-  return response.data[key].filter(isObject)
-}
-
-/** Reads a string array field from a Pi response, tolerating non-string members. */
-function stringArrayData(response: JsonObject, key: string): string[] {
-  if (!isObject(response.data) || !Array.isArray(response.data[key])) return []
-  return response.data[key].filter((item): item is string => typeof item === 'string')
 }
 
 /** Reads and canonicalizes the workspace key used by browser and terminal instance routes. */

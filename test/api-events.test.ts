@@ -65,8 +65,9 @@ test('reports one manager stream drop and its recovery per outage', async () => 
   try {
     let errors = 0
     let opens = 0
+    const events: string[] = []
     const unsubscribe = subscribeManagerEvents(
-      () => undefined,
+      (event) => events.push(event.event),
       () => errors += 1,
       () => opens += 1,
     )
@@ -87,6 +88,10 @@ test('reports one manager stream drop and its recovery per outage', async () => 
     assert.equal(opens, 2)
     assert.equal(logs[1]?.source, 'sse-reopen')
     assert.match(logs[1]?.message ?? '', /^manager event stream recovered after \d+ ms$/)
+    source.onmessage?.({
+      data: JSON.stringify({ kind: 'event', event: 'manager_connected', sessionId: '' }),
+    } as MessageEvent)
+    assert.deepEqual(events, ['manager_connected'])
 
     source.onerror?.(new Event('error'))
     await new Promise<void>((resolve) => setImmediate(resolve))

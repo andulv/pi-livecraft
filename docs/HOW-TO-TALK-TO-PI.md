@@ -24,8 +24,9 @@ No command whitelist or semantic filter is applied. The backend only checks that
 ### 1. Snapshot — selection and event reconciliation
 
 The frontend calls `getSnapshot(sessionId)` when a session is selected and when Pi events require
-history reconciliation. Each request triggers seven Pi commands in parallel inside
-`server/backend.ts`:
+history reconciliation. Each request loads seven Pi commands through `server/snapshot-requests.ts`. Six independent
+loads start together; thinking levels load after `get_state` identifies the model. The backend
+caches rarely-changing metadata, while state, entries, and stats remain fresh:
 
 | Command | Returns |
 |---|---|

@@ -51,7 +51,11 @@ import { isObject } from '../shared/is-object.ts'
 import { ChatTopBar } from './features/composer/status-bar/ChatTopBar.tsx'
 import { Composer } from './features/composer/Composer.tsx'
 import { ToastStack, type Toast } from './features/notifications/ToastStack.tsx'
-import { sessionActivity, type PiConnection } from './features/conversation/activity.ts'
+import {
+  sessionActivity,
+  sessionStatusAfterSnapshot,
+  type PiConnection,
+} from './features/conversation/activity.ts'
 import { Conversation } from './features/conversation/Conversation.tsx'
 import { useConversationRuntime } from './features/conversation/useConversationRuntime.ts'
 import { useClientErrorLog } from './features/diagnostics/useClientErrorLog.ts'
@@ -571,7 +575,23 @@ function LivecraftProjectApp(
     snapshot,
     snapshotSessionId,
     toolExecutions,
-  } = useConversationRuntime(selectedId, handleWorkspaceError, replayPiEvent)
+  } = useConversationRuntime(
+    selectedId,
+    handleWorkspaceError,
+    replayPiEvent,
+    (sessionId, state) => {
+      const status = sessionStatusAfterSnapshot(state)
+      if (status) updateSession(sessionId, { status })
+      if (typeof state?.isCompacting === 'boolean')
+        setCompactingSessionIds((current) => {
+          if (current.has(sessionId) === state.isCompacting) return current
+          const next = new Set(current)
+          if (state.isCompacting) next.add(sessionId)
+          else next.delete(sessionId)
+          return next
+        })
+    },
+  )
   const handleForkConversation = useCallback(async (entryId: string): Promise<boolean> => {
     const response = await sendPiCommand(selectedId, { type: 'fork', entryId })
     const data = isObject(response.data) ? response.data : undefined
@@ -1040,6 +1060,9 @@ function LivecraftProjectApp(
   // identity: every resubscription reconnects /api/events and replays the event stream.
   const refreshSessionsRef = useRef<() => void>(() => undefined)
   refreshSessionsRef.current = refreshSessions
+  const refreshSnapshotRef = useRef(refreshSnapshot)
+  refreshSnapshotRef.current = refreshSnapshot
+  const needsSnapshotAfterReconnectRef = useRef(false)
   const updateSessionRef = useRef(updateSession)
   updateSessionRef.current = updateSession
 
@@ -1049,7 +1072,14 @@ function LivecraftProjectApp(
         managerEvent.event === 'manager_connected' || managerEvent.event === 'manager_disconnected'
       ) {
         setPiConnection(managerEvent.event === 'manager_connected' ? 'connected' : 'disconnected')
-        if (managerEvent.event === 'manager_connected') clearManagerUnavailableToasts()
+        if (managerEvent.event === 'manager_connected') {
+          clearManagerUnavailableToasts()
+          if (needsSnapshotAfterReconnectRef.current) {
+            needsSnapshotAfterReconnectRef.current = false
+            if (!document.hidden && selectedIdRef.current)
+              void refreshSnapshotRef.current(selectedIdRef.current)
+          }
+        } else needsSnapshotAfterReconnectRef.current = true
         clearActivity()
       }
       if (managerEvent.event === 'manager_status' && isManagerRuntimeStatus(managerEvent.data))
@@ -1069,6 +1099,7 @@ function LivecraftProjectApp(
           managerEvent.sequence,
         )
     }, () => {
+      needsSnapshotAfterReconnectRef.current = true
       resetEventSequence()
       setPiConnection('connecting')
       clearActivity()

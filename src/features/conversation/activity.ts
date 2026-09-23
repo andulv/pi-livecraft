@@ -1,4 +1,4 @@
-import type { JsonObject, SessionSummary } from '../../../shared/types.ts'
+import type { JsonObject, SessionSnapshot, SessionSummary } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
 
 export type PiConnection = 'connecting' | 'connected' | 'disconnected'
@@ -51,6 +51,29 @@ export function activityForPiEvent(current: Activity | null, event: JsonObject):
   ) return { kind: 'tool-preparing' }
   if (update.type === 'text_start' || update.type === 'text_delta') return { kind: 'writing' }
   return current
+}
+
+/** Pi's public state reconciles session status when completion events were missed. */
+export function sessionStatusAfterSnapshot(
+  state: SessionSnapshot['state'],
+): 'running' | 'idle' | undefined {
+  if (state?.isStreaming === true || state?.isCompacting === true) return 'running'
+  if (state?.isStreaming === false) return 'idle'
+  return undefined
+}
+
+/** A snapshot is authoritative when the event stream has not advanced during its fetch. */
+export function activityAfterSnapshot(
+  current: Activity | null,
+  state: SessionSnapshot['state'],
+  liveEvents: SessionSnapshot['liveEvents'],
+): Activity | null {
+  if (state?.isCompacting === true) return { kind: 'compacting' }
+  if (state?.isStreaming === false) return null
+  if (state?.isStreaming !== true) return current
+  let activity: Activity | null = null
+  for (const event of liveEvents) activity = activityForPiEvent(activity, event.data)
+  return activity ?? { kind: 'working' }
 }
 
 /** Reconciles live activity with the manager and process states available after a page reload. */

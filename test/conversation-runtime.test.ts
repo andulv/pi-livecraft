@@ -14,32 +14,38 @@ test('accepts live events once while leaving unsequenced events untouched', () =
 
 test('runs automatic snapshots while the page is visible', () => {
   const gate = new SnapshotGate(false)
-  assert.equal(gate.schedule('session-a'), 'run')
-  assert.equal(gate.followUp('session-a', true), false)
+  assert.equal(gate.schedule(), 'run')
+  assert.equal(gate.followUp(true), false)
   assert.equal(gate.visibilityChanged(false, 'session-a'), undefined)
 })
 
 test('defers hidden automatic snapshots and starts one catch-up on return', () => {
   const gate = new SnapshotGate(true)
-  assert.equal(gate.schedule('session-a'), 'deferred')
-  assert.equal(gate.schedule('session-a'), 'deferred')
-  assert.equal(gate.followUp('session-a', true), true)
+  assert.equal(gate.schedule(), 'deferred')
+  assert.equal(gate.schedule(), 'deferred')
+  assert.equal(gate.followUp(true), true)
   assert.equal(gate.visibilityChanged(false, 'session-a'), 'run')
   assert.equal(gate.visibilityChanged(false, 'session-a'), undefined)
 })
 
-test('drops deferred work for a session that is no longer selected', () => {
-  const gate = new SnapshotGate(true)
-  assert.equal(gate.schedule('session-a'), 'deferred')
-  gate.selectionChanged()
+test('reconciles the selected session after hidden events were missed', () => {
+  const gate = new SnapshotGate(false)
+  assert.equal(gate.visibilityChanged(true, 'session-a'), undefined)
+  assert.equal(gate.visibilityChanged(false, 'session-b'), 'run')
   assert.equal(gate.visibilityChanged(false, 'session-b'), undefined)
+})
+
+test('does not fetch on return without a selected session', () => {
+  const gate = new SnapshotGate(true)
+  assert.equal(gate.schedule(), 'deferred')
+  assert.equal(gate.visibilityChanged(false, ''), undefined)
 })
 
 test('stays hidden through a visibility report that keeps the page hidden', () => {
   const gate = new SnapshotGate(true)
-  assert.equal(gate.schedule('session-a'), 'deferred')
+  assert.equal(gate.schedule(), 'deferred')
   assert.equal(gate.visibilityChanged(true, 'session-a'), undefined)
-  assert.equal(gate.schedule('session-a'), 'deferred')
+  assert.equal(gate.schedule(), 'deferred')
 })
 
 const snapshotBase = {
