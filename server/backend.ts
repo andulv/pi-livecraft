@@ -65,7 +65,7 @@ import {
   sliceSnapshotDelta,
   snapshotCursor,
 } from './session-snapshot.ts'
-import { loadSnapshotRequests } from './snapshot-requests.ts'
+import { loadSnapshotRequests, type SnapshotRpcMeasurements } from './snapshot-requests.ts'
 import { AppLog, slowSnapshotThresholdMs } from './features/app-log/app-log.ts'
 import { loadPromptTemplates, savePromptTemplate } from './prompt-templates.ts'
 import { responseControlsReport } from '../shared/response-controls.ts'
@@ -87,6 +87,8 @@ const port = readPort('PI_LIVECRAFT_BACKEND_PORT', 43_121)
 const managerPort = readPort('PI_LIVECRAFT_MANAGER_PORT', 43_120)
 const manager = new ManagerClient(host, managerPort)
 const eventClients = new Set<ServerResponse>()
+const activeSnapshotLoads = new Map<string, number>()
+let totalSnapshotLoads = 0
 const liveSessionEvents = new Map<string, LiveSessionEvents>()
 let piEventSequence = 0
 const distDirectory = fileURLToPath(new URL('../dist/', import.meta.url))
@@ -683,6 +685,26 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     const snapshotStartedAt = performance.now()
     // State, entries, and stats must stay fresh; models, commands, thinking levels, fork
     // messages, and templates go through the metadata cache (see its README policy table).
+    const sameSessionInFlight = (activeSnapshotLoads.get(sessionId) ?? 0) + 1
+    activeSnapshotLoads.set(sessionId, sameSessionInFlight)
+    const totalInFlight = ++totalSnapshotLoads
+    const rpcMeasurement: SnapshotRpcMeasurements = { waitsMs: {} }
+    let loaded: Awaited<ReturnType<typeof loadSnapshotRequests>>
+    try {
+      loaded = await loadSnapshotRequests(sessionId, piCommand, metadata, rpcMeasurement)
+    } catch (error) {
+      appLog.snapshotFailure(
+        rpcMeasurement.failedCommand,
+        Math.round(performance.now() - snapshotStartedAt),
+        sameSessionInFlight,
+      )
+      throw error
+    } finally {
+      totalSnapshotLoads -= 1
+      const remaining = (activeSnapshotLoads.get(sessionId) ?? 1) - 1
+      if (remaining === 0) activeSnapshotLoads.delete(sessionId)
+      else activeSnapshotLoads.set(sessionId, remaining)
+    }
     const {
       stateData,
       entries,
@@ -693,7 +715,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       forkMessages,
       thinkingLevels,
       cacheHits,
-    } = await loadSnapshotRequests(sessionId, piCommand, metadata)
+    } = loaded
     for (const cached of cacheHits) {
       if (cached) diagnostics.cacheHit()
       else diagnostics.cacheMiss()
@@ -746,6 +768,9 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         totalMs: deltaTotalMs,
         bytes,
         mode: 'delta',
+        rpcWaitMs: rpcMeasurement.waitsMs,
+        sameSessionInFlight,
+        totalInFlight,
       })
       return
     }
@@ -775,6 +800,9 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       totalMs: fullTotalMs,
       bytes,
       mode: 'full',
+      rpcWaitMs: rpcMeasurement.waitsMs,
+      sameSessionInFlight,
+      totalInFlight,
     })
     return
   }
@@ -1164,6 +1192,7 @@ function isClientLogBody(body: unknown): body is ClientLogRequestBody {
     'fetch-failure',
     'sse-drop',
     'sse-reopen',
+    'session-reconcile',
   ]
   return typeof body.source === 'string'
     && knownSources.includes(body.source)

@@ -308,6 +308,14 @@ export interface DiagnosticEventEntry {
   ok: boolean
 }
 
+/** Individual snapshot RPC waits, including queueing and cache lookup time. */
+export type SnapshotRpcWaits = Partial<
+  Record<
+    'state' | 'entries' | 'stats' | 'models' | 'commands' | 'fork' | 'thinking',
+    number
+  >
+>
+
 /** Stage timings for one finished snapshot response. */
 export interface SnapshotStageEntry {
   sequence: number
@@ -318,6 +326,9 @@ export interface SnapshotStageEntry {
   totalMs: number
   bytes: number
   mode: 'full' | 'delta'
+  rpcWaitMs?: SnapshotRpcWaits
+  sameSessionInFlight?: number
+  totalInFlight?: number
 }
 
 /** Bounded backend diagnostics served by `GET /api/diagnostics`. */
@@ -328,6 +339,7 @@ export type ClientLogSource =
   | 'fetch-failure'
   | 'sse-drop'
   | 'sse-reopen'
+  | 'session-reconcile'
 
 export interface ClientLogRequestBody {
   source: ClientLogSource

@@ -569,6 +569,7 @@ function LivecraftProjectApp(
     observedToolDurations,
     pendingSteering,
     refreshSnapshot,
+    reconcileSnapshot,
     removeLiveMessage,
     removePendingSteering,
     resetEventSequence,
@@ -1060,8 +1061,8 @@ function LivecraftProjectApp(
   // identity: every resubscription reconnects /api/events and replays the event stream.
   const refreshSessionsRef = useRef<() => void>(() => undefined)
   refreshSessionsRef.current = refreshSessions
-  const refreshSnapshotRef = useRef(refreshSnapshot)
-  refreshSnapshotRef.current = refreshSnapshot
+  const reconcileSnapshotRef = useRef(reconcileSnapshot)
+  reconcileSnapshotRef.current = reconcileSnapshot
   const needsSnapshotAfterReconnectRef = useRef(false)
   const updateSessionRef = useRef(updateSession)
   updateSessionRef.current = updateSession
@@ -1077,7 +1078,7 @@ function LivecraftProjectApp(
           if (needsSnapshotAfterReconnectRef.current) {
             needsSnapshotAfterReconnectRef.current = false
             if (!document.hidden && selectedIdRef.current)
-              void refreshSnapshotRef.current(selectedIdRef.current)
+              void reconcileSnapshotRef.current(selectedIdRef.current, 'reconnect')
           }
         } else needsSnapshotAfterReconnectRef.current = true
         clearActivity()
@@ -1104,7 +1105,11 @@ function LivecraftProjectApp(
       setPiConnection('connecting')
       clearActivity()
       showToast('error', 'Connection to backend lost; retrying.')
-    }, () => setPiConnection('connected')), [
+    }, () => {
+      setPiConnection('connected')
+    }, () => {
+      return document.hidden
+    }), [
     clearActivity,
     clearManagerUnavailableToasts,
     clearSessionCaches,

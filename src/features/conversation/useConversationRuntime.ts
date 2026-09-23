@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getSnapshot } from '../../api.ts'
+import { getSnapshot, managerStreamSilenceMs, postClientLog } from '../../api.ts'
 import {
   assistantMessageAfterEvent,
   assistantMessageInEvent,
@@ -10,6 +10,7 @@ import { activityAfterSnapshot, activityForPiEvent, type Activity } from './acti
 import { advanceEventSequence } from './event-sequence.ts'
 import { addMessageUsage, messageUsage } from './message-usage.ts'
 import { mergeSnapshotResponse } from './snapshot-merge.ts'
+import { reconciliationLogMessage } from './reconciliation-log.ts'
 import { SnapshotGate } from './snapshot-gate.ts'
 import type { LiveMessage } from './message-reconciliation.ts'
 import {
@@ -69,6 +70,12 @@ export function useConversationRuntime(
   const snapshotRefreshVersionRef = useRef(0)
   const snapshotRefreshRef = useRef<SnapshotRefreshRequest | undefined>(undefined)
   const appliedPiEventSequenceRef = useRef(0)
+  const lastSelectedPiEventAtRef = useRef<number | undefined>(undefined)
+  const hiddenSinceRef = useRef<number | undefined>(document.hidden ? Date.now() : undefined)
+  const hiddenPiEventsRef = useRef(0)
+  const hiddenSettlesRef = useRef(0)
+  const appliedSnapshotsRef = useRef(0)
+  const failedSnapshotsRef = useRef(0)
   const toolStartedAtRef = useRef(new Map<string, number>())
   const requestStartedAtRef = useRef<number | undefined>(undefined)
   const queueUpdateVersionRef = useRef(0)
@@ -198,6 +205,7 @@ export function useConversationRuntime(
           setSnapshot((current) => mergeSnapshotResponse(current, response))
           snapshotCursorRef.current = response.cursor ?? ''
           setSnapshotSessionId(sessionId)
+          appliedSnapshotsRef.current += 1
           const latestLiveSequence = response.liveEvents.at(-1)?.sequence ?? 0
           if (latestLiveSequence > appliedPiEventSequenceRef.current) {
             clearLiveUpdates()
@@ -222,7 +230,10 @@ export function useConversationRuntime(
             !request.cancelled
             && version === snapshotRefreshVersionRef.current
             && sessionId === selectedIdRef.current
-          ) onError(cause)
+          ) {
+            failedSnapshotsRef.current += 1
+            onError(cause)
+          }
           return nextSnapshot
         }
         if (snapshotGateRef.current?.followUp(request.needsRefresh))
@@ -237,6 +248,48 @@ export function useConversationRuntime(
     return request.promise
   }, [clearLiveUpdates, flushLiveUpdates, onError, replayEvent])
 
+  /** Reports only recovery attempts, not routine turn snapshots or brief tab switches. */
+  const reconcileSnapshot = useCallback(async (
+    sessionId: string,
+    reason: 'visible' | 'reconnect',
+    hiddenMs?: number,
+    hiddenPiEvents?: number,
+    hiddenSettles?: number,
+  ): Promise<void> => {
+    const started = Date.now()
+    const managerSilenceMs = managerStreamSilenceMs()
+    const piSilenceMs = lastSelectedPiEventAtRef.current === undefined
+      ? undefined
+      : Math.max(0, started - lastSelectedPiEventAtRef.current)
+    const appliedBefore = appliedSnapshotsRef.current
+    const failedBefore = failedSnapshotsRef.current
+    const result = await refreshSnapshot(sessionId)
+    const outcome = failedSnapshotsRef.current > failedBefore
+      ? 'failed'
+      : appliedSnapshotsRef.current > appliedBefore && selectedIdRef.current === sessionId
+      ? 'applied'
+      : 'stale'
+    const mode = result ? 'mode' in result && result.mode === 'delta' ? 'delta' : 'full' : 'none'
+    const message = reconciliationLogMessage({
+      reason,
+      outcome,
+      hiddenMs,
+      hiddenPiEvents,
+      hiddenSettles,
+      managerSilenceMs,
+      piSilenceMs,
+      durationMs: Math.max(0, Date.now() - started),
+      mode,
+      messages: result
+        ? 'appended' in result ? result.appended.length : result.messages.length
+        : undefined,
+      streaming: typeof result?.state?.isStreaming === 'boolean'
+        ? result.state.isStreaming
+        : undefined,
+    })
+    if (message) void postClientLog('session-reconcile', message)
+  }, [refreshSnapshot])
+
   /** Runs an automatic snapshot now, or defers it while the page is hidden. */
   const scheduleSnapshot = useCallback((sessionId: string): void => {
     if (snapshotGateRef.current?.schedule() === 'deferred') return
@@ -246,14 +299,33 @@ export function useConversationRuntime(
   /** Returning to a tab reconciles even if its SSE stream missed every event. */
   useEffect(() => {
     const onVisibilityChange = (): void => {
+      if (document.hidden) {
+        hiddenSinceRef.current = Date.now()
+        hiddenPiEventsRef.current = 0
+        hiddenSettlesRef.current = 0
+      }
+      const hiddenMs = hiddenSinceRef.current === undefined
+        ? undefined
+        : Math.max(0, Date.now() - hiddenSinceRef.current)
       if (
         snapshotGateRef.current?.visibilityChanged(document.hidden, selectedIdRef.current) === 'run'
       )
-        void refreshSnapshot(selectedIdRef.current)
+        void reconcileSnapshot(
+          selectedIdRef.current,
+          'visible',
+          hiddenMs,
+          hiddenPiEventsRef.current,
+          hiddenSettlesRef.current,
+        )
+      if (!document.hidden) {
+        hiddenSinceRef.current = undefined
+        hiddenPiEventsRef.current = 0
+        hiddenSettlesRef.current = 0
+      }
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
     return () => document.removeEventListener('visibilitychange', onVisibilityChange)
-  }, [refreshSnapshot])
+  }, [reconcileSnapshot])
 
   /** Applies a selected-session Pi event once, preserving stream sequence and replay order. */
   const handlePiEvent = useCallback(
@@ -262,6 +334,11 @@ export function useConversationRuntime(
       const nextSequence = advanceEventSequence(appliedPiEventSequenceRef.current, sequence)
       if (nextSequence === null) return
       appliedPiEventSequenceRef.current = nextSequence
+      lastSelectedPiEventAtRef.current = Date.now()
+      if (document.hidden) {
+        hiddenPiEventsRef.current += 1
+        if (event.type === 'agent_settled') hiddenSettlesRef.current += 1
+      }
       if (event.type === 'queue_update' && Array.isArray(event.steering)) {
         const steering = event.steering.filter((message): message is string =>
           typeof message === 'string'
@@ -391,6 +468,9 @@ export function useConversationRuntime(
     snapshotCursorRef.current = ''
     clearLiveUpdates()
     appliedPiEventSequenceRef.current = 0
+    lastSelectedPiEventAtRef.current = undefined
+    hiddenPiEventsRef.current = 0
+    hiddenSettlesRef.current = 0
     snapshotSessionIdRef.current = ''
     setSnapshot(emptySnapshot)
     setSnapshotSessionId('')
@@ -451,6 +531,7 @@ export function useConversationRuntime(
     observedToolDurations,
     pendingSteering,
     refreshSnapshot,
+    reconcileSnapshot,
     removeLiveMessage,
     removePendingSteering,
     resetEventSequence,

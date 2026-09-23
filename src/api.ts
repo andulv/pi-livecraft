@@ -36,6 +36,16 @@ import type {
 } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 
+const viewId = crypto.randomUUID().slice(0, 8)
+let lastManagerMessageAt: number | undefined
+
+/** Time since this page received a validated manager SSE frame; idle streams can be silent. */
+export function managerStreamSilenceMs(): number | undefined {
+  return lastManagerMessageAt === undefined
+    ? undefined
+    : Math.max(0, Date.now() - lastManagerMessageAt)
+}
+
 const managerEventNames: readonly ManagerEvent['event'][] = [
   'session_created',
   'session_exited',
@@ -74,24 +84,39 @@ export function subscribeManagerEvents(
   onEvent: (event: ManagerEvent) => void,
   onError: () => void,
   onOpen?: () => void,
+  isHidden?: () => boolean,
 ): () => void {
   const source = new EventSource('/api/events')
   let droppedAt: number | undefined
+  lastManagerMessageAt = undefined
   source.onmessage = ({ data }) => {
     const event = parseManagerEvent(data)
-    if (event) onEvent(event)
+    if (event) {
+      lastManagerMessageAt = Date.now()
+      onEvent(event)
+    }
   }
   source.onopen = () => {
     onOpen?.()
     if (droppedAt === undefined) return
-    const durationMs = Math.max(0, Math.round(performance.now() - droppedAt))
+    const durationMs = Math.max(0, Date.now() - droppedAt)
     droppedAt = undefined
-    void postClientLog('sse-reopen', `manager event stream recovered after ${durationMs} ms`)
+    void postClientLog(
+      'sse-reopen',
+      `manager event stream recovered after ${durationMs} ms; silenceMs=${
+        managerStreamSilenceMs() ?? 'none'
+      }; hidden=${isHidden?.() ?? 'unknown'}`,
+    )
   }
   source.onerror = () => {
     if (droppedAt !== undefined) return
-    droppedAt = performance.now()
-    void postClientLog('sse-drop', 'manager event stream error')
+    droppedAt = Date.now()
+    void postClientLog(
+      'sse-drop',
+      `manager event stream error; silenceMs=${managerStreamSilenceMs() ?? 'none'}; hidden=${
+        isHidden?.() ?? 'unknown'
+      }`,
+    )
     onError()
   }
   return () => source.close()
@@ -805,7 +830,10 @@ export async function postClientLog(source: ClientLogSource, message: string): P
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(
-        { source, message: message.slice(0, 500) } satisfies ClientLogRequestBody,
+        {
+          source,
+          message: `view=${viewId} ${message}`.slice(0, 500),
+        } satisfies ClientLogRequestBody,
       ),
     })
   } catch {

@@ -42,6 +42,9 @@ test('accumulates snapshot totals and bounds the stage ring', () => {
       totalMs: 13,
       bytes: 1000,
       mode: index % 2 === 0 ? 'full' : 'delta',
+      ...(index === 59
+        ? { rpcWaitMs: { entries: 9, state: 4 }, sameSessionInFlight: 2, totalInFlight: 3 }
+        : {}),
     })
   }
 
@@ -55,6 +58,8 @@ test('accumulates snapshot totals and bounds the stage ring', () => {
   // carries sequence 2*41-1.
   assert.equal(state.recentStages[0]?.sequence, 81)
   assert.equal(state.recentStages.at(-1)?.mode, 'delta')
+  assert.deepEqual(state.recentStages.at(-1)?.rpcWaitMs, { entries: 9, state: 4 })
+  assert.equal(state.recentStages.at(-1)?.sameSessionInFlight, 2)
   assert.ok(state.recentEvents.some((event) => event.kind === 'snapshot' && event.mode === 'full'))
 })
 

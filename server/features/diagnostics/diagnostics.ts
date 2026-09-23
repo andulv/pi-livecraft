@@ -2,6 +2,7 @@ import type {
   DiagnosticEventEntry,
   DiagnosticsSnapshot,
   SnapshotStageEntry,
+  SnapshotRpcWaits,
 } from '../../../shared/types.ts'
 
 const maxRecentEvents = 100
@@ -14,6 +15,9 @@ export interface SnapshotStageMeasurement {
   totalMs: number
   bytes: number
   mode: 'full' | 'delta'
+  rpcWaitMs?: SnapshotRpcWaits
+  sameSessionInFlight?: number
+  totalInFlight?: number
 }
 
 /**

@@ -16,15 +16,33 @@ and work from that evidence instead of simulating heavy usage.
 | `request-error` | failed HTTP request | `route` (template, `sessions/:id` masked), `status` |
 | `manager` | manager connect/disconnect | `state` |
 | `sse-open` | SSE stream opened (loads and reconnects) | — |
-| `slow-snapshot` | snapshot ≥ 1000 ms | `mode`, `rpcMs`, `buildMs`, `templatesMs`, `totalMs`, `bytes` |
+| `slow-snapshot` | successful snapshot ≥ 1000 ms | `mode`, `rpcMs`, `buildMs`, `templatesMs`, `totalMs`, `bytes`, `rpcWaitMs`, `sameSessionInFlight`, `totalInFlight` |
+| `snapshot-failure` | one failed Pi snapshot load | first failing RPC name (`rpc`), `durationMs`, `sameSessionInFlight` — no error text |
 | `provider-failure` | Pi provider request failed | `model`, `message` (truncated) |
 | `client` | client POST `/api/client-log` | `source`, `message` |
 | `client-cap` | client cap reached | `note` (once per run) |
 
 Client sources: `window-error`, `unhandled-rejection`, `fetch-failure` (network errors
 and HTTP ≥ 500 only — 4xx is user-visible validation, not instability), `sse-drop`,
-`sse-reopen`. The manager event stream records one drop per outage and one recovery with its
-bounded duration; repeated EventSource retry errors during the same outage stay silent.
+`sse-reopen`, and `session-reconcile`. Every client message begins with a random, page-lifetime
+`view=<8 hex digits>` token to correlate reports across open tabs without identifying a project,
+workspace, or Pi session. Manager-stream drops and recoveries include browser visibility and
+time since the last valid SSE frame. That interval can also mean an idle stream; it is not proof
+of a broken connection. The recovery duration uses wall-clock time, so laptop suspension counts.
+Repeated EventSource retry errors during the same outage stay silent.
+
+`session-reconcile` reports one selected-session recovery on a detected reconnect, or on
+returning to a tab that was hidden for at least 10 seconds, received appended messages, or
+could not apply its snapshot. It includes reason, elapsed hidden and snapshot times, counts of selected Pi events and settle
+events handled while hidden (which can include snapshot replay), time since the last selected Pi
+event and manager SSE frame, result (`applied`, `failed`, or `stale`), message count (appended messages for delta, returned history for full), and Pi streaming status.
+A fetch failure while the backend is unreachable cannot be reported until a later successful
+request; a page reload loses the old page's token and pending report.
+
+`rpcWaitMs` records individual waits for state, entries, stats, models, commands, fork messages,
+and thinking levels. These waits overlap and include queueing/cache lookup; **do not sum them**
+or equate them with Pi CPU. `sameSessionInFlight` and `totalInFlight` count concurrent snapshot
+loads at the beginning of the RPC phase; they do not identify a session or tab.
 
 ## Policy
 
@@ -34,7 +52,8 @@ bounded duration; repeated EventSource retry errors during the same outage stay 
 - **Bounds per entry:** client messages ≤ 300 chars (client truncates at 500 first),
   stacks ≤ 2000 chars, client entries capped at 500 per run with one `client-cap`
   marker.
-- **Content-free discipline:** no prompts, payloads, or session identifiers. Client
+- **Content-free discipline:** no prompts, payloads, project paths, or Pi session identifiers
+  in new diagnostic fields. The view token is random and never persisted across reloads. Client
   exception text is truncated but otherwise verbatim; it may mention file names.
 - **Writes are synchronous appends** so the `exit` and crash handlers complete them;
   volume is low (errors, lifecycle, slow snapshots). Append failures are swallowed.

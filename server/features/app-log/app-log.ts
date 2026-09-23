@@ -1,4 +1,8 @@
-import type { ClientLogRequestBody, ClientLogSource } from '../../../shared/types.ts'
+import type {
+  ClientLogRequestBody,
+  ClientLogSource,
+  SnapshotRpcWaits,
+} from '../../../shared/types.ts'
 
 import { appendFileSync, closeSync, existsSync, openSync, readSync, statSync } from 'node:fs'
 
@@ -26,6 +30,9 @@ export interface SlowSnapshotMeasurement {
   templatesMs: number
   totalMs: number
   bytes: number
+  rpcWaitMs?: SnapshotRpcWaits
+  sameSessionInFlight?: number
+  totalInFlight?: number
 }
 
 /**
@@ -121,6 +128,15 @@ export class AppLog {
   /** Records the existing stage measurements for one slow snapshot. */
   slowSnapshot(measurement: SlowSnapshotMeasurement): void {
     this.#write('slow-snapshot', { ...measurement })
+  }
+
+  /** Logs a failed snapshot without the session identity or the Pi error text. */
+  snapshotFailure(
+    rpc: keyof SnapshotRpcWaits | undefined,
+    durationMs: number,
+    sameSessionInFlight: number,
+  ): void {
+    this.#write('snapshot-failure', { rpc: rpc ?? 'unknown', durationMs, sameSessionInFlight })
   }
 
   /**

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { advanceEventSequence } from '../src/features/conversation/event-sequence.ts'
 import { mergeSnapshotResponse } from '../src/features/conversation/snapshot-merge.ts'
+import { reconciliationLogMessage } from '../src/features/conversation/reconciliation-log.ts'
 import { SnapshotGate } from '../src/features/conversation/snapshot-gate.ts'
 import type { SessionSnapshot, SessionSnapshotDelta } from '../shared/types.ts'
 
@@ -46,6 +47,34 @@ test('stays hidden through a visibility report that keeps the page hidden', () =
   assert.equal(gate.schedule(), 'deferred')
   assert.equal(gate.visibilityChanged(true, 'session-a'), undefined)
   assert.equal(gate.schedule(), 'deferred')
+})
+
+test('logs long or incomplete reconciliation but not a brief unchanged tab switch', () => {
+  const short = {
+    reason: 'visible' as const,
+    outcome: 'applied' as const,
+    hiddenMs: 1000,
+    managerSilenceMs: 4000,
+    piSilenceMs: 3000,
+    hiddenPiEvents: 0,
+    hiddenSettles: 0,
+    durationMs: 200,
+    mode: 'delta' as const,
+    messages: 0,
+    streaming: false,
+  }
+  assert.equal(reconciliationLogMessage(short), undefined)
+  assert.match(
+    reconciliationLogMessage({ ...short, messages: 2 }) ?? '',
+    /hiddenPiEvents=0; hiddenSettles=0/,
+  )
+  assert.match(reconciliationLogMessage({ ...short, messages: 2 }) ?? '', /messages=2/)
+  assert.match(reconciliationLogMessage({ ...short, hiddenMs: 12000 }) ?? '', /hiddenMs=12000/)
+  assert.match(reconciliationLogMessage({ ...short, outcome: 'failed' }) ?? '', /outcome=failed/)
+  assert.match(
+    reconciliationLogMessage({ ...short, reason: 'reconnect' }) ?? '',
+    /reason=reconnect/,
+  )
 })
 
 const snapshotBase = {

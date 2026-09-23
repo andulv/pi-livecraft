@@ -72,6 +72,9 @@ test('slow snapshots retain their content-free stage breakdown', () => {
     templatesMs: 0.03,
     totalMs: 1205,
     bytes: 226_000,
+    rpcWaitMs: { state: 300, entries: 1190, thinking: 4 },
+    sameSessionInFlight: 2,
+    totalInFlight: 4,
   })
 
   const line = JSON.parse(readFileSync(path, 'utf8').trim())
@@ -84,6 +87,22 @@ test('slow snapshots retain their content-free stage breakdown', () => {
     templatesMs: 0.03,
     totalMs: 1205,
     bytes: 226_000,
+    rpcWaitMs: { state: 300, entries: 1190, thinking: 4 },
+    sameSessionInFlight: 2,
+    totalInFlight: 4,
+  })
+})
+
+test('failed snapshots report the first failing RPC without session content', () => {
+  const path = join(mkdtempSync(join(tmpdir(), 'app-log-')), 'app.log')
+  new AppLog(path).snapshotFailure('entries', 1200, 3)
+  const line = JSON.parse(readFileSync(path, 'utf8').trim())
+  assert.deepEqual(line, {
+    t: line.t,
+    kind: 'snapshot-failure',
+    rpc: 'entries',
+    durationMs: 1200,
+    sameSessionInFlight: 3,
   })
 })
 

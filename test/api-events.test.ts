@@ -70,6 +70,7 @@ test('reports one manager stream drop and its recovery per outage', async () => 
       (event) => events.push(event.event),
       () => errors += 1,
       () => opens += 1,
+      () => false,
     )
     const source = FakeEventSource.latest!
 
@@ -81,13 +82,20 @@ test('reports one manager stream drop and its recovery per outage', async () => 
     source.onerror?.(new Event('error'))
     await new Promise<void>((resolve) => setImmediate(resolve))
     assert.equal(errors, 1)
-    assert.deepEqual(logs, [{ source: 'sse-drop', message: 'manager event stream error' }])
+    assert.equal(logs[0]?.source, 'sse-drop')
+    assert.match(
+      logs[0]?.message ?? '',
+      /^view=[a-f0-9]{8} manager event stream error; silenceMs=none; hidden=false$/,
+    )
 
     source.onopen?.(new Event('open'))
     await new Promise<void>((resolve) => setImmediate(resolve))
     assert.equal(opens, 2)
     assert.equal(logs[1]?.source, 'sse-reopen')
-    assert.match(logs[1]?.message ?? '', /^manager event stream recovered after \d+ ms$/)
+    assert.match(
+      logs[1]?.message ?? '',
+      /^view=[a-f0-9]{8} manager event stream recovered after \d+ ms; silenceMs=none; hidden=false$/,
+    )
     source.onmessage?.({
       data: JSON.stringify({ kind: 'event', event: 'manager_connected', sessionId: '' }),
     } as MessageEvent)
@@ -97,6 +105,8 @@ test('reports one manager stream drop and its recovery per outage', async () => 
     await new Promise<void>((resolve) => setImmediate(resolve))
     assert.equal(errors, 2)
     assert.equal(logs[2]?.source, 'sse-drop')
+    assert.match(logs[2]?.message ?? '', /silenceMs=\d+; hidden=false$/)
+    assert.equal(logs[0]?.message.slice(0, 13), logs[2]?.message.slice(0, 13))
 
     unsubscribe()
     assert.equal(source.closed, true)
