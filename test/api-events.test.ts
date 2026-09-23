@@ -132,6 +132,85 @@ test('reports one manager stream drop and its recovery per outage', async () => 
   }
 })
 
+test('reopens a closed manager stream and cancels a pending reopen on unsubscribe', async () => {
+  class FakeEventSource {
+    static readonly CLOSED = 2
+    static readonly instances: FakeEventSource[] = []
+    onmessage: ((event: MessageEvent) => void) | null = null
+    onopen: ((event: Event) => void) | null = null
+    onerror: ((event: Event) => void) | null = null
+    readyState = 0
+    closed = false
+    readonly url: string
+
+    constructor(url: string) {
+      this.url = url
+      FakeEventSource.instances.push(this)
+    }
+
+    close(): void {
+      this.closed = true
+      this.readyState = 2
+    }
+  }
+
+  const originalEventSource = globalThis.EventSource
+  const originalFetch = globalThis.fetch
+  const logs: Array<{ source: string; message: string }> = []
+  globalThis.EventSource = FakeEventSource as unknown as typeof EventSource
+  globalThis.fetch = (async (_input, init) => {
+    logs.push(JSON.parse(String(init?.body)))
+    return new Response(null, { status: 202 })
+  }) as typeof fetch
+
+  let unsubscribe: (() => void) | undefined
+  try {
+    const events: string[] = []
+    let errors = 0
+    unsubscribe = subscribeManagerEvents(
+      (event) => events.push(event.event),
+      () => errors++,
+    )
+    const first = FakeEventSource.instances[0]!
+    first.readyState = 1
+    first.onopen?.(new Event('open'))
+    first.readyState = 2
+    first.onerror?.(new Event('error'))
+    assert.equal(errors, 1)
+    assert.equal(managerEventStreamState(), 'closed')
+    assert.equal(FakeEventSource.instances.length, 1)
+
+    await new Promise((resolve) => setTimeout(resolve, 550))
+    const second = FakeEventSource.instances[1]!
+    assert.equal(first.closed, true)
+    assert.equal(second.url, '/api/events')
+    assert.equal(managerEventStreamState(), 'connecting')
+    second.readyState = 1
+    second.onopen?.(new Event('open'))
+    second.onmessage?.({
+      data: JSON.stringify({ kind: 'event', event: 'manager_connected', sessionId: '' }),
+    } as MessageEvent)
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    assert.deepEqual(events, ['manager_connected'])
+    assert.deepEqual(logs.map((entry) => entry.source), ['sse-drop', 'sse-reopen'])
+    assert.match(logs[0]!.message, /state=closed$/)
+    assert.match(logs[1]!.message, /state=open$/)
+
+    second.readyState = 2
+    second.onerror?.(new Event('error'))
+    unsubscribe()
+    unsubscribe = undefined
+    await new Promise((resolve) => setTimeout(resolve, 550))
+    assert.equal(FakeEventSource.instances.length, 2)
+    assert.equal(second.closed, true)
+    assert.equal(managerEventStreamState(), 'none')
+  } finally {
+    unsubscribe?.()
+    globalThis.EventSource = originalEventSource
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('marks browser stream errors stale without automatic reconnect', async () => {
   type Listener = (event: { data?: unknown }) => void
   class FakeEventSource {

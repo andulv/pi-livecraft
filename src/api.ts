@@ -85,7 +85,8 @@ export function parseManagerEvent(data: string): ManagerEvent | null {
 }
 
 /**
- * Subscribes to validated manager events while preserving EventSource reconnection.
+ * Subscribes to validated manager events, using native retries for CONNECTING and a
+ * bounded explicit reopen for CLOSED streams that cannot recover on their own.
  * Opening proves the backend transport recovered; its first event still reports whether the
  * manager itself is connected or disconnected.
  */
@@ -95,42 +96,65 @@ export function subscribeManagerEvents(
   onOpen?: () => void,
   isHidden?: () => boolean,
 ): () => void {
-  const source = new EventSource('/api/events')
-  managerStream = source
+  let source: EventSource | undefined
   let droppedAt: number | undefined
+  let reopenTimer: ReturnType<typeof setTimeout> | undefined
+  let retryDelayMs = 500
+  let disposed = false
   lastManagerMessageAt = undefined
-  source.onmessage = ({ data }) => {
-    const event = parseManagerEvent(data)
-    if (event) {
-      lastManagerMessageAt = Date.now()
-      onEvent(event)
+
+  const open = (): void => {
+    if (disposed) return
+    const stream = new EventSource('/api/events')
+    source = stream
+    managerStream = stream
+    stream.onmessage = ({ data }) => {
+      const event = parseManagerEvent(data)
+      if (event) {
+        lastManagerMessageAt = Date.now()
+        onEvent(event)
+      }
+    }
+    stream.onopen = () => {
+      retryDelayMs = 500
+      onOpen?.()
+      if (droppedAt === undefined) return
+      const durationMs = Math.max(0, Date.now() - droppedAt)
+      droppedAt = undefined
+      void postClientLog(
+        'sse-reopen',
+        `manager event stream recovered after ${durationMs} ms; silenceMs=${
+          managerStreamSilenceMs() ?? 'none'
+        }; hidden=${isHidden?.() ?? 'unknown'}; state=${managerEventStreamState()}`,
+      )
+    }
+    stream.onerror = () => {
+      if (droppedAt === undefined) {
+        droppedAt = Date.now()
+        void postClientLog(
+          'sse-drop',
+          `manager event stream error; silenceMs=${managerStreamSilenceMs() ?? 'none'}; hidden=${
+            isHidden?.() ?? 'unknown'
+          }; state=${managerEventStreamState()}`,
+        )
+        onError()
+      }
+      // CONNECTING retries natively. CLOSED cannot recover without a new EventSource.
+      if (stream.readyState !== EventSource.CLOSED || disposed || reopenTimer !== undefined)
+        return
+      stream.close()
+      reopenTimer = setTimeout(() => {
+        reopenTimer = undefined
+        open()
+      }, retryDelayMs)
+      retryDelayMs = Math.min(retryDelayMs * 2, 30_000)
     }
   }
-  source.onopen = () => {
-    onOpen?.()
-    if (droppedAt === undefined) return
-    const durationMs = Math.max(0, Date.now() - droppedAt)
-    droppedAt = undefined
-    void postClientLog(
-      'sse-reopen',
-      `manager event stream recovered after ${durationMs} ms; silenceMs=${
-        managerStreamSilenceMs() ?? 'none'
-      }; hidden=${isHidden?.() ?? 'unknown'}; state=${managerEventStreamState()}`,
-    )
-  }
-  source.onerror = () => {
-    if (droppedAt !== undefined) return
-    droppedAt = Date.now()
-    void postClientLog(
-      'sse-drop',
-      `manager event stream error; silenceMs=${managerStreamSilenceMs() ?? 'none'}; hidden=${
-        isHidden?.() ?? 'unknown'
-      }; state=${managerEventStreamState()}`,
-    )
-    onError()
-  }
+  open()
   return () => {
-    source.close()
+    disposed = true
+    if (reopenTimer !== undefined) clearTimeout(reopenTimer)
+    source?.close()
     if (managerStream === source) managerStream = undefined
   }
 }
