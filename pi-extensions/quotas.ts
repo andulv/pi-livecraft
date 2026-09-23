@@ -6,7 +6,6 @@ import { join } from 'node:path'
 import { isObject } from '../shared/is-object.ts'
 import {
   glmBusinessError,
-  parseAnthropicResets,
   parseAnthropicUsage,
   parseCopilotUsage,
   parseGlmResets,
@@ -18,7 +17,7 @@ import {
 } from '../shared/quota-parsers.ts'
 import { quotaRefreshAllowed } from '../shared/quota-refresh.ts'
 import type {
-  AnthropicQuotaReport,
+  AnthropicQuotaWindow,
   CopilotQuotaWindow,
   GlmQuotaReport,
   GlmQuotaResets,
@@ -62,14 +61,11 @@ export default function registerQuotas(pi: ExtensionAPI): void {
     handler: async (args, ctx) => refresh(ctx, args.trim() === 'auto'),
   })
   pi.registerCommand('livecraft-quotas-reset', {
-    description: 'Redeem one Anthropic, OpenAI Codex, or Z.AI reset',
+    description: 'Redeem one banked OpenAI Codex or Z.AI reset card',
     handler: async (args, ctx) => {
-      const target = args.trim()
-      const result = target === ''
+      const result = args.trim() === ''
         ? await consumeOpenAiReset(ctx)
-        : target === 'anthropic'
-        ? await consumeAnthropicReset(ctx)
-        : await consumeGlmReset(target)
+        : await consumeGlmReset(args.trim())
       lastRefreshAt = 0
       await refresh(ctx, false)
       return result
@@ -184,108 +180,21 @@ async function consumeOpenAiReset(ctx: ExtensionContext): Promise<string> {
   }
 }
 
-/** Redeems Anthropic's one-time promotional reset when the account is eligible. */
-async function consumeAnthropicReset(ctx: ExtensionContext): Promise<string> {
-  try {
-    const credential = await anthropicCredential(ctx)
-    if (!credential) return 'error: Claude Pro connection is unavailable in Pi.'
-    const status = await fetchJson(
-      'https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1',
-      anthropicHeaders(credential.token),
-    )
-    const reset = parseAnthropicResets(status)
-    if (!reset?.available) return 'error: No Anthropic reset is currently available.'
-    if (reset.program === 'cedar_ember' && !reset.grantId) {
-      return 'error: Anthropic reset grant is unavailable in Pi.'
-    }
-    const organizationUuid = credential.organizationUuid
-      ?? await fetchAnthropicOrganizationUuid(credential.token)
-    if (!organizationUuid) return 'error: Anthropic organization is unavailable in Pi.'
-    const body = reset.program === 'cedar_ember'
-      ? {
-        program: reset.program,
-        grant_id: reset.grantId,
-        request_id: crypto.randomUUID(),
-      }
-      : { program: reset.program }
-    const response = await fetchJson(
-      `https://api.anthropic.com/api/organizations/${encodeURIComponent(organizationUuid)}`
-        + '/reset_rate_limits',
-      anthropicHeaders(credential.token, true),
-      {
-        method: 'POST',
-        body: JSON.stringify(body),
-      },
-    )
-    const result = stringField(response, 'result')
-    if (result === 'reset' || result === 'already_used') return 'ok'
-    return `error: Anthropic rejected the reset${result ? ` (${result})` : ''}.`
-  } catch (error) {
-    return `error: ${fetchError(error, 'Unable to redeem the Anthropic reset.')}`
-  }
-}
-
-interface AnthropicCredential {
-  organizationUuid?: string
-  token: string
-}
-
-async function anthropicCredential(
-  ctx: ExtensionContext,
-): Promise<AnthropicCredential | undefined> {
-  const auth = await ctx.modelRegistry.getProviderAuth('anthropic')
-  const token = auth?.auth.apiKey
-  if (!token) return undefined
-  const stored = await readCredential(ctx, 'anthropic')
-  const providerSpecificData = object(stored)?.providerSpecificData
-  const organizationUuid = stringField(stored, 'organizationUUID')
-    ?? stringField(stored, 'organizationUuid')
-    ?? stringField(stored, 'organization_uuid')
-    ?? stringField(providerSpecificData, 'organizationUUID')
-    ?? stringField(providerSpecificData, 'organizationUuid')
-    ?? stringField(providerSpecificData, 'organization_uuid')
-  return { token, ...(organizationUuid ? { organizationUuid } : {}) }
-}
-
-async function fetchAnthropicOrganizationUuid(token: string): Promise<string | undefined> {
-  const bootstrap = await fetchJson(
-    'https://api.anthropic.com/api/claude_cli/bootstrap',
-    anthropicHeaders(token),
-  )
-  const root = object(bootstrap)
-  return stringField(root?.oauth_account, 'organization_uuid')
-    ?? stringField(root, 'organization_uuid')
-    ?? stringField(root?.account, 'organization_uuid')
-}
-
-function anthropicHeaders(token: string, contentType = false): Record<string, string> {
-  return {
-    Authorization: `Bearer ${token}`,
-    Accept: 'application/json',
-    ...(contentType ? { 'Content-Type': 'application/json' } : {}),
-    'anthropic-beta': 'oauth-2025-04-20',
-  }
-}
-
 /** Reads Claude subscription windows with Pi's resolved Anthropic OAuth token. */
 async function fetchAnthropicQuotas(
   ctx: ExtensionContext,
-): Promise<AnthropicQuotaReport> {
+): Promise<QuotaProviderReport<AnthropicQuotaWindow>> {
   try {
     const auth = await ctx.modelRegistry.getProviderAuth('anthropic')
     const token = auth?.auth.apiKey
     if (!token) return failure('Claude Pro connection is unavailable in Pi.')
-    const data = await fetchJson(
-      'https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1',
-      {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'oauth-2025-04-20',
-      },
-    )
-    const resets = parseAnthropicResets(data)
-    return { ok: true, data: parseAnthropicUsage(data), ...(resets ? { resets } : {}) }
+    const data = await fetchJson('https://api.anthropic.com/api/oauth/usage', {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'oauth-2025-04-20',
+    })
+    return { ok: true, data: parseAnthropicUsage(data) }
   } catch (error) {
     return failure(fetchError(error, 'Unable to fetch Claude Pro quotas.'))
   }

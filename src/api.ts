@@ -334,7 +334,7 @@ export async function refreshQuotas(sessionId: string, automatic = false): Promi
   })
 }
 
-export type QuotaResetTarget = 'anthropic' | 'openai' | 'glm-five-hour' | 'glm-week'
+export type QuotaResetTarget = 'openai' | 'glm-five-hour' | 'glm-week'
 
 export async function resetQuota(
   sessionId: string,

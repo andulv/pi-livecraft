@@ -382,20 +382,6 @@ export interface AnthropicQuotaWindow {
   resetsAt?: number
 }
 
-/** Anthropic's promotional reset offer, when the account is eligible. */
-export interface AnthropicQuotaResets {
-  available: boolean
-  expiresAt?: number
-  grantId?: string
-  label?: string
-  nextAvailableAt?: number
-  program: 'cedar_ember' | 'juniper_tide'
-  resetsLeft: number
-  resetsPerWeek?: number
-  resetsTotal?: number
-  weeklyResetsAt?: number
-}
-
 /**
  * One Coding Plan quota window from Z.AI (GLM). Session and weekly are percentage-used;
  * web-searches is a used/limit count. Absent fields are omitted, never zero-filled.
@@ -420,17 +406,8 @@ export type OpenAiQuotaReport =
   | { ok: true; data: OpenAiQuotaWindow[]; resets?: OpenAiQuotaResets }
   | { ok: false; error: string }
 
-/** The Anthropic report additionally carries its promotional reset offer. */
-export type AnthropicQuotaReport =
-  | { ok: true; data: AnthropicQuotaWindow[]; resets?: AnthropicQuotaResets }
-  | { ok: false; error: string }
-
 export type OpenAiQuotaSnapshot = QuotaProviderSnapshot<OpenAiQuotaWindow> & {
   resets?: OpenAiQuotaResets
-}
-
-export type AnthropicQuotaSnapshot = QuotaProviderSnapshot<AnthropicQuotaWindow> & {
-  resets?: AnthropicQuotaResets
 }
 
 /** The GLM report additionally carries Z.AI reset cards when ZCode is signed in. */
@@ -444,7 +421,7 @@ export type GlmQuotaSnapshot = QuotaProviderSnapshot<GlmQuotaWindow> & {
 
 export interface QuotaSnapshot {
   openai: OpenAiQuotaSnapshot
-  anthropic: AnthropicQuotaSnapshot
+  anthropic: QuotaProviderSnapshot<AnthropicQuotaWindow>
   copilot: QuotaProviderSnapshot<CopilotQuotaWindow>
   glm: GlmQuotaSnapshot
   refreshing: boolean
@@ -462,7 +439,7 @@ export interface QuotaReport {
   openai: OpenAiQuotaReport
   copilot: QuotaProviderReport<CopilotQuotaWindow>
   // Optional so reports from Pi sessions running older extensions still validate.
-  anthropic?: AnthropicQuotaReport
+  anthropic?: QuotaProviderReport<AnthropicQuotaWindow>
   glm?: GlmQuotaReport
 }
 

@@ -62,19 +62,17 @@ export class QuotaService {
   }
 
   /**
-   * Redeems one provider reset, then verifies it from the normal quota report the
+   * Redeems one banked reset, then verifies it from the normal quota report the
    * extension already publishes after every redemption.
    */
   async reset(
     sessionId: string,
-    target: 'anthropic' | 'openai' | 'glm-five-hour' | 'glm-week',
+    target: 'openai' | 'glm-five-hour' | 'glm-week',
   ): Promise<{ ok: boolean; error?: string }> {
-    const before = resetState(this.#cache.snapshot(false), target)
+    const before = resetCount(this.#cache.snapshot(false), target)
     const report = this.#cache.waitForNextReport()
     const args = target === 'openai'
       ? ''
-      : target === 'anthropic'
-      ? 'anthropic'
       : target === 'glm-week'
       ? 'glm week'
       : 'glm five-hour'
@@ -85,8 +83,8 @@ export class QuotaService {
         command: { type: 'prompt', message: `/livecraft-quotas-reset${args ? ` ${args}` : ''}` },
       }, 60_000)
       await waitForQuotaReport(report.promise)
-      const after = resetState(this.#cache.snapshot(false), target)
-      if (resetChanged(target, before, after)) return { ok: true }
+      const after = resetCount(this.#cache.snapshot(false), target)
+      if (before !== undefined && after !== undefined && after < before) return { ok: true }
       return {
         ok: false,
         error: 'The reset result could not be confirmed from the refreshed quota data.',
@@ -97,38 +95,14 @@ export class QuotaService {
   }
 }
 
-interface AnthropicResetState {
-  grantId?: string
-  resetsLeft: number
-}
-
-type ResetState = AnthropicResetState | number
-
-function resetState(
+function resetCount(
   snapshot: QuotaSnapshot,
-  target: 'anthropic' | 'openai' | 'glm-five-hour' | 'glm-week',
-): ResetState | undefined {
-  if (target === 'anthropic') {
-    const reset = snapshot.anthropic.resets
-    return reset ? { grantId: reset.grantId, resetsLeft: reset.resetsLeft } : undefined
-  }
+  target: 'openai' | 'glm-five-hour' | 'glm-week',
+): number | undefined {
   if (target === 'openai') return snapshot.openai.resets?.availableCount
   return target === 'glm-five-hour'
     ? snapshot.glm.resets?.fiveHour.availableCount
     : snapshot.glm.resets?.week.availableCount
-}
-
-function resetChanged(
-  target: 'anthropic' | 'openai' | 'glm-five-hour' | 'glm-week',
-  before: ResetState | undefined,
-  after: ResetState | undefined,
-): boolean {
-  if (before === undefined || after === undefined) return false
-  if (target === 'anthropic') {
-    if (typeof before === 'number' || typeof after === 'number') return false
-    return after.resetsLeft < before.resetsLeft || after.grantId !== before.grantId
-  }
-  return typeof before === 'number' && typeof after === 'number' && after < before
 }
 
 /** Avoids hanging the reset button if Pi fails to publish its normal report. */
