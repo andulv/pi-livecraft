@@ -17,7 +17,6 @@ and work from that evidence instead of simulating heavy usage.
 | `manager` | manager connect/disconnect | `state` |
 | `sse-open` | Backend SSE stream opened (loads and reconnects) | `connection` (process-local number) |
 | `sse-close` | Backend SSE response closed | `connection`, `lifetimeMs`, `reason` (`finished` / `transport-closed`) |
-| `browser` | Browser start/live/stop/crash, first/last cast viewer, or at most one capture sample per active minute | process-local `instance`, `event`, `viewerCount`, cumulative `capturedFrames`, `capturedBytes` |
 | `slow-snapshot` | successful snapshot ≥ 1000 ms | `mode`, `rpcMs`, `buildMs`, `templatesMs`, `totalMs`, `bytes`, `rpcWaitMs`, `sameSessionInFlight`, `totalInFlight` |
 | `snapshot-failure` | one failed Pi snapshot load | first failing RPC name (`rpc`), `durationMs`, `sameSessionInFlight` — no error text |
 | `provider-failure` | Pi provider request failed | `model`, `message` (truncated) |
@@ -67,11 +66,8 @@ loads at the beginning of the RPC phase; they do not identify a session or tab.
 - **Content-free discipline:** no prompts, payloads, project paths, or Pi session identifiers
   in new diagnostic fields. The view token is random and never persisted across reloads. Client
   exception text is truncated but otherwise verbatim; it may mention file names.
-- **Writes are synchronous appends in the backend process**, not a separate worker.
-  They can briefly block the event loop, especially on a slow disk. Browser samples
-  write at most once per active browser minute; no frame data or per-frame logs are
-  written. The log still grows without rotation, and append failures are swallowed
-  rather than interrupting requests or casting.
+- **Writes are synchronous appends** so the `exit` and crash handlers complete them;
+  volume is low (errors, lifecycle, slow snapshots). Append failures are swallowed.
 - **Crash semantics:** an uncaught exception logs `uncaught`, writes
   `shutdown {reason: 'crash'}`, then rethrows, keeping the terminal stack trace and
   `node --watch` behavior unchanged. The next `boot` reports that run as

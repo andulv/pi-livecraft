@@ -62,27 +62,6 @@ test('shutdown writes once even when both the crash handler and exit fire', () =
   assert.equal(lines.at(-1).reason, 'crash')
 })
 
-test('browser activity writes only counters, state, and a process-local instance number', () => {
-  const path = join(mkdtempSync(join(tmpdir(), 'app-log-')), 'app.log')
-  const log = new AppLog(path)
-  log.browserActivity(2, {
-    event: 'capture-sample',
-    viewerCount: 1,
-    capturedFrames: 600,
-    capturedBytes: 3_000_000,
-  })
-  const line = JSON.parse(readFileSync(path, 'utf8').trim())
-  assert.deepEqual(line, {
-    t: line.t,
-    kind: 'browser',
-    instance: 2,
-    event: 'capture-sample',
-    viewerCount: 1,
-    capturedFrames: 600,
-    capturedBytes: 3_000_000,
-  })
-})
-
 test('SSE open and close share only a process-local connection number and lifetime', () => {
   const path = join(mkdtempSync(join(tmpdir(), 'app-log-')), 'app.log')
   const log = new AppLog(path)

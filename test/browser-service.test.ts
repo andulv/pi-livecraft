@@ -31,21 +31,6 @@ test('derives stable, distinct debug ports per workspace instance', () => {
   assert.notEqual(aMain, bMain)
 })
 
-test('correlates browser activity with process-local numbers, not workspace paths', () => {
-  const events: Array<{ instance: number; event: string }> = []
-  const service = new BrowserService(undefined, (instance, activity) => {
-    events.push({ instance, event: activity.event })
-  })
-  service.session('/workspace/a', 'main').addViewer()
-  service.session('/workspace/b', 'main').addViewer()
-  service.session('/workspace/a', 'main').releaseViewer()
-  assert.deepEqual(events, [
-    { instance: 1, event: 'viewer-attached' },
-    { instance: 2, event: 'viewer-attached' },
-    { instance: 1, event: 'viewer-detached' },
-  ])
-})
-
 test('keeps stable browser sessions per workspace and browser ID', async () => {
   const service = new BrowserService()
   const workspaceA = '/workspace/a'

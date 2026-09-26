@@ -2,9 +2,6 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   BrowserSession,
-  type BrowserActivity,
-  browserCaptureLogIntervalMs,
-  captureSampleDue,
   parseBrowserProcessInfo,
 } from '../server/features/browser/browser-session.ts'
 
@@ -26,29 +23,6 @@ test('normalizes browser-level CDP process diagnostics', () => {
     ],
   )
   assert.deepEqual(parseBrowserProcessInfo(null), [])
-})
-
-test('records only first and last viewer transitions without launching Chrome', () => {
-  const activities: BrowserActivity[] = []
-  const session = new BrowserSession({ onActivity: (activity) => activities.push(activity) })
-  session.addViewer()
-  session.addViewer()
-  session.releaseViewer()
-  session.releaseViewer()
-  session.releaseViewer()
-  assert.deepEqual(activities, [
-    { event: 'viewer-attached', viewerCount: 1, capturedFrames: 0, capturedBytes: 0 },
-    { event: 'viewer-detached', viewerCount: 0, capturedFrames: 0, capturedBytes: 0 },
-  ])
-})
-
-test('capture sampling never logs individual frames', () => {
-  assert.equal(captureSampleDue(100, 100 + browserCaptureLogIntervalMs - 1), false)
-  assert.equal(captureSampleDue(100, 100 + browserCaptureLogIntervalMs), true)
-  assert.equal(
-    captureSampleDue(100 + browserCaptureLogIntervalMs, 100 + browserCaptureLogIntervalMs + 1),
-    false,
-  )
 })
 
 test('reports an idle browser diagnostics snapshot without launching Chrome', async () => {

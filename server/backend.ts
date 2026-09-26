@@ -104,9 +104,7 @@ function recordSnapshot(stage: SnapshotStageMeasurement): void {
   if (stage.totalMs >= slowSnapshotThresholdMs) appLog.slowSnapshot(stage)
 }
 const metadata = new MetadataCache()
-const browsers = new BrowserService(undefined, (instance, activity) => {
-  appLog.browserActivity(instance, activity)
-})
+const browsers = new BrowserService()
 process.once('exit', () => {
   appLog.shutdown('exit')
   browsers.killSync()

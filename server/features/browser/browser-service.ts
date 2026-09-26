@@ -3,7 +3,7 @@ import type {
   BrowserSystemDebugSnapshot,
 } from '../../../shared/types.ts'
 import { browserDebugPortFor } from '../../../shared/browser-port.ts'
-import { BrowserSession, type BrowserActivity } from './browser-session.ts'
+import { BrowserSession } from './browser-session.ts'
 
 const browserIdPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/
 
@@ -15,23 +15,13 @@ export function parseBrowserId(value: unknown): string | null {
 /** Owns browser instances grouped by canonical workspace path. */
 export class BrowserService {
   readonly #workspaces = new Map<string, Map<string, BrowserSession>>()
-  readonly #createSession: (
-    debugPortBase: number,
-    onActivity?: (activity: BrowserActivity) => void,
-  ) => BrowserSession
-  readonly #onActivity: ((instance: number, activity: BrowserActivity) => void) | undefined
-  #nextInstance = 0
+  readonly #createSession: (debugPortBase: number) => BrowserSession
 
   constructor(
-    createSession: (
-      debugPortBase: number,
-      onActivity?: (activity: BrowserActivity) => void,
-    ) => BrowserSession = (debugPortBase, onActivity) =>
-      new BrowserSession({ debugPortBase, onActivity }),
-    onActivity?: (instance: number, activity: BrowserActivity) => void,
+    createSession: (debugPortBase: number) => BrowserSession = (debugPortBase) =>
+      new BrowserSession({ debugPortBase }),
   ) {
     this.#createSession = createSession
-    this.#onActivity = onActivity
   }
 
   /** Returns the stable session object for one workspace and browser ID. */
@@ -43,12 +33,7 @@ export class BrowserService {
     }
     let session = workspace.get(browserId)
     if (!session) {
-      const instance = ++this.#nextInstance
-      const onActivity = this.#onActivity
-      session = this.#createSession(
-        browserDebugPortFor(workspacePath, browserId),
-        onActivity ? (activity) => onActivity(instance, activity) : undefined,
-      )
+      session = this.#createSession(browserDebugPortFor(workspacePath, browserId))
       workspace.set(browserId, session)
     }
     return session

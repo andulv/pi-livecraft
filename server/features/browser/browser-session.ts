@@ -212,28 +212,6 @@ export function parseBrowserProcessInfo(value: unknown): BrowserProcessInfo[] {
   })
 }
 
-export const browserCaptureLogIntervalMs = 60_000
-
-/** A time gate prevents synchronous log writes on individual Chrome frames. */
-export function captureSampleDue(lastSampleAt: number, now: number): boolean {
-  return now - lastSampleAt >= browserCaptureLogIntervalMs
-}
-
-/** Content-free, bounded lifecycle and capture measurements for the app log. */
-export interface BrowserActivity {
-  event:
-    | 'starting'
-    | 'live'
-    | 'stopped'
-    | 'crashed'
-    | 'viewer-attached'
-    | 'viewer-detached'
-    | 'capture-sample'
-  viewerCount: number
-  capturedFrames: number
-  capturedBytes: number
-}
-
 /** Owns one Chrome instance, its CDP connection, and pane event fan-out. */
 export class BrowserSession {
   #state: BrowserSessionState = 'off'
@@ -249,20 +227,14 @@ export class BrowserSession {
   #startedAt: number | undefined
   #capturedFrames = 0
   #capturedBytes = 0
-  #lastCaptureSampleAt = 0
-  readonly #onActivity: ((activity: BrowserActivity) => void) | undefined
   #lastAckAt = 0
   #ackTimer: ReturnType<typeof setTimeout> | null = null
   #pendingAckSession: number | string | null = null
   #viewport: BrowserViewport = { ...defaultViewport }
   readonly #debugPortBase: number | undefined
 
-  constructor(options: {
-    debugPortBase?: number
-    onActivity?: (activity: BrowserActivity) => void
-  } = {}) {
+  constructor(options: { debugPortBase?: number } = {}) {
     this.#debugPortBase = options.debugPortBase
-    this.#onActivity = options.onActivity
   }
 
   status(): BrowserSessionStatus {
@@ -341,10 +313,6 @@ export class BrowserSession {
   /** Registers an active frame consumer; the screencast pauses while none remain. */
   addViewer(): void {
     this.#viewers++
-    if (this.#viewers === 1) {
-      this.#lastCaptureSampleAt = Date.now()
-      this.#recordActivity('viewer-attached')
-    }
     if (this.#viewers === 1 && this.#state === 'live') {
       void this.#cdp?.send('Page.startScreencast', screencastParamsFor(this.#viewport)).catch(
         () => {},
@@ -353,10 +321,7 @@ export class BrowserSession {
   }
 
   releaseViewer(): void {
-    if (this.#viewers > 0) {
-      this.#viewers--
-      if (this.#viewers === 0) this.#recordActivity('viewer-detached')
-    }
+    if (this.#viewers > 0) this.#viewers--
     if (this.#viewers === 0 && this.#state === 'live') {
       this.#clearPendingAck()
       void this.#cdp?.send('Page.stopScreencast').catch(() => {})
@@ -407,7 +372,6 @@ export class BrowserSession {
   async #start(): Promise<BrowserSessionStatus> {
     this.#capturedFrames = 0
     this.#capturedBytes = 0
-    this.#lastCaptureSampleAt = Date.now()
     this.#startedAt = undefined
     this.#setState({ state: 'starting' })
     try {
@@ -438,14 +402,6 @@ export class BrowserSession {
         if (typeof params.data === 'string') {
           this.#capturedFrames++
           this.#capturedBytes += Buffer.byteLength(params.data, 'base64')
-          // At most one small synchronous log write per active minute, never per frame.
-          if (this.#onActivity && this.#viewers > 0) {
-            const now = Date.now()
-            if (captureSampleDue(this.#lastCaptureSampleAt, now)) {
-              this.#lastCaptureSampleAt = now
-              this.#recordActivity('capture-sample')
-            }
-          }
           this.#emit({ type: 'frame', data: params.data })
         }
         // Chrome reports the screencast session id as a number or a string
@@ -569,21 +525,10 @@ export class BrowserSession {
   }
 
   #setState(partial: { state: BrowserSessionState; error?: string }): void {
-    const changed = this.#state !== partial.state
     this.#state = partial.state
     this.#error = partial.error
     if (partial.state === 'off' || partial.state === 'stopped') this.#endpoint = undefined
-    if (changed && partial.state !== 'off') this.#recordActivity(partial.state)
     this.#emit({ type: 'status', status: this.status() })
-  }
-
-  #recordActivity(event: BrowserActivity['event']): void {
-    this.#onActivity?.({
-      event,
-      viewerCount: this.#viewers,
-      capturedFrames: this.#capturedFrames,
-      capturedBytes: this.#capturedBytes,
-    })
   }
 
   #emit(event: BrowserSessionEvent): void {
