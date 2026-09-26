@@ -71,22 +71,27 @@ test('uses the destination path for renamed numstat records and preserves binary
   assert.deepEqual(counts.get('renamed.ts'), { additions: null, deletions: null })
 })
 
-test('reports untracked files and their line additions from a worktree', async () => {
+test('lists untracked files without forking Git for each line count', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-livecraft-git-'))
   try {
     await execFile('git', ['init', '--quiet'], { cwd: directory })
-    await writeFile(join(directory, 'new-file.ts'), 'first line\nsecond line\n')
+    await Promise.all(
+      Array.from(
+        { length: 40 },
+        (_, index) => writeFile(join(directory, `new-${index}.ts`), 'first line\nsecond line\n'),
+      ),
+    )
 
     const snapshot = await getGitSnapshot(directory)
 
     assert.equal(snapshot.repository, true)
     assert.equal(snapshot.root?.replaceAll('\\', '/'), directory.replaceAll('\\', '/'))
-    assert.deepEqual(snapshot.files, [{
-      path: 'new-file.ts',
-      status: 'added',
-      additions: 2,
-      deletions: 0,
-    }])
+    assert.equal(snapshot.files.length, 40)
+    assert.ok(
+      snapshot.files.every((file) =>
+        file.status === 'added' && file.additions === null && file.deletions === null
+      ),
+    )
     assert.deepEqual(snapshot.commits, [])
   } finally {
     await rm(directory, { force: true, recursive: true })

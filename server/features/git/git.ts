@@ -50,27 +50,8 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
 
   const changes = parseGitStatus(status.stdout)
   const counts = mergeNumstats(unstaged.stdout, staged.stdout)
-  await Promise.all(
-    changes.filter((change) => change.status === 'added' && !counts.has(change.path)).map(
-      async (change) => {
-        const result = await runGit(cwd, [
-          'diff',
-          '--no-index',
-          '--numstat',
-          '-z',
-          '--',
-          '/dev/null',
-          change.path,
-        ], [0, 1])
-        const [count] = parseNumstat(result.stdout)
-        if (count)
-          counts.set(change.path, {
-            additions: count.additions,
-            deletions: count.deletions,
-          })
-      },
-    ),
-  )
+  // Untracked files have no Git numstat in a snapshot. Keep their nullable counts;
+  // loading each file's diff here would fork a process per file on every refresh.
 
   // Compare the branch to its local tracking ref. Snapshot reads never contact the remote,
   // avoiding credential prompts while users browse the workspace.
