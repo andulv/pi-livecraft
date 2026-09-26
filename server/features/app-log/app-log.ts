@@ -1,3 +1,4 @@
+import type { BrowserActivity } from '../browser/browser-session.ts'
 import type {
   ClientLogRequestBody,
   ClientLogSource,
@@ -111,6 +112,11 @@ export class AppLog {
   /** Records a manager connection state change. */
   manager(state: 'connected' | 'disconnected'): void {
     this.#write('manager', { state })
+  }
+
+  /** Logs browser state and bounded capture totals without workspace or page content. */
+  browserActivity(instance: number, activity: BrowserActivity): void {
+    this.#write('browser', { instance, ...activity })
   }
 
   /** Records an SSE opening and returns a process-local, content-free connection number. */

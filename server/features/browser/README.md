@@ -35,7 +35,11 @@ tooling (Chrome DevTools MCP, Playwright, Puppeteer, or raw CDP).
   Its diagnostics snapshot opens a short-lived connection
   to the browser-level CDP target for `SystemInfo.getProcessInfo`; it also reports the
   root PID, temporary profile, viewer count, and capture counters without starting a
-  screencast viewer.
+  screencast viewer. The persistent app log records browser lifecycle transitions,
+  first/last viewer transitions, and one cumulative frame/byte sample per active capture
+  minute. Samples are driven by existing frames, without a polling timer or per-frame
+  writes; process-local instance numbers correlate events without logging workspace
+  paths, URLs, frames, or Chrome endpoints.
 
 Routes live in `server/backend.ts`. Instance operations use
 `/api/browser/instances/:browserId/*` plus a validated `workspacePath`; the aggregate
