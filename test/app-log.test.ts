@@ -62,6 +62,24 @@ test('shutdown writes once even when both the crash handler and exit fire', () =
   assert.equal(lines.at(-1).reason, 'crash')
 })
 
+test('SSE open and close share only a process-local connection number and lifetime', () => {
+  const path = join(mkdtempSync(join(tmpdir(), 'app-log-')), 'app.log')
+  const log = new AppLog(path)
+  const first = log.sseOpen()
+  const second = log.sseOpen()
+  log.sseClose(first, 1200, 'transport-closed')
+  log.sseClose(second, 5, 'finished')
+  const lines = readFileSync(path, 'utf8').trim().split('\n').map((line) => JSON.parse(line))
+
+  assert.deepEqual(lines.map(({ t: _, ...entry }) => entry), [
+    { kind: 'sse-open', connection: 1 },
+    { kind: 'sse-open', connection: 2 },
+    { kind: 'sse-close', connection: 1, lifetimeMs: 1200, reason: 'transport-closed' },
+    { kind: 'sse-close', connection: 2, lifetimeMs: 5, reason: 'finished' },
+  ])
+  assert.equal(new AppLog(path).sseOpen(), 1)
+})
+
 test('slow snapshots retain their content-free stage breakdown', () => {
   const path = join(mkdtempSync(join(tmpdir(), 'app-log-')), 'app.log')
   const log = new AppLog(path)

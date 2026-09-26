@@ -65,6 +65,7 @@ export class AppLog {
   readonly #path: string
   readonly #startedAt = Date.now()
   #clientEntries = 0
+  #sseConnections = 0
   #clientCapReported = false
   #shutdownWritten = false
 
@@ -112,9 +113,16 @@ export class AppLog {
     this.#write('manager', { state })
   }
 
-  /** Records an SSE stream opening (page loads and reconnects). */
-  sseOpen(): void {
-    this.#write('sse-open', {})
+  /** Records an SSE opening and returns a process-local, content-free connection number. */
+  sseOpen(): number {
+    const connection = ++this.#sseConnections
+    this.#write('sse-open', { connection })
+    return connection
+  }
+
+  /** Records the response lifetime and whether the server finished it before close. */
+  sseClose(connection: number, lifetimeMs: number, reason: 'finished' | 'transport-closed'): void {
+    this.#write('sse-close', { connection, lifetimeMs, reason })
   }
 
   /**
