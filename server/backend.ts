@@ -218,17 +218,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
 
   if (method === 'GET' && url.pathname === '/api/events') {
     diagnostics.sseOpen()
-    const openedAt = Date.now()
-    const connection = appLog.sseOpen()
-    // The response, not the already-received GET request, owns the SSE lifetime.
-    response.once('close', () => {
-      eventClients.delete(response)
-      appLog.sseClose(
-        connection,
-        Math.max(0, Date.now() - openedAt),
-        response.writableFinished ? 'finished' : 'transport-closed',
-      )
-    })
+    appLog.sseOpen()
     response.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -256,6 +246,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       }\n\n`,
     )
     eventClients.add(response)
+    request.on('close', () => eventClients.delete(response))
     return
   }
 

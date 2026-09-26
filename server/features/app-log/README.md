@@ -15,8 +15,7 @@ and work from that evidence instead of simulating heavy usage.
 | `uncaught` | `uncaughtException` / `unhandledRejection` | `source`, `message`, `stack` |
 | `request-error` | failed HTTP request | `route` (template, `sessions/:id` masked), `status` |
 | `manager` | manager connect/disconnect | `state` |
-| `sse-open` | Backend SSE stream opened (loads and reconnects) | `connection` (process-local number) |
-| `sse-close` | Backend SSE response closed | `connection`, `lifetimeMs`, `reason` (`finished` / `transport-closed`) |
+| `sse-open` | SSE stream opened (loads and reconnects) | — |
 | `slow-snapshot` | successful snapshot ≥ 1000 ms | `mode`, `rpcMs`, `buildMs`, `templatesMs`, `totalMs`, `bytes`, `rpcWaitMs`, `sameSessionInFlight`, `totalInFlight` |
 | `snapshot-failure` | one failed Pi snapshot load | first failing RPC name (`rpc`), `durationMs`, `sameSessionInFlight` — no error text |
 | `provider-failure` | Pi provider request failed | `model`, `message` (truncated) |
@@ -31,11 +30,6 @@ workspace, or Pi session. Manager-stream drops and recoveries include browser vi
 (`connecting`, `open`, or `closed`), and time since the last valid SSE frame. That interval can also mean an idle stream; it is not proof
 of a broken connection. The recovery duration uses wall-clock time, so laptop suspension counts.
 Repeated EventSource retry errors during the same outage stay silent.
-The server-side `sse-open`/`sse-close` connection number pairs the two entries within one
-backend run, without identifying the browser tab. `finished` means the backend ended its
-response; `transport-closed` means it did not. Neither identifies whether the browser,
-proxy, or network ended the connection. A backend process exit may have no `sse-close`;
-use the shutdown/boot entries instead.
 
 `session-reconcile` reports one selected-session recovery on a detected reconnect, or on
 returning to a tab that was hidden for at least 10 seconds, received appended messages, or
