@@ -22,12 +22,10 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 .file-tree {
+  flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding-right: 2px;
-}
-.file-tree-entry {
-  min-width: 0;
 }
 .file-tree-row {
   display: grid;
@@ -42,22 +40,26 @@
   color: var(--ink);
   font-size: 12px;
   text-align: left;
+  cursor: pointer;
   transition:
     background 180ms ease,
     border-color 180ms ease,
     color 180ms ease,
     transform 180ms ease;
 }
-.file-tree-row:hover:not(:disabled) {
+.file-tree-row:hover:not(.loading) {
   border-color: color-mix(in srgb, var(--accent) 26%, var(--line));
   background: var(--accent-soft);
   color: var(--accent-hover);
 }
-.file-tree-row:focus-visible {
+.file-tree [role="treeitem"]:focus-visible .file-tree-row {
   outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline-offset: -2px;
 }
-.file-tree-row:active:not(:disabled) {
+.file-tree [role="treeitem"][aria-selected="true"] .file-tree-row {
+  background: var(--accent-soft);
+}
+.file-tree-row:active:not(.loading) {
   transform: scale(0.97);
 }
 .file-tree-row > span:last-child {
@@ -78,10 +80,13 @@
 .file-tree-icon.directory {
   color: var(--file-icon-yellow);
 }
-.file-tree-children {
-  margin-left: 11px;
-  border-left: 1px solid var(--line);
-  padding-left: 2px;
+.file-tree-row.loading {
+  color: var(--muted);
+  cursor: default;
+}
+.file-tree-row.error,
+.file-tree-row.error:hover {
+  color: var(--danger);
 }
 .file-tree-status {
   margin: 0;
