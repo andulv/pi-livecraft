@@ -1,6 +1,9 @@
 # Workspace viewer state and file freshness specification
 
-Status: **in progress** — steps 1–3 implemented, steps 4–10 remain.
+Status: **in progress** — steps 1–3 implemented. The watcher and file-freshness
+steps 6–9 are superseded by [workspace-watching-and-freshness.md](./workspace-watching-and-freshness.md),
+which also covers Git and requires a cost/reliability trial. Viewer-state and unrelated
+terminal work remain separate.
 
 ## Goal
 
