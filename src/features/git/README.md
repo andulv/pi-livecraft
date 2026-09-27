@@ -16,7 +16,7 @@ Deleted files open a diff with an unavailable New view; renamed files remain vis
 
 ## What you can do
 
-- switch changed-file lists between flat and expanded tree views from the Git options menu;
+- switch changed-file lists between flat and expanded tree views from the Git options menu; both views virtualize visible file rows with React Arborist, so large change sets do not mount every file at once;
 - refresh repository state manually without contacting the remote;
 - commit all current changes with a message;
 - pull the tracked branch with `--ff-only`, which never creates a merge commit;
@@ -30,7 +30,7 @@ Discard, reset, and revert ask for confirmation. Discard is destructive and can 
 
 ## Ownership and data flow
 
-`App.tsx` loads and mutates Git state through `src/api.ts`. `GitWidget` owns its commit message, busy state, action errors, and on-demand commit-file cache; selecting an eligible file opens its diff in the shared file viewer. Public response shapes live in `shared/types.ts`.
+`App.tsx` loads and mutates Git state through `src/api.ts`. `GitWidget` owns its commit message, busy state, action errors, and on-demand commit-file cache. `GitFileList.tsx` renders virtualized Changes and aggregate outgoing files in both display modes; individual commit details remain on demand. Selecting an eligible file opens its diff in the shared file viewer. Public response shapes live in `shared/types.ts`.
 
 The [Git backend capability](/server/features/git/README.md) runs the validated Git commands in the selected workspace. Unified diff parsing remains pure in `git-diff.ts`.
 

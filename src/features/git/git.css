@@ -79,8 +79,14 @@
   border-radius: 7px;
   font-size: 18px;
 }
+#workspace-git-panel .widget-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .git-tabs {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 5px;
   margin: 0;
@@ -91,12 +97,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 3px;
   min-width: 0;
   height: 30px;
   border: 1px solid transparent;
   border-radius: 7px;
-  padding: 0 6px;
+  padding: 0 4px;
   background: transparent;
   color: var(--muted);
   font-size: 11px;
@@ -123,8 +129,15 @@
 .git-tabs button:active:not(:disabled) {
   transform: scale(0.97);
 }
+.git-tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .git-tabs small {
   display: grid;
+  flex: 0 0 auto;
   place-items: center;
   min-width: 16px;
   height: 16px;
@@ -136,6 +149,15 @@
 }
 .git-tabs button.active small {
   background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
+.git-virtual-files {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 8px 12px;
+}
+.git-virtual-files.git-commit-files {
+  padding: 0;
 }
 .git-file-list {
   display: grid;
@@ -155,12 +177,6 @@
 }
 .git-file-item:hover {
   background: color-mix(in srgb, var(--surface) 50%, var(--canvas));
-}
-.git-file-tree {
-  gap: 1px;
-}
-.git-file-tree-directory {
-  min-width: 0;
 }
 .git-file-tree-row {
   display: grid;
@@ -187,9 +203,17 @@
   background: var(--accent-soft);
   color: var(--accent-hover);
 }
-.git-file-tree-row:focus-visible {
+.git-virtual-files [role="treeitem"]:focus-visible > .git-file-tree-row,
+.git-virtual-files [role="treeitem"]:focus-visible > .git-file-item {
   outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline-offset: -2px;
+}
+.git-virtual-files [role="treeitem"][aria-selected="true"] > .git-file-tree-row,
+.git-virtual-files [role="treeitem"][aria-selected="true"] > .git-file-item {
+  background: var(--accent-soft);
+}
+.git-virtual-files .git-file-tree-row {
+  height: 31px;
 }
 .git-file-tree-row:active {
   transform: scale(0.97);
@@ -207,13 +231,6 @@
 }
 .git-file-tree-row > span:nth-child(2) {
   color: var(--file-icon-yellow);
-}
-.git-file-tree-children {
-  display: grid;
-  margin: 0 0 0 11px;
-  border-left: 1px solid var(--line);
-  padding: 0 0 0 2px;
-  list-style: none;
 }
 .git-file-button {
   display: grid;
@@ -233,6 +250,9 @@
 .git-file-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+.git-file-item.renamed .git-file-button {
+  cursor: default;
 }
 .git-file-discard {
   display: grid;
@@ -364,6 +384,11 @@
   font-weight: 700;
 }
 .git-commits {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
   padding: 4px 8px 12px;
 }
 .git-outgoing-diff {
@@ -395,6 +420,9 @@
   transform: scale(0.97);
 }
 .git-history {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   padding: 8px 8px 12px;
 }
 .git-history > p {

@@ -11,7 +11,7 @@ import type {
   GitRevertResult,
   GitSnapshot,
 } from '../../../shared/types.ts'
-import { resolveFileIcon } from '../../../shared/file-icon.ts'
+import { GitFileList, GitFileRow } from './GitFileList.tsx'
 import { WidgetLayout } from '../right-sidebar/WidgetLayout.tsx'
 
 /** Local git-error target — which element to shake on failure. */
@@ -387,7 +387,7 @@ export function GitWidget(
               onClick={() => setActiveView(view)}
               type='button'
             >
-              {gitViewLabel(view)}
+              <span className='git-tab-label'>{gitViewLabel(view)}</span>
               {view !== 'history' && (
                 <small>
                   {view === 'changes'
@@ -405,47 +405,13 @@ export function GitWidget(
         {activeView === 'changes' && (
           hasChanges
             ? (
-              fileTreeView
-                ? (
-                  <GitFileTree
-                    discardDisabled={busy}
-                    files={snapshot.files}
-                    onDiscard={(path) => void discard(path)}
-                    onSelect={(path, pin) => void selectFile(path, undefined, pin)}
-                  />
-                )
-                : (
-                  <ul className='git-file-list'>
-                    {snapshot.files.map((file) => (
-                      <li className='git-file-item' key={file.path}>
-                        {file.status === 'added' || file.status === 'modified'
-                            || file.status === 'deleted'
-                          ? (
-                            <button
-                              className='git-file-button'
-                              onClick={(event) =>
-                                void selectFile(file.path, undefined, event.detail === 2)}
-                              type='button'
-                            >
-                              <GitFileRow file={file} />
-                            </button>
-                          )
-                          : <GitFileRow file={file} />}
-                        <Tooltip label={`Discard changes to ${file.path}`}>
-                          <button
-                            aria-label={`Discard changes to ${file.path}`}
-                            className='git-file-discard'
-                            disabled={busy}
-                            onClick={() => void discard(file.path)}
-                            type='button'
-                          >
-                            ↶
-                          </button>
-                        </Tooltip>
-                      </li>
-                    ))}
-                  </ul>
-                )
+              <GitFileList
+                discardDisabled={busy}
+                files={snapshot.files}
+                onDiscard={(path) => void discard(path)}
+                onSelect={(path, pin) => void selectFile(path, undefined, pin)}
+                treeView={fileTreeView}
+              />
             )
             : <p className='git-empty'>No changes to commit.</p>
         )}
@@ -470,37 +436,11 @@ export function GitWidget(
                   {outgoingFiles ? 'Show commits' : 'Show unified changes'}
                 </button>
                 {outgoingFiles && (
-                  fileTreeView
-                    ? (
-                      <GitFileTree
-                        files={outgoingFiles}
-                        onSelect={(path, pin) => void selectOutgoingFile(path, pin)}
-                      />
-                    )
-                    : (
-                      <ul
-                        aria-label='All outgoing files'
-                        className='git-file-list git-commit-files'
-                      >
-                        {outgoingFiles.map((file) => (
-                          <li className='git-file-item' key={file.path}>
-                            {file.status === 'added' || file.status === 'modified'
-                                || file.status === 'deleted'
-                              ? (
-                                <button
-                                  className='git-file-button'
-                                  onClick={(event) =>
-                                    void selectOutgoingFile(file.path, event.detail === 2)}
-                                  type='button'
-                                >
-                                  <GitFileRow file={file} />
-                                </button>
-                              )
-                              : <GitFileRow file={file} />}
-                          </li>
-                        ))}
-                      </ul>
-                    )
+                  <GitFileList
+                    files={outgoingFiles}
+                    onSelect={(path, pin) => void selectOutgoingFile(path, pin)}
+                    treeView={fileTreeView}
+                  />
                 )}
                 {!outgoingFiles && snapshot.commits.map((commit, index) => {
                   const filesState = commitFiles[commit.hash]
@@ -598,165 +538,6 @@ export function GitWidget(
   )
 }
 
-interface GitFileTreeNode {
-  children: Map<string, GitFileTreeNode>
-  files: GitFileChange[]
-}
-
-/** Renders Git paths with the same collapsible tree interaction as the file explorer. */
-function GitFileTree({
-  discardDisabled,
-  files,
-  onDiscard,
-  onSelect,
-}: {
-  discardDisabled?: boolean
-  files: readonly GitFileChange[]
-  onDiscard?: (path: string) => void
-  onSelect: (path: string, pin: boolean) => void
-}) {
-  const [expandedPaths, setExpandedPaths] = useState<ReadonlySet<string>>(() => new Set())
-  const root = buildGitFileTree(files)
-  const toggleDirectory = (path: string): void => {
-    setExpandedPaths((current) => {
-      const next = new Set(current)
-      if (next.has(path)) next.delete(path)
-      else next.add(path)
-      return next
-    })
-  }
-
-  return (
-    <ul aria-label='Git files in tree view' className='git-file-list git-file-tree' role='tree'>
-      <GitFileTreeBranch
-        discardDisabled={discardDisabled}
-        expandedPaths={expandedPaths}
-        level={1}
-        node={root}
-        onDiscard={onDiscard}
-        onSelect={onSelect}
-        onToggleDirectory={toggleDirectory}
-        parentPath=''
-      />
-    </ul>
-  )
-}
-
-function buildGitFileTree(files: readonly GitFileChange[]): GitFileTreeNode {
-  const root: GitFileTreeNode = { children: new Map(), files: [] }
-  for (const file of files) {
-    const segments = file.path.split(/[\\/]/)
-    const filename = segments.pop()
-    if (!filename) continue
-    let node = root
-    for (const segment of segments) {
-      let child = node.children.get(segment)
-      if (!child) {
-        child = { children: new Map(), files: [] }
-        node.children.set(segment, child)
-      }
-      node = child
-    }
-    node.files.push(file)
-  }
-  return root
-}
-
-function GitFileTreeBranch({
-  discardDisabled,
-  expandedPaths,
-  level,
-  node,
-  onDiscard,
-  onSelect,
-  onToggleDirectory,
-  parentPath,
-}: {
-  discardDisabled?: boolean
-  expandedPaths: ReadonlySet<string>
-  level: number
-  node: GitFileTreeNode
-  onDiscard?: (path: string) => void
-  onSelect: (path: string, pin: boolean) => void
-  onToggleDirectory: (path: string) => void
-  parentPath: string
-}) {
-  return (
-    <>
-      {[...node.children].map(([name, child]) => {
-        const path = parentPath ? `${parentPath}/${name}` : name
-        const expanded = expandedPaths.has(path)
-        return (
-          <li
-            aria-expanded={expanded}
-            aria-level={level}
-            className='git-file-tree-directory'
-            key={path}
-            role='treeitem'
-          >
-            <button
-              className='git-file-tree-row'
-              onClick={() => onToggleDirectory(path)}
-              type='button'
-            >
-              <span aria-hidden='true'>{expanded ? '⌄' : '›'}</span>
-              <span aria-hidden='true'>{expanded ? '▾' : '▸'}</span>
-              <span title={name}>{name}</span>
-            </button>
-            {expanded && (
-              <ul className='git-file-tree-children' role='group'>
-                <GitFileTreeBranch
-                  discardDisabled={discardDisabled}
-                  expandedPaths={expandedPaths}
-                  level={level + 1}
-                  node={child}
-                  onDiscard={onDiscard}
-                  onSelect={onSelect}
-                  onToggleDirectory={onToggleDirectory}
-                  parentPath={path}
-                />
-              </ul>
-            )}
-          </li>
-        )
-      })}
-      {node.files.map((file) => (
-        <li
-          aria-level={level}
-          className='git-file-item'
-          key={file.path}
-          role='treeitem'
-        >
-          {file.status === 'added' || file.status === 'modified' || file.status === 'deleted'
-            ? (
-              <button
-                className='git-file-button'
-                onClick={(event) => onSelect(file.path, event.detail === 2)}
-                type='button'
-              >
-                <GitFileRow file={file} />
-              </button>
-            )
-            : <GitFileRow file={file} />}
-          {onDiscard && (
-            <Tooltip label={`Discard changes to ${file.path}`}>
-              <button
-                aria-label={`Discard changes to ${file.path}`}
-                className='git-file-discard'
-                disabled={discardDisabled}
-                onClick={() => onDiscard(file.path)}
-                type='button'
-              >
-                ↶
-              </button>
-            </Tooltip>
-          )}
-        </li>
-      ))}
-    </>
-  )
-}
-
 function gitViewLabel(view: GitView): string {
   return { changes: 'Changes', outgoing: 'Outgoing', history: 'History' }[view]
 }
@@ -780,41 +561,4 @@ function GitHistoryList({ commits }: { commits: readonly GitHistoryCommit[] }) {
       </ul>
     </section>
   )
-}
-
-/** Displays common file metadata in Git lists. */
-function GitFileRow({ file }: { file: GitSnapshot['files'][number] }) {
-  const fileIcon = resolveFileIcon(file.path)
-  const statusLabel = gitStatusLabel(file.status)
-
-  return (
-    <>
-      <Tooltip hint={`${fileIcon.label} file`} label={statusLabel}>
-        <span
-          aria-label={`${statusLabel} ${fileIcon.label} file`}
-          className={`git-file-status ${file.status}`}
-          role='img'
-        >
-          <span
-            aria-hidden='true'
-            className='git-file-icon'
-            data-color={fileIcon.color}
-          >
-            {fileIcon.glyph}
-          </span>
-        </span>
-      </Tooltip>
-      <Tooltip label={file.path}>
-        <span className='git-file-path'>{file.path}</span>
-      </Tooltip>
-      <span className='git-file-counts'>
-        <b>+{file.additions ?? '—'}</b>
-        <i>−{file.deletions ?? '—'}</i>
-      </span>
-    </>
-  )
-}
-
-function gitStatusLabel(status: 'added' | 'deleted' | 'modified' | 'renamed'): string {
-  return { added: 'Added', deleted: 'Deleted', modified: 'Modified', renamed: 'Renamed' }[status]
 }
