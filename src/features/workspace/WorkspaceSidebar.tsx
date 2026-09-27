@@ -13,6 +13,7 @@ import { shubMeasurementLabel } from '../../../shared/shub-agent-session.ts'
 import { FileExplorer } from '../files/FileExplorer.tsx'
 import { GitWidget } from '../git/GitWidget.tsx'
 import type {
+  GitCommitFiles,
   GitFileDiff,
   GitOutgoingChanges,
   GitProject,
@@ -94,6 +95,7 @@ interface WorkspaceSidebarProps {
   onGitCommit: (message: string) => Promise<void>
   onGitDiscard: (path?: string) => Promise<void>
   onGitFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
+  onGitCommitFiles: (hash: string) => Promise<GitCommitFiles>
   onGitOutgoingChanges: () => Promise<GitOutgoingChanges>
   onGitOutgoingFileSelect: (path: string) => Promise<GitFileDiff>
   onGitPull: () => Promise<void>
@@ -141,6 +143,7 @@ export function WorkspaceSidebar({
   onGitCommit,
   onGitDiscard,
   onGitFileSelect,
+  onGitCommitFiles,
   onGitOutgoingChanges,
   onGitOutgoingFileSelect,
   onGitPull,
@@ -929,6 +932,7 @@ export function WorkspaceSidebar({
                 onCommit={onGitCommit}
                 onDiscard={onGitDiscard}
                 onFileSelect={onGitFileSelect}
+                onCommitFiles={onGitCommitFiles}
                 onOutgoingChanges={onGitOutgoingChanges}
                 onOutgoingFileSelect={onGitOutgoingFileSelect}
                 onOpenDiff={onOpenGitDiff}

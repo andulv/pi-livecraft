@@ -9,6 +9,7 @@ import {
   commitChanges,
   discardChanges,
   discardFileChanges,
+  getGitCommitFiles,
   getGitFileDiff,
   getGitOutgoingChanges,
   getGitOutgoingFileDiff,
@@ -163,18 +164,18 @@ test('reports, resets, and reverts unpushed commits', async () => {
 
     assert.equal(snapshot.ahead, 2)
     assert.deepEqual(snapshot.commits.map(({ hash: _hash, ...commit }) => commit), [
-      {
-        subject: 'Second local commit',
-        files: [{ path: 'second.ts', status: 'added', additions: 1, deletions: 0 }],
-      },
-      {
-        subject: 'Local commit',
-        files: [
-          { path: 'tracked.ts', status: 'modified', additions: 1, deletions: 0 },
-          { path: 'unpushed.ts', status: 'added', additions: 1, deletions: 0 },
-        ],
-      },
+      { subject: 'Second local commit' },
+      { subject: 'Local commit' },
     ])
+    assert.deepEqual(await getGitCommitFiles(directory, snapshot.commits[0]!.hash), {
+      files: [{ path: 'second.ts', status: 'added', additions: 1, deletions: 0 }],
+    })
+    assert.deepEqual(await getGitCommitFiles(directory, snapshot.commits[1]!.hash), {
+      files: [
+        { path: 'tracked.ts', status: 'modified', additions: 1, deletions: 0 },
+        { path: 'unpushed.ts', status: 'added', additions: 1, deletions: 0 },
+      ],
+    })
     assert.match(snapshot.commits[0]?.hash ?? '', /^[0-9a-f]{40}$/)
     assert.deepEqual(snapshot.history.map(({ subject }) => subject), [
       'Second local commit',
@@ -460,6 +461,9 @@ test('lists local commits when there is no upstream or remote', async () => {
     assert.equal(snapshot.repository, true)
     assert.equal(snapshot.ahead, 2)
     assert.deepEqual(snapshot.commits.map((commit) => commit.subject), ['Second', 'First'])
+    assert.deepEqual(await getGitCommitFiles(directory, snapshot.commits[1]!.hash), {
+      files: [{ path: 'a.ts', status: 'added', additions: 1, deletions: 0 }],
+    })
   } finally {
     await rm(directory, { force: true, recursive: true })
   }

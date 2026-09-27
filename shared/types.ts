@@ -59,9 +59,13 @@ export interface GitFileChange {
   deletions: number | null
 }
 
-export interface GitCommit {
+export interface GitCommitSummary {
   hash: string
   subject: string
+}
+
+/** Changed files for one commit, loaded only when its row is expanded. */
+export interface GitCommitFiles {
   files: GitFileChange[]
 }
 
@@ -89,7 +93,7 @@ export interface GitSnapshot {
   /** Commits on the base branch that are not on this worktree branch. */
   baseBehind: number
   /** Commits not yet pushed to the tracked remote branch. */
-  commits: GitCommit[]
+  commits: GitCommitSummary[]
   /** The 20 most recent commits reachable from HEAD. */
   history: GitHistoryCommit[]
 }

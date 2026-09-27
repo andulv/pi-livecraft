@@ -2,7 +2,8 @@ import { spawn } from 'node:child_process'
 import { readFile, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type {
-  GitCommit,
+  GitCommitFiles,
+  GitCommitSummary,
   GitFileChange,
   GitFileDiff,
   GitHistoryCommit,
@@ -212,7 +213,8 @@ export async function getGitFileDiff(
   const snapshot = await getGitSnapshot(cwd)
   if (commitHash) {
     const commit = snapshot.commits.find(({ hash }) => hash === commitHash)
-    const file = commit?.files.find((change) => change.path === path)
+    const { files } = commit ? await getGitCommitFiles(cwd, commitHash) : { files: [] }
+    const file = files.find((change) => change.path === path)
     if (
       !file || (file.status !== 'added' && file.status !== 'modified' && file.status !== 'deleted')
     )
@@ -313,50 +315,55 @@ async function outgoingComparison(cwd: string): Promise<{ base: string; files: G
   }
 }
 
-/** Lists the commits in `revisions` (e.g. `@{upstream}..HEAD`) and each commit's files. */
-async function unpushedCommits(cwd: string, revisions: string[]): Promise<GitCommit[]> {
+/** Lists unpushed commit summaries without running Git once per commit. */
+async function unpushedCommits(cwd: string, revisions: string[]): Promise<GitCommitSummary[]> {
   const result = await runGit(cwd, ['log', '--format=%H%x00%s%x00', ...revisions])
   const fields = result.stdout.split('\0')
-  const commits: GitCommit[] = []
+  const commits: GitCommitSummary[] = []
 
   for (let index = 0; index < fields.length - 1; index += 2) {
     const hash = fields[index].trim()
     const subject = fields[index + 1]
     if (!hash) continue
-    commits.push({ hash, subject, files: [] })
+    commits.push({ hash, subject })
   }
 
-  await Promise.all(commits.map(async (commit) => {
-    const [status, stats] = await Promise.all([
-      runGit(cwd, [
-        'diff-tree',
-        '--no-commit-id',
-        '--name-status',
-        '-r',
-        '-m',
-        '--first-parent',
-        '-z',
-        commit.hash,
-      ]),
-      runGit(cwd, [
-        'diff-tree',
-        '--no-commit-id',
-        '--numstat',
-        '-r',
-        '-m',
-        '--first-parent',
-        '-z',
-        commit.hash,
-      ]),
-    ])
-    const counts = mergeNumstats(stats.stdout)
-    commit.files = parseGitNameStatus(status.stdout).map((change) => {
+  return commits
+}
+
+/** Resolves the files of only the commit the user opened. */
+export async function getGitCommitFiles(cwd: string, hash: string): Promise<GitCommitFiles> {
+  const [status, stats] = await Promise.all([
+    runGit(cwd, [
+      'diff-tree',
+      '--no-commit-id',
+      '--name-status',
+      '-r',
+      '-m',
+      '--root',
+      '--first-parent',
+      '-z',
+      hash,
+    ]),
+    runGit(cwd, [
+      'diff-tree',
+      '--no-commit-id',
+      '--numstat',
+      '-r',
+      '-m',
+      '--root',
+      '--first-parent',
+      '-z',
+      hash,
+    ]),
+  ])
+  const counts = mergeNumstats(stats.stdout)
+  return {
+    files: parseGitNameStatus(status.stdout).map((change) => {
       const count = counts.get(change.path)
       return { ...change, additions: count?.additions ?? null, deletions: count?.deletions ?? null }
-    })
-  }))
-
-  return commits
+    }),
+  }
 }
 
 /** Lists the 20 most recent commits reachable from HEAD without loading their file details. */

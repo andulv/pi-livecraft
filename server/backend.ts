@@ -10,6 +10,7 @@ import {
   commitChanges,
   discardChanges,
   discardFileChanges,
+  getGitCommitFiles,
   getGitFileDiff,
   getGitOutgoingChanges,
   getGitOutgoingFileDiff,
@@ -419,6 +420,15 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     const project = await getGitProject(cwd)
     if (!project) throw new HttpError(400, 'Choose a directory inside a Git repository.')
     sendJson(response, 200, project)
+    return
+  }
+
+  if (method === 'GET' && url.pathname === '/api/git/commit-files') {
+    const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
+    const hash = url.searchParams.get('hash')
+    if (!hash || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(hash))
+      throw new HttpError(400, 'A full commit hash is required')
+    sendJson(response, 200, await getGitCommitFiles(cwd, hash))
     return
   }
 

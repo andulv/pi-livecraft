@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Tooltip } from '../../components/Tooltip.tsx'
 import type {
+  GitCommitFiles,
   GitFileChange,
   GitFileDiff,
   GitHistoryCommit,
@@ -16,6 +17,10 @@ import { WidgetLayout } from '../right-sidebar/WidgetLayout.tsx'
 /** Local git-error target — which element to shake on failure. */
 type ErrorTarget = 'pull' | 'push' | 'commit' | 'discard' | 'refresh'
 type GitView = 'changes' | 'outgoing' | 'history'
+type CommitFilesState =
+  | { state: 'loading' }
+  | { state: 'loaded'; files: GitFileChange[] }
+  | { state: 'error' }
 
 /** Owns Git-specific actions and opens selected diffs in the viewer pane. */
 export function GitWidget(
@@ -24,6 +29,7 @@ export function GitWidget(
     onCommit,
     onDiscard,
     onFileSelect,
+    onCommitFiles,
     onOutgoingChanges,
     onOutgoingFileSelect,
     onOpenDiff,
@@ -37,6 +43,7 @@ export function GitWidget(
     onCommit: (message: string) => Promise<void>
     onDiscard: (path?: string) => Promise<void>
     onFileSelect: (path: string, commitHash?: string) => Promise<GitFileDiff>
+    onCommitFiles: (hash: string) => Promise<GitCommitFiles>
     onOutgoingChanges: () => Promise<GitOutgoingChanges>
     onOutgoingFileSelect: (path: string) => Promise<GitFileDiff>
     onOpenDiff: (
@@ -61,6 +68,8 @@ export function GitWidget(
   const [busy, setBusy] = useState(false)
   const [exitingCommits, setExitingCommits] = useState<ReadonlySet<string>>(new Set())
   const [outgoingFiles, setOutgoingFiles] = useState<GitOutgoingChanges['files'] | null>(null)
+  const [commitFiles, setCommitFiles] = useState<Record<string, CommitFilesState>>({})
+  const pendingCommitFilesRef = useRef(new Set<string>())
   const [fileTreeView, setFileTreeView] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [errorTarget, setErrorTarget] = useState<ErrorTarget | null>(null)
@@ -111,6 +120,22 @@ export function GitWidget(
     } catch (error) {
       reportError(error)
     }
+  }
+
+  /** Expanding a commit loads its files once, without blocking the initial Git snapshot. */
+  function loadCommitFiles(hash: string): void {
+    if (pendingCommitFilesRef.current.has(hash) || commitFiles[hash]?.state === 'loaded') return
+    pendingCommitFilesRef.current.add(hash)
+    setCommitFiles((current) => ({ ...current, [hash]: { state: 'loading' } }))
+    void onCommitFiles(hash)
+      .then(({ files }) => {
+        setCommitFiles((current) => ({ ...current, [hash]: { state: 'loaded', files } }))
+      })
+      .catch((error) => {
+        setCommitFiles((current) => ({ ...current, [hash]: { state: 'error' } }))
+        reportError(error)
+      })
+      .finally(() => pendingCommitFilesRef.current.delete(hash))
   }
 
   /** Loads the aggregate changed-file list for all outgoing commits. */
@@ -477,73 +502,92 @@ export function GitWidget(
                       </ul>
                     )
                 )}
-                {!outgoingFiles && snapshot.commits.map((commit, index) => (
-                  <div
-                    className={`git-commit${exitingCommits.has(commit.hash) ? ' exiting' : ''}`}
-                    key={commit.hash}
-                  >
-                    <details>
-                      <summary>
-                        <Tooltip label={commit.subject}>
-                          <code>{commit.hash.slice(0, 7)}</code>
-                          <span>{commit.subject}</span>
-                        </Tooltip>
-                      </summary>
-                      {commit.files.length > 0
-                        ? (
-                          <ul className='git-file-list git-commit-files'>
-                            {commit.files.map((file) => (
-                              <li
-                                className='git-file-item'
-                                key={file.path}
-                              >
-                                {file.status === 'added' || file.status === 'modified'
-                                    || file.status === 'deleted'
-                                  ? (
-                                    <button
-                                      className='git-file-button'
-                                      onClick={(event) =>
-                                        void selectFile(file.path, commit.hash, event.detail === 2)}
-                                      type='button'
-                                    >
-                                      <GitFileRow file={file} />
-                                    </button>
-                                  )
-                                  : <GitFileRow file={file} />}
-                              </li>
-                            ))}
-                          </ul>
-                        )
-                        : <p className='git-empty'>No files modified.</p>}
-                    </details>
-                    <div className='git-commit-actions'>
-                      <Tooltip label='Revert this commit'>
-                        <button
-                          aria-label={`Revert commit ${commit.hash.slice(0, 7)}`}
-                          className='git-commit-action git-revert'
-                          disabled={busy}
-                          onClick={() => void revertCommit(commit.hash)}
-                          type='button'
-                        >
-                          ↶
-                        </button>
-                      </Tooltip>
-                      {index === 0 && (
-                        <Tooltip label='Reset this commit'>
+                {!outgoingFiles && snapshot.commits.map((commit, index) => {
+                  const filesState = commitFiles[commit.hash]
+                  return (
+                    <div
+                      className={`git-commit${exitingCommits.has(commit.hash) ? ' exiting' : ''}`}
+                      key={commit.hash}
+                    >
+                      <details
+                        onToggle={(event) => {
+                          if (event.currentTarget.open) loadCommitFiles(commit.hash)
+                        }}
+                      >
+                        <summary>
+                          <Tooltip label={commit.subject}>
+                            <code>{commit.hash.slice(0, 7)}</code>
+                            <span>{commit.subject}</span>
+                          </Tooltip>
+                        </summary>
+                        {filesState?.state === 'loaded' && filesState.files.length > 0
+                          ? (
+                            <ul className='git-file-list git-commit-files'>
+                              {filesState.files.map((file) => (
+                                <li
+                                  className='git-file-item'
+                                  key={file.path}
+                                >
+                                  {file.status === 'added' || file.status === 'modified'
+                                      || file.status === 'deleted'
+                                    ? (
+                                      <button
+                                        className='git-file-button'
+                                        onClick={(event) =>
+                                          void selectFile(
+                                            file.path,
+                                            commit.hash,
+                                            event.detail === 2,
+                                          )}
+                                        type='button'
+                                      >
+                                        <GitFileRow file={file} />
+                                      </button>
+                                    )
+                                    : <GitFileRow file={file} />}
+                                </li>
+                              ))}
+                            </ul>
+                          )
+                          : (
+                            <p className='git-empty'>
+                              {filesState?.state === 'loaded'
+                                ? 'No files modified.'
+                                : filesState?.state === 'error'
+                                ? 'Could not load files. Close and reopen to retry.'
+                                : 'Loading files…'}
+                            </p>
+                          )}
+                      </details>
+                      <div className='git-commit-actions'>
+                        <Tooltip label='Revert this commit'>
                           <button
-                            aria-label={`Reset commit ${commit.hash.slice(0, 7)}`}
-                            className='git-commit-action git-reset'
+                            aria-label={`Revert commit ${commit.hash.slice(0, 7)}`}
+                            className='git-commit-action git-revert'
                             disabled={busy}
-                            onClick={() => void resetCommit(commit.hash)}
+                            onClick={() => void revertCommit(commit.hash)}
                             type='button'
                           >
-                            🗑︎
+                            ↶
                           </button>
                         </Tooltip>
-                      )}
+                        {index === 0 && (
+                          <Tooltip label='Reset this commit'>
+                            <button
+                              aria-label={`Reset commit ${commit.hash.slice(0, 7)}`}
+                              className='git-commit-action git-reset'
+                              disabled={busy}
+                              onClick={() => void resetCommit(commit.hash)}
+                              type='button'
+                            >
+                              🗑︎
+                            </button>
+                          </Tooltip>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </section>
             )
             : <p className='git-empty'>No commits to push.</p>

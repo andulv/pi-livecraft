@@ -8,7 +8,7 @@ The Git widget keeps the state of the current repository beside the conversation
 - a count on Pull when its local tracking ref reports commits waiting;
 - added, modified, deleted, and renamed files, with line counts when Git provides them;
 - a line-numbered textual diff for added and modified files;
-- commits ahead of the tracked remote branch, including their subject and changed files, plus an aggregate changed-file list against the integration branch;
+- commits ahead of the tracked remote branch, with their subjects in the initial snapshot and changed files loaded only when a commit is expanded, plus an aggregate changed-file list against the integration branch;
 - the 20 most recent commits reachable from `HEAD`, shown as compact summaries;
 - action errors without closing the panel or losing the current selection.
 
@@ -30,7 +30,7 @@ Discard, reset, and revert ask for confirmation. Discard is destructive and can 
 
 ## Ownership and data flow
 
-`App.tsx` loads and mutates Git state through `src/api.ts`. `GitWidget` owns its commit message, busy state, and action errors; selecting an eligible file opens its diff in the shared file viewer. Public response shapes live in `shared/types.ts`.
+`App.tsx` loads and mutates Git state through `src/api.ts`. `GitWidget` owns its commit message, busy state, action errors, and on-demand commit-file cache; selecting an eligible file opens its diff in the shared file viewer. Public response shapes live in `shared/types.ts`.
 
 The [Git backend capability](/server/features/git/README.md) runs the validated Git commands in the selected workspace. Unified diff parsing remains pure in `git-diff.ts`.
 

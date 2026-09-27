@@ -12,6 +12,7 @@ import type {
   BrowserSystemDebugSnapshot,
   BrowserViewport,
   DirectoryListing,
+  GitCommitFiles,
   GitFileDiff,
   GitOutgoingChanges,
   GitProject,
@@ -200,6 +201,12 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
 /** Resolves a Git repository to its main checkout and every linked worktree. */
 export async function getGitProject(cwd: string): Promise<GitProject> {
   return request<GitProject>(`/api/git/project?cwd=${encodeURIComponent(cwd)}`)
+}
+
+export async function getGitCommitFiles(cwd: string, hash: string): Promise<GitCommitFiles> {
+  return request<GitCommitFiles>(
+    `/api/git/commit-files?cwd=${encodeURIComponent(cwd)}&hash=${encodeURIComponent(hash)}`,
+  )
 }
 
 export async function getGitOutgoingChanges(cwd: string): Promise<GitOutgoingChanges> {
