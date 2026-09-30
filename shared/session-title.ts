@@ -1,3 +1,7 @@
+/** Display placeholder for a session without a persisted or derivable title. It is never
+ *  persisted: a session carrying it is simply unnamed. */
+export const placeholderSessionTitle = 'New session'
+
 /** Derives the fallback session title from a user message.
  *  This is the single rule shared by the persisted-session scan and the browser's
  *  immediate row title, so a title never changes when a refresh replaces it:

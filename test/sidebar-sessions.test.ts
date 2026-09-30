@@ -5,6 +5,7 @@ import {
   compareWorkspaces,
   shubAgentMarker,
   newestWorkspaceSession,
+  reconcileSessionNames,
   reusableNewSession,
   sidebarSessions,
   workspaceActivity,
@@ -213,4 +214,43 @@ test('reuses the live process for the newest session', () => {
 
 test('returns no target for an empty workspace', () => {
   assert.equal(newestWorkspaceSession([], []), null)
+})
+
+test('reconciles session titles without letting a stale scan regress them', () => {
+  const live = (id: string, name: string): SessionSummary => ({
+    id,
+    cwd: '/workspace',
+    name,
+    sessionPath: `/sessions/${id}.jsonl`,
+    status: 'idle',
+    pendingUi: [],
+  })
+  const scanned = (id: string, name: string): RecentSession => ({
+    ...persisted,
+    id,
+    name,
+    sessionPath: `/sessions/${id}.jsonl`,
+  })
+  const result = reconcileSessionNames(
+    [live('evented', 'New session'), live('named', 'Live name'), live('unnamed', 'New session')],
+    [
+      scanned('evented', 'New session'),
+      scanned('named', 'Stale scan'),
+      scanned('unnamed', 'Derived prompt'),
+      scanned('closed', 'Closed session'),
+    ],
+    // The event arrived while this refresh was in flight, so both views predate it.
+    new Map([['/sessions/evented.jsonl', 'Event name']]),
+  )
+  assert.deepEqual(result.sessions.map(({ name }) => name), [
+    'Event name',
+    'Live name',
+    'Derived prompt',
+  ])
+  assert.deepEqual(result.recentSessions.map(({ name }) => name), [
+    'Event name',
+    'Live name',
+    'Derived prompt',
+    'Closed session',
+  ])
 })

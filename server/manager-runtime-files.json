@@ -8,6 +8,7 @@
     "server/prompt-improvement.ts",
     "server/run-isolated-prompt.ts",
     "shared/browser-port.ts",
-    "shared/is-object.ts"
+    "shared/is-object.ts",
+    "shared/session-title.ts"
   ]
 }

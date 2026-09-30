@@ -1,4 +1,5 @@
 import type { GitWorkspace, RecentSession, SessionSummary } from '../../../shared/types.ts'
+import { placeholderSessionTitle } from '../../../shared/session-title.ts'
 
 export interface SessionActionTarget {
   cwd: string
@@ -79,6 +80,43 @@ export function sidebarSessions(
   return ordinary.flatMap((owner) => [owner, ...(childrenByOwner.get(owner.id) ?? [])])
 }
 
+/**
+ * Chooses one title per session across a refresh's live and persisted views.
+ *
+ * Pi's persisted name is the only title authority; these views are projections of it that
+ * can be stale. Precedence: a name learned from a manager event (`eventNames`, keyed by
+ * session path or id) beats the refresh, which may have started before that event; a
+ * non-placeholder live manager name beats the filesystem scan; the scan fills unnamed live
+ * sessions. The chosen name is written into both views because the sidebar renders
+ * persisted rows.
+ */
+export function reconcileSessionNames(
+  sessions: SessionSummary[],
+  recentSessions: RecentSession[],
+  eventNames: ReadonlyMap<string, string>,
+): { sessions: SessionSummary[]; recentSessions: RecentSession[] } {
+  const eventName = (key: string | undefined): string | undefined => {
+    const name = key === undefined ? undefined : eventNames.get(key)
+    return name === placeholderSessionTitle ? undefined : name
+  }
+  const scannedNames = new Map(recentSessions.map(({ sessionPath, name }) => [sessionPath, name]))
+  const liveNames = new Map<string, string>()
+  const reconciledSessions = sessions.map((session) => {
+    const live = session.name === placeholderSessionTitle ? undefined : session.name
+    const name = eventName(session.sessionPath) ?? eventName(session.id) ?? live
+      ?? (session.sessionPath ? scannedNames.get(session.sessionPath) : undefined)
+      ?? session.name
+    if (session.sessionPath && name !== placeholderSessionTitle)
+      liveNames.set(session.sessionPath, name)
+    return name === session.name ? session : { ...session, name }
+  })
+  const reconciledRecent = recentSessions.map((recent) => {
+    const name = eventName(recent.sessionPath) ?? liveNames.get(recent.sessionPath) ?? recent.name
+    return name === recent.name ? recent : { ...recent, name }
+  })
+  return { sessions: reconciledSessions, recentSessions: reconciledRecent }
+}
+
 /** Finds a live, message-free session that can satisfy the new-session action. */
 export function reusableNewSession(
   sessions: SessionSummary[],
@@ -88,7 +126,7 @@ export function reusableNewSession(
   const persistedPaths = new Set(recentSessions.map(({ sessionPath }) => sessionPath))
   return sessions.find((session) =>
     session.cwd === workspacePath
-    && session.name === 'New session'
+    && session.name === placeholderSessionTitle
     && session.status !== 'exited'
     && (!session.sessionPath || !persistedPaths.has(session.sessionPath))
   ) ?? null

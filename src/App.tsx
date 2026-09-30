@@ -52,6 +52,7 @@ import type {
   SessionSummary,
 } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
+import { placeholderSessionTitle } from '../shared/session-title.ts'
 import { ChatTopBar } from './features/composer/status-bar/ChatTopBar.tsx'
 import { Composer } from './features/composer/Composer.tsx'
 import { ToastStack, type Toast } from './features/notifications/ToastStack.tsx'
@@ -504,7 +505,6 @@ function LivecraftProjectApp(
     sentSessions,
     sessionLoadError,
     sessions,
-    titleSessionFromPrompt,
     setSelectedId,
     selectWorkspace,
     startAndSelectSession: startWorkspaceSession,
@@ -954,7 +954,7 @@ function LivecraftProjectApp(
       if (event.type === 'session_info_changed') {
         const name = typeof event.name === 'string' && event.name.trim()
           ? event.name.trim()
-          : 'New session'
+          : placeholderSessionTitle
         renameSession(sessionId, name)
       }
       if (event.type === 'agent_start') updateSession(sessionId, { status: 'running' })
@@ -1215,10 +1215,7 @@ function LivecraftProjectApp(
       const optimisticId = !isSteering && !isCommand ? addOptimisticUserMessage(message) : undefined
       try {
         await sendPiCommand(selectedId, command)
-        if (!isCommand) {
-          retainNewSession(selectedId)
-          titleSessionFromPrompt(selectedId, message)
-        }
+        if (!isCommand) retainNewSession(selectedId)
         setScrollToBottomRequest((current) => current + 1)
       } catch (cause) {
         if (optimisticId) removeLiveMessage(optimisticId)
@@ -1235,7 +1232,6 @@ function LivecraftProjectApp(
       selectedId,
       selectedSessionIsShubAgent,
       selectedSessionStatus,
-      titleSessionFromPrompt,
     ],
   )
   /** Retracts one queued steering message while preserving the rest of Pi's queues. */

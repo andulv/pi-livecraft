@@ -1,6 +1,6 @@
 # Session title authority refactor
 
-Status: **implementation plan — not implemented**. This plan replaces frontend-only
+Status: **implemented** (2026-09-30). Deviations: the frontend reconciliation is the pure `reconcileSessionNames` rule plus an event-name overlay; the session scan also reads forward past its head chunk, because Pi 0.87 persists a large system-prompt entry before the first prompt; a reopened unnamed session persists its scan-derived first-prompt title. This plan replaces frontend-only
 auto-naming with one durable Pi-owned title flow. It intentionally includes the
 frontend reconciliation work required to prevent stale session scans from regressing a
 newer live title.

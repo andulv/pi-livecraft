@@ -282,6 +282,56 @@ test('uses the first non-command user prompt and hides sessions without messages
   assert.equal(recent[0].name, 'One two three four five six seven eight…')
 })
 
+test('finds the first prompt beyond the head chunk when Pi stored no name', async () => {
+  const { directory, workspace } = await fixture()
+  const folder = workspaceSessionDir(workspace, directory)
+  await mkdir(folder, { recursive: true })
+  const header = (id: string) =>
+    JSON.stringify({
+      type: 'session',
+      version: 3,
+      id,
+      timestamp: '2026-09-30T09:00:00.000Z',
+      cwd: workspace,
+    })
+  // Pi 0.87+ persists its full system prompt as a system message before the first prompt.
+  await writeFile(
+    join(folder, 'system-first.jsonl'),
+    [
+      header('system-first'),
+      JSON.stringify({
+        type: 'message',
+        message: { role: 'system', content: '', sections: { preamble: 'x'.repeat(30 * 1024) } },
+      }),
+      JSON.stringify({
+        type: 'message',
+        message: { role: 'user', content: 'Behind the system prompt' },
+      }),
+    ]
+      .join('\n') + '\n',
+  )
+  // A pasted image makes the first user line far larger than the head chunk.
+  await writeFile(
+    join(folder, 'image-first.jsonl'),
+    [
+      header('image-first'),
+      JSON.stringify({
+        type: 'message',
+        message: {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Look at this screenshot' },
+            { type: 'image', mimeType: 'image/png', data: 'A'.repeat(300 * 1024) },
+          ],
+        },
+      }),
+    ]
+      .join('\n') + '\n',
+  )
+  const names = (await listRecentPiSessions(workspace, directory)).map(({ name }) => name).sort()
+  assert.deepEqual(names, ['Behind the system prompt', 'Look at this screenshot'])
+})
+
 test('finds a rename buried deep in a large session', async () => {
   const { directory, workspace } = await fixture()
   const folder = workspaceSessionDir(workspace, directory)

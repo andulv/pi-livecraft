@@ -17,6 +17,7 @@ import {
 } from './prompt-improvement.ts'
 import { runIsolatedPrompt } from './run-isolated-prompt.ts'
 import { isObject } from '../shared/is-object.ts'
+import { fallbackSessionTitle, placeholderSessionTitle } from '../shared/session-title.ts'
 import type {
   JsonObject,
   ManagerEvent,
@@ -47,6 +48,8 @@ let activeRequests = 0
 
 interface ManagedSession {
   summary: SessionSummary
+  /** Whether Pi holds a persisted session name; unnamed sessions get a fallback title. */
+  named: boolean
   pi: PiProcess
   pendingUi: Map<string, JsonObject>
   inFlightRequests: number
@@ -211,7 +214,7 @@ async function createSession(request: ManagerRequest): Promise<SessionSummary> {
   const summary: SessionSummary = {
     id: randomUUID(),
     cwd,
-    name: 'New session',
+    name: placeholderSessionTitle,
     status: 'starting',
     pendingUi: [],
   }
@@ -306,6 +309,7 @@ async function renameSession(request: ManagerRequest): Promise<{ name: string }>
     if (managed.switching) throw new Error('Pi session is switching')
     await requestPi(managed, { type: 'set_session_name', name })
     managed.summary.name = name
+    managed.named = true
     return { name }
   }
 
@@ -338,6 +342,7 @@ async function startSession(summary: SessionSummary): Promise<void> {
   const pi = new PiProcess(summary.cwd, summary.id, summary.sessionPath)
   const session: ManagedSession = {
     summary,
+    named: false,
     pi,
     pendingUi: new Map(),
     inFlightRequests: 0,
@@ -365,6 +370,7 @@ async function startSession(summary: SessionSummary): Promise<void> {
       ? state.data.sessionFile
       : undefined
     if (sessionPath) summary.sessionPath = sessionPath
+    session.named = hasPersistedName(state)
     markSessionIdle(session)
   } catch (error) {
     sessions.delete(summary.id)
@@ -418,6 +424,7 @@ async function reuseSession(session: ManagedSession, summary: SessionSummary): P
 
     sessions.delete(previousSessionId)
     session.summary = summary
+    session.named = hasPersistedName(state)
     session.pendingUi.clear()
     markSessionIdle(session, true)
     sessions.set(summary.id, session)
@@ -437,6 +444,35 @@ async function reuseSession(session: ManagedSession, summary: SessionSummary): P
     return false
   } finally {
     session.switching = false
+  }
+}
+
+/** Reads whether a `get_state` response reports a persisted session name. */
+function hasPersistedName(state: JsonObject): boolean {
+  return isObject(state.data) && typeof state.data.sessionName === 'string'
+    && state.data.sessionName.trim() !== ''
+}
+
+/**
+ * Persists a deterministic title through Pi after an unnamed session accepts an ordinary
+ * prompt, making Pi's `session_info` the single title authority. A reopened unnamed session
+ * keeps the title the session scan already derived from its first prompt; a new session is
+ * titled from this prompt. Naming failures are logged and never fail the accepted prompt.
+ */
+async function nameUnnamedSession(session: ManagedSession, command: JsonObject): Promise<void> {
+  if (session.named || command.type !== 'prompt' || typeof command.message !== 'string') return
+  const message = command.message.trim()
+  if (!message || message.startsWith('/')) return
+  const current = session.summary.name
+  const name = current !== placeholderSessionTitle ? current : fallbackSessionTitle(message)
+  if (!name) return
+  // Claimed before awaiting so a concurrent steering prompt cannot issue a second name.
+  session.named = true
+  try {
+    await requestPi(session, { type: 'set_session_name', name })
+  } catch (error) {
+    session.named = false
+    console.error(`Pi manager could not name session ${session.summary.id}: ${errorMessage(error)}`)
   }
 }
 
@@ -561,7 +597,9 @@ async function sendCommand(request: ManagerRequest): Promise<JsonObject> {
       if (!isObject(state.data) || typeof state.data.sessionFile !== 'string')
         throw new Error('Pi returned an invalid session file after forking')
       session.summary.sessionPath = state.data.sessionFile
+      session.named = hasPersistedName(state)
     }
+    await nameUnnamedSession(session, request.command)
     if (!startsAgent && session.summary.status === 'idle' && session.pendingUi.size === 0)
       markSessionIdle(session, true)
     return response
@@ -577,9 +615,9 @@ function handlePiEvent(session: ManagedSession, event: JsonObject): void {
     return
   }
   if (event.type === 'session_info_changed') {
-    session.summary.name = typeof event.name === 'string' && event.name.trim()
-      ? event.name.trim()
-      : 'New session'
+    const name = typeof event.name === 'string' ? event.name.trim() : ''
+    session.summary.name = name || placeholderSessionTitle
+    session.named = name !== ''
   }
   if (event.type === 'agent_start') markSessionRunning(session)
   if (event.type === 'agent_settled') markSessionIdle(session, true)

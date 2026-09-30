@@ -31,10 +31,11 @@ import {
   writeWorkspaceSessionSelections,
 } from './workspace-session-state.ts'
 import type { Project } from './projects.ts'
-import { fallbackSessionTitle } from '../../../shared/session-title.ts'
+import { placeholderSessionTitle } from '../../../shared/session-title.ts'
 import {
   newestWorkspaceSession,
   nextActiveSessionId,
+  reconcileSessionNames,
   reusableNewSession,
   sidebarSessions,
   type SessionActionTarget,
@@ -136,6 +137,9 @@ export function useWorkspaceSessions(
   const transientNewSessionIdRef = useRef<string | null>(null)
   const refreshVersionRef = useRef(0)
   const autoSelectOnRefreshRef = useRef(true)
+  /** Names received from manager events, keyed by session path and id. They are applied over
+   *  every refresh result so a scan started before the event cannot regress the title. */
+  const eventNamesRef = useRef(new Map<string, string>())
   sessionsRef.current = sessions
   recentSessionsRef.current = recentSessions
   sentSessionsRef.current = sentSessions
@@ -296,15 +300,9 @@ export function useWorkspaceSessions(
           if (target) autoSelectId = await openTarget(target)
         }
       }
-      const recentNames = new Map(
-        nextRecentSessions.map((session) => [session.sessionPath, session.name]),
-      )
-      const namedSessions = nextSessions.map((session) => {
-        const recentName = session.sessionPath ? recentNames.get(session.sessionPath) : undefined
-        return recentName ? { ...session, name: recentName } : session
-      })
+      const named = reconcileSessionNames(nextSessions, nextRecentSessions, eventNamesRef.current)
       setSessionLoadError(null)
-      setSessions(namedSessions)
+      setSessions(named.sessions)
       setCompletedSessionIds((current) => {
         if (current.size === 0) return current
         const sessionKeys = new Set(
@@ -318,7 +316,7 @@ export function useWorkspaceSessions(
         )
         return next.size === current.size ? current : next
       })
-      setRecentSessions(nextRecentSessions)
+      setRecentSessions(named.recentSessions)
       setSentSessions((current) =>
         current.filter((sent) =>
           !nextRecentSessions.some((recent) =>
@@ -416,7 +414,7 @@ export function useWorkspaceSessions(
       {
         id: session.id,
         cwd: session.cwd,
-        name: session.name || 'New session',
+        name: session.name || placeholderSessionTitle,
         sessionPath,
         updatedAt: Date.now(),
       },
@@ -566,6 +564,8 @@ export function useWorkspaceSessions(
   /** Applies a manager-provided name consistently across live and recent session lists. */
   const renameSession = useCallback((sessionId: string, name: string): void => {
     const sessionPath = sessionsRef.current.find((session) => session.id === sessionId)?.sessionPath
+    eventNamesRef.current.set(sessionId, name)
+    if (sessionPath) eventNamesRef.current.set(sessionPath, name)
     setSessions((current) =>
       current.map((session) => session.id === sessionId ? { ...session, name } : session)
     )
@@ -584,20 +584,6 @@ export function useWorkspaceSessions(
       current.map((session) => session.sessionPath === sessionPath ? { ...session, name } : session)
     )
   }, [])
-
-  /** Titles an unnamed session from its first successful user message, using the
-   *  same rule as the persisted-session scan so the row is stable across refreshes. */
-  const titleSessionFromPrompt = useCallback(
-    (sessionId: string, message: string): void => {
-      const session = sessionsRef.current.find((entry) => entry.id === sessionId)
-      if (!session || session.name !== 'New session') return
-      const trimmed = message.trim()
-      if (!trimmed || trimmed.startsWith('/')) return
-      const title = fallbackSessionTitle(trimmed)
-      if (title) renameSession(sessionId, title)
-    },
-    [renameSession],
-  )
 
   /** Renames through the persisted-session RPC so the name survives new browser tabs. */
   const renameManagedSession = useCallback(
@@ -713,7 +699,6 @@ export function useWorkspaceSessions(
     selectWorkspace,
     startAndSelectSession,
     startNewSession,
-    titleSessionFromPrompt,
     toggleProjectPin,
     toggleSessionArchive,
     updateSession,

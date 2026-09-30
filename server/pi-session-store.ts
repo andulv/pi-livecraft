@@ -1,5 +1,7 @@
+import { createReadStream } from 'node:fs'
 import { readdir, open, readFile, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
+import { createInterface } from 'node:readline'
 import { isAbsolute, join, relative, sep } from 'node:path'
 import type { RecentSession } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
@@ -35,6 +37,10 @@ interface PiSessionHeader {
 const MAX_SESSIONS = 30
 const HEAD_CHUNK_BYTES = 8192
 const TAIL_CHUNK_BYTES = 16384
+/** Upper bound for the forward search for a first prompt beyond the head chunk. Pi writes a
+ *  full system prompt entry (tens of KB) before the first user message, and pasted images
+ *  make that message itself hundreds of KB, so the head chunk alone cannot find it. */
+const PROMPT_SCAN_BYTES = 4 * 1024 * 1024
 
 interface SessionTailScan {
   /** Whether a session_info entry was found; `name` is undefined when it cleared the title. */
@@ -188,10 +194,7 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
       }
       if (value.type !== 'message') continue
       hasMessage = true
-      if (prompt === undefined && isObject(value.message) && value.message.role === 'user') {
-        const content = textContent(value.message.content)
-        if (content && !content.startsWith('/')) prompt = fallbackSessionTitle(content)
-      }
+      prompt ??= promptTitle(value)
       if (typeof value.timestamp === 'string') {
         const timestamp = Date.parse(value.timestamp)
         if (!Number.isNaN(timestamp)) {
@@ -221,6 +224,9 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
   }
 
   if (!hasMessage) return null
+  // The title fallback needs the first prompt only when Pi persisted no name.
+  if (!name && prompt === undefined && size > HEAD_CHUNK_BYTES)
+    prompt = await findFirstPromptTitle(canonicalPath)
 
   // Only child runs are measured: tokens their LLM calls processed versus the
   // report size they delivered. See childSessionUsage for the cache contract.
@@ -305,6 +311,40 @@ async function scanSessionTail(
   }
   scan.reachedHead = end <= HEAD_CHUNK_BYTES
   return scan
+}
+
+/** Derives the fallback title from a user message entry with ordinary (non-command) text. */
+function promptTitle(entry: Record<string, unknown>): string | undefined {
+  if (entry.type !== 'message' || !isObject(entry.message) || entry.message.role !== 'user')
+    return undefined
+  const content = textContent(entry.message.content)
+  return content && !content.startsWith('/') ? fallbackSessionTitle(content) : undefined
+}
+
+/** Streams a session file from its start until the first ordinary user prompt, within
+ *  `PROMPT_SCAN_BYTES`, without holding more than one line in memory. */
+async function findFirstPromptTitle(path: string): Promise<string | undefined> {
+  const stream = createReadStream(path, { encoding: 'utf8' })
+  const lines = createInterface({ input: stream, crlfDelay: Infinity })
+  let scanned = 0
+  try {
+    for await (const line of lines) {
+      scanned += line.length + 1
+      if (line.includes('"user"')) {
+        const value = parseLine(line)
+        const title = value ? promptTitle(value) : undefined
+        if (title) return title
+      }
+      if (scanned > PROMPT_SCAN_BYTES) return undefined
+    }
+    return undefined
+  } catch (error) {
+    if (isNotFound(error)) return undefined
+    throw error
+  } finally {
+    lines.close()
+    stream.destroy()
+  }
 }
 
 /** Cheap pre-filter so only lines that can carry a session name or message timestamp are parsed. */

@@ -617,6 +617,72 @@ test('renames a live session through its managed Pi process', { timeout: 10_000 
   }
 })
 
+test('persists a fallback title once for unnamed sessions', { timeout: 10_000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
+  const port = 45_000 + (process.pid % 10_000)
+  await writeFakePi(directory)
+  const manager = spawn(process.execPath, ['server/manager.ts'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      PATH: `${fakePiBin(directory)}${delimiter}${process.env.PATH}`,
+      PI_LIVECRAFT_MANAGER_PORT: String(port),
+    },
+    stdio: 'ignore',
+  })
+  const client = await connectManager(port)
+  const prompt = (id: string, message: string): Promise<ManagerResponse> =>
+    client.request('command', { sessionId: id, command: { type: 'prompt', message } })
+  const names = (id: string): unknown[] =>
+    client
+      .takeEvents((event) =>
+        event.event === 'pi' && event.sessionId === id
+        && isObject(event.data) && event.data.type === 'session_info_changed'
+      )
+      .map((event) => isObject(event.data) ? event.data.name : undefined)
+  try {
+    const created = sessionId(await client.request('create', { cwd: process.cwd() }))
+    // Slash commands and image-only prompts carry no title text.
+    assert.equal((await prompt(created, '/handled')).ok, true)
+    assert.equal((await prompt(created, '  ')).ok, true)
+    assert.deepEqual(names(created), [])
+    assert.equal((await prompt(created, 'Fix the flaky login test in the auth suite')).ok, true)
+    assert.deepEqual(names(created), ['Fix the flaky login test in the auth…'])
+    assert.equal((await prompt(created, 'A later prompt must not rename')).ok, true)
+    assert.deepEqual(names(created), [])
+    assert.equal(
+      sessionName(await client.request('list', {}), created),
+      'Fix the flaky login test in the auth…',
+    )
+
+    // A reopened unnamed session persists the title the session scan already shows.
+    const reopened = sessionId(
+      await client.request('open', {
+        cwd: process.cwd(),
+        name: 'Original first prompt',
+        sessionPath: join(directory, 'unnamed.jsonl'),
+      }),
+    )
+    assert.equal((await prompt(reopened, 'Continue')).ok, true)
+    assert.deepEqual(names(reopened), ['Original first prompt'])
+
+    // A session Pi already named is left alone.
+    const named = sessionId(
+      await client.request('open', {
+        cwd: process.cwd(),
+        name: 'Persisted name',
+        sessionPath: join(directory, 'persisted-name.jsonl'),
+      }),
+    )
+    assert.equal((await prompt(named, 'Continue')).ok, true)
+    assert.deepEqual(names(named), [])
+  } finally {
+    client.close()
+    await stopProcess(manager)
+    await rm(directory, { force: true, recursive: true })
+  }
+})
+
 test('restarts an exited Pi session when reopening it', { timeout: 10_000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
   const port = 45_000 + (process.pid % 10_000)
@@ -747,6 +813,9 @@ let sessionPath = sessionArgument !== -1
   ? sessionDirectory + '/' + process.argv[sessionIdArgument + 1] + '.jsonl'
   : ''
 let createdSessionCount = 0
+// A path containing 'persisted-name' models a session file that already carries a name.
+const persistedName = (path) => path.includes('persisted-name') ? 'Persisted name' : undefined
+let sessionName = persistedName(sessionPath)
 const expectedExtensions = ${
     JSON.stringify([
       join(process.cwd(), 'pi-extensions/ask-user-question.ts'),
@@ -794,12 +863,14 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   if (!isolated && command.type === 'new_session') {
     createdSessionCount += 1
     sessionPath = sessionDirectory + '/new-' + process.pid + '-' + createdSessionCount + '.jsonl'
+    sessionName = undefined
     streaming = false
     console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: { cancelled: false } }))
     return
   }
   if (!isolated && command.type === 'switch_session') {
     sessionPath = command.sessionPath
+    sessionName = persistedName(sessionPath)
     streaming = false
     if (emitSwitchEvent) {
       console.log(JSON.stringify({ type: 'extension_ui_request', method: 'notify', message: 'Switched' }))
@@ -815,7 +886,7 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
     return
   }
   if (!isolated && command.type === 'set_session_name') {
-    if (command.name !== 'Renamed session') throw new Error('Unexpected session name')
+    sessionName = command.name
     console.log(JSON.stringify({ type: 'session_info_changed', name: command.name }))
     console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: {} }))
     return
@@ -865,7 +936,7 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
     console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data: {} }))
     return
   }
-  const data = command.type === 'get_state' ? { sessionFile: sessionPath, isStreaming: streaming, isCompacting: false, pendingMessageCount: 0 } : {}
+  const data = command.type === 'get_state' ? { sessionFile: sessionPath, sessionName, isStreaming: streaming, isCompacting: false, pendingMessageCount: 0 } : {}
   if (command.type === 'get_state' && emitStartupEvent) {
     console.log(JSON.stringify({ type: 'extension_ui_request', method: 'notify', message: 'Starting' }))
     setTimeout(() => console.log(JSON.stringify({ type: 'response', id: command.id, success: true, data })), 100)
@@ -917,6 +988,8 @@ async function connectManager(
   {
     request: (action: string, fields: Record<string, unknown>) => Promise<ManagerResponse>
     waitForEvent: (predicate: (event: ManagerEvent) => boolean) => Promise<ManagerEvent>
+    /** Removes and returns every already received event that matches. */
+    takeEvents: (predicate: (event: ManagerEvent) => boolean) => ManagerEvent[]
     close: () => void
   }
 > {
@@ -969,6 +1042,11 @@ async function connectManager(
         eventWaiters.add(check)
         check()
       })
+    },
+    takeEvents(predicate) {
+      const taken = events.filter(predicate)
+      for (const event of taken) events.splice(events.indexOf(event), 1)
+      return taken
     },
     close: () => socket.end(),
   }
