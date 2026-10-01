@@ -53,6 +53,8 @@ Findings are grouped by feature (frontend feature folder, server capability, or 
    - `src/features/workspace/useProjects.ts:21` — `listRecentSessions(path).catch(() => [])` renders an empty session list with no indication that loading failed.
 3. **Server-side unexpected errors** — `server/backend.ts` top-level `route().catch` returns `{error}` to the client but **never logs it** (the whole backend has exactly one `console.error`, for provider failures). Same in `server/manager.ts` `handleRequest`: every failure is formatted into the response and dropped. `socket.on('error', () => clients.delete(socket))` in both `manager.ts` and `manager-client.ts` (`socket.on('error', () => undefined)`).
 
+> Status 2026-10-01: partly superseded. The backend now persists uncaught exceptions, 5xx request errors, slow and anomalous operations, and stability signals to the [app log](/server/features/app-log/README.md); the frontend reports window errors, unhandled rejections, and fetch failures to it.
+
 Consequence: diagnosing a reported UI glitch requires reproducing it; nothing in the server logs records unexpected exceptions. A single shared approach — log every non-HttpError server-side, toast every rejected interactive promise in the frontend — would remove most of this class.
 
 Also missing: **no React error boundary and no `window.onerror`/`unhandledrejection` handler** anywhere in `src/`. A render error or an unhandled promise rejection in any component currently shows a blank page with zero information.

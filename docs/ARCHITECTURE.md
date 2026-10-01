@@ -29,7 +29,7 @@ server/backend.ts ─── JSON Lines over local TCP ──▶ server/manager.t
 
 Use the [`src/features/` map](/src/features/README.md) to locate frontend ownership. Features with non-obvious contracts add a short README beside their code rather than expanding this system overview.
 
-`src/api.ts` is the frontend's only HTTP and SSE boundary. It owns request encoding, error conversion, manager-event parsing and validation, and the `EventSource` subscription while leaving native reconnection intact. SSE does not replay missed Pi events: after a detected reconnect or a return from a hidden tab, the selected conversation reconciles against a Pi snapshot. A component does not communicate directly with the manager or a Pi process.
+`src/api.ts` is the frontend's only HTTP and SSE boundary. It owns request encoding, error conversion, manager-event parsing and validation, and the `EventSource` subscriptions: native retries handle a `CONNECTING` stream, and a `CLOSED` manager or terminal stream is reopened explicitly. Every stream holds one HTTP/1.1 connection for its lifetime, which counts against the browser's per-origin connection limit; see [long-lived connections](/docs/DATA-FLOW.md#long-lived-connections). SSE does not replay missed Pi events: after a detected reconnect or a return from a hidden tab, the selected conversation reconciles against a Pi snapshot. A component does not communicate directly with the manager or a Pi process.
 
 `src/App.css` orders the stylesheets. Global and responsive rules live in `src/styles/`; feature-specific rules are colocated with their feature.
 

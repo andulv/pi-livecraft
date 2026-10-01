@@ -54,6 +54,26 @@ What runs when something happens. "Per tab" work is repeated by every open Livec
 | Quota or environment reports arrive from Pi, or the widgets load or act | `quotas:mount`, `quotas:manual`, `quotas:status-report`, `quotas:after-reset`, `environment:manual`, `environment:status-report` | Cached reports; a refresh sends one prompt command to an idle session. |
 | Diagnostics or browser-debug widget open | — | Polls every 5 s (diagnostics; also reads the manager ledger) or every 2 s while visible (browser debug). |
 
+## Long-lived connections
+
+Connections are a shared resource too. The app is served over HTTP/1.1, by the Vite proxy
+in development and by the backend in production, and Chrome allows **six concurrent
+connections per origin, shared by every tab of one browser profile**. Each stream below
+holds one connection for as long as it is open; ordinary requests (snapshots, Git, input,
+client logs) share whatever remains and queue when none is free.
+
+| Stream | Route | Held by |
+|---|---|---|
+| Manager events | `GET /api/events` | every open tab, always |
+| Browser frames | `GET /api/browser/instances/:id/frames` | every visible tab showing the Browser pane; hidden tabs close it |
+| Terminal output | `GET /api/terminal/instances/:id/stream` | every tab showing an embedded terminal |
+
+Three tabs that each show the Browser pane hold all six connections, and every other
+request from any of them waits indefinitely — a view stuck loading its snapshot is the
+expected symptom. A new long-lived stream therefore needs a strong reason; prefer carrying
+its events on an existing stream. The [stability monitor](/server/features/diagnostics/README.md#stability-monitor)
+reports open streams by kind, and client drop and stall reports include each tab's own load.
+
 ## Measured hotspots
 
 Measured on 2026-10-01 with four tabs open and an agent working.

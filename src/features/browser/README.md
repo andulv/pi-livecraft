@@ -41,7 +41,9 @@ screencast as a viewer.
   session becomes live and on explicit selection, but never fights external
   viewport changes while live. The zoom control picks `Auto` (frames scale to the
   pane, with a live percentage readout) or `100%` (natural frame size, scrollable).
-- While the document is hidden, the pane closes its event stream and the debug
+- The frames stream holds one of the six HTTP/1.1 connections the browser allows per
+  origin across all tabs ([long-lived connections](/docs/DATA-FLOW.md#long-lived-connections)).
+  While the document is hidden, the pane closes its event stream and the debug
   widget stops polling; the backend then has no viewers and stops the screencast.
   Returning re-subscribes silently — the last frame stays visible until a fresh
   one replaces it (`use-document-visible.ts`), and the remembered URL is never
