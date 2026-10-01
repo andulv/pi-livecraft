@@ -9,6 +9,7 @@ Current documentation belongs here. Proposals, completed implementation plans, a
 ## Find the right place
 
 - **Understand or reshape the system:** [project architecture](/docs/ARCHITECTURE.md).
+- **Fetch data, spawn a process, scan files, or add a refresh trigger:** [data flow and expensive operations](/docs/DATA-FLOW.md).
 - **Change the frontend:** [frontend feature map](/src/features/README.md).
 - **Add a tooltip or shared UI element:** [shared components](/src/components/README.md).
 - **Modify the composer:** [step-by-step guide](/docs/HOW-TO-COMPOSER.md), then [composer reference](/src/features/composer/README.md).

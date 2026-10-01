@@ -1,0 +1,79 @@
+# Data flow and expensive operations
+
+Pi Livecraft gets slower when features each fetch what they need on their own: one UI event can then start dozens of Git processes or session-file scans, and every open tab repeats the work. This guide is the shared contract for **how data is retrieved and when**. Read it before adding a fetch, a process spawn, a file scan, a Pi RPC path, or a new trigger for an existing one.
+
+Measurements come from the [operation ledger](/server/features/diagnostics/README.md#operation-ledger): the Diagnostics widget shows live totals per operation and per `route ← cause` trigger, and `pi-livecraft-app.log` keeps slow operations, bursts, and request fan-outs.
+
+## Rules
+
+1. **The server owns expensive data.** Each resource below has one owning module. Components ask for the resource through `src/api.ts`; they do not combine cheaper calls or re-derive it.
+2. **Measure at the chokepoint.** Every process spawn, file scan, and RPC goes through `measureOperation` once, at the narrowest owning function.
+3. **Name every trigger.** A frontend call that can cause expensive work passes its own `RequestCause` (`<area>:<trigger>`). Reusing another trigger's name hides the new cost.
+4. **Share instead of repeating.** Identical concurrent reads share one in-flight execution on the server, across tabs, and repeated reads reuse a cached result until a named invalidation. Every open tab is a separate client: N tabs must not cost N times the work.
+5. **Coalesce event-driven refreshes.** A burst of events produces one refresh, and only events that can change the resource trigger it.
+6. **Pay for what changed.** Re-reads use cheap change detection (`stat`, revisions, cursors) and only reprocess changed items.
+7. **Declare a budget.** Each trigger below has an expected operation count. Non-trivial resources keep a focused test that asserts it.
+
+## Resource catalog
+
+Costs are per request. "Cache" means server-side unless stated otherwise.
+
+| Resource | Owner | Cost | Cache and sharing | Invalidated by |
+|---|---|---|---|---|
+| Git snapshot (`GET /api/git`) | `getGitSnapshot`, `server/features/git/git.ts` | ~13 `git` processes | None on the server; per tab, a stale-response guard and a 250 ms debounce for tool-end refreshes | — (recomputed on every request) |
+| Git project (`GET /api/git/project`) | `getGitProject` | 3 `git` + 1 `stat` per worktree | None | — |
+| Git diffs, outgoing changes, commit files | `getGitFileDiff`, `getGitOutgoing*`, `getGitCommitFiles` | full Git snapshot + 2–5 `git` | None | — |
+| Git mutations (commit, push, pull, reset, revert, discard) | `git.ts` | full Git snapshot + the mutation | — | — |
+| Live session list (`GET /api/sessions`) | manager `list` | 1 manager RPC + 1 `get_state` per live Pi session | None | — |
+| Recent sessions (`GET /api/sessions/recent`) | `listRecentPiSessions`, `server/pi-session-store.ts` | `readdir` + `stat` of every session file in the workspace folder, then head and tail reads (tail scan up to 4 MB) of up to 60 files per batch, plus a full read of each sub-agent child for usage | Child usage only, keyed by path, size, and mtime | — (rescanned on every request) |
+| Pinned sessions (`POST /api/sessions/resolve`) | `resolvePiSessions` | 1 session-file read per pin | None | — |
+| Session snapshot (`GET /api/sessions/:id/snapshot`) | `backend.ts`, `server/snapshot-requests.ts` | `get_state`, `get_entries`, `get_session_stats` always; models, commands, fork messages, thinking levels, and prompt templates when not cached | `MetadataCache`: 60 s TTL, 20 sessions LRU, in-flight sharing; per tab, one in-flight load per session plus delta reads with a `since` cursor | Session exit or reassignment, manager connect or disconnect, prompt-template save |
+| Quotas (`GET /api/quotas`, `POST /api/quotas/refresh`) | `server/features/quotas/` | `GET`: manager `list`; refresh: a `/livecraft-quotas` prompt command in Pi | Last valid report per provider; one refresh in flight | New report events from Pi |
+| Session environment (`GET /api/environment`, refresh) | `server/features/session-environment/` | `GET`: manager `list`; refresh: a `/livecraft-environment` prompt command | One report per session; one refresh in flight per session | New report events from Pi |
+| Workspace files and directories | `server/workspace-file.ts`, `listDirectories` in `backend.ts` | one `readdir`, or one `readFile` of at most 2 MiB | None | — |
+| Pi processes | `server/manager.ts`, `server/pi-process.ts` | one `pi --mode rpc` per new session beyond the pool, per temporary rename, and per isolated prompt | Process pool rules in the [manager lifecycle](/docs/MANAGER-LIFECYCLE.md#pi-process-allocation) | — |
+
+## Triggers
+
+What runs when something happens. "Per tab" work is repeated by every open Livecraft view.
+
+| When | Cause | What runs |
+|---|---|---|
+| A Pi tool call finishes (`tool_execution_end`) | `git:tool-end` | Per tab, after 250 ms: one Git snapshot for the session's workspace. Also a delta snapshot after 100 ms. |
+| `message_end`, `queue_update`, `agent_settled` | — | Per tab: a delta snapshot for the selected session. `agent_settled` also refreshes quotas, at most once per 30 s per session and provider. |
+| A session is created or reassigned, or the manager (re)connects | `sessions:session_created`, `sessions:session_reassigned`, `sessions:manager_connected` | Per tab and per event: live session list + recent-sessions scan. After a manager restart, every reopened session emits `session_created`. |
+| The manager connects | — | Backend: clears `MetadataCache`; refreshes quotas and environment through one idle session. |
+| Project view opens, the worktree list changes, or the workspace switches | `git:workspace-paths`, `sessions:workspace-switch` | Per tab: one Git snapshot per worktree of the project; one recent-sessions scan. |
+| The project registry loads or the project changes | `projects:discovery`, `projects:activity` | Per tab: one Git project per registered project, then one recent-sessions scan per worktree of every project. |
+| Session selected | — | Per tab: a full snapshot. |
+| Tab becomes visible after missed events, or SSE reconnects | — | Per tab: a delta snapshot reconciliation. |
+| Session starts, is renamed, closed, or a dialog closes | `sessions:session-started`, `sessions:rename`, `sessions:close`, `sessions:dialog-*` | Live session list + recent-sessions scan. |
+| Git widget action or manual refresh | `git:after-*`, `git:manual` | The action, then one Git snapshot. |
+| Pinned sessions load or manual refresh | `pins:mount`, `pins:manual` | One session-file read per pin. |
+| Diagnostics or browser-debug widget open | — | Polls every 5 s (diagnostics; also reads the manager ledger) or every 2 s while visible (browser debug). |
+
+## Measured hotspots
+
+Measured on 2026-10-01 with four tabs open and an agent working.
+
+- **Recent-sessions scans** averaged 1.1 s, peaked at 11 s, and ran up to six at once; 40 scans followed one manager restart within 36 s. The workspace folder held 174 session files (138 MB), about 112 of them sub-agent children. Main triggers: `projects:activity` and repeated `session_created` events.
+- **Git tool-end refreshes** produced bursts of at least 40 `git` processes in 10 s throughout agent work, about 13 per refresh and tab, including after read-only tools.
+- **Full session snapshots** of a long session reached 6 MB and 1.9 s, dominated by `get_entries`.
+
+## Budgets
+
+Targets that new work must not exceed; a resource marked as current state does not meet them yet.
+
+| Trigger | Budget |
+|---|---|
+| Any number of tabs reading the same resource at the same time | one execution on the server |
+| Recent sessions, nothing changed on disk | `readdir` + one `stat` per file; no file content reads |
+| A burst of `session_created` events | one session-list refresh per tab |
+| `git:tool-end` during agent work | at most one Git snapshot per worktree per refresh interval, shared by all tabs; none after read-only tools |
+
+## Adding a data source or trigger
+
+1. Find the resource in the catalog. If it exists, use its owner and add only a named cause.
+2. For a new resource, put the owner on the server, measure it with `measureOperation`, and add a catalog row with its cost, cache, and invalidation.
+3. Add the trigger row: which event, how often, per tab or shared.
+4. Verify in the Diagnostics widget that the new trigger costs what the row says; add a focused budget test for non-trivial resources.

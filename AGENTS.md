@@ -10,6 +10,7 @@ If the task names an exact file or symbol, start there. Still read the applicabl
 
 - Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) only when the proposed change modifies a contract across the frontend, HTTP API, manager, or Pi process boundaries. Merely inspecting a caller across a boundary does not count.
 - Read [`docs/MANAGER-LIFECYCLE.md`](docs/MANAGER-LIFECYCLE.md) before changing manager runtime, supervision, or restart behavior.
+- Read [`docs/DATA-FLOW.md`](docs/DATA-FLOW.md) before adding or changing a backend read, process spawn, file scan, Pi RPC path, polling loop, or event-driven refresh, and keep its catalog current.
 - Treat facts stated by the selected guide as established evidence. Start with its named paths and verify a fact only when source contradicts it or an implementation decision remains unresolved.
 - Source code and shared TypeScript types are authoritative for implementation details. Keep affected documentation aligned when its contract changes.
 - `plans/` contains proposals, investigations, and history; it is never an implementation contract unless the task explicitly names it.
