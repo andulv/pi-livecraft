@@ -16,9 +16,11 @@ export function useProjects() {
   const refreshProjects = useCallback(async (): Promise<void> => {
     const results = await Promise.all(projects.map(async (project) => {
       try {
-        const details = await getGitProject(project.root)
+        const details = await getGitProject(project.root, 'projects:discovery')
         const recent = await Promise.all(
-          details.workspaces.map(({ path }) => listRecentSessions(path).catch(() => [])),
+          details.workspaces.map(({ path }) =>
+            listRecentSessions(path, 'projects:activity').catch(() => [])
+          ),
         )
         const activity = recent.flat().reduce(
           (latest, session) => Math.max(latest, session.updatedAt),

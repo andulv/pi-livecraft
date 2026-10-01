@@ -36,7 +36,7 @@ import {
   updatePiSetting,
   savePiSettingsDocument,
 } from './api.ts'
-import type { QuotaResetTarget } from './api.ts'
+import type { QuotaResetTarget, RequestCause } from './api.ts'
 import type {
   ExtensionSettingsSnapshot,
   ExtensionSettingValue,
@@ -609,7 +609,7 @@ function LivecraftProjectApp(
         sessionId: selectedId,
       })
     }
-    await Promise.all([refreshSnapshot(selectedId), refreshSessions()])
+    await Promise.all([refreshSnapshot(selectedId), refreshSessions('sessions:dialog-response')])
     return true
   }, [refreshSessions, refreshSnapshot, selectedId])
 
@@ -711,12 +711,16 @@ function LivecraftProjectApp(
         : current
     )
     if (typeof requestId === 'string') removePendingRequest(closedDialog.sessionId, requestId)
-    void refreshSessions()
+    void refreshSessions('sessions:dialog-closed')
   }, [refreshSessions, removePendingRequest])
 
   // Workspace capabilities
   /** Refreshes Git state for one workspace. Throws when requested so callers can handle the error. */
-  const refreshGit = useCallback(async (cwd = workspacePath, notifyOnError = false) => {
+  const refreshGit = useCallback(async (
+    cause: RequestCause,
+    cwd = workspacePath,
+    notifyOnError = false,
+  ) => {
     if (gitRefreshTimerRef.current !== undefined) {
       window.clearTimeout(gitRefreshTimerRef.current)
       gitRefreshTimerRef.current = undefined
@@ -724,7 +728,7 @@ function LivecraftProjectApp(
     const version = (gitRefreshVersionsRef.current.get(cwd) ?? 0) + 1
     gitRefreshVersionsRef.current.set(cwd, version)
     try {
-      const nextSnapshot = await getGitSnapshot(cwd)
+      const nextSnapshot = await getGitSnapshot(cwd, cause)
       if (gitRefreshVersionsRef.current.get(cwd) === version) {
         setWorkspaceGit((current) => ({ ...current, [cwd]: nextSnapshot }))
       }
@@ -738,7 +742,7 @@ function LivecraftProjectApp(
       window.clearTimeout(gitRefreshTimerRef.current)
     gitRefreshTimerRef.current = window.setTimeout(() => {
       gitRefreshTimerRef.current = undefined
-      void refreshGit(cwd)
+      void refreshGit('git:tool-end', cwd)
     }, gitRefreshDelayMs)
   }, [refreshGit, workspacePath])
 
@@ -862,7 +866,7 @@ function LivecraftProjectApp(
         return next
       })
     }
-    for (const path of paths) void refreshGit(path)
+    for (const path of paths) void refreshGit('git:workspace-paths', path)
   }, [gitWorkspacePaths, refreshGit, workspacePath])
   useEffect(() => () => {
     if (gitRefreshTimerRef.current !== undefined) {
@@ -1064,7 +1068,7 @@ function LivecraftProjectApp(
   replayPiEventRef.current = handleManagerPiEvent
   // The subscription below must not resubscribe when workspace-dependent handlers change
   // identity: every resubscription reconnects /api/events and replays the event stream.
-  const refreshSessionsRef = useRef<() => void>(() => undefined)
+  const refreshSessionsRef = useRef<(cause: RequestCause) => void>(() => undefined)
   refreshSessionsRef.current = refreshSessions
   const reconcileSnapshotRef = useRef(reconcileSnapshot)
   reconcileSnapshotRef.current = reconcileSnapshot
@@ -1097,7 +1101,7 @@ function LivecraftProjectApp(
       } else if (
         managerEvent.event === 'manager_connected' || managerEvent.event === 'session_created'
         || managerEvent.event === 'session_reassigned'
-      ) void refreshSessionsRef.current()
+      ) void refreshSessionsRef.current(`sessions:${managerEvent.event}`)
       if (managerEvent.event === 'pi' && isObject(managerEvent.data))
         replayPiEventRef.current(
           managerEvent.sessionId,
@@ -1276,7 +1280,7 @@ function LivecraftProjectApp(
   }, [startNewSession, workspacePath])
   /** Re-runs the session list refresh after a failed load. */
   const handleRetrySessions = useCallback((): void => {
-    void refreshSessions()
+    void refreshSessions('sessions:retry')
   }, [refreshSessions])
   const handlePromptImprovement = useCallback(
     (prompt: string, direction?: string) => {
@@ -1605,8 +1609,8 @@ function LivecraftProjectApp(
         onOpenPinnedSession={openPinnedSession}
         onNewSession={handleNewSession}
         onRefreshSessions={() => {
-          void refreshSessions()
-          void refreshPinnedSessions()
+          void refreshSessions('sessions:manual')
+          void refreshPinnedSessions('pins:manual')
         }}
         onRefreshWorkspaces={retryProjectDiscovery}
         onOpenSession={async (recentSession) => {
@@ -1639,7 +1643,7 @@ function LivecraftProjectApp(
         onGitCommitFiles={(hash) => getGitCommitFiles(workspacePath, hash)}
         onGitOutgoingChanges={() => getGitOutgoingChanges(workspacePath)}
         onGitOutgoingFileSelect={(path) => getGitOutgoingFileDiff(workspacePath, path)}
-        onGitRefresh={() => refreshGit(workspacePath, true)}
+        onGitRefresh={(cause) => refreshGit(cause, workspacePath, true)}
         onGitReset={async (hash) => {
           return await resetGitCommit(workspacePath, hash)
         }}

@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events'
 import { connect, type Socket } from 'node:net'
 import { JsonLineDecoder, MAX_SESSION_RECORD_SIZE, encodeJsonLine } from './jsonl.ts'
 import type { ManagerMessage, ManagerRequest } from '../shared/types.ts'
+import { measureOperation } from './features/diagnostics/operations.ts'
 
 interface PendingRequest {
   resolve: (value: unknown) => void
@@ -33,6 +34,14 @@ export class ManagerClient extends EventEmitter {
 
   /** Waits briefly for the normal startup/reconnect race before reporting manager unavailability. */
   async request(request: Omit<ManagerRequest, 'id'>, timeoutMs = 35_000): Promise<unknown> {
+    return measureOperation(
+      'manager-rpc',
+      managerRequestDetail(request),
+      () => this.#send(request, timeoutMs),
+    )
+  }
+
+  async #send(request: Omit<ManagerRequest, 'id'>, timeoutMs: number): Promise<unknown> {
     if (!this.#socket?.writable || !this.connected) await this.#waitForConnection()
     if (!this.#socket?.writable || !this.connected)
       throw new Error('Pi manager is unavailable')
@@ -139,4 +148,16 @@ function isManagerMessage(value: unknown): value is ManagerMessage {
   if (typeof value !== 'object' || value === null) return false
   const message = value as { kind?: unknown }
   return message.kind === 'response' || message.kind === 'event'
+}
+
+/**
+ * Names a manager request for the operation ledger. Pi command types can come from the
+ * browser, so only short identifier-shaped values are kept verbatim.
+ */
+function managerRequestDetail(request: Omit<ManagerRequest, 'id'>): string {
+  if (request.action !== 'command') return request.action
+  const type = request.command?.type
+  return typeof type === 'string' && /^[A-Za-z_]{1,40}$/.test(type)
+    ? `command:${type}`
+    : 'command:other'
 }

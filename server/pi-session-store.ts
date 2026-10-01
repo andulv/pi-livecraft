@@ -8,6 +8,7 @@ import { isObject } from '../shared/is-object.ts'
 import { shubMarkerFromEntry } from '../shared/shub-agent-session.ts'
 import { fallbackSessionTitle } from '../shared/session-title.ts'
 import { workspaceSessionFolderName } from '../shared/pi-session-paths.ts'
+import { measureOperation } from './features/diagnostics/operations.ts'
 
 const sessionDirectory = resolvePiSessionDirectory(process.env, homedir())
 
@@ -59,6 +60,14 @@ export async function listRecentPiSessions(
   cwd: string,
   directory = sessionDirectory,
 ): Promise<RecentSession[]> {
+  return measureOperation(
+    'session-store',
+    'list-recent',
+    () => scanRecentPiSessions(cwd, directory),
+  )
+}
+
+async function scanRecentPiSessions(cwd: string, directory: string): Promise<RecentSession[]> {
   const sessionDir = workspaceSessionDir(cwd, directory)
   let entries
   try {
@@ -101,6 +110,10 @@ export async function listRecentPiSessions(
 
 /** Verifies that a file belongs to the Pi session directory before loading its metadata. */
 export async function loadPiSession(path: string): Promise<RecentSession> {
+  return measureOperation('session-store', 'load', () => loadVerifiedPiSession(path))
+}
+
+async function loadVerifiedPiSession(path: string): Promise<RecentSession> {
   const [canonicalPath, canonicalDirectory] = await Promise.all([
     realpath(path),
     realpath(sessionDirectory),

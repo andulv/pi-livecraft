@@ -34,6 +34,7 @@ import { compareWorkspaces, sidebarSessions, type SessionActionTarget } from './
 import { SessionRenameDialog } from './SessionRenameDialog.tsx'
 import { formatSessionTime } from './session-time.ts'
 import { maxWorkspaceSidebarWidth, minWorkspaceSidebarWidth } from './workspace-sidebar.ts'
+import type { RequestCause } from '../../api.ts'
 
 interface ContextMenuState {
   target: SessionActionTarget
@@ -100,7 +101,7 @@ interface WorkspaceSidebarProps {
   onGitOutgoingFileSelect: (path: string) => Promise<GitFileDiff>
   onGitPull: () => Promise<void>
   onGitPush: () => Promise<GitPushResult>
-  onGitRefresh: () => Promise<void>
+  onGitRefresh: (cause: RequestCause) => Promise<void>
   onGitReset: (hash: string) => Promise<GitResetResult>
   onGitRevert: (hash: string) => Promise<GitRevertResult>
 }

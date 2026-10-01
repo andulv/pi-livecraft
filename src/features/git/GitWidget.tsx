@@ -13,6 +13,7 @@ import type {
 } from '../../../shared/types.ts'
 import { GitFileList, GitFileRow } from './GitFileList.tsx'
 import { WidgetLayout } from '../right-sidebar/WidgetLayout.tsx'
+import type { RequestCause } from '../../api.ts'
 
 /** Local git-error target — which element to shake on failure. */
 type ErrorTarget = 'pull' | 'push' | 'commit' | 'discard' | 'refresh'
@@ -58,7 +59,7 @@ export function GitWidget(
     ) => void
     onPull: () => Promise<void>
     onPush: () => Promise<GitPushResult>
-    onRefresh: () => Promise<void>
+    onRefresh: (cause: RequestCause) => Promise<void>
     onReset: (hash: string) => Promise<GitResetResult>
     onRevert: (hash: string) => Promise<GitRevertResult>
   },
@@ -175,7 +176,7 @@ export function GitWidget(
     try {
       await onCommit(message)
       setMessage('')
-      await onRefresh()
+      await onRefresh('git:after-commit')
     } catch (error) {
       reportError(error, 'commit')
     } finally {
@@ -193,7 +194,7 @@ export function GitWidget(
       // ponytail: fade all then refresh; per-commit fade not worth the wiring
       setExitingCommits(new Set(snapshot.commits.map((c) => c.hash)))
       await new Promise((r) => setTimeout(r, 300))
-      await onRefresh()
+      await onRefresh('git:after-push')
       setExitingCommits(new Set())
     } catch (error) {
       reportError(error, 'push')
@@ -208,7 +209,7 @@ export function GitWidget(
     clearError()
     try {
       await onPull()
-      await onRefresh()
+      await onRefresh('git:after-pull')
     } catch (error) {
       reportError(error, 'pull')
     } finally {
@@ -225,7 +226,7 @@ export function GitWidget(
     clearError()
     try {
       await onDiscard(path)
-      await onRefresh()
+      await onRefresh('git:after-discard')
     } catch (error) {
       reportError(error, 'discard')
     } finally {
@@ -246,7 +247,7 @@ export function GitWidget(
       await onReset(hash)
       setExitingCommits(new Set([hash]))
       await new Promise((r) => setTimeout(r, 300))
-      await onRefresh()
+      await onRefresh('git:after-reset')
       setExitingCommits(new Set())
     } catch (error) {
       reportError(error, 'commit')
@@ -262,7 +263,7 @@ export function GitWidget(
     clearError()
     try {
       await onRevert(hash)
-      await onRefresh()
+      await onRefresh('git:after-revert')
     } catch (error) {
       reportError(error, 'commit')
     } finally {
@@ -274,7 +275,7 @@ export function GitWidget(
   async function handleRefresh(): Promise<void> {
     clearError()
     try {
-      await onRefresh()
+      await onRefresh('git:manual')
     } catch (error) {
       reportError(error, 'refresh')
     }

@@ -133,3 +133,24 @@ test('uncaught entries carry truncated message and stack', () => {
   assert.equal(line.message.length, 301) // 300 chars plus the ellipsis
   assert.ok((line.stack?.length ?? 0) > 0)
 })
+
+test('operation anomalies keep their log kind and name the operation family separately', () => {
+  const path = join(mkdtempSync(join(tmpdir(), 'app-log-')), 'app.log')
+  const log = new AppLog(path)
+  log.slowOperation({
+    operation: 'git',
+    detail: 'status',
+    route: 'git',
+    cause: 'git:tool-end',
+    durationMs: 1200,
+    ok: true,
+    inFlight: 1,
+  })
+  log.operationBurst({ operation: 'git', count: 40, windowMs: 10_000, topTriggers: [] })
+  const lines = readFileSync(path, 'utf8').trim().split('\n').map((line) => JSON.parse(line))
+
+  assert.deepEqual(lines.map(({ kind, operation }) => [kind, operation]), [
+    ['slow-operation', 'git'],
+    ['operation-burst', 'git'],
+  ])
+})

@@ -4,6 +4,7 @@ import type {
   SnapshotStageEntry,
   SnapshotRpcWaits,
 } from '../../../shared/types.ts'
+import { operationLedger, type OperationLedger } from './operations.ts'
 
 const maxRecentEvents = 100
 const maxRecentStages = 50
@@ -27,6 +28,7 @@ export interface SnapshotStageMeasurement {
  * stored as caller-provided templates. State is memory-only and resets on restart.
  */
 export class DiagnosticsRecorder {
+  readonly #operations: OperationLedger
   readonly #startedAt = Date.now()
   #sequence = 0
   #events: DiagnosticEventEntry[] = []
@@ -36,6 +38,10 @@ export class DiagnosticsRecorder {
   #sseOpens = 0
   #snapshots = { full: 0, delta: 0, fullBytes: 0, deltaBytes: 0 }
   #cache = { hits: 0, misses: 0 }
+
+  constructor(operations: OperationLedger = operationLedger) {
+    this.#operations = operations
+  }
 
   /** Counts one API request under its route template. */
   request(route: string): void {
@@ -91,6 +97,7 @@ export class DiagnosticsRecorder {
       cache: { ...this.#cache },
       recentEvents: this.#events.slice(-30),
       recentStages: this.#stages.slice(-20),
+      operations: this.#operations.snapshotState(),
     }
   }
 

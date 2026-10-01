@@ -3,6 +3,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { JsonObject, PromptTemplate } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
+import { measureOperation } from './features/diagnostics/operations.ts'
 
 /**
  * Loads the bodies of prompt templates Pi reports for the active session.
@@ -10,6 +11,10 @@ import { isObject } from '../shared/is-object.ts'
  * a session snapshot.
  */
 export async function loadPromptTemplates(commands: JsonObject[]): Promise<PromptTemplate[]> {
+  return measureOperation('prompt-templates', 'load', () => readPromptTemplates(commands))
+}
+
+async function readPromptTemplates(commands: JsonObject[]): Promise<PromptTemplate[]> {
   const templates = commands.flatMap((command) => {
     if (command.source !== 'prompt' || typeof command.name !== 'string') return []
     const path = promptTemplatePath(command)

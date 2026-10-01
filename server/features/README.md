@@ -11,7 +11,7 @@ This directory contains local product capabilities used by `server/backend.ts`. 
 - [`session-environment/`](/server/features/session-environment/README.md) caches loaded tools and context files and coordinates refreshes through the manager.
 - [`terminal/`](/server/features/terminal/README.md) launches an external terminal application in the workspace directory and owns workspace-scoped embedded shell sessions (PTY + replay buffer) for the viewer-pane Terminal tab.
 - [`vscode/`](/server/features/vscode/README.md) launches a branded VS Code window for a worktree.
-- [`diagnostics/`](/server/features/diagnostics/diagnostics.ts) keeps bounded, content-free backend counters and recent snapshot stages for `GET /api/diagnostics`; its README records the retention, correlation, and overhead policy.
+- [`diagnostics/`](/server/features/diagnostics/README.md) keeps bounded, content-free backend counters, recent snapshot stages, and the operation ledger that attributes Git processes, manager RPCs, and session-store scans to their triggering route and cause for `GET /api/diagnostics`; its README records the retention, correlation, and overhead policy.
 
 These modules do not own Pi processes. All Pi commands continue through `server/manager-client.ts` to `server/manager.ts`.
 
@@ -19,4 +19,4 @@ These modules do not own Pi processes. All Pi commands continue through `server/
 
 Place behavior and persistence in the narrowest `server/features/<feature>/` module. Keep HTTP paths, working-directory resolution, request parsing, and trust-boundary validation in `server/backend.ts`; capability modules do not define routes. If the browser consumes the capability, add its request wrapper to `src/api.ts` and put shared response shapes in `shared/` only when they cross layers.
 
-Reuse `ManagerClient` when the capability needs Pi. Do not start or own a Pi process from a feature module. Add a focused test beside the existing backend tests for parsing, persistence, or external-command behavior, then link the capability README from this index.
+Measure each new process spawn, file scan, or other expensive operation once at its chokepoint with `measureOperation`, as described in the [operation ledger](/server/features/diagnostics/README.md#operation-ledger), and give each new frontend trigger its own `RequestCause`. Reuse `ManagerClient` when the capability needs Pi. Do not start or own a Pi process from a feature module. Add a focused test beside the existing backend tests for parsing, persistence, or external-command behavior, then link the capability README from this index.

@@ -4,6 +4,13 @@ import type {
   SnapshotRpcWaits,
 } from '../../../shared/types.ts'
 
+import type {
+  OperationAnomalySink,
+  OperationBurstReport,
+  RequestFanoutReport,
+  SlowOperationReport,
+} from '../diagnostics/operations.ts'
+
 import { appendFileSync, closeSync, existsSync, openSync, readSync, statSync } from 'node:fs'
 
 /** Tail window used to find the previous run's last log line without reading the whole file. */
@@ -61,7 +68,7 @@ export function parsePreviousRun(tail: string): AppLogPreviousRun | undefined {
  * revisit when size matters. Writes are synchronous and failures are swallowed so
  * logging can never take the backend down.
  */
-export class AppLog {
+export class AppLog implements OperationAnomalySink {
   readonly #path: string
   readonly #startedAt = Date.now()
   #clientEntries = 0
@@ -128,6 +135,21 @@ export class AppLog {
   /** Records the existing stage measurements for one slow snapshot. */
   slowSnapshot(measurement: SlowSnapshotMeasurement): void {
     this.#write('slow-snapshot', { ...measurement })
+  }
+
+  /** Records one measured operation at or above the slow-operation threshold. */
+  slowOperation(report: SlowOperationReport): void {
+    this.#write('slow-operation', { ...report })
+  }
+
+  /** Records the first time one operation kind exceeds its burst threshold in a window. */
+  operationBurst(report: OperationBurstReport): void {
+    this.#write('operation-burst', { ...report })
+  }
+
+  /** Records one HTTP request that performed an excessive number of operations. */
+  requestFanout(report: RequestFanoutReport): void {
+    this.#write('request-fanout', { ...report })
   }
 
   /** Logs a failed snapshot without the session identity or the Pi error text. */

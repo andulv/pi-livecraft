@@ -14,6 +14,7 @@ import type {
   GitSnapshot,
   GitWorkspace,
 } from '../../../shared/types.ts'
+import { measureOperation } from '../diagnostics/operations.ts'
 
 interface GitCommandResult {
   exitCode: number
@@ -586,10 +587,22 @@ function numberOrNull(value: string): number | null {
   return Number.isNaN(number) ? null : number
 }
 
+/**
+ * Every Git process goes through here so the operation ledger sees each spawn; the ledger
+ * detail is the subcommand only because later arguments can carry paths and messages.
+ */
 async function runGit(
   cwd: string,
   args: string[],
   allowedExitCodes = [0],
+): Promise<GitCommandResult> {
+  return measureOperation('git', args[0] ?? 'unknown', () => spawnGit(cwd, args, allowedExitCodes))
+}
+
+function spawnGit(
+  cwd: string,
+  args: string[],
+  allowedExitCodes: number[],
 ): Promise<GitCommandResult> {
   return new Promise((resolve, reject) => {
     const process = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })

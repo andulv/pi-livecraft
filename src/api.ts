@@ -36,6 +36,18 @@ import type {
   WorkspaceFileListing,
 } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
+import { requestCauseHeader } from '../shared/types.ts'
+
+/**
+ * Names the trigger of a backend request whose work is expensive (Git processes, session
+ * scans), as `<area>:<trigger>` — for example `git:tool-end`. The backend attributes every
+ * operation the request performs to it in diagnostics; see the diagnostics README.
+ */
+export type RequestCause = `${string}:${string}`
+
+function causeHeaders(cause: RequestCause): Record<string, string> {
+  return { [requestCauseHeader]: cause }
+}
 
 const viewId = crypto.randomUUID().slice(0, 8)
 let lastManagerMessageAt: number | undefined
@@ -160,8 +172,8 @@ export function subscribeManagerEvents(
   }
 }
 
-export async function listSessions(): Promise<SessionSummary[]> {
-  return request<SessionSummary[]>('/api/sessions')
+export async function listSessions(cause: RequestCause): Promise<SessionSummary[]> {
+  return request<SessionSummary[]>('/api/sessions', { headers: causeHeaders(cause) })
 }
 
 export async function restartManager(): Promise<void> {
@@ -171,14 +183,23 @@ export async function restartManager(): Promise<void> {
   })
 }
 
-export async function listRecentSessions(cwd: string): Promise<RecentSession[]> {
-  return request<RecentSession[]>(`/api/sessions/recent?cwd=${encodeURIComponent(cwd)}`)
+export async function listRecentSessions(
+  cwd: string,
+  cause: RequestCause,
+): Promise<RecentSession[]> {
+  return request<RecentSession[]>(`/api/sessions/recent?cwd=${encodeURIComponent(cwd)}`, {
+    headers: causeHeaders(cause),
+  })
 }
 
 /** Refreshes known (pinned) sessions by their stored file paths without a directory scan. */
-export async function resolveSessions(paths: readonly string[]): Promise<RecentSession[]> {
+export async function resolveSessions(
+  paths: readonly string[],
+  cause: RequestCause,
+): Promise<RecentSession[]> {
   return request<RecentSession[]>('/api/sessions/resolve', {
     method: 'POST',
+    headers: causeHeaders(cause),
     body: JSON.stringify({ paths }),
   })
 }
@@ -194,13 +215,17 @@ export async function openExplorer(cwd: string): Promise<void> {
   })
 }
 
-export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
-  return request<GitSnapshot>(`/api/git?cwd=${encodeURIComponent(cwd)}`)
+export async function getGitSnapshot(cwd: string, cause: RequestCause): Promise<GitSnapshot> {
+  return request<GitSnapshot>(`/api/git?cwd=${encodeURIComponent(cwd)}`, {
+    headers: causeHeaders(cause),
+  })
 }
 
 /** Resolves a Git repository to its main checkout and every linked worktree. */
-export async function getGitProject(cwd: string): Promise<GitProject> {
-  return request<GitProject>(`/api/git/project?cwd=${encodeURIComponent(cwd)}`)
+export async function getGitProject(cwd: string, cause: RequestCause): Promise<GitProject> {
+  return request<GitProject>(`/api/git/project?cwd=${encodeURIComponent(cwd)}`, {
+    headers: causeHeaders(cause),
+  })
 }
 
 export async function getGitCommitFiles(cwd: string, hash: string): Promise<GitCommitFiles> {

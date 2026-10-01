@@ -360,6 +360,57 @@ export interface DiagnosticsSnapshot {
   cache: { hits: number; misses: number }
   recentEvents: DiagnosticEventEntry[]
   recentStages: SnapshotStageEntry[]
+  operations: OperationsSnapshot
+}
+
+/**
+ * HTTP request header naming the frontend trigger of a request (for example
+ * `git:tool-end`). The backend attributes every expensive operation the request performs
+ * to that cause; values outside `[A-Za-z0-9:_-]{1,64}` are recorded as `invalid`.
+ */
+export const requestCauseHeader = 'x-livecraft-cause'
+
+/** Expensive backend operation families measured by the operation ledger. */
+export type OperationKind = 'git' | 'manager-rpc' | 'session-store' | 'prompt-templates'
+
+/**
+ * One measured operation. `detail` is a content-free sub-name (Git subcommand, manager
+ * action, store function); `route` is a request template and `cause` the frontend trigger,
+ * or both `background` when no HTTP request started the work.
+ */
+export interface OperationEntry {
+  sequence: number
+  t: number
+  kind: OperationKind
+  detail: string
+  route: string
+  cause: string
+  durationMs: number
+  ok: boolean
+  /** Operations of the same kind running when this one started, itself included. */
+  inFlight: number
+}
+
+export interface OperationTotals {
+  count: number
+  failures: number
+  totalMs: number
+  maxMs: number
+}
+
+/** Work attributed to one `route ← cause` trigger since backend start. */
+export interface OperationTrigger {
+  requests: number
+  operations: number
+}
+
+export interface OperationsSnapshot {
+  inFlight: number
+  /** Keyed by `kind:detail`. */
+  totals: Record<string, OperationTotals>
+  /** Keyed by `route ← cause`. */
+  triggers: Record<string, OperationTrigger>
+  recent: OperationEntry[]
 }
 
 export interface OpenAiQuotaWindow {

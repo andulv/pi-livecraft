@@ -9,6 +9,7 @@ import {
   resolveSessions,
   sendPiCommand,
 } from '../../api.ts'
+import type { RequestCause } from '../../api.ts'
 import type {
   GitProject,
   JsonObject,
@@ -158,7 +159,7 @@ export function useWorkspaceSessions(
     let active = true
     setProjectDiscoveryComplete(false)
     setProjectDiscoveryError(null)
-    void getGitProject(project.root)
+    void getGitProject(project.root, 'projects:workspaces')
       .then((details) => {
         if (active) setProjectWorkspaces({ [project.root]: details })
       })
@@ -200,11 +201,11 @@ export function useWorkspaceSessions(
   }, [archivedSessionPaths, project.id])
 
   /** Refreshes pinned-session metadata by path without scanning the whole session store. */
-  const refreshPinnedSessions = useCallback(async (): Promise<void> => {
+  const refreshPinnedSessions = useCallback(async (cause: RequestCause): Promise<void> => {
     const paths = pinnedSessionsRef.current.map(({ sessionPath }) => sessionPath)
     if (paths.length === 0) return
     try {
-      const resolved = await resolveSessions(paths)
+      const resolved = await resolveSessions(paths, cause)
       setPinnedSessions((current) =>
         current.map((pinned) =>
           resolved.find(({ sessionPath }) => sessionPath === pinned.sessionPath) ?? pinned
@@ -216,7 +217,7 @@ export function useWorkspaceSessions(
   }, [])
 
   useEffect(() => {
-    void refreshPinnedSessions()
+    void refreshPinnedSessions('pins:mount')
   }, [refreshPinnedSessions])
 
   const rememberSessionPath = useCallback((cwd: string, sessionPath?: string): void => {
@@ -234,14 +235,14 @@ export function useWorkspaceSessions(
   }, [])
 
   /** Reloads sessions while discarding responses superseded by a newer workspace refresh. */
-  const refreshSessions = useCallback(async (cwd = workspacePath) => {
+  const refreshSessions = useCallback(async (cause: RequestCause, cwd = workspacePath) => {
     const version = ++refreshVersionRef.current
     const shouldAutoSelect = autoSelectOnRefreshRef.current
     setIsRefreshingSessions(true)
     try {
       const [listedSessions, nextRecentSessions] = await Promise.all([
-        listSessions(),
-        listRecentSessions(cwd),
+        listSessions(cause),
+        listRecentSessions(cwd, cause),
       ])
       if (version !== refreshVersionRef.current) return
       let nextSessions = listedSessions
@@ -354,7 +355,7 @@ export function useWorkspaceSessions(
 
   useEffect(() => {
     if (!projectDiscoveryComplete || projectDiscoveryError) return
-    void refreshSessions()
+    void refreshSessions('sessions:discovery')
   }, [projectDiscoveryComplete, projectDiscoveryError, refreshSessions])
 
   /** Stops and removes an unmessaged session when navigation abandons it. */
@@ -391,7 +392,7 @@ export function useWorkspaceSessions(
     setWorkspacePath(path)
     setSelectedId(targetSessionId ?? '')
     autoSelectOnRefreshRef.current = targetSessionId === undefined
-    void refreshSessions(path)
+    void refreshSessions('sessions:workspace-switch', path)
   }, [
     discardTransientNewSession,
     rememberSessionId,
@@ -437,7 +438,7 @@ export function useWorkspaceSessions(
         const session = await start()
         rememberStartedSession(session)
         rememberSessionPath(options.refreshCwd ?? session.cwd, session.sessionPath)
-        await refreshSessions(options.refreshCwd)
+        await refreshSessions('sessions:session-started', options.refreshCwd)
         setSelectedId(session.id)
         if (options.draftMessage) onDraftMessage(session.id, options.draftMessage)
         if (options.initialMessage) {
@@ -446,7 +447,7 @@ export function useWorkspaceSessions(
             message: options.initialMessage,
             images: options.initialImages ?? [],
           })
-          await refreshSessions(options.refreshCwd)
+          await refreshSessions('sessions:initial-message', options.refreshCwd)
           onInitialMessageSent()
         }
         return session
@@ -592,7 +593,7 @@ export function useWorkspaceSessions(
       if (!normalized) throw new Error('Session name is required')
       if (!target.sessionPath) throw new Error('Session path is unavailable')
       await renameStoredSession(target.cwd, target.sessionPath, normalized)
-      await refreshSessions()
+      await refreshSessions('sessions:rename')
     },
     [refreshSessions],
   )
@@ -614,7 +615,7 @@ export function useWorkspaceSessions(
       else forgetSessionSelection(workspacePath)
       setSelectedId(nextId ?? '')
     }
-    await refreshSessions()
+    await refreshSessions('sessions:close')
   }, [forgetSessionSelection, rememberSessionId, refreshSessions, workspacePath])
 
   /** Adds or replaces a pending UI request for a session. */

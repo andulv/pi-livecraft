@@ -35,7 +35,9 @@ export function ProjectPicker({ onClose, onError, onSelect }: {
 
   function selectProject(nextPath: string): void {
     setBusy(true)
-    void getGitProject(nextPath).then(onSelect).catch(onError).finally(() => setBusy(false))
+    void getGitProject(nextPath, 'projects:pick').then(onSelect).catch(onError).finally(() =>
+      setBusy(false)
+    )
   }
 
   function onKeyDown(event: ReactKeyboardEvent<HTMLInputElement>): void {

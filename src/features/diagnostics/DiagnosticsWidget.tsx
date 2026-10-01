@@ -43,6 +43,21 @@ export function DiagnosticsWidget() {
   const stages = snapshot ? [...snapshot.recentStages].reverse().slice(0, 8) : []
   const events = snapshot ? [...snapshot.recentEvents].reverse().slice(0, 12) : []
   const topRoutes = routes.slice(0, 10)
+  const operationTotals = snapshot
+    ? Object
+      .entries(snapshot.operations.totals)
+      .sort((left, right) => right[1].count - left[1].count)
+      .slice(0, 10)
+    : []
+  const operationTriggers = snapshot
+    ? Object
+      .entries(snapshot.operations.triggers)
+      .sort((left, right) => right[1].operations - left[1].operations)
+      .slice(0, 10)
+    : []
+  const recentOperations = snapshot
+    ? [...snapshot.operations.recent].reverse().slice(0, 12)
+    : []
   return (
     <WidgetLayout
       header={
@@ -118,6 +133,56 @@ export function DiagnosticsWidget() {
                     ))}
                   </tbody>
                 </table>
+              </section>
+            )}
+            {operationTotals.length > 0 && (
+              <section className='diagnostics-section'>
+                <h3>Operations · {snapshot.operations.inFlight} running</h3>
+                <div className='diagnostics-rows'>
+                  {operationTotals.map(([operation, totals]) => (
+                    <Fragment key={operation}>
+                      <span title={operation}>{operation}</span>
+                      <code title='count · average ms / max ms'>
+                        {totals.count} · {Math.round(totals.totalMs / totals.count)}/{totals.maxMs}
+                        {' '}
+                        ms
+                        {totals.failures > 0 && ` · ${totals.failures} failed`}
+                      </code>
+                    </Fragment>
+                  ))}
+                </div>
+              </section>
+            )}
+            {operationTriggers.length > 0 && (
+              <section className='diagnostics-section'>
+                <h3>Operation triggers</h3>
+                <div className='diagnostics-rows'>
+                  {operationTriggers.map(([trigger, totals]) => (
+                    <Fragment key={trigger}>
+                      <span title={trigger}>{trigger}</span>
+                      <code>{totals.operations} / {totals.requests} req</code>
+                    </Fragment>
+                  ))}
+                </div>
+              </section>
+            )}
+            {recentOperations.length > 0 && (
+              <section className='diagnostics-section'>
+                <h3>Recent operations</h3>
+                <ul className='diagnostics-events'>
+                  {recentOperations.map((operation) => (
+                    <li
+                      key={operation.sequence}
+                      title={`${operation.route} ← ${operation.cause}`}
+                    >
+                      <code>
+                        {new Date(operation.t).toLocaleTimeString()} {operation.kind}:
+                        {operation.detail} · {operation.durationMs} ms · {operation.cause}
+                        {!operation.ok && ' · failed'}
+                      </code>
+                    </li>
+                  ))}
+                </ul>
               </section>
             )}
             {topRoutes.length > 0 && (

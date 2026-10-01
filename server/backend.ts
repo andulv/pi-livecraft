@@ -47,6 +47,7 @@ import {
   DiagnosticsRecorder,
   type SnapshotStageMeasurement,
 } from './features/diagnostics/diagnostics.ts'
+import { operationLedger, operationRouteTemplate } from './features/diagnostics/operations.ts'
 import { MetadataCache } from './features/session-metadata/metadata-cache.ts'
 import { openSseStream, parseSseLastEventId } from './sse-response.ts'
 import {
@@ -72,12 +73,13 @@ import { loadPromptTemplates, savePromptTemplate } from './prompt-templates.ts'
 import { responseControlsReport } from '../shared/response-controls.ts'
 import { externalWorkspacePath, openPath } from './system-integration.ts'
 import { expandHomePath } from './home-path.ts'
-import type {
-  ClientLogRequestBody,
-  DirectoryListing,
-  JsonObject,
-  ManagerEvent,
-  SessionSnapshot,
+import {
+  requestCauseHeader,
+  type ClientLogRequestBody,
+  type DirectoryListing,
+  type JsonObject,
+  type ManagerEvent,
+  type SessionSnapshot,
 } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 import { providerFailure } from '../shared/provider-failure.ts'
@@ -98,6 +100,7 @@ const environment = new EnvironmentService(manager)
 const diagnostics = new DiagnosticsRecorder()
 const appLog = new AppLog(fileURLToPath(new URL('../pi-livecraft-app.log', import.meta.url)))
 appLog.boot(process.pid)
+operationLedger.setSink(appLog)
 
 /** Records one snapshot once in both bounded and persistent diagnostics. */
 function recordSnapshot(stage: SnapshotStageMeasurement): void {
@@ -175,14 +178,21 @@ process.on('unhandledRejection', (reason: unknown) => {
 })
 
 const server = createServer((request, response) => {
-  void route(request, response).catch((error) => {
-    const status = error instanceof HttpError ? error.status : 500
-    const route = (request.url ?? '').split('?')[0].replace(/sessions\/[^/]+/g, 'sessions/:id')
-    diagnostics.error(route)
-    appLog.requestError(route, status)
-    if (!response.headersSent) sendJson(response, status, { error: errorMessage(error) })
-    else response.end()
-  })
+  const operations = operationLedger.openRequest(
+    operationRouteTemplate(new URL(request.url ?? '/', `http://${host}`).pathname),
+    request.headers[requestCauseHeader],
+  )
+  void operationLedger
+    .runInRequest(operations, () => route(request, response))
+    .catch((error) => {
+      const status = error instanceof HttpError ? error.status : 500
+      const route = (request.url ?? '').split('?')[0].replace(/sessions\/[^/]+/g, 'sessions/:id')
+      diagnostics.error(route)
+      appLog.requestError(route, status)
+      if (!response.headersSent) sendJson(response, status, { error: errorMessage(error) })
+      else response.end()
+    })
+    .finally(() => operationLedger.closeRequest(operations))
 })
 
 server.listen(port, host, () => {

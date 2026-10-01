@@ -26,10 +26,13 @@ test('shares concurrent identical GET requests and refetches after they settle',
       })
     },
     async () => {
-      const [first, second] = await Promise.all([getGitProject('/x'), getGitProject('/x')])
+      const [first, second] = await Promise.all([
+        getGitProject('/x', 'test:dedupe'),
+        getGitProject('/x', 'test:dedupe'),
+      ])
       assert.equal(calls, 1)
       assert.deepEqual(first, second)
-      await getGitProject('/x')
+      await getGitProject('/x', 'test:dedupe')
       assert.equal(calls, 2)
     },
   )
@@ -49,7 +52,7 @@ test('keeps distinct GET paths separate and never dedupes writes', async () => {
       })
     },
     async () => {
-      await Promise.all([getGitProject('/x'), getQuotas()])
+      await Promise.all([getGitProject('/x', 'test:dedupe'), getQuotas()])
       // createSession is a POST (write) and must not be deduped even if called twice.
       const { createSession } = await import('../src/api.ts')
       await Promise.all([
