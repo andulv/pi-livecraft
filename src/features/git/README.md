@@ -30,7 +30,7 @@ Discard, reset, and revert ask for confirmation. Discard is destructive and can 
 
 ## Ownership and data flow
 
-`App.tsx` loads and mutates Git state through `src/api.ts`. `GitWidget` owns its commit message, busy state, action errors, and on-demand commit-file cache. `GitFileList.tsx` renders virtualized Changes and aggregate outgoing files in both display modes; individual commit details remain on demand. Selecting an eligible file opens its diff in the shared file viewer. Public response shapes live in `shared/types.ts`.
+`App.tsx` loads and mutates Git state through `src/api.ts`. It refreshes after a Pi tool finishes only when `toolMayChangeGitState` (`git-refresh.ts`) allows it: Pi's read-only built-in tools (`read`, `grep`, `find`, `ls`) never trigger a refresh. Concurrent refreshes from several tabs share one server-side snapshot run; see the [data-flow guide](/docs/DATA-FLOW.md). `GitWidget` owns its commit message, busy state, action errors, and on-demand commit-file cache. `GitFileList.tsx` renders virtualized Changes and aggregate outgoing files in both display modes; individual commit details remain on demand. Selecting an eligible file opens its diff in the shared file viewer. Public response shapes live in `shared/types.ts`.
 
 The [Git backend capability](/server/features/git/README.md) runs the validated Git commands in the selected workspace. Unified diff parsing remains pure in `git-diff.ts`.
 

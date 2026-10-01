@@ -20,10 +20,10 @@ Costs are per request. "Cache" means server-side unless stated otherwise.
 
 | Resource | Owner | Cost | Cache and sharing | Invalidated by |
 |---|---|---|---|---|
-| Git snapshot (`GET /api/git`) | `getGitSnapshot`, `server/features/git/git.ts` | ~13 `git` processes | None on the server; per tab, a stale-response guard and a 250 ms debounce for tool-end refreshes | — (recomputed on every request) |
+| Git snapshot (`GET /api/git`) | `getGitSnapshot`, `server/features/git/git.ts` | 6 `git` processes (8 in a linked worktree) | Shared runs per directory (`FreshRuns`): callers within 25 ms share one run, mid-run callers share the next one, never an older result; per tab, a stale-response guard and a 250 ms debounce for tool-end refreshes | — (each run reads current state) |
 | Git project (`GET /api/git/project`) | `getGitProject` | 3 `git` + 1 `stat` per worktree | None | — |
-| Git diffs, outgoing changes, commit files | `getGitFileDiff`, `getGitOutgoing*`, `getGitCommitFiles` | full Git snapshot + 2–5 `git` | None | — |
-| Git mutations (commit, push, pull, reset, revert, discard) | `git.ts` | full Git snapshot + the mutation | — | — |
+| Git diffs, outgoing changes, commit files | `getGitFileDiff`, `getGitOutgoing*`, `getGitCommitFiles` | shared Git snapshot (diffs, outgoing) + 2–5 `git` | The snapshot part is shared | — |
+| Git mutations (commit, push, pull, reset, revert, discard) | `git.ts` | shared Git snapshot for validation + the mutation | — | — |
 | Live session list (`GET /api/sessions`) | manager `list` | 1 manager RPC + 1 `get_state` per live Pi session | None | — |
 | Recent sessions (`GET /api/sessions/recent`) | `listRecentPiSessions`, `server/pi-session-store.ts` | `readdir` + `stat` of every session file in the workspace folder; only new or changed files get head and tail reads (tail scan up to 4 MB), and changed sub-agent children a full read for usage | Parsed metadata per file, keyed by path, size, and mtime (5,000 files); concurrent scans of one folder share one execution | A file's size or mtime changes |
 | Pinned sessions (`POST /api/sessions/resolve`) | `resolvePiSessions` | path checks + 1 `stat` per pin; content reads only for changed files | The same per-file metadata cache | A file's size or mtime changes |
@@ -39,11 +39,11 @@ What runs when something happens. "Per tab" work is repeated by every open Livec
 
 | When | Cause | What runs |
 |---|---|---|
-| A Pi tool call finishes (`tool_execution_end`) | `git:tool-end` | Per tab, after 250 ms: one Git snapshot for the session's workspace. Also a delta snapshot after 100 ms. |
+| A Pi tool call finishes (`tool_execution_end`) | `git:tool-end` | Per tab, after 250 ms, unless the tool is read-only (`read`, `grep`, `find`, `ls`): one Git snapshot request for the session's workspace; concurrent tabs share one run. Also a delta snapshot after 100 ms. |
 | `message_end`, `queue_update`, `agent_settled` | — | Per tab: a delta snapshot for the selected session. `agent_settled` also refreshes quotas, at most once per 30 s per session and provider. |
 | A session is created or reassigned, or the manager (re)connects | `sessions:session_created`, `sessions:session_reassigned`, `sessions:manager_connected` | Per tab and per event: live session list + recent-sessions scan. After a manager restart, every reopened session emits `session_created`. |
 | The manager connects | — | Backend: clears `MetadataCache`; refreshes quotas and environment through one idle session. |
-| Project view opens, the worktree list changes, or the workspace switches | `git:workspace-paths`, `sessions:workspace-switch` | Per tab: one Git snapshot per worktree of the project; one recent-sessions scan. |
+| Project view opens, the worktree list changes, or the workspace switches | `git:workspace-paths`, `sessions:workspace-switch` | Per tab: one Git snapshot request per worktree of the project (shared across tabs); one recent-sessions scan. |
 | The project registry loads or the project changes | `projects:discovery`, `projects:activity` | Per tab: one Git project per registered project, then one recent-sessions scan per worktree of every project. |
 | Session selected | — | Per tab: a full snapshot. |
 | Tab becomes visible after missed events, or SSE reconnects | — | Per tab: a delta snapshot reconciliation. |
@@ -66,10 +66,10 @@ Targets that new work must not exceed. A budget marked *not yet* is a known gap.
 
 | Trigger | Budget | Status |
 |---|---|---|
-| Any number of tabs reading the same resource at the same time | one execution on the server | Recent sessions: met. Git snapshot: not yet. |
+| Any number of tabs reading the same resource at the same time | one execution on the server | Met for recent sessions and Git snapshots (`test/git.test.ts`) |
 | Recent sessions, nothing changed on disk | `readdir` + one `stat` per file; no file content reads | Met (`test/pi-session-store.test.ts`) |
 | A burst of `session_created` events | one session-list refresh per tab | Not yet |
-| `git:tool-end` during agent work | at most one Git snapshot per worktree per refresh interval, shared by all tabs; none after read-only tools | Not yet |
+| `git:tool-end` during agent work | at most one Git snapshot per worktree per refresh interval, shared by all tabs; none after read-only tools | Met: 6 processes per refresh for any number of tabs (13 per tab before) |
 
 ## Adding a data source or trigger
 

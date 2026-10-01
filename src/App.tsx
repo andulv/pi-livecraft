@@ -37,6 +37,7 @@ import {
   savePiSettingsDocument,
 } from './api.ts'
 import type { QuotaResetTarget, RequestCause } from './api.ts'
+import { toolMayChangeGitState } from './features/git/git-refresh.ts'
 import type {
   ExtensionSettingsSnapshot,
   ExtensionSettingValue,
@@ -985,7 +986,7 @@ function LivecraftProjectApp(
           sessionId,
         )
       }
-      if (event.type === 'tool_execution_end')
+      if (event.type === 'tool_execution_end' && toolMayChangeGitState(event.toolName))
         scheduleGitRefresh(sessionCwdRef.current.get(sessionId))
       if (
         event.type === 'extension_ui_request' && event.method === 'setStatus'

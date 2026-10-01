@@ -15,6 +15,7 @@ import type {
   GitWorkspace,
 } from '../../../shared/types.ts'
 import { measureOperation } from '../diagnostics/operations.ts'
+import { FreshRuns } from './fresh-runs.ts'
 
 interface GitCommandResult {
   exitCode: number
@@ -22,78 +23,61 @@ interface GitCommandResult {
   stdout: string
 }
 
-/** Aggregates Git state, including divergence from locally known tracked refs. */
-export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
-  const repository = await runGit(cwd, ['rev-parse', '--is-inside-work-tree'], [0, 128])
-  if (repository.exitCode !== 0 || repository.stdout.trim() !== 'true')
-    return {
-      repository: false,
-      root: null,
-      branch: null,
-      worktree: false,
-      files: [],
-      ahead: 0,
-      behind: null,
-      baseBranch: null,
-      baseAhead: 0,
-      baseBehind: 0,
-      commits: [],
-      history: [],
-    }
+/** Lets near-simultaneous callers, typically several tabs reacting to one event, share a run. */
+const snapshotGatherMs = 25
+const snapshotRuns = new FreshRuns<GitSnapshot>(snapshotGatherMs)
 
-  const [root, status, unstaged, staged, branch, upstream] = await Promise.all([
-    runGit(cwd, ['rev-parse', '--show-toplevel']),
-    runGit(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=all']),
+/**
+ * Aggregates Git state, including divergence from locally known tracked refs. Concurrent
+ * callers for one directory (tabs, widget actions, and mutation checks) share one run that
+ * started after they asked, so sharing never returns state older than the request.
+ */
+export function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
+  return snapshotRuns.run(cwd, () => readGitSnapshot(cwd))
+}
+
+async function readGitSnapshot(cwd: string): Promise<GitSnapshot> {
+  // One process answers the repository check, the root, and the worktree layout.
+  const location = await runGit(cwd, [
+    'rev-parse',
+    '--is-inside-work-tree',
+    '--show-toplevel',
+    '--absolute-git-dir',
+    '--git-common-dir',
+  ], [0, 128])
+  const [insideWorkTree, root, gitDir, commonDir] = location.stdout.split(/\r?\n/)
+  if (location.exitCode !== 0 || insideWorkTree?.trim() !== 'true') return emptyGitSnapshot()
+
+  // `--branch` adds the branch, its upstream, and the divergence from the local tracking ref,
+  // so snapshot reads never contact the remote and avoid credential prompts.
+  const [status, unstaged, staged] = await Promise.all([
+    runGit(cwd, ['status', '--porcelain=v1', '-z', '--branch', '--untracked-files=all']),
     runGit(cwd, ['diff', '--numstat', '-z']),
     runGit(cwd, ['diff', '--cached', '--numstat', '-z']),
-    runGit(cwd, ['branch', '--show-current']),
-    runGit(cwd, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'], [0, 128]),
   ])
-
-  const changes = parseGitStatus(status.stdout)
+  const headerEnd = status.stdout.startsWith('## ') ? status.stdout.indexOf('\0') : -1
+  const header = parseStatusBranch(headerEnd >= 0 ? status.stdout.slice(0, headerEnd) : '')
+  const changes = parseGitStatus(status.stdout.slice(headerEnd + 1))
   const counts = mergeNumstats(unstaged.stdout, staged.stdout)
   // Untracked files have no Git numstat in a snapshot. Keep their nullable counts;
   // loading each file's diff here would fork a process per file on every refresh.
 
-  // Compare the branch to its local tracking ref. Snapshot reads never contact the remote,
-  // avoiding credential prompts while users browse the workspace.
-  let behind: number | null = null
-  if (upstream.exitCode === 0) {
-    const divergence = await runGit(cwd, [
-      'rev-list',
-      '--left-right',
-      '--count',
-      '@{upstream}...HEAD',
-    ], [0, 128])
-    if (divergence.exitCode === 0) behind = parseBranchDivergence(divergence.stdout).behind
-  }
+  const hasUpstream = header.upstream !== null && !header.upstreamGone
+  const behind = hasUpstream && !header.unborn ? header.behind : null
 
   // With an upstream, list commits ahead of it. Without one (a worktree or branch with no
   // remote tracking), fall back to commits on HEAD that are not on any remote, so local work in a
   // remote-less checkout is still listed instead of appearing empty.
-  const head = await runGit(cwd, ['rev-parse', '--verify', '--quiet', 'HEAD'], [0, 1])
-  const [commits, history] = head.exitCode === 0
-    ? await Promise.all([
-      unpushedCommits(
-        cwd,
-        upstream.exitCode === 0 ? ['@{upstream}..HEAD'] : ['HEAD', '--not', '--remotes'],
-      ),
+  const [commits, history] = header.unborn
+    ? [[], []]
+    : await Promise.all([
+      unpushedCommits(cwd, hasUpstream ? ['@{upstream}..HEAD'] : ['HEAD', '--not', '--remotes']),
       recentCommits(cwd),
     ])
-    : [[], []]
 
-  let worktree = false
-  try {
-    const [gitDir, commonDir] = await Promise.all([
-      runGit(cwd, ['rev-parse', '--absolute-git-dir']),
-      runGit(cwd, ['rev-parse', '--git-common-dir']),
-    ])
-    worktree = isLinkedWorktree(gitDir.stdout, commonDir.stdout, cwd)
-  } catch {
-    // Older Git or an unusual layout — report as the main checkout.
-  }
-
-  const branchName = branch.stdout.trim() || 'HEAD'
+  // Older Git or an unusual layout without both directories reports the main checkout.
+  const worktree = gitDir && commonDir ? isLinkedWorktree(gitDir, commonDir, cwd) : false
+  const branchName = header.branch ?? 'HEAD'
   let baseBranch: string | null = null
   let baseAhead = 0
   let baseBehind = 0
@@ -116,7 +100,7 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
 
   return {
     repository: true,
-    root: root.stdout.trim() || null,
+    root: root?.trim() || null,
     branch: branchName,
     worktree,
     files: changes.map((change) => {
@@ -131,6 +115,67 @@ export async function getGitSnapshot(cwd: string): Promise<GitSnapshot> {
     commits,
     history,
   }
+}
+
+function emptyGitSnapshot(): GitSnapshot {
+  return {
+    repository: false,
+    root: null,
+    branch: null,
+    worktree: false,
+    files: [],
+    ahead: 0,
+    behind: null,
+    baseBranch: null,
+    baseAhead: 0,
+    baseBehind: 0,
+    commits: [],
+    history: [],
+  }
+}
+
+export interface GitStatusBranch {
+  /** Checked-out branch; null when HEAD is detached. */
+  branch: string | null
+  /** Whether the branch has no commits yet. */
+  unborn: boolean
+  /** Configured upstream, even when its local tracking ref no longer exists. */
+  upstream: string | null
+  upstreamGone: boolean
+  ahead: number
+  behind: number
+}
+
+/**
+ * Parses the `## …` header of `git status --porcelain=v1 --branch`, for example
+ * `## main...origin/main [ahead 1, behind 2]`, `## No commits yet on main`, or
+ * `## HEAD (no branch)`. Branch names cannot contain spaces or `..`, so the separators
+ * are unambiguous.
+ */
+export function parseStatusBranch(header: string): GitStatusBranch {
+  let rest = header.startsWith('## ') ? header.slice(3) : header
+  const unbornPrefix = ['No commits yet on ', 'Initial commit on ']
+    .find((prefix) => rest.startsWith(prefix))
+  if (unbornPrefix) rest = rest.slice(unbornPrefix.length)
+  const result: GitStatusBranch = {
+    branch: null,
+    unborn: unbornPrefix !== undefined,
+    upstream: null,
+    upstreamGone: false,
+    ahead: 0,
+    behind: 0,
+  }
+  if (!rest || rest.startsWith('HEAD (no branch)')) return result
+  const match = /^(\S+?)(?:\.\.\.(\S+))?(?: \[([^\]]*)\])?$/.exec(rest)
+  if (!match) return result
+  result.branch = match[1] ?? null
+  result.upstream = match[2] ?? null
+  for (const part of (match[3] ?? '').split(',').map((value) => value.trim())) {
+    if (part === 'gone') result.upstreamGone = true
+    else if (part.startsWith('ahead ')) result.ahead = Number(part.slice(6)) || 0
+    else if (part.startsWith('behind ')) result.behind = Number(part.slice(7)) || 0
+  }
+  return result
 }
 
 /** Returns the branch checked out in Git's primary worktree, which is listed first. */
@@ -605,7 +650,13 @@ function spawnGit(
   allowedExitCodes: number[],
 ): Promise<GitCommandResult> {
   return new Promise((resolve, reject) => {
-    const process = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    // Optional locks off: read-only commands such as `status` then never take the index
+    // lock, so refreshes cannot make the agent's own Git commands fail on `index.lock`.
+    const process = spawn('git', args, {
+      cwd,
+      env: { ...globalThis.process.env, GIT_OPTIONAL_LOCKS: '0' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     let stdout = ''
     let stderr = ''
     process.stdout.on('data', (chunk: Buffer) => {

@@ -21,11 +21,13 @@ import {
   parseBranchDivergence,
   parseGitStatus,
   parseGitWorktrees,
+  parseStatusBranch,
   pullCommits,
   pushCommits,
   resetGitCommit,
   revertGitCommit,
 } from '../server/features/git/git.ts'
+import { operationLedger } from '../server/features/diagnostics/operations.ts'
 
 const execFile = promisify(execFileCallback)
 
@@ -488,5 +490,66 @@ test('getGitProject omits worktrees whose directory has been removed', async () 
     assert.equal(project?.workspaces[0]?.main, true)
   } finally {
     await rm(main, { force: true, recursive: true })
+  }
+})
+
+test('parses the branch header of porcelain status', () => {
+  assert.deepEqual(parseStatusBranch('## main...origin/main [ahead 1, behind 2]'), {
+    branch: 'main',
+    unborn: false,
+    upstream: 'origin/main',
+    upstreamGone: false,
+    ahead: 1,
+    behind: 2,
+  })
+  assert.equal(parseStatusBranch('## feature/x...origin/feature/x [gone]').upstreamGone, true)
+  assert.deepEqual(parseStatusBranch('## main'), {
+    branch: 'main',
+    unborn: false,
+    upstream: null,
+    upstreamGone: false,
+    ahead: 0,
+    behind: 0,
+  })
+  assert.equal(parseStatusBranch('## HEAD (no branch)').branch, null)
+  const unborn = parseStatusBranch('## No commits yet on trunk')
+  assert.equal(unborn.unborn, true)
+  assert.equal(unborn.branch, 'trunk')
+})
+
+test('reports an unborn branch without commits', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-livecraft-unborn-'))
+  try {
+    await execFile('git', ['init', '--quiet', '--initial-branch', 'trunk'], { cwd: directory })
+    await writeFile(join(directory, 'a.ts'), 'a\n')
+    const snapshot = await getGitSnapshot(directory)
+    assert.equal(snapshot.branch, 'trunk')
+    assert.equal(snapshot.behind, null)
+    assert.deepEqual(snapshot.commits, [])
+    assert.deepEqual(snapshot.files.map(({ path }) => path), ['a.ts'])
+  } finally {
+    await rm(directory, { force: true, recursive: true })
+  }
+})
+
+test('concurrent snapshots of one checkout share a single six-process read', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-livecraft-shared-'))
+  const gitProcesses = (): number =>
+    Object
+      .entries(operationLedger.snapshotState().totals)
+      .filter(([key]) => key.startsWith('git:'))
+      .reduce((sum, [, totals]) => sum + totals.count, 0)
+  try {
+    await execFile('git', ['init', '--quiet'], { cwd: directory })
+    await writeFile(join(directory, 'a.ts'), 'a\n')
+    await execFile('git', ['add', 'a.ts'], { cwd: directory })
+    await execFile('git', ['commit', '--quiet', '-m', 'First'], { cwd: directory })
+
+    const before = gitProcesses()
+    const snapshots = await Promise.all(Array.from({ length: 4 }, () => getGitSnapshot(directory)))
+    assert.equal(gitProcesses() - before, 6)
+    assert.ok(snapshots.every((snapshot) => snapshot === snapshots[0]))
+  } finally {
+    await rm(directory, { force: true, recursive: true })
   }
 })
