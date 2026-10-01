@@ -40,6 +40,6 @@ After the next incident, read the app log around the client reports:
 
 ## Fix directions if confirmed
 
-- Mechanism 1: carry each tab's events, frames, and terminal output on one stream or WebSocket, or serve over HTTP/2, so long-lived streams cannot exhaust the per-origin pool.
+- Mechanism 1: carry each tab's events, frames, and terminal output on one stream or WebSocket, or serve over HTTP/2, so long-lived streams cannot exhaust the per-origin pool. The [browser WebSocket proposal](/plans/proposals/browser-websocket-transport.md) starts with the browser viewer.
 - Mechanism 2: move frame relaying off the main event loop or lower capture cost (frame rate, quality, viewport) while an agent drives the browser.
 - Mechanism 3: suppress the Browser pane's screencast inside the shared browser itself.
