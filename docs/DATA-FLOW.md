@@ -65,7 +65,7 @@ client logs) share whatever remains and queue when none is free.
 | Stream | Route | Held by |
 |---|---|---|
 | Manager events | `GET /api/events` | every open tab, always |
-| Browser frames | `GET /api/browser/instances/:id/frames` | every visible tab showing the Browser pane; hidden tabs close it |
+| Browser frames | `GET /api/browser/instances/:id/frames` — or one WebSocket per viewer (`.../socket`, enabled per view with `?browserTransport=ws`; outside the HTTP pool) | every visible tab showing the Browser pane; hidden tabs close it |
 | Terminal output | `GET /api/terminal/instances/:id/stream` | every tab showing an embedded terminal |
 
 Three tabs that each show the Browser pane hold all six connections, and every other

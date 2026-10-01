@@ -28,7 +28,7 @@ observability handoff; nothing here logs payloads, prompts, session ids, or path
 [`stability.ts`](stability.ts) samples signals for diagnosing lost connections and views
 that never finish loading. Every 10 s window records the backend's event-loop delay (p50,
 p99, max from Node's `monitorEventLoopDelay`), the long-lived streams open at that moment
-(`events`, `browser-frames`, `terminal`, across all clients), and shared-browser capture in
+(`events`, `browser-frames`, `browser-socket`, `terminal`, across all clients), and shared-browser capture in
 the window (live instances, viewers, frames, bytes; sampled from each session's counters,
 never per frame). The last 60 windows (ten minutes) appear as `stability` in
 `GET /api/diagnostics` and in the widget's Stability section, with the peak stream count

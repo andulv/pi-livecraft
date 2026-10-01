@@ -35,6 +35,10 @@ export interface RequestGuard {
   readonly allowedHosts: string[]
   /** Returns why a request must be refused, or null when it may proceed. */
   violation(input: RequestGuardInput): RequestGuardRejection | null
+  /** Stricter rule for WebSocket upgrades: a browser Origin is always required. */
+  upgradeViolation(
+    input: { host: string | undefined; origin: string | undefined },
+  ): RequestGuardRejection | null
 }
 
 export interface RequestGuardOptions {
@@ -85,6 +89,32 @@ export function createRequestGuard(
         return {
           status: 403,
           error: 'Browser requests must carry an Origin header.',
+          allowedOrigins,
+        }
+      }
+      return null
+    },
+
+    /**
+     * WebSocket upgrades must always carry a browser `Origin` (they are not subject to
+     * CORS, so any page could otherwise connect), and it must exactly match.
+     */
+    upgradeViolation(
+      { host, origin }: { host: string | undefined; origin: string | undefined },
+    ): RequestGuardRejection | null {
+      if (host !== undefined && !allowedHosts.includes(host.toLowerCase())) {
+        return {
+          status: 403,
+          error: `Requests must target an application host (allowed: ${allowedHosts.join(', ')}).`,
+          allowedOrigins,
+        }
+      }
+      if (origin === undefined || !allowedOrigins.includes(origin)) {
+        return {
+          status: 403,
+          error: `WebSocket connections must carry an allowed Origin (allowed: ${
+            allowedOrigins.join(', ')
+          }).`,
           allowedOrigins,
         }
       }

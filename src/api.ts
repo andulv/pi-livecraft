@@ -54,13 +54,16 @@ let lastManagerMessageAt: number | undefined
 let managerStream: EventSource | undefined
 
 /** This tab's long-lived streams; closed ones are pruned when the load is reported. */
-const trackedStreams = new Map<EventSource, 'events' | 'frames' | 'terminal'>()
+const trackedStreams = new Map<{ readyState: number }, 'events' | 'frames' | 'terminal'>()
 /** Start times of requests still awaiting a response, keyed by an opaque token. */
 const pendingRequests = new Map<object, number>()
 /** A GET still pending after this long is reported once as `fetch-stall`. */
 const fetchStallMs = 15_000
 
-function trackStream(kind: 'events' | 'frames' | 'terminal', source: EventSource): EventSource {
+function trackStream<T extends { readyState: number }>(
+  kind: 'events' | 'frames' | 'terminal',
+  source: T,
+): T {
   trackedStreams.set(source, kind)
   return source
 }
@@ -73,7 +76,8 @@ function trackStream(kind: 'events' | 'frames' | 'terminal', source: EventSource
 export function connectionLoad(): string {
   const counts = { events: 0, frames: 0, terminal: 0 }
   for (const [source, kind] of trackedStreams) {
-    if (source.readyState === EventSource.CLOSED) trackedStreams.delete(source)
+    // EventSource CLOSED is 2; WebSocket CLOSING/CLOSED are 2 and 3.
+    if (source.readyState >= 2) trackedStreams.delete(source)
     else counts[kind] += 1
   }
   const now = Date.now()
@@ -619,6 +623,9 @@ export async function setBrowserViewport(
 }
 
 /** Fire-and-forget input forwarding; pane status errors surface via the stream. */
+/** Input senders for open browser viewer sockets, keyed per target. */
+const browserSocketSenders = new Map<string, { send(event: BrowserInputEvent): void }>()
+
 /** Queued input per browser viewer target; see `sendBrowserInput`. */
 const browserInputQueues = new Map<string, { sending: boolean; events: BrowserInputEvent[] }>()
 /** Bounds the queue while the backend is slow or unreachable; see `sendBrowserInput`. */
@@ -633,6 +640,11 @@ const maxQueuedBrowserInput = 200
  */
 export function sendBrowserInput(target: BrowserInstanceTarget, event: BrowserInputEvent): void {
   const key = `${target.workspacePath}\0${target.browserId}`
+  const socketSender = browserSocketSenders.get(key)
+  if (socketSender) {
+    socketSender.send(event)
+    return
+  }
   let queue = browserInputQueues.get(key)
   if (!queue) {
     queue = { sending: false, events: [] }
@@ -746,14 +758,154 @@ const browserStreamHeartbeatTimeoutMs = 30_000
 const browserStreamWatchdogIntervalMs = 1_000
 
 export interface BrowserEventHandlers {
-  onFrame?: (data: string) => void
+  /** `src` is a complete image URL (data: or blob:); `acknowledge` reports it displayed. */
+  onFrame?: (src: string, acknowledge?: () => void) => void
   onUrl?: (url: string) => void
   onStatus?: (status: BrowserSessionStatus) => void
   onStreamState?: (state: BrowserStreamState) => void
 }
 
+/** Minimal view of the browser's WebSocket; Node tests never construct one. */
+interface BrowserViewerSocket {
+  readyState: number
+  binaryType: string
+  onopen: (() => void) | null
+  onclose: (() => void) | null
+  onmessage: ((event: { data: unknown }) => void) | null
+  send(data: string): void
+  close(): void
+}
+
+function openBrowserViewerSocket(url: string): BrowserViewerSocket {
+  const socket = new (globalThis as unknown as {
+    WebSocket: new(url: string) => BrowserViewerSocket
+  })
+    .WebSocket(url)
+  return socket
+}
+
+/**
+ * Whether the browser viewer uses the WebSocket prototype
+ * (`plans/proposals/browser-websocket-transport.md`): binary frames and input on one
+ * socket per viewer. Enabled per view with `?browserTransport=ws`.
+ */
+export function browserSocketTransportEnabled(): boolean {
+  const location = (globalThis as { location?: { search?: string } }).location
+  return location?.search !== undefined
+    && new URLSearchParams(location.search).get('browserTransport') === 'ws'
+}
+
 /** Subscribes to one browser instance's livecast frame, url, and status streams. */
 export function subscribeBrowserEvents(
+  target: BrowserInstanceTarget,
+  handlers: BrowserEventHandlers,
+): () => void {
+  if (browserSocketTransportEnabled()) return subscribeBrowserSocket(target, handlers)
+  return subscribeBrowserEventStream(target, handlers)
+}
+
+function subscribeBrowserSocket(
+  target: BrowserInstanceTarget,
+  handlers: BrowserEventHandlers,
+): () => void {
+  let disposed = false
+  let retryMs = 500
+  let reopenTimer: ReturnType<typeof setTimeout> | undefined
+  let watchdog: ReturnType<typeof setInterval> | undefined
+  let lastHeartbeatAt = Date.now()
+  let lastObjectUrl: string | undefined
+  let socket: BrowserViewerSocket | undefined
+  const key = `${target.workspacePath}\0${target.browserId}`
+  handlers.onStreamState?.('connecting')
+
+  const location = (globalThis as { location?: { protocol: string; host: string } }).location
+  const open = (): void => {
+    if (disposed || !location) return
+    const scheme = location.protocol === 'https:' ? 'wss' : 'ws'
+    const ws = openBrowserViewerSocket(
+      `${scheme}://${location.host}${browserInstanceUrl(target, 'socket')}?${
+        browserWorkspaceQuery(target)
+      }`,
+    )
+    ws.binaryType = 'arraybuffer'
+    socket = ws
+    trackedStreams.set(ws, 'frames')
+    ws.onopen = () => {
+      retryMs = 500
+      handlers.onStreamState?.('connected')
+    }
+    ws.onmessage = ({ data }) => {
+      if (disposed) return
+      if (typeof data !== 'string') {
+        const objectUrls = globalThis as unknown as {
+          URL: { createObjectURL(blob: Blob): string; revokeObjectURL(url: string): void }
+        }
+        const url = objectUrls.URL.createObjectURL(
+          new Blob([data as ArrayBuffer], { type: 'image/jpeg' }),
+        )
+        const previous = lastObjectUrl
+        lastObjectUrl = url
+        handlers.onFrame?.(url, () => {
+          if (ws.readyState === 1) ws.send('{"type":"frameAck"}')
+          if (previous !== undefined) objectUrls.URL.revokeObjectURL(previous)
+        })
+        return
+      }
+      let value: unknown
+      try {
+        value = JSON.parse(data)
+      } catch {
+        return
+      }
+      if (!isObject(value)) return
+      if (value.type === 'status' && isObject(value.status)) {
+        handlers.onStatus?.(value.status as unknown as BrowserSessionStatus)
+      } else if (value.type === 'url' && typeof value.url === 'string') {
+        handlers.onUrl?.(value.url)
+      } else if (value.type === 'heartbeat') {
+        lastHeartbeatAt = Date.now()
+        handlers.onStreamState?.('connected')
+      }
+    }
+    ws.onclose = () => {
+      trackedStreams.delete(ws)
+      if (disposed) return
+      // Input produced while disconnected is dropped, never queued for replay.
+      socket = undefined
+      browserSocketSenders.delete(key)
+      const delay = retryMs + Math.floor(Math.random() * 100)
+      retryMs = Math.min(retryMs * 2, 30_000)
+      reopenTimer = setTimeout(open, delay)
+    }
+  }
+  open()
+
+  const markStale = (): void => {
+    handlers.onStreamState?.('stale')
+    socket?.close()
+  }
+  watchdog = setInterval(() => {
+    if (Date.now() - lastHeartbeatAt >= browserStreamHeartbeatTimeoutMs) markStale()
+  }, browserStreamWatchdogIntervalMs)
+
+  const sender = {
+    send(event: BrowserInputEvent): void {
+      if (socket?.readyState === 1) socket.send(JSON.stringify({ type: 'input', event }))
+    },
+  }
+  browserSocketSenders.set(key, sender)
+
+  return () => {
+    disposed = true
+    if (reopenTimer !== undefined) clearTimeout(reopenTimer)
+    if (watchdog !== undefined) clearInterval(watchdog)
+    browserSocketSenders.delete(key)
+    if (lastObjectUrl !== undefined) URL.revokeObjectURL(lastObjectUrl)
+    socket?.close()
+  }
+}
+
+function subscribeBrowserEventStream(
   target: BrowserInstanceTarget,
   handlers: BrowserEventHandlers,
 ): () => void {
@@ -786,7 +938,9 @@ export function subscribeBrowserEvents(
     })
   }
   onNamedEvent('frame', (value) => {
-    if (isObject(value) && typeof value.data === 'string') handlers.onFrame?.(value.data)
+    if (isObject(value) && typeof value.data === 'string') {
+      handlers.onFrame?.(`data:image/jpeg;base64,${value.data}`)
+    }
   })
   onNamedEvent('url', (value) => {
     if (isObject(value) && typeof value.url === 'string') handlers.onUrl?.(value.url)

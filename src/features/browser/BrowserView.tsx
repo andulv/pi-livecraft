@@ -88,7 +88,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   const [viewportChoice, setViewportChoice] = useState(readStoredViewportChoice)
   const target = useMemo(() => ({ browserId, workspacePath }), [browserId, workspacePath])
   const frameImageRef = useRef<HTMLImageElement>(null)
-  /** Latest frame payload; the image is not mounted until the first frame flips hasFrame. */
+  /** Latest frame image URL; the image is not mounted until the first frame flips hasFrame. */
   const lastFrameRef = useRef<string | null>(null)
   const composeInputRef = useRef<HTMLInputElement>(null)
   const liveSurfaceRef = useRef<HTMLDivElement>(null)
@@ -127,9 +127,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   useEffect(() => {
     const image = frameImageRef.current
     const data = lastFrameRef.current
-    if (image && data && !image.src.startsWith('data:image/jpeg')) {
-      image.src = `data:image/jpeg;base64,${data}`
-    }
+    if (image && data && image.src !== data) image.src = data
   }, [hasFrame])
 
   // Report the effective zoom whenever the rendered frame size changes.
@@ -195,14 +193,20 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
     setStreamState('connecting')
     let active = true
     const unsubscribe = subscribeBrowserEvents(target, {
-      // Frames bypass React state: writing the data URL straight to the image
-      // avoids a full component re-render at frame rate.
-      onFrame: (data) => {
+      // Frames bypass React state: writing the image URL straight to the image
+      // avoids a full component re-render at frame rate. The acknowledgement (socket
+      // transport) is sent once the frame decoded, settling either way.
+      onFrame: (src, acknowledge) => {
         if (!active) return
-        lastFrameRef.current = data
+        lastFrameRef.current = src
         const image = frameImageRef.current
-        if (image) image.src = `data:image/jpeg;base64,${data}`
-        else setHasFrame(true)
+        if (image) {
+          image.src = src
+          if (acknowledge) void image.decode().then(acknowledge, acknowledge)
+        } else {
+          setHasFrame(true)
+          acknowledge?.()
+        }
       },
       onUrl: (nextUrl) => {
         if (!active) return

@@ -35,7 +35,11 @@ import {
   updatePiSetting,
 } from './features/pi-settings/pi-settings.ts'
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
-import { parseBrowserInputEvent, parseBrowserViewport } from './features/browser/browser-session.ts'
+import {
+  parseBrowserInputEvent,
+  parseBrowserViewport,
+  wireFor,
+} from './features/browser/browser-session.ts'
 import { BrowserService, parseBrowserId } from './features/browser/browser-service.ts'
 import {
   parseTerminalId,
@@ -49,6 +53,8 @@ import {
 } from './features/diagnostics/diagnostics.ts'
 import { StabilityMonitor } from './features/diagnostics/stability.ts'
 import { createRequestGuard, isJsonContentType } from './request-guard.ts'
+import { WebSocketServer } from 'ws'
+import { attachViewerSocket } from './features/browser/viewer-socket.ts'
 import {
   operationLedger,
   operationRouteTemplate,
@@ -216,6 +222,42 @@ const server = createServer((request, response) => {
       else response.end()
     })
     .finally(() => operationLedger.closeRequest(operations))
+})
+
+/** Browser viewer sockets: binary frames to the tab, ordered input from it. */
+const viewerSockets = new WebSocketServer({
+  noServer: true,
+  perMessageDeflate: false,
+  maxPayload: 64 * 1024,
+})
+server.on('upgrade', (request, socket, head) => {
+  const url = new URL(request.url ?? '/', `http://${host}`)
+  const rejection = requestGuard.upgradeViolation({
+    host: request.headers.host,
+    origin: headerValue(request.headers.origin),
+  })
+  const match = url.pathname.match(/^\/api\/browser\/instances\/([^/]+)\/socket$/)
+  if (rejection || !match) {
+    appLog.requestError('browser/instances/:id/socket', 403)
+    socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n')
+    socket.destroy()
+    return
+  }
+  const browserId = parseBrowserId(decodeURIComponent(match[1] ?? ''))
+  void (async () => {
+    try {
+      if (!browserId) throw new HttpError(400, 'A valid browser ID is required')
+      const workspacePath = await resolveBrowserWorkspace(url.searchParams.get('workspacePath'))
+      const browserSession = browsers.session(workspacePath, browserId)
+      viewerSockets.handleUpgrade(request, socket, head, (ws) => {
+        stability.trackStream('browser-socket', ws)
+        attachViewerSocket(ws, browserSession)
+      })
+    } catch {
+      socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n')
+      socket.destroy()
+    }
+  })()
 })
 
 server.listen(port, host, () => {
@@ -965,7 +1007,10 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       writeEvent('status', JSON.stringify(browserSession.status()))
       const currentUrl = browserSession.status().url
       if (currentUrl) writeEvent('url', JSON.stringify({ url: currentUrl }))
-      const unsubscribe = browserSession.subscribe((event, json) => writeEvent(event, json))
+      const unsubscribe = browserSession.subscribe((event) => {
+        const { name, json } = wireFor(event)
+        writeEvent(name, json)
+      })
       browserSession.addViewer()
       const heartbeat = (): void => writeEvent('heartbeat', '{}')
       heartbeat()

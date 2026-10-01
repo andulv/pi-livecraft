@@ -13,7 +13,10 @@ export default defineConfig({
     port: Number(frontendPort),
     strictPort: true,
     proxy: {
-      '/api': `http://127.0.0.1:${backendPort}`,
+      '/api': {
+        target: `http://127.0.0.1:${backendPort}`,
+        ws: true,
+      },
     },
   },
 })

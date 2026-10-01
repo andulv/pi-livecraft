@@ -372,7 +372,7 @@ export interface DiagnosticsSnapshot {
 }
 
 /** Long-lived HTTP streams the backend holds open: one per tab for events, plus viewers. */
-export type StabilityStreamKind = 'events' | 'browser-frames' | 'terminal'
+export type StabilityStreamKind = 'events' | 'browser-frames' | 'browser-socket' | 'terminal'
 
 /** One sampling window of backend stability signals. */
 export interface StabilityWindow {

@@ -44,7 +44,16 @@ tooling (Chrome DevTools MCP, Playwright, Puppeteer, or raw CDP).
   screencast viewer.
 
 Routes live in `server/backend.ts`. Instance operations use
-`/api/browser/instances/:browserId/*` plus a validated `workspacePath`; the aggregate
+`/api/browser/instances/:browserId/*` plus a validated `workspacePath`; viewers can also
+connect a WebSocket at `GET .../socket` (same query). `viewer-socket.ts` owns that
+transport: JPEG frames as binary messages paced by one credit per viewer — the tab
+acknowledges a frame once decoded, an unacknowledged frame closes the connection, and
+until then only the newest frame is retained — while input arrives on the same socket and
+is dispatched to CDP sequentially. Upgrades pass the backend's request guard (origin and
+host) before `ws` takes over; `ws` runs with `noServer`, no compression, and a 64 KiB
+inbound limit. The frames SSE route remains during the prototype (`?browserTransport=ws`
+selects the socket per view); see
+[the proposal](/plans/proposals/browser-websocket-transport.md). the aggregate
 `GET /api/browser/debug` response groups all instances by workspace. The debug port binds
 127.0.0.1 only and uses a fresh profile per browser instance; any local process can reach it,
 which matches the app's local trust model. Focused coverage: `test/browser-launcher.test.ts`,

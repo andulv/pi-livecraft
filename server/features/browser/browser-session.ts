@@ -46,14 +46,19 @@ function screencastParamsFor(viewport: BrowserViewport): JsonObject {
 const minAckIntervalMs = 80
 
 export type BrowserSessionEvent =
-  | { type: 'frame'; data: string }
+  | { type: 'frame'; buffer: Buffer }
   | { type: 'url'; url: string }
   | { type: 'status'; status: BrowserSessionStatus }
+  /** The capture size changed; transports drop frames of the old configuration. */
+  | { type: 'viewport' }
 
 /** Serializes one session event into its SSE event name and JSON payload. Pure. */
 export function wireFor(event: BrowserSessionEvent): { name: string; json: string } {
-  if (event.type === 'frame') return { name: 'frame', json: JSON.stringify({ data: event.data }) }
+  if (event.type === 'frame') {
+    return { name: 'frame', json: JSON.stringify({ data: event.buffer.toString('base64') }) }
+  }
   if (event.type === 'url') return { name: 'url', json: JSON.stringify({ url: event.url }) }
+  if (event.type === 'viewport') return { name: 'viewport', json: '{}' }
   return { name: 'status', json: JSON.stringify(event.status) }
 }
 
@@ -221,7 +226,7 @@ export class BrowserSession {
   #browser: LaunchedBrowser | null = null
   #cdp: CdpConnection | null = null
   #mainFrameId: string | undefined
-  #subscribers = new Set<(event: string, json: string) => void>()
+  #subscribers = new Set<(event: BrowserSessionEvent) => void>()
   #startPromise: Promise<BrowserSessionStatus> | null = null
   #viewers = 0
   #startedAt: number | undefined
@@ -231,6 +236,7 @@ export class BrowserSession {
   #ackTimer: ReturnType<typeof setTimeout> | null = null
   #pendingAckSession: number | string | null = null
   #viewport: BrowserViewport = { ...defaultViewport }
+  #cachedFrame: Buffer | undefined
   readonly #debugPortBase: number | undefined
 
   constructor(options: { debugPortBase?: number } = {}) {
@@ -312,6 +318,7 @@ export class BrowserSession {
       deviceScaleFactor: 1,
       mobile: viewport.mobile,
     })
+    this.#emit({ type: 'viewport' })
     this.#clearPendingAck()
     await cdp.send('Page.stopScreencast').catch(() => {})
     if (this.#viewers > 0) {
@@ -320,9 +327,14 @@ export class BrowserSession {
     this.#emit({ type: 'status', status: this.status() })
   }
 
-  subscribe(listener: (event: string, json: string) => void): () => void {
+  subscribe(listener: (event: BrowserSessionEvent) => void): () => void {
     this.#subscribers.add(listener)
     return () => this.#subscribers.delete(listener)
+  }
+
+  /** The newest captured frame, for an immediate first frame on a new viewer. */
+  currentFrame(): Buffer | undefined {
+    return this.#cachedFrame
   }
 
   /** Registers an active frame consumer; the screencast pauses while none remain. */
@@ -387,6 +399,7 @@ export class BrowserSession {
   async #start(): Promise<BrowserSessionStatus> {
     this.#capturedFrames = 0
     this.#capturedBytes = 0
+    this.#cachedFrame = undefined
     this.#startedAt = undefined
     this.#setState({ state: 'starting' })
     try {
@@ -417,7 +430,9 @@ export class BrowserSession {
         if (typeof params.data === 'string') {
           this.#capturedFrames++
           this.#capturedBytes += Buffer.byteLength(params.data, 'base64')
-          this.#emit({ type: 'frame', data: params.data })
+          // Decoded once here: the socket transport needs bytes, and the SSE adapter
+          // re-encodes inside wireFor.
+          this.#emit({ type: 'frame', buffer: Buffer.from(params.data, 'base64') })
         }
         // Chrome reports the screencast session id as a number or a string
         // depending on version; un-acked casts are throttled to a stop, while
@@ -542,15 +557,17 @@ export class BrowserSession {
   #setState(partial: { state: BrowserSessionState; error?: string }): void {
     this.#state = partial.state
     this.#error = partial.error
+    if (partial.state !== 'live') this.#cachedFrame = undefined
     if (partial.state === 'off' || partial.state === 'stopped') this.#endpoint = undefined
     this.#emit({ type: 'status', status: this.status() })
   }
 
   #emit(event: BrowserSessionEvent): void {
+    if (event.type === 'frame') this.#cachedFrame = event.buffer
+    if (event.type === 'viewport') this.#cachedFrame = undefined
     if (this.#subscribers.size === 0) return
-    // Serialized once per event so every SSE viewer writes the same bytes.
-    const { name, json } = wireFor(event)
-    for (const subscriber of this.#subscribers) subscriber(name, json)
+    // Subscribers receive typed events; each transport encodes once at its boundary.
+    for (const subscriber of this.#subscribers) subscriber(event)
   }
 }
 

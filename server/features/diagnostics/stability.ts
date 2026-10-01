@@ -52,7 +52,8 @@ export interface LoopDelayHistogram {
 /** The subset of a `ServerResponse` needed to track a long-lived stream. */
 export interface TrackedResponse {
   once(event: 'close', listener: () => void): unknown
-  readonly writableFinished: boolean
+  /** Only HTTP responses have it; socket kinds never log `sse-close`. */
+  readonly writableFinished?: boolean
 }
 
 export interface StabilityMonitorOptions {
@@ -83,6 +84,7 @@ export class StabilityMonitor {
   readonly #open: Record<StabilityStreamKind, number> = {
     'events': 0,
     'browser-frames': 0,
+    'browser-socket': 0,
     'terminal': 0,
   }
   readonly #browserTotals = new WeakMap<object, BrowserTotals>()
@@ -181,7 +183,8 @@ export class StabilityMonitor {
   }
 
   #totalOpen(): number {
-    return this.#open['events'] + this.#open['browser-frames'] + this.#open['terminal']
+    return this.#open['events'] + this.#open['browser-frames'] + this.#open['browser-socket']
+      + this.#open['terminal']
   }
 
   /** Converts per-instance cumulative counters into this window's frames, bytes, and states. */
