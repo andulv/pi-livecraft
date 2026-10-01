@@ -33,23 +33,23 @@ const wheelFlushIntervalMs = 50
 const viewportStorageKey = 'pi-livecraft.browser-viewport'
 const streamStorageKey = 'pi-livecraft.browser-stream'
 
-/** Screencast presets: compression and frame rate together, cheapest first. */
-const streamPresets: Array<{ label: string; capture: BrowserCaptureSettings }> = [
-  { label: 'Lean · 35 · 4 fps', capture: { quality: 35, maxFrameRate: 4 } },
-  { label: 'Standard · 60 · 12 fps', capture: { quality: 60, maxFrameRate: 12 } },
-  { label: 'Sharp · 80 · 12 fps', capture: { quality: 80, maxFrameRate: 12 } },
-  { label: 'Max · 90 · 24 fps', capture: { quality: 90, maxFrameRate: 24 } },
-]
+/** Independent screencast knobs: JPEG compression and a frame-rate ceiling. */
+const streamQualityChoices = [35, 60, 80, 95] as const
+const streamRateChoices = [2, 4, 8, 12, 24] as const
+const defaultStreamChoice: BrowserCaptureSettings = { quality: 60, maxFrameRate: 12 }
 
 function streamKey(capture: BrowserCaptureSettings): string {
   return `${capture.quality}x${capture.maxFrameRate}`
 }
 
-function readStoredStreamChoice(): string {
-  const stored = window.localStorage.getItem(streamStorageKey)
-  return stored && streamPresets.some(({ capture }) => streamKey(capture) === stored)
-    ? stored
-    : streamKey(streamPresets[1]!.capture)
+function parseStreamKey(value: string | null): BrowserCaptureSettings {
+  const match = /^(\d+)x(\d+)$/.exec(value ?? '')
+  const quality = match ? Number(match[1]) : NaN
+  const maxFrameRate = match ? Number(match[2]) : NaN
+  return (streamQualityChoices as readonly number[]).includes(quality)
+      && (streamRateChoices as readonly number[]).includes(maxFrameRate)
+    ? { quality, maxFrameRate }
+    : { ...defaultStreamChoice }
 }
 const defaultViewportChoice = '1280x900'
 
@@ -111,7 +111,11 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   const [zoomMode, setZoomMode] = useState<'auto' | 'natural'>('auto')
   const [zoomPercent, setZoomPercent] = useState(100)
   const [viewportChoice, setViewportChoice] = useState(readStoredViewportChoice)
-  const [streamChoice, setStreamChoice] = useState(readStoredStreamChoice)
+  const [streamChoice, setStreamChoice] = useState(() =>
+    parseStreamKey(
+      window.localStorage.getItem(streamStorageKey),
+    )
+  )
   const target = useMemo(() => ({ browserId, workspacePath }), [browserId, workspacePath])
   const frameImageRef = useRef<HTMLImageElement>(null)
   /** Latest frame image URL; the image is not mounted until the first frame flips hasFrame. */
@@ -192,14 +196,12 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
     if (preset) void setBrowserViewport(target, preset.viewport).catch(() => {})
   }, [status, target, viewportChoice])
 
-  function selectStream(choice: string): void {
+  function selectStream(next: Partial<BrowserCaptureSettings>): void {
     if (!browserInteractive) return
-    setStreamChoice(choice)
-    window.localStorage.setItem(streamStorageKey, choice)
-    const preset = streamPresets.find(({ capture }) => streamKey(capture) === choice)
-    if (preset && status.state === 'live') {
-      void setBrowserCapture(target, preset.capture).catch(() => {})
-    }
+    const capture = { ...streamChoice, ...next }
+    setStreamChoice(capture)
+    window.localStorage.setItem(streamStorageKey, streamKey(capture))
+    if (status.state === 'live') void setBrowserCapture(target, capture).catch(() => {})
   }
 
   // Apply the stored stream preset once, when a session becomes live; a backend restart
@@ -209,9 +211,8 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
     const wasLive = captureLiveRef.current
     captureLiveRef.current = status.state === 'live'
     if (wasLive || status.state !== 'live' || !status.capture) return
-    if (streamKey(status.capture) === streamChoice) return
-    const preset = streamPresets.find(({ capture }) => streamKey(capture) === streamChoice)
-    if (preset) void setBrowserCapture(target, preset.capture).catch(() => {})
+    if (streamKey(status.capture) === streamKey(streamChoice)) return
+    void setBrowserCapture(target, streamChoice).catch(() => {})
   }, [status, target, streamChoice])
 
   // Reset the pane only when the target instance changes; returning from a
@@ -480,16 +481,26 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
           ))}
         </select>
         <select
-          aria-label='Stream quality and frame rate'
+          aria-label='Stream image quality'
           className='browser-bar-select'
           disabled={!browserInteractive}
-          onChange={(event) => selectStream(event.target.value)}
-          title='Stream quality (JPEG quality · frame rate)'
-          value={streamChoice}
+          onChange={(event) => selectStream({ quality: Number(event.target.value) })}
+          title='Stream image quality (JPEG compression)'
+          value={String(streamChoice.quality)}
         >
-          {streamPresets.map(({ label, capture }) => (
-            <option key={label} value={streamKey(capture)}>{label}</option>
+          {streamQualityChoices.map((quality) => (
+            <option key={quality} value={quality}>{quality}%</option>
           ))}
+        </select>
+        <select
+          aria-label='Stream frame rate'
+          className='browser-bar-select'
+          disabled={!browserInteractive}
+          onChange={(event) => selectStream({ maxFrameRate: Number(event.target.value) })}
+          title='Stream frame rate ceiling'
+          value={String(streamChoice.maxFrameRate)}
+        >
+          {streamRateChoices.map((rate) => <option key={rate} value={rate}>{rate} fps</option>)}
         </select>
         <select
           aria-label='Frame zoom mode'

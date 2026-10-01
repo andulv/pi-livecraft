@@ -43,13 +43,12 @@ screencast as a viewer.
   only frontend boundary. The session lifecycle
   (`off/starting/live/stopped/crashed`) is backend-owned state — the pane only
   renders it.
-- The pane's **Stream** dropdown picks screencast compression and frame rate together
-  (Lean 35·4 fps, Standard 60·12 fps, Sharp 80·12 fps, Max 90·24 fps; persisted in
-  `pi-livecraft.browser-stream`, default Standard). The backend restarts an active
-  screencast with the new JPEG quality and frame-rate ceiling, and derives Chrome
-  acknowledgement pacing from the chosen rate; lower presets cost less CPU and bandwidth
-  per viewer. After a backend restart the stored preset is re-applied once the session is
-  live again.
+- The pane's **quality** and **frame rate** dropdowns set the screencast independently
+  (JPEG quality 35/60/80/95%, frame rate 2/4/8/12/24 fps; persisted together in
+  `pi-livecraft.browser-stream` as `<quality>x<rate>`, default 60% · 12 fps). The backend
+  restarts an active screencast with the new settings and derives Chrome acknowledgement
+  pacing from the chosen rate; lower values cost less CPU and bandwidth per viewer. After
+  a backend restart the stored choice is re-applied once the session is live again.
 - The pane's size dropdown (desktop/tablet/mobile presets, persisted in
   `pi-livecraft.browser-viewport`) is the user's choice: it is applied when a
   session becomes live and on explicit selection, but never fights external
