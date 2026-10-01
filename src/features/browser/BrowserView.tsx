@@ -13,11 +13,16 @@ import {
   navigateBrowser,
   reloadBrowser,
   sendBrowserInput,
+  setBrowserCapture,
   setBrowserViewport,
   startBrowserSession,
   subscribeBrowserEvents,
 } from '../../api.ts'
-import type { BrowserSessionStatus, BrowserViewport } from '../../../shared/types.ts'
+import type {
+  BrowserCaptureSettings,
+  BrowserSessionStatus,
+  BrowserViewport,
+} from '../../../shared/types.ts'
 import type { BrowserStreamState } from '../../api.ts'
 import { normalizeBrowserUrl } from './browser-url.ts'
 import { browserMouseButton, cdpModifiers, mapPointerToPage } from './coordinates.ts'
@@ -26,6 +31,26 @@ import { useDocumentVisible } from './use-document-visible.ts'
 const wheelFlushIntervalMs = 50
 
 const viewportStorageKey = 'pi-livecraft.browser-viewport'
+const streamStorageKey = 'pi-livecraft.browser-stream'
+
+/** Screencast presets: compression and frame rate together, cheapest first. */
+const streamPresets: Array<{ label: string; capture: BrowserCaptureSettings }> = [
+  { label: 'Lean · 35 · 4 fps', capture: { quality: 35, maxFrameRate: 4 } },
+  { label: 'Standard · 60 · 12 fps', capture: { quality: 60, maxFrameRate: 12 } },
+  { label: 'Sharp · 80 · 12 fps', capture: { quality: 80, maxFrameRate: 12 } },
+  { label: 'Max · 90 · 24 fps', capture: { quality: 90, maxFrameRate: 24 } },
+]
+
+function streamKey(capture: BrowserCaptureSettings): string {
+  return `${capture.quality}x${capture.maxFrameRate}`
+}
+
+function readStoredStreamChoice(): string {
+  const stored = window.localStorage.getItem(streamStorageKey)
+  return stored && streamPresets.some(({ capture }) => streamKey(capture) === stored)
+    ? stored
+    : streamKey(streamPresets[1]!.capture)
+}
 const defaultViewportChoice = '1280x900'
 
 /** Predefined device viewports; capture and input coordinates follow the choice. */
@@ -86,6 +111,7 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
   const [zoomMode, setZoomMode] = useState<'auto' | 'natural'>('auto')
   const [zoomPercent, setZoomPercent] = useState(100)
   const [viewportChoice, setViewportChoice] = useState(readStoredViewportChoice)
+  const [streamChoice, setStreamChoice] = useState(readStoredStreamChoice)
   const target = useMemo(() => ({ browserId, workspacePath }), [browserId, workspacePath])
   const frameImageRef = useRef<HTMLImageElement>(null)
   /** Latest frame image URL; the image is not mounted until the first frame flips hasFrame. */
@@ -165,6 +191,28 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
     )
     if (preset) void setBrowserViewport(target, preset.viewport).catch(() => {})
   }, [status, target, viewportChoice])
+
+  function selectStream(choice: string): void {
+    if (!browserInteractive) return
+    setStreamChoice(choice)
+    window.localStorage.setItem(streamStorageKey, choice)
+    const preset = streamPresets.find(({ capture }) => streamKey(capture) === choice)
+    if (preset && status.state === 'live') {
+      void setBrowserCapture(target, preset.capture).catch(() => {})
+    }
+  }
+
+  // Apply the stored stream preset once, when a session becomes live; a backend restart
+  // resets the session to defaults, so the stored choice is re-applied then.
+  const captureLiveRef = useRef(false)
+  useEffect(() => {
+    const wasLive = captureLiveRef.current
+    captureLiveRef.current = status.state === 'live'
+    if (wasLive || status.state !== 'live' || !status.capture) return
+    if (streamKey(status.capture) === streamChoice) return
+    const preset = streamPresets.find(({ capture }) => streamKey(capture) === streamChoice)
+    if (preset) void setBrowserCapture(target, preset.capture).catch(() => {})
+  }, [status, target, streamChoice])
 
   // Reset the pane only when the target instance changes; returning from a
   // hidden document keeps the last frame and status until fresh events arrive.
@@ -429,6 +477,18 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
                 <option key={label} value={viewportKey(viewport)}>{label}</option>
               ))}
             </optgroup>
+          ))}
+        </select>
+        <select
+          aria-label='Stream quality and frame rate'
+          className='browser-bar-select'
+          disabled={!browserInteractive}
+          onChange={(event) => selectStream(event.target.value)}
+          title='Stream quality (JPEG quality · frame rate)'
+          value={streamChoice}
+        >
+          {streamPresets.map(({ label, capture }) => (
+            <option key={label} value={streamKey(capture)}>{label}</option>
           ))}
         </select>
         <select

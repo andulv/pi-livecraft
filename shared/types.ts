@@ -681,6 +681,12 @@ export interface BrowserInstanceTarget {
 }
 
 /** Status payload for one browser instance. */
+/** Screencast capture knobs: JPEG quality (10–100) and a frame-rate ceiling (1–30). */
+export interface BrowserCaptureSettings {
+  quality: number
+  maxFrameRate: number
+}
+
 export interface BrowserSessionStatus {
   state: BrowserSessionState
   /** Current page URL while a session is live. */
@@ -690,6 +696,8 @@ export interface BrowserSessionStatus {
   error?: string
   /** Emulated viewport; frame captures and input coordinates match it 1:1. */
   viewport?: BrowserViewport
+  /** Active screencast compression and frame-rate settings. */
+  capture?: BrowserCaptureSettings
 }
 
 export interface BrowserViewport {

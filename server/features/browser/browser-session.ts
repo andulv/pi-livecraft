@@ -1,4 +1,5 @@
 import type {
+  BrowserCaptureSettings,
   BrowserDebugSnapshot,
   BrowserInputEvent,
   BrowserProcessInfo,
@@ -31,19 +32,41 @@ export function parseBrowserViewport(value: unknown): BrowserViewport | null {
   return { width, height, mobile: value.mobile === true }
 }
 
-function screencastParamsFor(viewport: BrowserViewport): JsonObject {
+export const defaultBrowserCapture: BrowserCaptureSettings = { quality: 60, maxFrameRate: 12 }
+
+/** Validates capture settings: JPEG quality 10–100 and a frame-rate ceiling of 1–30. */
+export function parseBrowserCaptureSettings(value: unknown): BrowserCaptureSettings | null {
+  if (!isObject(value)) return null
+  const { quality, maxFrameRate } = value
+  if (
+    !isFiniteNumber(quality) || !Number.isInteger(quality) || quality < 10 || quality > 100
+    || !isFiniteNumber(maxFrameRate) || !Number.isInteger(maxFrameRate) || maxFrameRate < 1
+    || maxFrameRate > 30
+  ) return null
+  return { quality, maxFrameRate }
+}
+
+function screencastParamsFor(
+  viewport: BrowserViewport,
+  capture: BrowserCaptureSettings,
+): JsonObject {
   return {
     format: 'jpeg',
-    quality: 60,
+    quality: capture.quality,
     maxWidth: viewport.width,
     maxHeight: viewport.height,
     everyNthFrame: 1,
-    maxFrameRate: 12,
+    maxFrameRate: capture.maxFrameRate,
   }
 }
 
-/** Minimum spacing between screencast acks; pacing acks caps Chrome's encode rate. */
-const minAckIntervalMs = 80
+/**
+ * Minimum spacing between screencast acks, derived from the frame-rate ceiling: pacing
+ * acks caps Chrome's encode rate, so the two must agree.
+ */
+function ackIntervalFor(maxFrameRate: number): number {
+  return Math.min(1_000, Math.max(20, Math.floor(1_000 / maxFrameRate)))
+}
 
 export type BrowserSessionEvent =
   | { type: 'frame'; buffer: Buffer }
@@ -236,6 +259,8 @@ export class BrowserSession {
   #ackTimer: ReturnType<typeof setTimeout> | null = null
   #pendingAckSession: number | string | null = null
   #viewport: BrowserViewport = { ...defaultViewport }
+  #capture: BrowserCaptureSettings = { ...defaultBrowserCapture }
+  #minAckIntervalMs = ackIntervalFor(defaultBrowserCapture.maxFrameRate)
   #cachedFrame: Buffer | undefined
   readonly #debugPortBase: number | undefined
 
@@ -250,7 +275,23 @@ export class BrowserSession {
       endpoint: this.#endpoint,
       error: this.#error,
       viewport: { ...this.#viewport },
+      capture: { ...this.#capture },
     }
+  }
+
+  /** Applies compression and frame-rate settings, restarting an active screencast. */
+  async setCapture(capture: BrowserCaptureSettings): Promise<void> {
+    this.#capture = { ...capture }
+    this.#minAckIntervalMs = ackIntervalFor(capture.maxFrameRate)
+    if (this.#state === 'live' && this.#viewers > 0 && this.#cdp) {
+      this.#clearPendingAck()
+      await this.#cdp.send('Page.stopScreencast').catch(() => {})
+      await this.#cdp.send(
+        'Page.startScreencast',
+        screencastParamsFor(this.#viewport, this.#capture),
+      )
+    }
+    this.#emit({ type: 'status', status: this.status() })
   }
 
   /** Cheap synchronous capture counters for periodic stability sampling. */
@@ -322,7 +363,7 @@ export class BrowserSession {
     this.#clearPendingAck()
     await cdp.send('Page.stopScreencast').catch(() => {})
     if (this.#viewers > 0) {
-      await cdp.send('Page.startScreencast', screencastParamsFor(this.#viewport))
+      await cdp.send('Page.startScreencast', screencastParamsFor(this.#viewport, this.#capture))
     }
     this.#emit({ type: 'status', status: this.status() })
   }
@@ -341,9 +382,12 @@ export class BrowserSession {
   addViewer(): void {
     this.#viewers++
     if (this.#viewers === 1 && this.#state === 'live') {
-      void this.#cdp?.send('Page.startScreencast', screencastParamsFor(this.#viewport)).catch(
-        () => {},
-      )
+      void this
+        .#cdp
+        ?.send('Page.startScreencast', screencastParamsFor(this.#viewport, this.#capture))
+        .catch(
+          () => {},
+        )
     }
   }
 
@@ -364,7 +408,7 @@ export class BrowserSession {
   #paceScreencastAck(sessionId: number | string): void {
     this.#pendingAckSession = sessionId
     const elapsed = Date.now() - this.#lastAckAt
-    if (elapsed >= minAckIntervalMs) {
+    if (elapsed >= this.#minAckIntervalMs) {
       if (this.#ackTimer) clearTimeout(this.#ackTimer)
       this.#ackTimer = null
       this.#sendPendingAck()
@@ -374,7 +418,7 @@ export class BrowserSession {
     this.#ackTimer = setTimeout(() => {
       this.#ackTimer = null
       this.#sendPendingAck()
-    }, minAckIntervalMs - elapsed)
+    }, this.#minAckIntervalMs - elapsed)
   }
 
   #sendPendingAck(): void {
@@ -473,7 +517,7 @@ export class BrowserSession {
       })
       this.#url = await currentPageUrl(cdp)
       if (this.#viewers > 0) {
-        await cdp.send('Page.startScreencast', screencastParamsFor(this.#viewport))
+        await cdp.send('Page.startScreencast', screencastParamsFor(this.#viewport, this.#capture))
       }
       this.#setState({ state: 'live' })
       return this.status()

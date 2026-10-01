@@ -29,8 +29,10 @@ tooling (Chrome DevTools MCP, Playwright, Puppeteer, or raw CDP).
   a stop), forwards validated input events to `Input.*`, and emits frame/url/status
   events to SSE subscribers as pre-serialized event payloads (`wireFor`, pure
   and unit-tested): one serialization per event is shared by every connected
-  viewer. While a viewer watches, capture runs at a steady 12 FPS ceiling —
-  pacing acknowledgement alone caps Chrome's encode rate. The frames SSE route
+  viewer. While a viewer watches, capture runs at the session's configured ceiling
+  (default quality 60, 12 FPS; `POST .../capture` with a JPEG quality of 10–100 and a
+  frame rate of 1–30 restarts an active screencast with the new settings, and
+  acknowledgement pacing follows the chosen rate so the two stay aligned). The frames SSE route
   also sends heartbeat events for viewer-side stream liveness checks.
   Every viewer holds one long-lived frames stream (one HTTP/1.1 connection; see
   [long-lived connections](/docs/DATA-FLOW.md#long-lived-connections)).

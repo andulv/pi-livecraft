@@ -10,6 +10,7 @@ import type {
   ClientLogSource,
   BrowserSessionStatus,
   BrowserSystemDebugSnapshot,
+  BrowserCaptureSettings,
   BrowserViewport,
   DirectoryListing,
   GitCommitFiles,
@@ -609,6 +610,17 @@ export async function reloadBrowser(target: BrowserInstanceTarget): Promise<void
   await request<void>(browserInstanceUrl(target, 'reload'), {
     method: 'POST',
     body: JSON.stringify({ workspacePath: target.workspacePath }),
+  })
+}
+
+export async function setBrowserCapture(
+  target: BrowserInstanceTarget,
+  capture: BrowserCaptureSettings,
+): Promise<void> {
+  await request<void>(browserInstanceUrl(target, 'capture'), {
+    method: 'POST',
+    headers: causeHeaders('browser:capture'),
+    body: JSON.stringify({ workspacePath: target.workspacePath, ...capture }),
   })
 }
 

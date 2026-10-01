@@ -36,6 +36,7 @@ import {
 } from './features/pi-settings/pi-settings.ts'
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
 import {
+  parseBrowserCaptureSettings,
   parseBrowserInputEvent,
   parseBrowserViewport,
   wireFor,
@@ -982,7 +983,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   }
 
   const browserInstanceMatch = url.pathname.match(
-    /^\/api\/browser\/instances\/([^/]+)\/(status|start|stop|navigate|reload|viewport|input|frames)$/,
+    /^\/api\/browser\/instances\/([^/]+)\/(status|start|stop|navigate|reload|viewport|capture|input|frames)$/,
   )
   if (browserInstanceMatch) {
     const browserId = parseBrowserId(decodeURIComponent(browserInstanceMatch[1]))
@@ -1064,6 +1065,15 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         const viewport = parseBrowserViewport(body)
         if (!viewport) throw new HttpError(400, 'A valid viewport is required')
         await browserSession.setViewport(viewport)
+        sendJson(response, 200, browserSession.status())
+        return
+      }
+      if (action === 'capture') {
+        const capture = parseBrowserCaptureSettings(body)
+        if (!capture) {
+          throw new HttpError(400, 'Capture needs a quality of 10–100 and a frame rate of 1–30')
+        }
+        await browserSession.setCapture(capture)
         sendJson(response, 200, browserSession.status())
         return
       }
