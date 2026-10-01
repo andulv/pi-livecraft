@@ -1,7 +1,9 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { isObject } from '../../../shared/is-object.ts'
 import type {
   OperationEntry,
   OperationKind,
+  OperationOrigin,
   OperationsSnapshot,
   OperationTotals,
   OperationTrigger,
@@ -14,6 +16,17 @@ const maxAggregateKeys = 200
 const overflowKey = 'other'
 const backgroundLabel = 'background'
 const causePattern = /^[A-Za-z0-9:_-]{1,64}$/
+const routePattern = /^[A-Za-z0-9:_/.-]{1,120}$/
+const detailPattern = /^[A-Za-z0-9_-]{1,40}$/
+const operationKinds: readonly OperationKind[] = [
+  'git',
+  'manager-rpc',
+  'session-store',
+  'prompt-templates',
+  'pi-rpc',
+  'pi-process',
+  'project-map',
+]
 
 /** Operations at or above this duration are written to the persistent sink. */
 export const slowOperationThresholdMs = 1000
@@ -26,9 +39,12 @@ export const operationBurstThresholds: Readonly<Record<OperationKind, number>> =
   'manager-rpc': 120,
   'session-store': 20,
   'prompt-templates': 20,
+  'pi-rpc': 150,
+  'pi-process': 6,
+  'project-map': 5,
 }
 
-/** Attribution for every operation started while one HTTP request is being handled. */
+/** Attribution for every operation started while one request is being handled. */
 export interface RequestOperationContext {
   readonly route: string
   readonly cause: string
@@ -64,12 +80,17 @@ export interface RequestFanoutReport {
   durationMs: number
 }
 
-/** Persistent destination for anomalies; `AppLog` implements it. */
-export interface OperationAnomalySink {
-  slowOperation(report: SlowOperationReport): void
-  operationBurst(report: OperationBurstReport): void
-  requestFanout(report: RequestFanoutReport): void
-}
+/**
+ * One anomaly as written to the app log (`type` becomes the log `kind`). The manager
+ * forwards its anomalies to the backend in this shape as an `operation_anomaly` event.
+ */
+export type OperationAnomaly =
+  | { type: 'slow-operation'; report: SlowOperationReport }
+  | { type: 'operation-burst'; report: OperationBurstReport }
+  | { type: 'request-fanout'; report: RequestFanoutReport }
+
+/** Destination for anomalies: the backend's app log, or the manager's event stream. */
+export type OperationAnomalySink = (anomaly: OperationAnomaly) => void
 
 export interface OperationLedgerOptions {
   now?: () => number
@@ -84,10 +105,12 @@ interface BurstWindow {
 }
 
 /**
- * Bounded, content-free ledger of expensive backend operations (Git processes, manager
- * RPCs, session-file scans, template reads). Each operation is attributed through
- * `AsyncLocalStorage` to the HTTP route template and frontend cause that started it, so a
- * burst of Git processes can be traced to the trigger that produced it. Aggregates stay in
+ * Bounded, content-free ledger of expensive operations in one process: Git processes,
+ * manager RPCs, session-file scans, and template reads in the backend; Pi processes, Pi
+ * RPCs, and project scans in the manager. Each operation is attributed through
+ * `AsyncLocalStorage` to the HTTP route template and frontend cause that started it (the
+ * backend forwards both to the manager as the request `origin`), so a burst of Git
+ * processes can be traced to the trigger that produced it. Aggregates stay in
  * memory; only anomalies — slow operations, per-kind bursts, and single requests that fan
  * out — reach the persistent sink. Entries never carry paths, arguments, or identifiers.
  */
@@ -113,10 +136,10 @@ export class OperationLedger {
     this.#sink = sink
   }
 
-  /** Creates the attribution for one request; an unusable cause header becomes a label. */
+  /** Creates the attribution for one request; unusable values become labels. */
   openRequest(route: string, causeHeader: string | string[] | undefined): RequestOperationContext {
     return {
-      route,
+      route: routePattern.test(route) ? route : 'invalid',
       cause: normalizeCause(causeHeader),
       startedAt: this.#now(),
       operations: 0,
@@ -129,6 +152,12 @@ export class OperationLedger {
     return this.#context.run(context, handle)
   }
 
+  /** The request attribution to forward across a process boundary, if any. */
+  currentOrigin(): OperationOrigin | undefined {
+    const context = this.#context.getStore()
+    return context ? { route: context.route, cause: context.cause } : undefined
+  }
+
   /** Counts the finished request under its trigger and reports an excessive fan-out. */
   closeRequest(context: RequestOperationContext): void {
     if (context.operations === 0) return
@@ -138,12 +167,15 @@ export class OperationLedger {
     }))
     trigger.requests += 1
     if (context.operations < requestFanoutThreshold) return
-    this.#sink?.requestFanout({
-      route: context.route,
-      cause: context.cause,
-      operations: context.operations,
-      byKind: { ...context.byKind },
-      durationMs: Math.round(this.#now() - context.startedAt),
+    this.#sink?.({
+      type: 'request-fanout',
+      report: {
+        route: context.route,
+        cause: context.cause,
+        operations: context.operations,
+        byKind: { ...context.byKind },
+        durationMs: Math.round(this.#now() - context.startedAt),
+      },
     })
   }
 
@@ -219,14 +251,17 @@ export class OperationLedger {
     this.#recent.push(entry)
     if (this.#recent.length > maxRecentOperations) this.#recent.shift()
     if (durationMs >= slowOperationThresholdMs) {
-      this.#sink?.slowOperation({
-        operation: entry.kind,
-        detail: entry.detail,
-        route: entry.route,
-        cause: entry.cause,
-        durationMs,
-        ok: entry.ok,
-        inFlight: entry.inFlight,
+      this.#sink?.({
+        type: 'slow-operation',
+        report: {
+          operation: entry.kind,
+          detail: entry.detail,
+          route: entry.route,
+          cause: entry.cause,
+          durationMs,
+          ok: entry.ok,
+          inFlight: entry.inFlight,
+        },
       })
     }
   }
@@ -242,19 +277,22 @@ export class OperationLedger {
     boundedCount(window.triggers, trigger)
     if (window.reported || window.count < this.#burstThresholds[kind]) return
     window.reported = true
-    this.#sink?.operationBurst({
-      operation: kind,
-      count: window.count,
-      windowMs: operationBurstWindowMs,
-      topTriggers: [...window.triggers]
-        .sort((left, right) => right[1] - left[1])
-        .slice(0, 3)
-        .map(([key, operations]) => ({ trigger: key, operations })),
+    this.#sink?.({
+      type: 'operation-burst',
+      report: {
+        operation: kind,
+        count: window.count,
+        windowMs: operationBurstWindowMs,
+        topTriggers: [...window.triggers]
+          .sort((left, right) => right[1] - left[1])
+          .slice(0, 3)
+          .map(([key, operations]) => ({ trigger: key, operations })),
+      },
     })
   }
 }
 
-/** Process-wide ledger shared by the backend and the modules it calls. */
+/** Process-wide ledger: one in the backend, a separate one in the manager. */
 export const operationLedger = new OperationLedger()
 
 /**
@@ -279,6 +317,103 @@ export function operationRouteTemplate(pathname: string): string {
     .replace(/^\/api\//, '')
     .replace(/sessions\/[^/]+(?=\/)/, 'sessions/:id')
     .replace(/instances\/[^/]+/, 'instances/:id')
+}
+
+/**
+ * Names an operation from a value that may come from outside the process (a Pi command
+ * type from the browser): only short identifier-shaped values are kept verbatim.
+ */
+export function safeOperationDetail(value: unknown): string {
+  return typeof value === 'string' && detailPattern.test(value) ? value : 'other'
+}
+
+/** Reads a forwarded request origin; anything malformed is treated as absent. */
+export function parseOperationOrigin(value: unknown): OperationOrigin | undefined {
+  return isObject(value) && typeof value.route === 'string' && typeof value.cause === 'string'
+    ? { route: value.route, cause: value.cause }
+    : undefined
+}
+
+/**
+ * Validates an anomaly received from the manager and rebuilds it from known fields only,
+ * so the app log never stores unexpected content from across the process boundary.
+ */
+export function parseOperationAnomaly(value: unknown): OperationAnomaly | undefined {
+  if (!isObject(value) || !isObject(value.report)) return undefined
+  const report = value.report
+  if (value.type === 'slow-operation') {
+    if (
+      !isOperationKind(report.operation) || !isLabel(report.detail) || !isLabel(report.route)
+      || !isLabel(report.cause) || !isCount(report.durationMs) || typeof report.ok !== 'boolean'
+      || !isCount(report.inFlight)
+    ) return undefined
+    return {
+      type: value.type,
+      report: {
+        operation: report.operation,
+        detail: report.detail,
+        route: report.route,
+        cause: report.cause,
+        durationMs: report.durationMs,
+        ok: report.ok,
+        inFlight: report.inFlight,
+      },
+    }
+  }
+  if (value.type === 'operation-burst') {
+    if (
+      !isOperationKind(report.operation) || !isCount(report.count) || !isCount(report.windowMs)
+      || !Array.isArray(report.topTriggers)
+    ) return undefined
+    const topTriggers = report.topTriggers.slice(0, 3).flatMap((trigger: unknown) =>
+      isObject(trigger) && isLabel(trigger.trigger) && isCount(trigger.operations)
+        ? [{ trigger: trigger.trigger, operations: trigger.operations }]
+        : []
+    )
+    return {
+      type: value.type,
+      report: {
+        operation: report.operation,
+        count: report.count,
+        windowMs: report.windowMs,
+        topTriggers,
+      },
+    }
+  }
+  if (value.type === 'request-fanout') {
+    if (
+      !isLabel(report.route) || !isLabel(report.cause) || !isCount(report.operations)
+      || !isCount(report.durationMs) || !isObject(report.byKind)
+    ) return undefined
+    const byKind: Partial<Record<OperationKind, number>> = {}
+    for (const kind of operationKinds) {
+      const count = report.byKind[kind]
+      if (isCount(count)) byKind[kind] = count
+    }
+    return {
+      type: value.type,
+      report: {
+        route: report.route,
+        cause: report.cause,
+        operations: report.operations,
+        byKind,
+        durationMs: report.durationMs,
+      },
+    }
+  }
+  return undefined
+}
+
+function isOperationKind(value: unknown): value is OperationKind {
+  return operationKinds.includes(value as OperationKind)
+}
+
+function isLabel(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 200
+}
+
+function isCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
 function normalizeCause(header: string | string[] | undefined): string {

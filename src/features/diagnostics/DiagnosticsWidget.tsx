@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import type { DiagnosticsSnapshot } from '../../../shared/types.ts'
+import type { DiagnosticsSnapshot, OperationsSnapshot } from '../../../shared/types.ts'
 import { getDiagnostics } from '../../api.ts'
 import './diagnostics.css'
 import { Tooltip } from '../../components/Tooltip.tsx'
@@ -43,21 +43,6 @@ export function DiagnosticsWidget() {
   const stages = snapshot ? [...snapshot.recentStages].reverse().slice(0, 8) : []
   const events = snapshot ? [...snapshot.recentEvents].reverse().slice(0, 12) : []
   const topRoutes = routes.slice(0, 10)
-  const operationTotals = snapshot
-    ? Object
-      .entries(snapshot.operations.totals)
-      .sort((left, right) => right[1].count - left[1].count)
-      .slice(0, 10)
-    : []
-  const operationTriggers = snapshot
-    ? Object
-      .entries(snapshot.operations.triggers)
-      .sort((left, right) => right[1].operations - left[1].operations)
-      .slice(0, 10)
-    : []
-  const recentOperations = snapshot
-    ? [...snapshot.operations.recent].reverse().slice(0, 12)
-    : []
   return (
     <WidgetLayout
       header={
@@ -135,56 +120,8 @@ export function DiagnosticsWidget() {
                 </table>
               </section>
             )}
-            {operationTotals.length > 0 && (
-              <section className='diagnostics-section'>
-                <h3>Operations · {snapshot.operations.inFlight} running</h3>
-                <div className='diagnostics-rows'>
-                  {operationTotals.map(([operation, totals]) => (
-                    <Fragment key={operation}>
-                      <span title={operation}>{operation}</span>
-                      <code title='count · average ms / max ms'>
-                        {totals.count} · {Math.round(totals.totalMs / totals.count)}/{totals.maxMs}
-                        {' '}
-                        ms
-                        {totals.failures > 0 && ` · ${totals.failures} failed`}
-                      </code>
-                    </Fragment>
-                  ))}
-                </div>
-              </section>
-            )}
-            {operationTriggers.length > 0 && (
-              <section className='diagnostics-section'>
-                <h3>Operation triggers</h3>
-                <div className='diagnostics-rows'>
-                  {operationTriggers.map(([trigger, totals]) => (
-                    <Fragment key={trigger}>
-                      <span title={trigger}>{trigger}</span>
-                      <code>{totals.operations} / {totals.requests} req</code>
-                    </Fragment>
-                  ))}
-                </div>
-              </section>
-            )}
-            {recentOperations.length > 0 && (
-              <section className='diagnostics-section'>
-                <h3>Recent operations</h3>
-                <ul className='diagnostics-events'>
-                  {recentOperations.map((operation) => (
-                    <li
-                      key={operation.sequence}
-                      title={`${operation.route} ← ${operation.cause}`}
-                    >
-                      <code>
-                        {new Date(operation.t).toLocaleTimeString()} {operation.kind}:
-                        {operation.detail} · {operation.durationMs} ms · {operation.cause}
-                        {!operation.ok && ' · failed'}
-                      </code>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
+            <OperationSections label='Backend' operations={snapshot.operations} />
+            <OperationSections label='Manager' operations={snapshot.managerOperations} />
             {topRoutes.length > 0 && (
               <section className='diagnostics-section'>
                 <h3>Requests</h3>
@@ -220,6 +157,86 @@ export function DiagnosticsWidget() {
         )}
       </div>
     </WidgetLayout>
+  )
+}
+
+const managerUnavailableHint =
+  'The manager is unreachable or runs a revision without operation diagnostics; '
+  + 'restart it from the update notice when idle.'
+
+/** Renders one process's operation ledger: totals, triggers, and the newest entries. */
+function OperationSections(
+  { label, operations }: { label: string; operations: OperationsSnapshot | null },
+) {
+  if (!operations) {
+    return (
+      <section className='diagnostics-section'>
+        <h3>{label} operations</h3>
+        <div className='diagnostics-rows'>
+          <span title={managerUnavailableHint}>Unavailable</span>
+          <code>—</code>
+        </div>
+      </section>
+    )
+  }
+  const totals = Object
+    .entries(operations.totals)
+    .sort((left, right) => right[1].count - left[1].count)
+    .slice(0, 10)
+  const triggers = Object
+    .entries(operations.triggers)
+    .sort((left, right) => right[1].operations - left[1].operations)
+    .slice(0, 10)
+  const recent = [...operations.recent].reverse().slice(0, 8)
+  if (totals.length === 0) return null
+  return (
+    <>
+      <section className='diagnostics-section'>
+        <h3>{label} operations · {operations.inFlight} running</h3>
+        <div className='diagnostics-rows'>
+          {totals.map(([operation, total]) => (
+            <Fragment key={operation}>
+              <span title={operation}>{operation}</span>
+              <code title='count · average ms / max ms'>
+                {total.count} · {Math.round(total.totalMs / total.count)}/{total.maxMs} ms
+                {total.failures > 0 && ` · ${total.failures} failed`}
+              </code>
+            </Fragment>
+          ))}
+        </div>
+      </section>
+      <section className='diagnostics-section'>
+        <h3>{label} triggers</h3>
+        <div className='diagnostics-rows'>
+          {triggers.map(([trigger, total]) => (
+            <Fragment key={trigger}>
+              <span title={trigger}>{trigger}</span>
+              <code>{total.operations} / {total.requests} req</code>
+            </Fragment>
+          ))}
+        </div>
+      </section>
+      <section className='diagnostics-section'>
+        <h3>{label} recent operations</h3>
+        <ul className='diagnostics-events'>
+          {recent.map((operation) => {
+            const name = `${operation.kind}:${operation.detail}`
+            const time = new Date(operation.t).toLocaleTimeString()
+            const failed = operation.ok ? '' : ' · failed'
+            return (
+              <li
+                key={operation.sequence}
+                title={`${name} · ${operation.route} ← ${operation.cause}`}
+              >
+                <code>
+                  {`${time} ${operation.durationMs} ms ${name} · ${operation.cause}${failed}`}
+                </code>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
+    </>
   )
 }
 

@@ -25,23 +25,31 @@ observability handoff; nothing here logs payloads, prompts, session ids, or path
 
 ## Operation ledger
 
-[`operations.ts`](operations.ts) measures every expensive backend operation at its owning
-chokepoint and attributes it to the trigger that caused it. Its purpose is to make fan-out
+[`operations.ts`](operations.ts) measures every expensive operation at its owning
+chokepoint, in both the backend and the manager, and attributes it to the trigger that
+caused it. Its purpose is to make fan-out
 visible: one UI event that spawns dozens of Git processes shows up as a single trigger with a
 large operation count.
 
-| Kind | Chokepoint | `detail` |
-|---|---|---|
-| `git` | `runGit` in `server/features/git/git.ts` (one per spawned process) | subcommand (`status`, `diff`, …) |
-| `manager-rpc` | `ManagerClient.request` | manager action, or `command:<type>` for Pi commands |
-| `session-store` | `listRecentPiSessions` (whole scan), `loadPiSession` (one file) | `list-recent`, `load` |
-| `prompt-templates` | `loadPromptTemplates` | `load` |
+| Process | Kind | Chokepoint | `detail` |
+|---|---|---|---|
+| backend | `git` | `runGit` in `server/features/git/git.ts` (one per spawned process) | subcommand (`status`, `diff`, …) |
+| backend | `manager-rpc` | `ManagerClient.request` (round trip, including the manager's work) | manager action, or `command:<type>` for Pi commands |
+| backend | `session-store` | `listRecentPiSessions` (whole scan), `loadPiSession` (one file) | `list-recent`, `load` |
+| backend | `prompt-templates` | `loadPromptTemplates` | `load` |
+| manager | `pi-rpc` | `PiProcess.request` (every Pi RPC, including the manager's own `get_state` reconciliation and isolated prompts) | Pi command type |
+| manager | `pi-process` | `PiProcess` constructor (one per started `pi --mode rpc`; duration is spawn latency only) | `session` or `isolated` |
+| manager | `project-map` | `generateProjectMap` for prompt improvement | `scan` |
 
 - **Attribution:** `backend.ts` opens one context per HTTP request and runs the handler inside
   `AsyncLocalStorage`, so nested operations inherit its route template (`/api/` dropped,
   session and instance ids masked) and its **cause**. Work outside any request, such as
   manager-event handlers, is labelled `background`. Work started by one request and awaited
   by another (shared in-flight promises) counts for the request that started it.
+- **Manager attribution:** `ManagerClient` forwards the current route and cause as the
+  manager request's `origin`; the manager runs each request in its own context with that
+  origin, so `sessions ← sessions:session_created` names the same trigger in both ledgers.
+  Requests from backend background work, and Pi work outside any request, are `background`.
 - **Cause:** the frontend names the trigger in the `x-livecraft-cause` header
   (`requestCauseHeader` in `shared/types.ts`). `src/api.ts` requires a `RequestCause`
   (`<area>:<trigger>`, for example `git:tool-end`, `sessions:session_created`) on the
@@ -50,21 +58,34 @@ large operation count.
   routes are attributed by route alone until they gain a cause. Missing
   headers are recorded as `unspecified`; values outside `[A-Za-z0-9:_-]{1,64}` as `invalid`.
   Concurrent identical GETs share one fetch, so only the first caller's cause is recorded.
-- **Exposed:** `operations` in `GET /api/diagnostics` — `kind:detail` totals (count,
-  failures, total and max ms), `route ← cause` triggers (requests that did work, operations),
-  operations currently running, and the newest 40 entries (ring of 100).
+- **Exposed:** `operations` (backend) and `managerOperations` in `GET /api/diagnostics` —
+  `kind:detail` totals (count, failures, total and max ms), `route ← cause` triggers
+  (requests that did work, operations), operations currently running, and the newest 40
+  entries (ring of 100). The backend reads the manager's ledger through the manager
+  `diagnostics` action with a 750 ms timeout and does not measure that read;
+  `managerOperations` is `null` while the manager is unreachable or still runs a revision
+  without the action (the poll then waits for the timeout until the guarded restart).
 - **Persisted anomalies** (to the [app log](/server/features/app-log/README.md)):
   `slow-operation` (≥ 1000 ms), `operation-burst` (once per 10 s window when one kind reaches
-  its threshold: Git 40, manager RPC 120, session store 20, prompt templates 20) and
-  `request-fanout` (one request performing ≥ 20 operations). Thresholds are heuristics for
-  finding regressions; adjust them in `operations.ts` when real usage shows they are noisy.
+  its threshold: Git 40, manager RPC 120, session store 20, prompt templates 20, Pi RPC 150,
+  Pi processes 6, project maps 5) and `request-fanout` (one request performing ≥ 20
+  operations). Each line carries `process` (`backend` or `manager`). The manager sends its
+  anomalies as `operation_anomaly` events; the backend validates them, keeps only known
+  fields, writes them as the app log's single writer, and never broadcasts them over SSE.
+  Manager anomalies raised while no backend is connected are lost. Thresholds are
+  heuristics for finding regressions; adjust them in `operations.ts` when real usage shows
+  they are noisy.
+- **Manager runtime:** `operations.ts` is declared in `server/manager-runtime-files.json`, so
+  editing it marks the manager stale until the user's guarded restart.
 - **Bounds and safety:** aggregate maps keep at most 200 keys and fold the rest into `other`.
   Entries never carry paths, arguments, commit messages, or identifiers.
 
-**Adding an expensive operation** (a new process spawn, file scan, or manager RPC path): wrap
+**Adding an expensive operation** (a new process spawn, file scan, or RPC path): wrap
 it once at its chokepoint with `measureOperation(kind, detail, run)`, adding a kind to
 `OperationKind` only for a new family. A new frontend trigger of such work passes its own
 `RequestCause` rather than reusing another trigger's name.
 
-Focused coverage: `test/diagnostics.test.ts` (counters, ring bounds, payload shape) and
-`test/operations.test.ts` (attribution, cause validation, slow, burst, and fan-out reports).
+Focused coverage: `test/diagnostics.test.ts` (counters, ring bounds, payload shape),
+`test/operations.test.ts` (attribution, cause and origin validation, anomaly parsing, slow,
+burst, and fan-out reports), and the `attributes Pi processes and RPCs to the forwarded
+request origin` case in `test/manager.integration.test.ts`.

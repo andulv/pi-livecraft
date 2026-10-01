@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process'
 import { connect, type Socket } from 'node:net'
 import test from 'node:test'
 import { isObject } from '../shared/is-object.ts'
+import type { OperationsSnapshot } from '../shared/types.ts'
 
 test(
   'keeps supervision alive without relaunching a manager that crashes',
@@ -568,6 +569,47 @@ test('renames a persisted session through Pi RPC', { timeout: 10_000 }, async ()
     })
     assert.equal(renamed.ok, true)
     assert.deepEqual(renamed.data, { name: 'Renamed session' })
+  } finally {
+    client.close()
+    await stopProcess(manager)
+    await rm(directory, { force: true, recursive: true })
+  }
+})
+
+test('attributes Pi processes and RPCs to the forwarded request origin', {
+  timeout: 10_000,
+}, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-manager-'))
+  const port = 45_000 + (process.pid % 10_000)
+  await writeFakePi(directory)
+  const manager = spawn(process.execPath, ['server/manager.ts'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      PATH: `${fakePiBin(directory)}${delimiter}${process.env.PATH}`,
+      PI_LIVECRAFT_MANAGER_PORT: String(port),
+    },
+    stdio: 'ignore',
+  })
+  const client = await connectManager(port)
+  try {
+    const renamed = await client.request('rename', {
+      cwd: process.cwd(),
+      name: 'Renamed session',
+      sessionPath: join(directory, 'archived.jsonl'),
+      origin: { route: 'sessions/rename', cause: 'test:rename' },
+    })
+    assert.equal(renamed.ok, true)
+
+    const diagnostics = await client.request('diagnostics', {})
+    assert.equal(diagnostics.ok, true)
+    const operations = diagnostics.data as OperationsSnapshot
+    assert.equal(operations.totals['pi-process:session']?.count, 1)
+    assert.equal(operations.totals['pi-rpc:set_session_name']?.count, 1)
+    assert.deepEqual(operations.triggers['sessions/rename \u2190 test:rename'], {
+      requests: 1,
+      operations: 2,
+    })
   } finally {
     client.close()
     await stopProcess(manager)

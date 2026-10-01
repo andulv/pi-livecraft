@@ -4,12 +4,7 @@ import type {
   SnapshotRpcWaits,
 } from '../../../shared/types.ts'
 
-import type {
-  OperationAnomalySink,
-  OperationBurstReport,
-  RequestFanoutReport,
-  SlowOperationReport,
-} from '../diagnostics/operations.ts'
+import type { OperationAnomaly } from '../diagnostics/operations.ts'
 
 import { appendFileSync, closeSync, existsSync, openSync, readSync, statSync } from 'node:fs'
 
@@ -68,7 +63,7 @@ export function parsePreviousRun(tail: string): AppLogPreviousRun | undefined {
  * revisit when size matters. Writes are synchronous and failures are swallowed so
  * logging can never take the backend down.
  */
-export class AppLog implements OperationAnomalySink {
+export class AppLog {
   readonly #path: string
   readonly #startedAt = Date.now()
   #clientEntries = 0
@@ -137,19 +132,12 @@ export class AppLog implements OperationAnomalySink {
     this.#write('slow-snapshot', { ...measurement })
   }
 
-  /** Records one measured operation at or above the slow-operation threshold. */
-  slowOperation(report: SlowOperationReport): void {
-    this.#write('slow-operation', { ...report })
-  }
-
-  /** Records the first time one operation kind exceeds its burst threshold in a window. */
-  operationBurst(report: OperationBurstReport): void {
-    this.#write('operation-burst', { ...report })
-  }
-
-  /** Records one HTTP request that performed an excessive number of operations. */
-  requestFanout(report: RequestFanoutReport): void {
-    this.#write('request-fanout', { ...report })
+  /**
+   * Records one operation anomaly (slow operation, burst, or request fan-out) from the
+   * backend's own ledger or forwarded by the manager; `process` tells them apart.
+   */
+  operationAnomaly(anomaly: OperationAnomaly, process: 'backend' | 'manager' = 'backend'): void {
+    this.#write(anomaly.type, { process, ...anomaly.report })
   }
 
   /** Logs a failed snapshot without the session identity or the Pi error text. */

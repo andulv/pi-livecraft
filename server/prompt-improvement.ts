@@ -2,6 +2,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { JsonObject } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
+import { measureOperation } from './features/diagnostics/operations.ts'
 
 /** Loads the system prompt fresh from disk so edits take effect without restarting the manager. */
 export async function loadPromptImprovementSystemPrompt(): Promise<string> {
@@ -52,10 +53,12 @@ const maxMapLines = 150
  * system prompt.
  */
 export async function generateProjectMap(cwd: string): Promise<string> {
-  const lines: string[] = ['<project_map>']
-  await listEntries(cwd, '', lines, 0)
-  lines.push('</project_map>')
-  return lines.join('\n')
+  return measureOperation('project-map', 'scan', async () => {
+    const lines: string[] = ['<project_map>']
+    await listEntries(cwd, '', lines, 0)
+    lines.push('</project_map>')
+    return lines.join('\n')
+  })
 }
 
 async function listEntries(

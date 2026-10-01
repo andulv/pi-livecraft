@@ -47,7 +47,11 @@ import {
   DiagnosticsRecorder,
   type SnapshotStageMeasurement,
 } from './features/diagnostics/diagnostics.ts'
-import { operationLedger, operationRouteTemplate } from './features/diagnostics/operations.ts'
+import {
+  operationLedger,
+  operationRouteTemplate,
+  parseOperationAnomaly,
+} from './features/diagnostics/operations.ts'
 import { MetadataCache } from './features/session-metadata/metadata-cache.ts'
 import { openSseStream, parseSseLastEventId } from './sse-response.ts'
 import {
@@ -79,6 +83,7 @@ import {
   type DirectoryListing,
   type JsonObject,
   type ManagerEvent,
+  type OperationsSnapshot,
   type SessionSnapshot,
 } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
@@ -100,7 +105,7 @@ const environment = new EnvironmentService(manager)
 const diagnostics = new DiagnosticsRecorder()
 const appLog = new AppLog(fileURLToPath(new URL('../pi-livecraft-app.log', import.meta.url)))
 appLog.boot(process.pid)
-operationLedger.setSink(appLog)
+operationLedger.setSink((anomaly) => appLog.operationAnomaly(anomaly))
 
 /** Records one snapshot once in both bounded and persistent diagnostics. */
 function recordSnapshot(stage: SnapshotStageMeasurement): void {
@@ -123,6 +128,12 @@ const managerRuntime = new ManagerRuntimeMonitor(manager, (status) => {
 })
 
 manager.on('event', (event: ManagerEvent) => {
+  if (event.event === 'operation_anomaly') {
+    // Manager anomalies are persisted here, not broadcast: the app log has a single writer.
+    const anomaly = parseOperationAnomaly(event.data)
+    if (anomaly) appLog.operationAnomaly(anomaly, 'manager')
+    return
+  }
   quotas.receiveManagerEvent(event)
   environment.receiveManagerEvent(event)
   if (event.event === 'session_exited' || event.event === 'session_reassigned') {
@@ -206,7 +217,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
 
   if (method === 'GET' && url.pathname === '/api/diagnostics') {
     diagnostics.request('diagnostics')
-    sendJson(response, 200, diagnostics.snapshotState())
+    sendJson(response, 200, diagnostics.snapshotState(await readManagerOperations()))
     return
   }
 
@@ -1220,6 +1231,22 @@ function isClientLogBody(body: unknown): body is ClientLogRequestBody {
     && typeof body.message === 'string'
     && body.message.trim() !== ''
     && body.message.length <= 500
+}
+
+/**
+ * Reads the manager's operation ledger for diagnostics. The short timeout bounds the poll
+ * when the manager is unreachable or still runs a revision without the `diagnostics` action.
+ */
+async function readManagerOperations(): Promise<OperationsSnapshot | null> {
+  try {
+    const value = await manager.request({ action: 'diagnostics' }, 750)
+    return isObject(value) && typeof value.inFlight === 'number' && isObject(value.totals)
+        && isObject(value.triggers) && Array.isArray(value.recent)
+      ? value as unknown as OperationsSnapshot
+      : null
+  } catch {
+    return null
+  }
 }
 
 function logProviderFailure(sessionId: string, event: JsonObject): void {

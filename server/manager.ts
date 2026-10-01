@@ -16,6 +16,7 @@ import {
   loadPromptImprovementSystemPrompt,
 } from './prompt-improvement.ts'
 import { runIsolatedPrompt } from './run-isolated-prompt.ts'
+import { operationLedger, parseOperationOrigin } from './features/diagnostics/operations.ts'
 import { isObject } from '../shared/is-object.ts'
 import { fallbackSessionTitle, placeholderSessionTitle } from '../shared/session-title.ts'
 import type {
@@ -45,6 +46,12 @@ const runtimeIdentity = {
 let shuttingDown = false
 let restartAccepted = false
 let activeRequests = 0
+
+// The backend owns the app log; manager anomalies reach it as events and are lost only
+// while no backend is connected.
+operationLedger.setSink((anomaly) =>
+  broadcast({ kind: 'event', event: 'operation_anomaly', sessionId: '', data: anomaly })
+)
 
 interface ManagedSession {
   summary: SessionSummary
@@ -118,6 +125,21 @@ async function handleRequest(socket: Socket, value: unknown): Promise<void> {
     return
   }
 
+  // Attributes Pi processes and RPCs to the backend request (route and frontend cause) that
+  // asked for them; requests from backend background work keep the `background` label.
+  const origin = parseOperationOrigin(value.origin)
+  const operations = operationLedger.openRequest(
+    origin?.route ?? 'background',
+    origin?.cause ?? 'background',
+  )
+  try {
+    await operationLedger.runInRequest(operations, () => executeRequest(socket, value))
+  } finally {
+    operationLedger.closeRequest(operations)
+  }
+}
+
+async function executeRequest(socket: Socket, value: ManagerRequest): Promise<void> {
   const tracksActivity = value.action === 'create' || value.action === 'open'
     || value.action === 'close' || value.action === 'rename' || value.action === 'command'
     || value.action === 'improve_prompt' || value.action === 'run_prompt'
@@ -125,6 +147,7 @@ async function handleRequest(socket: Socket, value: unknown): Promise<void> {
   try {
     let data: unknown
     if (value.action === 'status') data = runtimeIdentity
+    else if (value.action === 'diagnostics') data = operationLedger.snapshotState()
     else if (value.action === 'restart') {
       if (!supervised || restartExitCode === undefined)
         throw new Error('Pi manager is not supervised')
@@ -669,7 +692,7 @@ function isManagerRequest(value: unknown): value is ManagerRequest {
   return value.action === 'list' || value.action === 'create' || value.action === 'open'
     || value.action === 'close' || value.action === 'rename' || value.action === 'command'
     || value.action === 'improve_prompt' || value.action === 'run_prompt'
-    || value.action === 'status' || value.action === 'restart'
+    || value.action === 'status' || value.action === 'restart' || value.action === 'diagnostics'
 }
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)

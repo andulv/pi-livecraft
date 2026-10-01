@@ -1,6 +1,7 @@
 import type {
   DiagnosticEventEntry,
   DiagnosticsSnapshot,
+  OperationsSnapshot,
   SnapshotStageEntry,
   SnapshotRpcWaits,
 } from '../../../shared/types.ts'
@@ -86,8 +87,11 @@ export class DiagnosticsRecorder {
     })
   }
 
-  /** Serializes the current diagnostics; bounded and content-free. */
-  snapshotState(): DiagnosticsSnapshot {
+  /**
+   * Serializes the current diagnostics; bounded and content-free. The manager's ledger
+   * lives in another process, so the caller supplies it (null when unavailable).
+   */
+  snapshotState(managerOperations: OperationsSnapshot | null = null): DiagnosticsSnapshot {
     return {
       uptimeMs: Date.now() - this.#startedAt,
       requests: Object.fromEntries(this.#requests),
@@ -98,6 +102,7 @@ export class DiagnosticsRecorder {
       recentEvents: this.#events.slice(-30),
       recentStages: this.#stages.slice(-20),
       operations: this.#operations.snapshotState(),
+      managerOperations,
     }
   }
 

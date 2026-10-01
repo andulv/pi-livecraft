@@ -137,20 +137,29 @@ test('uncaught entries carry truncated message and stack', () => {
 test('operation anomalies keep their log kind and name the operation family separately', () => {
   const path = join(mkdtempSync(join(tmpdir(), 'app-log-')), 'app.log')
   const log = new AppLog(path)
-  log.slowOperation({
-    operation: 'git',
-    detail: 'status',
-    route: 'git',
-    cause: 'git:tool-end',
-    durationMs: 1200,
-    ok: true,
-    inFlight: 1,
+  log.operationAnomaly({
+    type: 'slow-operation',
+    report: {
+      operation: 'git',
+      detail: 'status',
+      route: 'git',
+      cause: 'git:tool-end',
+      durationMs: 1200,
+      ok: true,
+      inFlight: 1,
+    },
   })
-  log.operationBurst({ operation: 'git', count: 40, windowMs: 10_000, topTriggers: [] })
+  log.operationAnomaly(
+    {
+      type: 'operation-burst',
+      report: { operation: 'pi-rpc', count: 150, windowMs: 10_000, topTriggers: [] },
+    },
+    'manager',
+  )
   const lines = readFileSync(path, 'utf8').trim().split('\n').map((line) => JSON.parse(line))
 
-  assert.deepEqual(lines.map(({ kind, operation }) => [kind, operation]), [
-    ['slow-operation', 'git'],
-    ['operation-burst', 'git'],
+  assert.deepEqual(lines.map(({ kind, operation, process }) => [kind, operation, process]), [
+    ['slow-operation', 'git', 'backend'],
+    ['operation-burst', 'pi-rpc', 'manager'],
   ])
 })

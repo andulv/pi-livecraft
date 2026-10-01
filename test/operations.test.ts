@@ -2,26 +2,27 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   OperationLedger,
+  operationBurstThresholds,
   operationRouteTemplate,
+  parseOperationAnomaly,
+  parseOperationOrigin,
   requestFanoutThreshold,
-  type OperationAnomalySink,
+  safeOperationDetail,
+  type OperationAnomaly,
   type OperationBurstReport,
   type RequestFanoutReport,
   type SlowOperationReport,
 } from '../server/features/diagnostics/operations.ts'
+import type { OperationKind } from '../shared/types.ts'
 
-class RecordingSink implements OperationAnomalySink {
+class RecordingSink {
   slow: SlowOperationReport[] = []
   bursts: OperationBurstReport[] = []
   fanouts: RequestFanoutReport[] = []
-  slowOperation(report: SlowOperationReport): void {
-    this.slow.push(report)
-  }
-  operationBurst(report: OperationBurstReport): void {
-    this.bursts.push(report)
-  }
-  requestFanout(report: RequestFanoutReport): void {
-    this.fanouts.push(report)
+  readonly receive = (anomaly: OperationAnomaly): void => {
+    if (anomaly.type === 'slow-operation') this.slow.push(anomaly.report)
+    else if (anomaly.type === 'operation-burst') this.bursts.push(anomaly.report)
+    else this.fanouts.push(anomaly.report)
   }
 }
 
@@ -29,15 +30,12 @@ function ledgerWithClock(burstThreshold = 1000) {
   let now = 0
   const ledger = new OperationLedger({
     now: () => now,
-    burstThresholds: {
-      'git': burstThreshold,
-      'manager-rpc': burstThreshold,
-      'session-store': burstThreshold,
-      'prompt-templates': burstThreshold,
-    },
+    burstThresholds: Object.fromEntries(
+      Object.keys(operationBurstThresholds).map((kind) => [kind, burstThreshold]),
+    ) as Record<OperationKind, number>,
   })
   const sink = new RecordingSink()
-  ledger.setSink(sink)
+  ledger.setSink(sink.receive)
   return {
     ledger,
     sink,
@@ -74,6 +72,68 @@ test('labels missing and malformed causes instead of trusting the header', () =>
   assert.equal(ledger.openRequest('git', undefined).cause, 'unspecified')
   assert.equal(ledger.openRequest('git', 'git:/home/user path').cause, 'invalid')
   assert.equal(ledger.openRequest('git', ['git:manual', 'x']).cause, 'git:manual')
+  assert.equal(ledger.openRequest('git\n/../x y', 'git:manual').route, 'invalid')
+  assert.equal(safeOperationDetail('get_state'), 'get_state')
+  assert.equal(safeOperationDetail('rm -rf /'), 'other')
+  assert.equal(safeOperationDetail(42), 'other')
+})
+
+test('exposes the current request as an origin to forward to the manager', async () => {
+  const { ledger } = ledgerWithClock()
+  assert.equal(ledger.currentOrigin(), undefined)
+  const context = ledger.openRequest('sessions', 'sessions:manual')
+  await ledger.runInRequest(context, async () => {
+    await Promise.resolve()
+    assert.deepEqual(ledger.currentOrigin(), { route: 'sessions', cause: 'sessions:manual' })
+  })
+  assert.deepEqual(parseOperationOrigin({ route: 'git', cause: 'git:manual' }), {
+    route: 'git',
+    cause: 'git:manual',
+  })
+  assert.equal(parseOperationOrigin({ route: 'git' }), undefined)
+  assert.equal(parseOperationOrigin('git'), undefined)
+})
+
+test('accepts forwarded anomalies only from known fields', () => {
+  const slow = parseOperationAnomaly({
+    type: 'slow-operation',
+    report: {
+      operation: 'pi-rpc',
+      detail: 'get_state',
+      route: 'sessions',
+      cause: 'sessions:manual',
+      durationMs: 1200,
+      ok: true,
+      inFlight: 3,
+      prompt: 'must not survive',
+    },
+  })
+  assert.deepEqual(slow?.report, {
+    operation: 'pi-rpc',
+    detail: 'get_state',
+    route: 'sessions',
+    cause: 'sessions:manual',
+    durationMs: 1200,
+    ok: true,
+    inFlight: 3,
+  })
+  const fanout = parseOperationAnomaly({
+    type: 'request-fanout',
+    report: {
+      route: 'sessions',
+      cause: 'background',
+      operations: 25,
+      byKind: { 'pi-rpc': 25, 'unknown': 4 },
+      durationMs: 80,
+    },
+  })
+  assert.equal(fanout?.type, 'request-fanout')
+  assert.deepEqual(fanout.report.byKind, { 'pi-rpc': 25 })
+  assert.equal(
+    parseOperationAnomaly({ type: 'slow-operation', report: { operation: 'x' } }),
+    undefined,
+  )
+  assert.equal(parseOperationAnomaly({ type: 'other', report: {} }), undefined)
 })
 
 test('counts failures and reports slow operations without losing the error', async () => {

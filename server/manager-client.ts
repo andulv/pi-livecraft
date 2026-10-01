@@ -3,7 +3,11 @@ import { EventEmitter } from 'node:events'
 import { connect, type Socket } from 'node:net'
 import { JsonLineDecoder, MAX_SESSION_RECORD_SIZE, encodeJsonLine } from './jsonl.ts'
 import type { ManagerMessage, ManagerRequest } from '../shared/types.ts'
-import { measureOperation } from './features/diagnostics/operations.ts'
+import {
+  measureOperation,
+  operationLedger,
+  safeOperationDetail,
+} from './features/diagnostics/operations.ts'
 
 interface PendingRequest {
   resolve: (value: unknown) => void
@@ -34,10 +38,13 @@ export class ManagerClient extends EventEmitter {
 
   /** Waits briefly for the normal startup/reconnect race before reporting manager unavailability. */
   async request(request: Omit<ManagerRequest, 'id'>, timeoutMs = 35_000): Promise<unknown> {
+    // Reading diagnostics must not show up in the diagnostics it reads.
+    if (request.action === 'diagnostics') return this.#send(request, timeoutMs)
+    const origin = operationLedger.currentOrigin()
     return measureOperation(
       'manager-rpc',
       managerRequestDetail(request),
-      () => this.#send(request, timeoutMs),
+      () => this.#send(origin ? { ...request, origin } : request, timeoutMs),
     )
   }
 
@@ -150,14 +157,9 @@ function isManagerMessage(value: unknown): value is ManagerMessage {
   return message.kind === 'response' || message.kind === 'event'
 }
 
-/**
- * Names a manager request for the operation ledger. Pi command types can come from the
- * browser, so only short identifier-shaped values are kept verbatim.
- */
+/** Names a manager request for the operation ledger; Pi command types are sanitized. */
 function managerRequestDetail(request: Omit<ManagerRequest, 'id'>): string {
-  if (request.action !== 'command') return request.action
-  const type = request.command?.type
-  return typeof type === 'string' && /^[A-Za-z_]{1,40}$/.test(type)
-    ? `command:${type}`
-    : 'command:other'
+  return request.action === 'command'
+    ? `command:${safeOperationDetail(request.command?.type)}`
+    : request.action
 }

@@ -9,6 +9,7 @@ import { resolvePiLauncher } from './pi-launcher.ts'
 import { browserDebugPortFor, primaryBrowserId } from '../shared/browser-port.ts'
 import type { JsonObject } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
+import { measureOperation, safeOperationDetail } from './features/diagnostics/operations.ts'
 
 const activeChildren = new Set<ChildProcessWithoutNullStreams>()
 
@@ -113,6 +114,19 @@ export class PiProcess extends EventEmitter {
       windowsHide: true,
     })
     activeChildren.add(this.child)
+    // Counts each started Pi process; the duration is OS spawn latency only, while Pi's
+    // startup time appears in its first `pi-rpc` request.
+    const child = this.child
+    void measureOperation(
+      'pi-process',
+      options.isolated ? 'isolated' : 'session',
+      () =>
+        new Promise<void>((resolve, reject) => {
+          child.once('spawn', resolve)
+          child.once('error', reject)
+        }),
+    )
+      .catch(() => undefined)
 
     const decoder = new JsonLineDecoder(
       (value) => this.#receive(value),
@@ -148,6 +162,14 @@ export class PiProcess extends EventEmitter {
     command: JsonObject,
     timeoutMs = (command.type === 'prompt' || command.type === 'compact') ? 10 * 60_000 : 30_000,
   ): Promise<JsonObject> {
+    return measureOperation(
+      'pi-rpc',
+      safeOperationDetail(command.type),
+      () => this.#request(command, timeoutMs),
+    )
+  }
+
+  #request(command: JsonObject, timeoutMs: number): Promise<JsonObject> {
     const id = randomUUID()
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {

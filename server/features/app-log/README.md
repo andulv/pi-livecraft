@@ -17,9 +17,9 @@ and work from that evidence instead of simulating heavy usage.
 | `manager` | manager connect/disconnect | `state` |
 | `sse-open` | SSE stream opened (loads and reconnects) | — |
 | `slow-snapshot` | successful snapshot ≥ 1000 ms | `mode`, `rpcMs`, `buildMs`, `templatesMs`, `totalMs`, `bytes`, `rpcWaitMs`, `sameSessionInFlight`, `totalInFlight` |
-| `slow-operation` | one measured operation ≥ 1000 ms | `operation` (kind), `detail`, `route`, `cause`, `durationMs`, `ok`, `inFlight` |
-| `operation-burst` | one operation kind reaches its threshold within 10 s (once per window) | `operation` (kind), `count`, `windowMs`, `topTriggers` (`route ← cause` with operation counts) |
-| `request-fanout` | one HTTP request performed ≥ 20 operations | `route`, `cause`, `operations`, `byKind`, `durationMs` |
+| `slow-operation` | one measured operation ≥ 1000 ms | `process` (`backend`/`manager`), `operation` (kind), `detail`, `route`, `cause`, `durationMs`, `ok`, `inFlight` |
+| `operation-burst` | one operation kind reaches its threshold within 10 s (once per window) | `process`, `operation` (kind), `count`, `windowMs`, `topTriggers` (`route ← cause` with operation counts) |
+| `request-fanout` | one request performed ≥ 20 operations | `process`, `route`, `cause`, `operations`, `byKind`, `durationMs` |
 | `snapshot-failure` | one failed Pi snapshot load | first failing RPC name (`rpc`), `durationMs`, `sameSessionInFlight` — no error text |
 | `provider-failure` | Pi provider request failed | `model`, `message` (truncated) |
 | `client` | client POST `/api/client-log` | `source`, `message` |

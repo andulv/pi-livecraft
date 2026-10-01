@@ -182,6 +182,7 @@ export interface ManagerRequest {
     | 'run_prompt'
     | 'status'
     | 'restart'
+    | 'diagnostics'
   sessionId?: string
   cwd?: string
   name?: string
@@ -195,6 +196,8 @@ export interface ManagerRequest {
   tools?: string[]
   includeContextFiles?: boolean
   direction?: string
+  /** Backend request that caused this manager request, for operation attribution. */
+  origin?: OperationOrigin
 }
 
 export interface ManagerResponse {
@@ -214,6 +217,7 @@ export interface ManagerEvent {
     | 'manager_connected'
     | 'manager_disconnected'
     | 'manager_status'
+    | 'operation_anomaly'
     | 'pi'
   sessionId: string
   data?: unknown
@@ -361,6 +365,8 @@ export interface DiagnosticsSnapshot {
   recentEvents: DiagnosticEventEntry[]
   recentStages: SnapshotStageEntry[]
   operations: OperationsSnapshot
+  /** The manager's own ledger; null when it is unreachable or predates the `diagnostics` action. */
+  managerOperations: OperationsSnapshot | null
 }
 
 /**
@@ -371,7 +377,20 @@ export interface DiagnosticsSnapshot {
 export const requestCauseHeader = 'x-livecraft-cause'
 
 /** Expensive backend operation families measured by the operation ledger. */
-export type OperationKind = 'git' | 'manager-rpc' | 'session-store' | 'prompt-templates'
+export type OperationKind =
+  | 'git'
+  | 'manager-rpc'
+  | 'session-store'
+  | 'prompt-templates'
+  | 'pi-rpc'
+  | 'pi-process'
+  | 'project-map'
+
+/** Request attribution the backend forwards to the manager so both ledgers share triggers. */
+export interface OperationOrigin {
+  route: string
+  cause: string
+}
 
 /**
  * One measured operation. `detail` is a content-free sub-name (Git subcommand, manager
