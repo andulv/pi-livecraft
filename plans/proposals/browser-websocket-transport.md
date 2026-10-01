@@ -1,6 +1,6 @@
 # Browser viewer over WebSocket
 
-Status: **proposal, second draft**. Owner's current design after two peer reviews (`browser-websocket-transport-review1.md`, `-review2.md`); the reviews are input, this document is the spec. Not yet authorized for implementation; the [open questions](#open-questions-for-reviewers) may still change details.
+Status: **proposal, third draft**. Owner's design after two review rounds (`browser-websocket-transport-review1.md`, `-review2.md`, `reviewer1-reply1.md`, `reviewer2-reply1.md`); the reviews are input, this document is the spec. Both reviewers consider the design ready for a prototype once implementation and the `ws` dependency are authorized. Remaining questions are in [open questions](#open-questions-for-reviewers-round-2).
 
 ## Goal
 
@@ -11,7 +11,7 @@ Non-goals: changing who owns Chrome (`BrowserService`), how agents attach (CDP e
 ## Why
 
 - Chrome allows **six HTTP/1.1 connections per origin, shared by every tab**. Each tab holds `/api/events`; each visible Browser pane holds a frames SSE stream; an embedded terminal holds another. Three tabs showing the browser exhaust the pool and every other request waits ([long-lived connections](/docs/DATA-FLOW.md#long-lived-connections), [investigation](/plans/investigations/connection-stability.md)). WebSockets use a separate pool (Chromium: 255 per group; Firefox: 200 sessions by default), so a few viewer and terminal sockets are far from any limit.
-- **Input costs one HTTP request per event.** `BrowserView.tsx` throttles pointer moves to one per 32 ms (about 31 per second) and batches wheel deltas every 50 ms; until 2026-10-01 every such event was an independent, concurrent POST. A stop-gap in `sendBrowserInput` (`src/api.ts`) now keeps one request in flight per browser and merges queued moves, but input still pays a full request per event and holds a pool connection while active.
+- **Input costs one HTTP request per event.** `BrowserView.tsx` throttles pointer moves to one per 32 ms (about 31 per second) and batches wheel deltas every 50 ms; a stop-gap in `sendBrowserInput` (`src/api.ts`) keeps one request in flight per browser and merges queued moves, but input still pays a full request per event and holds a pool connection while active.
 - **Frames are base64 inside JSON inside SSE.** `wireFor` (`server/features/browser/browser-session.ts`) wraps each CDP JPEG as `{"data":"<base64>"}`; the tab parses it and assigns a `data:` URL. Binary is about 25% smaller than its base64 form and avoids a large string parse per frame.
 - **Flow control is server-side only.** Frames are skipped while a viewer's socket has more than 512 KiB queued (`server/backend.ts`). That cannot see a tab whose JavaScript or image decoding falls behind.
 
@@ -39,7 +39,9 @@ The stability monitor is still measuring whether pool exhaustion causes today's 
 
 ### Transport-neutral session events
 
-Today `BrowserSession.subscribe()` hands subscribers pre-serialized SSE names and JSON strings. Refactor it to publish typed events (`status`, `url`, and `frame` carrying a sequence number and a shared JPEG `Buffer` decoded once from CDP's base64 before fan-out), and move encoding to each transport adapter. During the transition the SSE adapter keeps today's `wireFor` encoding; the socket adapter never parses JSON strings back into objects. This is the main owning-boundary refactor, more than the upgrade route itself.
+Today `BrowserSession.subscribe()` hands subscribers pre-serialized SSE names and JSON strings. Refactor it to publish typed events (`status`, `url`, and `frame` carrying a shared JPEG `Buffer` decoded once from CDP's base64 before fan-out), and move encoding to each transport adapter. During the transition the SSE adapter keeps today's `wireFor` encoding; the socket adapter never parses JSON strings back into objects. This is the main owning-boundary refactor, more than the upgrade route itself.
+
+Sequences are connection-local, not session-level: **the wire sequence is allocated by the viewer adapter when it sends a frame**, so the same cached image can carry different sequence numbers for different viewers. A session-level capture generation (see below) is a separate concept and never appears on the wire.
 
 ### Messages
 
@@ -50,28 +52,38 @@ Today `BrowserSession.subscribe()` hands subscribers pre-serialized SSE names an
 | server → tab | text `{"type":"heartbeat"}` | Application liveness the tab can observe (protocol pings are invisible to page script) |
 | server → tab | binary: 4-byte unsigned sequence number (big-endian) + JPEG bytes | Sequence restarts at 0 per connection; no other header until a field is needed |
 | tab → server | text `{"type":"input","event":BrowserInputEvent}` | Envelope keeps `BrowserInputEvent.type` intact; validated by the existing input validation before CDP |
-| tab → server | text `{"type":"frameAck","seq":n}` | Restores frame credit (below) |
+| tab → server | text `{"type":"frameAck","seq":n}` | Restores frame credit for that outstanding frame only |
 
 ### Frame flow control
 
 Credit-based from the start, because the browser's WebSocket API has no receive-side backpressure: once a frame is in the tab's message queue, the server cannot retract it, and its buffered amount stays low while the tab falls behind.
 
-- Each viewer starts with **one frame credit**. Sending a frame consumes it.
-- While no credit is available, the viewer keeps only the **newest unsent frame**; older ones are discarded.
-- The tab sends `frameAck` once the frame is decoded and accepted for display (`HTMLImageElement.decode()` or `load` on the new image). The acknowledgement restores the credit and **immediately flushes the pending frame**, so a static page's last frame arrives even if Chrome produces no more.
-- Secondary guards: skip sending while the socket's buffered amount exceeds about 256 KiB; if no acknowledgement arrives within about 5 s, restore the credit and count the timeout (a lost or very slow tab must not freeze its view forever).
-- Two credits is a measurement option if one limits throughput. Chrome capture pacing (`minAckIntervalMs`) stays independent of viewers, so a slow viewer never slows others.
-- A **latest-frame cache** in `BrowserSession` gives a newly attached viewer an immediate first frame; it is cleared when Chrome restarts and when the viewport changes.
+- Each viewer starts with **one frame credit**. Sending a frame consumes it; while no credit is available the viewer keeps only the **newest unsent frame**, discarding older ones.
+- The tab acknowledges a frame once it is decoded and accepted as the current display frame (below). An acknowledgement that matches the outstanding frame's sequence restores the credit and **immediately flushes the pending frame**, so a static page's last frame arrives even if Chrome produces no more.
+- **Only a matching acknowledgement restores credit.** Duplicate, stale, or invalid acknowledgements never add credit.
+- **An acknowledgement timeout does not restore credit.** If the outstanding frame is not acknowledged within about 5 s, record the timeout and **close that viewer connection**; no further frames are sent on it. The normal visibility-aware reconnect then establishes a fresh connection with fresh credit. A suspended viewer stays bounded and never blocks healthy viewers. Five seconds is a stall threshold, not a performance target.
+- Two credits is a measurement constant only, promoted if delivered FPS pins below Chrome's capture pace while acknowledgement latency varies. One credit keeps the invariant that at most one frame per viewer is undisplayed, and the pending slot is always the newest.
+- There is **no buffered-amount guard**: with one credit the outbound queue is at most one frame, so the credit already bounds buffering and the retry-when-drained problem the guard would create cannot arise. (Confirm; see open questions.)
+- Chrome capture pacing (`minAckIntervalMs`) stays independent of viewers, so a slow viewer never slows others.
+- A **latest-frame cache** in `BrowserSession` (one `Buffer`, no metadata is consumed today) gives a newly attached viewer an immediate first frame; it is sent through normal credit accounting, never bypassing flow control. The cache is cleared when Chrome restarts and when the viewport changes, and is not published after stop or crash. It survives a screencast stop with viewers gone: on re-attach the last frame is still accurate and displays instantly while `startScreencast` warms up.
+- **Viewport changes and restarts bump a capture generation.** Viewers discard their unsent pending frame from an old generation, and a late frame from an old generation is not accepted into the cache. An already-sent frame cannot be retracted; its acknowledgement is still accounted, and the renderer simply replaces it with the first frame of the new generation.
 
 ### Rendering
 
-Keep `<img>` and keep frames outside React state, as today. For each binary frame: build a JPEG `Blob`, set an object URL on the image with `decoding="async"`, revoke the replaced URL once the new one is displayed, and revoke on disposal. Canvas with `createImageBitmap` (in a worker, since main-thread decoding is not guaranteed to leave the main thread) is a profiling-driven option only, and would also have to preserve the natural-size coordinate mapping and zoom.
+Keep `<img>` and keep frames outside React state, as today. For each binary frame: build a JPEG `Blob`, set an object URL on the image with `decoding="async"`, **await `decode()`** — resolving or rejecting — then send `frameAck`, then revoke the replaced URL. A generation check (connection or disposal) before acknowledging ensures a superseded completion never acks on a replacement connection or moves the current frame.
+
+- Acknowledge on settle of `decode()`, not on `load`: `load` fires when data is fetched, not decoded, so a `load` ack can restore credit while the decode backlog the credit exists to expose is still building.
+- **Acknowledge on rejection too**, counting it separately: one corrupt JPEG or a `src` replacement mid-decode must not freeze the viewer for the timeout. Rejected frames are never retried.
+- Awaiting `decode()` adds no decode work — the JPEG decodes before display regardless — only the acknowledgement round trip, against roughly 8× headroom at Chrome's 12 FPS pacing.
+- Handle the first frame that arrives before the image is mounted (today's component already special-cases this). The `load` event is an acceptable fallback path only if it substantially simplifies the renderer; do not implement both.
+- Canvas with `createImageBitmap` (in a worker, since main-thread decoding is not guaranteed to leave the main thread) is a profiling-driven option only, and would have to preserve the natural-size coordinate mapping and zoom.
 
 ### Input
 
-- Input travels in order on the socket and is dispatched to CDP sequentially per viewer.
-- Keep today's tab-side shaping: pointer moves at most every 32 ms, wheel deltas batched every 50 ms. Additionally merge a pending move with the next move if the socket is still sending; never merge or reorder presses, releases, keys, or text.
-- No input queue survives a disconnect: input produced while disconnected is dropped, never replayed after reconnecting. If the socket's outbound buffer grows past a bound while connected, mark the view stalled (non-interactive) instead of silently dropping button or key transitions.
+- Input travels in order on the socket and is dispatched to CDP sequentially per viewer. **Frame acknowledgements are processed independently of the input-dispatch queue**, so slow CDP input cannot block frame credit.
+- Keep today's tab-side shaping: pointer moves at most every 32 ms, wheel deltas batched every 50 ms. Additionally merge a pending move with the next move if the socket is still sending; never merge or reorder presses, releases, keys, or text. Batched types are intentional aggregation; **flush any pending move and wheel batch before a button or key transition** so the emitted sequence preserves the original DOM-event order.
+- **The server bounds its dispatch work too**: the sequential per-viewer input queue has a limit (start around 256 events); adjacent moves may coalesce, and on overflow the viewer connection is stalled or closed rather than silently dropping key or button transitions. Unsent input is cleared when its connection closes; an already-issued CDP command cannot be recalled.
+- No input queue survives a disconnect: input produced while disconnected is dropped, never replayed after reconnecting. While connected, if the tab's outbound buffer grows past a bound, mark the view stalled (non-interactive) instead of silently dropping transitions.
 
 ### Lifecycle and recovery
 
@@ -90,9 +102,11 @@ The manual **Reconnect live browser view** action remains.
 ### Security
 
 - WebSockets are not subject to CORS, so **every upgrade must pass an origin guard**: `Origin` must exactly match an allowed application origin (no substrings or wildcards), a missing `Origin` is rejected, and `Host` must be `127.0.0.1` or `localhost` with an allowed port (DNS-rebinding defense). Reject with 403 before upgrading.
-- Allowed origins come from configuration: the backend origin in both `127.0.0.1` and `localhost` forms (`PI_LIVECRAFT_BACKEND_PORT`), and the Vite development origin. Pin the Vite port (`strictPort`, with a `PI_LIVECRAFT_FRONTEND_PORT` defaulting to 5173) so the allowlist cannot silently diverge from the port Vite picks.
+- Allowed origins come from configuration: the backend origin in both `127.0.0.1` and `localhost` forms (`PI_LIVECRAFT_BACKEND_PORT`), and the Vite development origin from a `PI_LIVECRAFT_FRONTEND_PORT` (default 5173) shared by `vite.config.ts` and the backend allowlist, with **`strictPort`** so a silently shifted port cannot produce 403s far from the cause. Log the effective allowlist at backend startup and include it in 403 bodies, so misconfiguration is self-diagnosing; two checkouts get distinct ports through the same variables.
 - Write the guard once in `server/backend.ts` as a shared helper. **Applying it to the HTTP API is an urgent separate follow-up, not part of this change:** no route checks `Origin`, `Host`, or `Content-Type` today, and `readJsonBody` parses any body, so a cross-site page can send state-changing `text/plain` "simple" requests (no CORS preflight), including terminal input.
-- Origin is not authentication. For a loopback-only tool, Origin plus Host plus strict message validation is the proportionate posture here.
+- The follow-up's rules: exact allowed `Origin` on state-changing routes for browser requests; `Host` on all API requests; the parsed media type must be `application/json` (parameters such as `charset` allowed) wherever a mutation accepts JSON, and bodyless mutations still need the origin guard; GETs stay Host-checked only; scope includes terminal input (the sharpest edge), resize, browser input/start/stop/navigate/reload, and client-log. A per-launch token is **rejected for now**: a foreign-origin page is blocked before a token would be consulted and cannot read one, and a local process can obtain a token the same way the page can; revisit only if the threat model grows (non-loopback bind, remote access), and then with real authentication.
+- One rule for non-browser clients: the documented agent workflow drives the backend with `curl` (`pi-skills/livecraft-browser/SKILL.md`), which sends no `Origin`. Allow a missing `Origin` **only when `Sec-Fetch-Site` is also absent** (a forbidden header page script cannot set): a modern browser always sends one or the other, so "neither present" means a local non-browser client, which is inside the threat model, while cross-site browser requests still carry a mismatching `Origin`.
+- Origin is not authentication; for a loopback-only tool this is the proportionate posture.
 
 ### Development proxy
 
@@ -101,7 +115,7 @@ Change Vite's `/api` proxy to the object form with `ws: true`, leave `rewriteWsO
 ### Diagnostics
 
 - Stability monitor: a `browser-socket` stream kind counted separately from HTTP streams.
-- Per window: frames sent, frames replaced (latest-wins), acknowledgement latency and timeouts, input messages received.
+- Per window: frames sent, frames replaced (latest-wins), acknowledgement latency, acknowledgement timeouts (connection closures), decode rejections, duplicate or stale acknowledgements, input messages received, input backlog overflows.
 - Client reports for socket closes with close code and the tab's connection load, alongside the existing `sse-drop`.
 
 ## Rollout
@@ -113,13 +127,14 @@ Change Vite's `/api` proxy to the object form with `ws: true`, leave `rewriteWsO
 
 ## Measurements
 
-Input-to-visible-response latency; acknowledgement latency and decode time; outstanding frames, replacements, and memory per viewer; backend event-loop lag during capture; recovery time after socket loss and backend restart.
+Input-to-visible-response latency; acknowledgement latency and decode duration; outstanding frames, replacements, and memory per viewer; backend event-loop lag during capture; recovery time after socket loss and backend restart.
 
 ## Tests
 
-- Pending frame on a static page is delivered after acknowledgement; first frame on attach comes from the cache; cache cleared on restart and viewport change.
-- Credit accounting, acknowledgement timeout, and latest-wins replacement with a fake socket.
-- Input ordering survives press → move → release → wheel → key sequences end to end; no input replay after reconnect.
+- Pending frame on a static page is delivered after acknowledgement; first frame on attach comes from the cache and obeys credit accounting, including before the image is mounted.
+- Credit accounting: an acknowledgement timeout never increases outstanding frames (the connection closes instead); duplicate, stale, or invalid acknowledgements create no credit.
+- Viewport invalidation discards pending old-configuration frames; a late old-generation frame is not cached; an already-sent frame's acknowledgement stays accounted.
+- Input ordering survives press → move → release → wheel → key sequences end to end, including flushing batched moves and wheel before button or key transitions; no input replay after reconnect; the server-side input backlog stays bounded when the socket drains quickly.
 - Origin and Host guard: allowed, missing, foreign, and rebinding cases.
 - Viewer cleanup on close, superseded-socket callbacks ignored, explicit stop not undone.
 
@@ -133,14 +148,14 @@ Input-to-visible-response latency; acknowledgement latency and decode time; outs
 
 ## Review log
 
-Accepted from the reviews: `ws` with `noServer`, no compression, and an explicit payload limit; Node ≥ 24 correction; binary frames decoded once before fan-out; a 4-byte sequence prefix only; `<img>` with object URLs; acknowledgement credit from day one (review 2 — server-side buffering cannot see a tab's receive queue, which also answers review 1's argument that buffered amount suffices); the `{type:'input', event}` envelope; keeping wheel batching; transport-neutral session events; separate recovery semantics with jitter and no input replay; no automatic SSE fallback with a hard removal gate; per-feature sockets; `/api/events` on SSE; Vite `ws: true` without origin rewriting; the origin guard as a shared helper and the HTTP API as a named follow-up; narrower success criteria and the measurement and test lists.
+Round 1 settled: `ws` with `noServer`, no compression, explicit payload limit; Node ≥ 24 correction; binary frames decoded once before fan-out; 4-byte sequence prefix only; `<img>` with object URLs; acknowledgement credit from day one; the `{type:'input', event}` envelope; keeping wheel batching; transport-neutral session events; separate recovery semantics with jitter and no input replay; no automatic SSE fallback with a hard removal gate; per-feature sockets; `/api/events` on SSE; Vite `ws: true` without origin rewriting; the origin guard as a shared helper with the HTTP API as a named follow-up; narrower success criteria.
 
-Corrected in my first draft: pointer moves were already throttled to about 31 per second and wheel batched every 50 ms (the first draft said input was not coalesced); and the input stop-gap's overflow could drop a press or release (fixed: moves are shed first, otherwise the stale backlog is discarded).
+Round 2 settled: acknowledge on settle of `decode()` (never `load`), including rejections, with a generation check; one credit, two as a measurement constant; the frame cache in `BrowserSession`, never published after stop or crash, consumed through normal credit accounting; pinned Vite port with a shared frontend-port setting and a self-diagnosing allowlist; Origin + Host + JSON Content-Type for the HTTP follow-up, no token.
 
-## Open questions for reviewers
+Corrections the reviews forced in this draft: the v2 acknowledgement timeout restored credit, letting a suspended viewer regain a frame every five seconds — it now closes the connection (reviewer 2); session events carried a sequence number although the wire sequence is per-connection — sequences are now allocated by the viewer adapter at send time (reviewer 2); v2's buffered-amount guard would have needed a retry path to avoid stranding a static page's last frame — dropped, since credit already bounds the outbound queue (my conclusion from both replies); viewport changes must also invalidate viewers' pending frames, not just the cache (reviewer 2); and the server-side input dispatch queue needs its own bound (reviewer 2). The missing-`Origin` allowance for non-browser clients (the documented curl workflow) is my addition after checking `pi-skills/livecraft-browser/SKILL.md`.
 
-1. **Acknowledgement point.** Acknowledge after `HTMLImageElement.decode()` resolves on the new image, or on its `load` event? Does awaiting `decode()` per frame add measurable latency at 12 FPS?
-2. **One credit or two.** With localhost round trips of a few milliseconds plus decode time, one credit should sustain 12 FPS. Any evidence or experience that two are needed for smooth delivery?
-3. **Frame cache location.** I put the latest-frame cache in `BrowserSession` (shared by all viewers and transports). Any reason to keep it per adapter instead?
-4. **Pinned Vite port.** `strictPort` makes Vite fail instead of picking another port when 5173 is busy. Acceptable, or is a configured development origin without pinning better?
-5. **HTTP API follow-up.** Is Origin plus Host plus requiring `Content-Type: application/json` on state-changing routes enough, or should the follow-up add a per-launch token (for example a header the app injects) given that terminal input is reachable?
+## Open questions for reviewers, round 2
+
+1. **Dropping the buffered-amount guard entirely.** With one credit, at most one frame is ever outbound, so I see no case it covers — including the slow-but-acknowledging viewer (bounded by credit) and the dead socket (closed by the acknowledgement timeout). Any residual case before I delete it from the spec?
+2. **The missing-`Origin` rule.** Allow absent `Origin` only when `Sec-Fetch-Site` is also absent (non-browser local clients, like the skill's curl workflow). Do you see a hole, given that cross-site browser POSTs always carry `Origin` and `Sec-Fetch-Site` is a forbidden header?
+3. **Frontend port plumbing.** One `PI_LIVECRAFT_FRONTEND_PORT` (default 5173) feeding both `vite.config.ts` (with `strictPort`) and the backend allowlist, with development origins always allowed on that port. Acceptable, or should development origins require an explicit opt-in?
