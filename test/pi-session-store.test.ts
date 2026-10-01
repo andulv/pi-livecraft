@@ -441,6 +441,38 @@ test('falls back to the first prompt when the latest session_info clears the nam
   assert.equal(recent[0].name, 'the first prompt here')
 })
 
+test('reuses parsed metadata until a session file changes size or mtime', async () => {
+  const { directory, workspace } = await fixture()
+  const sessions = workspaceSessionDir(workspace, directory)
+  await mkdir(sessions, { recursive: true })
+  const path = join(sessions, 'cached.jsonl')
+  await writeSession(path, workspace, 'cached-id', 'Original name')
+  await utimes(path, 1000, 1000)
+  assert.equal((await listRecentPiSessions(workspace, directory))[0]?.name, 'Original name')
+
+  // Same size and mtime: a stale name proves the content was not read again.
+  await writeSession(path, workspace, 'cached-id', 'Replaced name')
+  await utimes(path, 1000, 1000)
+  assert.equal((await listRecentPiSessions(workspace, directory))[0]?.name, 'Original name')
+
+  await utimes(path, 2000, 2000)
+  assert.equal((await listRecentPiSessions(workspace, directory))[0]?.name, 'Replaced name')
+})
+
+test('concurrent scans of one workspace share a single result', async () => {
+  const { directory, workspace } = await fixture()
+  const sessions = workspaceSessionDir(workspace, directory)
+  await mkdir(sessions, { recursive: true })
+  await writeSession(join(sessions, 'shared.jsonl'), workspace, 'shared-id', 'Shared')
+
+  const [first, second] = await Promise.all([
+    listRecentPiSessions(workspace, directory),
+    listRecentPiSessions(workspace, directory),
+  ])
+  assert.equal(first, second)
+  assert.notEqual(await listRecentPiSessions(workspace, directory), first)
+})
+
 async function writeSession(
   path: string,
   cwd: string,

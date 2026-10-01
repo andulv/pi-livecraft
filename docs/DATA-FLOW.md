@@ -25,8 +25,8 @@ Costs are per request. "Cache" means server-side unless stated otherwise.
 | Git diffs, outgoing changes, commit files | `getGitFileDiff`, `getGitOutgoing*`, `getGitCommitFiles` | full Git snapshot + 2–5 `git` | None | — |
 | Git mutations (commit, push, pull, reset, revert, discard) | `git.ts` | full Git snapshot + the mutation | — | — |
 | Live session list (`GET /api/sessions`) | manager `list` | 1 manager RPC + 1 `get_state` per live Pi session | None | — |
-| Recent sessions (`GET /api/sessions/recent`) | `listRecentPiSessions`, `server/pi-session-store.ts` | `readdir` + `stat` of every session file in the workspace folder, then head and tail reads (tail scan up to 4 MB) of up to 60 files per batch, plus a full read of each sub-agent child for usage | Child usage only, keyed by path, size, and mtime | — (rescanned on every request) |
-| Pinned sessions (`POST /api/sessions/resolve`) | `resolvePiSessions` | 1 session-file read per pin | None | — |
+| Recent sessions (`GET /api/sessions/recent`) | `listRecentPiSessions`, `server/pi-session-store.ts` | `readdir` + `stat` of every session file in the workspace folder; only new or changed files get head and tail reads (tail scan up to 4 MB), and changed sub-agent children a full read for usage | Parsed metadata per file, keyed by path, size, and mtime (5,000 files); concurrent scans of one folder share one execution | A file's size or mtime changes |
+| Pinned sessions (`POST /api/sessions/resolve`) | `resolvePiSessions` | path checks + 1 `stat` per pin; content reads only for changed files | The same per-file metadata cache | A file's size or mtime changes |
 | Session snapshot (`GET /api/sessions/:id/snapshot`) | `backend.ts`, `server/snapshot-requests.ts` | `get_state`, `get_entries`, `get_session_stats` always; models, commands, fork messages, thinking levels, and prompt templates when not cached | `MetadataCache`: 60 s TTL, 20 sessions LRU, in-flight sharing; per tab, one in-flight load per session plus delta reads with a `since` cursor | Session exit or reassignment, manager connect or disconnect, prompt-template save |
 | Quotas (`GET /api/quotas`, `POST /api/quotas/refresh`) | `server/features/quotas/` | `GET`: manager `list`; refresh: a `/livecraft-quotas` prompt command in Pi | Last valid report per provider; one refresh in flight | New report events from Pi |
 | Session environment (`GET /api/environment`, refresh) | `server/features/session-environment/` | `GET`: manager `list`; refresh: a `/livecraft-environment` prompt command | One report per session; one refresh in flight per session | New report events from Pi |
@@ -56,20 +56,20 @@ What runs when something happens. "Per tab" work is repeated by every open Livec
 
 Measured on 2026-10-01 with four tabs open and an agent working.
 
-- **Recent-sessions scans** averaged 1.1 s, peaked at 11 s, and ran up to six at once; 40 scans followed one manager restart within 36 s. The workspace folder held 174 session files (138 MB), about 112 of them sub-agent children. Main triggers: `projects:activity` and repeated `session_created` events.
+- **Recent-sessions scans** averaged 1.1 s, peaked at 11 s, and ran up to six at once; 40 scans followed one manager restart within 36 s. The workspace folder held 174 session files (138 MB), about 112 of them sub-agent children. Main triggers: `projects:activity` and repeated `session_created` events. With the per-file metadata cache, an unchanged rescan of that folder takes about 3 ms; only the first scan after a backend start pays the full cost.
 - **Git tool-end refreshes** produced bursts of at least 40 `git` processes in 10 s throughout agent work, about 13 per refresh and tab, including after read-only tools.
 - **Full session snapshots** of a long session reached 6 MB and 1.9 s, dominated by `get_entries`.
 
 ## Budgets
 
-Targets that new work must not exceed; a resource marked as current state does not meet them yet.
+Targets that new work must not exceed. A budget marked *not yet* is a known gap.
 
-| Trigger | Budget |
-|---|---|
-| Any number of tabs reading the same resource at the same time | one execution on the server |
-| Recent sessions, nothing changed on disk | `readdir` + one `stat` per file; no file content reads |
-| A burst of `session_created` events | one session-list refresh per tab |
-| `git:tool-end` during agent work | at most one Git snapshot per worktree per refresh interval, shared by all tabs; none after read-only tools |
+| Trigger | Budget | Status |
+|---|---|---|
+| Any number of tabs reading the same resource at the same time | one execution on the server | Recent sessions: met. Git snapshot: not yet. |
+| Recent sessions, nothing changed on disk | `readdir` + one `stat` per file; no file content reads | Met (`test/pi-session-store.test.ts`) |
+| A burst of `session_created` events | one session-list refresh per tab | Not yet |
+| `git:tool-end` during agent work | at most one Git snapshot per worktree per refresh interval, shared by all tabs; none after read-only tools | Not yet |
 
 ## Adding a data source or trigger
 

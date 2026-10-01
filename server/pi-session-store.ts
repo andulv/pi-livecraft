@@ -55,16 +55,44 @@ interface SessionTailScan {
   reachedHead: boolean
 }
 
-/** Reads the metadata for the most recent sessions in a single workspace folder. */
+/** Upper bound for cached per-file metadata across every workspace folder. */
+const MAX_CACHED_SESSION_FILES = 5000
+
+/**
+ * Parsed metadata per session file, keyed by path and valid while the file's size and mtime
+ * are unchanged. Pi only appends to session files, so an unchanged size and mtime means
+ * unchanged content: a rescan then costs one `stat` per file instead of head and tail reads
+ * (and, for sub-agent children, a whole-file usage read). `null` caches files that are not
+ * listable sessions yet; they are re-read once they grow.
+ */
+const sessionMetadataCache = new Map<
+  string,
+  { size: number; mtimeMs: number; session: RecentSession | null }
+>()
+
+/** Scans in progress per workspace folder, shared by every concurrent caller and tab. */
+const recentScans = new Map<string, Promise<RecentSession[]>>()
+
+/**
+ * Reads the metadata for the most recent sessions in a single workspace folder. Concurrent
+ * calls for the same folder share one scan, so a caller arriving mid-scan receives the
+ * result of the scan already running.
+ */
 export async function listRecentPiSessions(
   cwd: string,
   directory = sessionDirectory,
 ): Promise<RecentSession[]> {
-  return measureOperation(
+  const key = `${directory}\0${cwd}`
+  const running = recentScans.get(key)
+  if (running) return running
+  const scan = measureOperation(
     'session-store',
     'list-recent',
     () => scanRecentPiSessions(cwd, directory),
   )
+    .finally(() => recentScans.delete(key))
+  recentScans.set(key, scan)
+  return scan
 }
 
 async function scanRecentPiSessions(cwd: string, directory: string): Promise<RecentSession[]> {
@@ -79,10 +107,18 @@ async function scanRecentPiSessions(cwd: string, directory: string): Promise<Rec
     .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
     .map((entry) => join(sessionDir, entry.name))
 
-  const withMtime = await Promise.all(
-    paths.map(async (path) => ({ path, mtime: (await stat(path)).mtimeMs })),
-  )
-  const candidates = withMtime.sort((a, b) => b.mtime - a.mtime)
+  // A file can disappear between `readdir` and `stat` (Pi replaced or removed it); skip it
+  // rather than failing the whole scan.
+  const withStats = await Promise.all(paths.map(async (path) => {
+    try {
+      const { mtimeMs, size } = await stat(path)
+      return [{ path, mtimeMs, size }]
+    } catch (error) {
+      if (isNotFound(error)) return []
+      throw error
+    }
+  }))
+  const candidates = withStats.flat().sort((a, b) => b.mtimeMs - a.mtimeMs)
   const ordinary: RecentSession[] = []
   const shubChildren: RecentSession[] = []
   const batchSize = MAX_SESSIONS * 2
@@ -92,7 +128,7 @@ async function scanRecentPiSessions(cwd: string, directory: string): Promise<Rec
     const batch = await Promise.all(
       candidates
         .slice(offset, offset + batchSize)
-        .map(({ path, mtime }) => readPiSession(path, mtime)),
+        .map(({ path, mtimeMs, size }) => readCachedPiSession(path, mtimeMs, size)),
     )
     for (const session of batch) {
       if (session?.cwd !== cwd) continue
@@ -121,7 +157,8 @@ async function loadVerifiedPiSession(path: string): Promise<RecentSession> {
   const relativePath = relative(canonicalDirectory, canonicalPath)
   if (!relativePath || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath))
     throw new Error('Pi session file must be stored in the Pi session directory')
-  const session = await readPiSession(canonicalPath, (await stat(canonicalPath)).mtimeMs)
+  const { mtimeMs, size } = await stat(canonicalPath)
+  const session = await readCachedPiSession(canonicalPath, mtimeMs, size)
   if (!session) throw new Error('Invalid Pi session file')
   return session
 }
@@ -132,6 +169,24 @@ export async function resolvePiSessions(paths: readonly string[]): Promise<Recen
     paths.map((path) => loadPiSession(path).catch(() => null)),
   )
   return sessions.filter((session): session is RecentSession => session !== null)
+}
+
+/** Returns cached metadata while a file's size and mtime are unchanged, else re-reads it. */
+async function readCachedPiSession(
+  path: string,
+  mtimeMs: number,
+  size: number,
+): Promise<RecentSession | null> {
+  const cached = sessionMetadataCache.get(path)
+  if (cached && cached.mtimeMs === mtimeMs && cached.size === size) return cached.session
+  const session = await readPiSession(path, mtimeMs)
+  sessionMetadataCache.delete(path)
+  sessionMetadataCache.set(path, { size, mtimeMs, session })
+  if (sessionMetadataCache.size > MAX_CACHED_SESSION_FILES) {
+    const oldest = sessionMetadataCache.keys().next().value
+    if (oldest !== undefined) sessionMetadataCache.delete(oldest)
+  }
+  return session
 }
 
 /** Reads session metadata without loading full histories: the header and first user
@@ -242,10 +297,11 @@ async function readPiSession(path: string, updatedAt: number): Promise<RecentSes
     prompt = await findFirstPromptTitle(canonicalPath)
 
   // Only child runs are measured: tokens their LLM calls processed versus the
-  // report size they delivered. See childSessionUsage for the cache contract.
+  // report size they delivered. The per-file metadata cache keeps this whole-file read to
+  // once per file version.
   const usage = shubAgent === undefined
     ? undefined
-    : await childSessionUsage(canonicalPath, size, updatedAt)
+    : await childSessionUsage(canonicalPath)
   const measured = usage !== undefined && usage.totalTokens > 0 && usage.outputChars > 0
   const createdAt = Date.parse(header.timestamp)
   const rawName = name || prompt || 'New session'
@@ -371,25 +427,10 @@ interface ChildSessionUsage {
   outputChars: number
 }
 
-/** Usage measurements per shub-agent child session, keyed by canonical path.
- *  A child file stops growing when its run settles, so the whole-file scan runs
- *  once per file version; an in-flight run is simply re-measured as it grows. */
-const childUsageCache = new Map<
-  string,
-  { size: number; mtimeMs: number; usage: ChildSessionUsage }
->()
-
 /** Sums the tokens a shub-agent child's LLM calls processed and the size of the
  *  final report text it delivered, from the usage Pi records on every assistant
  *  message in the session file. */
-async function childSessionUsage(
-  path: string,
-  size: number,
-  mtimeMs: number,
-): Promise<ChildSessionUsage | undefined> {
-  const cached = childUsageCache.get(path)
-  if (cached && cached.size === size && cached.mtimeMs === mtimeMs) return cached.usage
-
+async function childSessionUsage(path: string): Promise<ChildSessionUsage | undefined> {
   let content: string
   try {
     content = await readFile(path, 'utf8')
@@ -416,9 +457,7 @@ async function childSessionUsage(
     const text = textContent(value.message.content) ?? ''
     if (text.trim()) outputChars = text.length
   }
-  const usage = { totalTokens, contextTokens, outputChars }
-  childUsageCache.set(path, { size, mtimeMs, usage })
-  return usage
+  return { totalTokens, contextTokens, outputChars }
 }
 
 /** Reads a byte range from a file without streaming the full content. */
