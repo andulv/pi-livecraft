@@ -619,12 +619,52 @@ export async function setBrowserViewport(
 }
 
 /** Fire-and-forget input forwarding; pane status errors surface via the stream. */
+/** Queued input per browser viewer target; see `sendBrowserInput`. */
+const browserInputQueues = new Map<string, { sending: boolean; events: BrowserInputEvent[] }>()
+/** Bounds the queue while the backend is slow or unreachable; the oldest events go first. */
+const maxQueuedBrowserInput = 200
+
+/**
+ * Forwards one input event to the shared browser. At most one input request per target is in
+ * flight, so input occupies one HTTP connection and reaches Chrome in order. While a request
+ * is pending, a pointer move replaces a queued move directly before it (the latest position
+ * wins); presses, releases, wheel, and keys are never merged or reordered. This is a stop-gap
+ * until the viewer moves to a WebSocket (plans/proposals/browser-websocket-transport.md).
+ */
 export function sendBrowserInput(target: BrowserInstanceTarget, event: BrowserInputEvent): void {
-  void request<void>(browserInstanceUrl(target, 'input'), {
-    method: 'POST',
-    body: JSON.stringify({ workspacePath: target.workspacePath, ...event }),
-  })
-    .catch(() => {})
+  const key = `${target.workspacePath}\0${target.browserId}`
+  let queue = browserInputQueues.get(key)
+  if (!queue) {
+    queue = { sending: false, events: [] }
+    browserInputQueues.set(key, queue)
+  }
+  const last = queue.events.at(-1)
+  if (event.type === 'mouseMoved' && last?.type === 'mouseMoved')
+    queue.events[queue.events.length - 1] = event
+  else queue.events.push(event)
+  if (queue.events.length > maxQueuedBrowserInput) queue.events.shift()
+  if (!queue.sending) void drainBrowserInput(target, key, queue)
+}
+
+async function drainBrowserInput(
+  target: BrowserInstanceTarget,
+  key: string,
+  queue: { sending: boolean; events: BrowserInputEvent[] },
+): Promise<void> {
+  queue.sending = true
+  try {
+    for (let event = queue.events.shift(); event; event = queue.events.shift()) {
+      await request<void>(browserInstanceUrl(target, 'input'), {
+        method: 'POST',
+        body: JSON.stringify({ workspacePath: target.workspacePath, ...event }),
+      })
+        .catch(() => {})
+    }
+  } finally {
+    queue.sending = false
+    if (browserInputQueues.get(key) === queue && queue.events.length === 0)
+      browserInputQueues.delete(key)
+  }
 }
 
 export async function stopTerminalSession(target: TerminalInstanceTarget): Promise<void> {
