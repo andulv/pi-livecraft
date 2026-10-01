@@ -18,6 +18,7 @@ import {
   openSession,
   openTerminal,
   openVSCode,
+  connectionLoad,
   managerEventStreamState,
   managerStreamSilenceMs,
   postClientLog,
@@ -1203,7 +1204,7 @@ function LivecraftProjectApp(
           'connection-stall',
           `cause=${cause}; connection=${piConnection}; sessionStatus=${selectedSessionStatus}; stream=${managerEventStreamState()}; silenceMs=${
             managerStreamSilenceMs() ?? 'none'
-          }; hidden=${document.hidden}`,
+          }; hidden=${document.hidden}; ${connectionLoad()}`,
         )
     }, 10_000)
     return () => window.clearTimeout(timer)

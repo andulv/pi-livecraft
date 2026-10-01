@@ -69,6 +69,15 @@ export class BrowserService {
     return { sampledAt: Date.now(), workspaces }
   }
 
+  /** Capture counters of every instance; the session object is an opaque identity. */
+  captureSamples(): Array<
+    { session: BrowserSession } & ReturnType<BrowserSession['captureCounters']>
+  > {
+    return [...this.#workspaces.values()].flatMap((workspace) =>
+      [...workspace.values()].map((session) => ({ session, ...session.captureCounters() }))
+    )
+  }
+
   /** Stops every registered Chrome instance and keeps the registry reusable. */
   async stopAll(): Promise<void> {
     await Promise.all(

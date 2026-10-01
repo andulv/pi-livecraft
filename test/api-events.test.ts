@@ -95,7 +95,7 @@ test('reports one manager stream drop and its recovery per outage', async () => 
     assert.equal(logs[0]?.source, 'sse-drop')
     assert.match(
       logs[0]?.message ?? '',
-      /^view=[a-f0-9]{8} manager event stream error; silenceMs=none; hidden=false; state=connecting$/,
+      /^view=[a-f0-9]{8} manager event stream error; silenceMs=none; hidden=false; state=connecting; streams=e\d\/f\d\/t\d; pending=\d+; oldestPendingMs=\d+$/,
     )
 
     source.readyState = 1
@@ -105,7 +105,7 @@ test('reports one manager stream drop and its recovery per outage', async () => 
     assert.equal(logs[1]?.source, 'sse-reopen')
     assert.match(
       logs[1]?.message ?? '',
-      /^view=[a-f0-9]{8} manager event stream recovered after \d+ ms; silenceMs=none; hidden=false; state=open$/,
+      /^view=[a-f0-9]{8} manager event stream recovered after \d+ ms; silenceMs=none; hidden=false; state=open; streams=e\d\/f\d\/t\d; pending=\d+; oldestPendingMs=\d+$/,
     )
     source.onmessage?.({
       data: JSON.stringify({ kind: 'event', event: 'manager_connected', sessionId: '' }),
@@ -117,7 +117,10 @@ test('reports one manager stream drop and its recovery per outage', async () => 
     await new Promise<void>((resolve) => setImmediate(resolve))
     assert.equal(errors, 2)
     assert.equal(logs[2]?.source, 'sse-drop')
-    assert.match(logs[2]?.message ?? '', /silenceMs=\d+; hidden=false; state=connecting$/)
+    assert.match(
+      logs[2]?.message ?? '',
+      /silenceMs=\d+; hidden=false; state=connecting; streams=e\d\/f\d\/t\d; pending=\d+; oldestPendingMs=\d+$/,
+    )
     assert.equal(logs[0]?.message.slice(0, 13), logs[2]?.message.slice(0, 13))
 
     source.readyState = 2
@@ -193,8 +196,14 @@ test('reopens a closed manager stream and cancels a pending reopen on unsubscrib
     await new Promise<void>((resolve) => setImmediate(resolve))
     assert.deepEqual(events, ['manager_connected'])
     assert.deepEqual(logs.map((entry) => entry.source), ['sse-drop', 'sse-reopen'])
-    assert.match(logs[0]!.message, /state=closed$/)
-    assert.match(logs[1]!.message, /state=open$/)
+    assert.match(
+      logs[0]!.message,
+      /state=closed; streams=e\d\/f\d\/t\d; pending=\d+; oldestPendingMs=\d+$/,
+    )
+    assert.match(
+      logs[1]!.message,
+      /state=open; streams=e\d\/f\d\/t\d; pending=\d+; oldestPendingMs=\d+$/,
+    )
 
     second.readyState = 2
     second.onerror?.(new Event('error'))

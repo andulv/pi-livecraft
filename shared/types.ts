@@ -349,6 +349,7 @@ export type ClientLogSource =
   | 'sse-reopen'
   | 'session-reconcile'
   | 'connection-stall'
+  | 'fetch-stall'
 
 export interface ClientLogRequestBody {
   source: ClientLogSource
@@ -367,6 +368,31 @@ export interface DiagnosticsSnapshot {
   operations: OperationsSnapshot
   /** The manager's own ledger; null when it is unreachable or predates the `diagnostics` action. */
   managerOperations: OperationsSnapshot | null
+  stability: StabilitySnapshot
+}
+
+/** Long-lived HTTP streams the backend holds open: one per tab for events, plus viewers. */
+export type StabilityStreamKind = 'events' | 'browser-frames' | 'terminal'
+
+/** One sampling window of backend stability signals. */
+export interface StabilityWindow {
+  /** Window end, epoch ms. */
+  t: number
+  loopP50Ms: number
+  loopP99Ms: number
+  loopMaxMs: number
+  /** Streams open at the end of the window. */
+  streams: Record<StabilityStreamKind, number>
+  /** Shared-browser capture during the window, summed over instances. */
+  browser: { live: number; viewers: number; frames: number; bytes: number }
+}
+
+export interface StabilitySnapshot {
+  windowMs: number
+  streams: Record<StabilityStreamKind, number>
+  /** Most streams open at once since backend start. */
+  peakStreams: number
+  recent: StabilityWindow[]
 }
 
 /**

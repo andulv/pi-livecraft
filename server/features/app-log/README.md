@@ -20,6 +20,11 @@ and work from that evidence instead of simulating heavy usage.
 | `slow-operation` | one measured operation ≥ 1000 ms | `process` (`backend`/`manager`), `operation` (kind), `detail`, `route`, `cause`, `durationMs`, `ok`, `inFlight` |
 | `operation-burst` | one operation kind reaches its threshold within 10 s (once per window) | `process`, `operation` (kind), `count`, `windowMs`, `topTriggers` (`route ← cause` with operation counts) |
 | `request-fanout` | one request performed ≥ 20 operations | `process`, `route`, `cause`, `operations`, `byKind`, `durationMs` |
+| `event-loop-lag` | a 10 s window whose worst backend event-loop delay is ≥ 200 ms | `p50Ms`, `p99Ms`, `maxMs`, `windowMs`, `streams` (open by kind), `browserFrames` |
+| `stream-pressure` | open long-lived streams reach 6 (once per episode) | `open`, `byKind` (`events`, `browser-frames`, `terminal`) |
+| `sse-close` | an `/api/events` stream closed | `lifetimeMs`, `reason` (`transport-closed` / `server-finished`), `open` (remaining streams by kind) |
+| `browser-state` | a shared-browser instance changed state between samples | `from`, `to` |
+| `browser-activity` | once per minute with any viewer or captured frame | `live`, `maxViewers`, `frames`, `bytes`, `fps`, `durationMs` |
 | `snapshot-failure` | one failed Pi snapshot load | first failing RPC name (`rpc`), `durationMs`, `sameSessionInFlight` — no error text |
 | `provider-failure` | Pi provider request failed | `model`, `message` (truncated) |
 | `client` | client POST `/api/client-log` | `source`, `message` |
@@ -27,7 +32,13 @@ and work from that evidence instead of simulating heavy usage.
 
 Client sources: `window-error`, `unhandled-rejection`, `fetch-failure` (network errors
 and HTTP ≥ 500 only — 4xx is user-visible validation, not instability), `sse-drop`,
-`sse-reopen`, `session-reconcile`, and `connection-stall`. Every client message begins with a random, page-lifetime
+`sse-reopen`, `session-reconcile`, `connection-stall`, and `fetch-stall`. `sse-drop`, `sse-reopen`,
+`connection-stall`, and `fetch-stall` end with the tab's connection load:
+`streams=e<events>/f<browser frames>/t<terminal>; pending=<requests awaiting a response>; oldestPendingMs=<age>`.
+`fetch-stall` reports a GET that is still pending after 15 s, once, with its route template
+(no query or identifiers); POSTs are excluded because prompt runs, quota refreshes, push, and
+pull are legitimately slow. A report is itself a request, so while connections are exhausted
+it arrives late rather than not at all. Every client message begins with a random, page-lifetime
 `view=<8 hex digits>` token to correlate reports across open tabs without identifying a project,
 workspace, or Pi session. Manager-stream drops and recoveries include browser visibility, EventSource `readyState`
 (`connecting`, `open`, or `closed`), and time since the last valid SSE frame. That interval can also mean an idle stream; it is not proof

@@ -47,6 +47,7 @@ import {
   DiagnosticsRecorder,
   type SnapshotStageMeasurement,
 } from './features/diagnostics/diagnostics.ts'
+import { StabilityMonitor } from './features/diagnostics/stability.ts'
 import {
   operationLedger,
   operationRouteTemplate,
@@ -119,6 +120,11 @@ process.once('exit', () => {
   browsers.killSync()
 })
 const terminals = new TerminalService()
+const stability = new StabilityMonitor({
+  sink: (kind, fields) => appLog.stability(kind, fields),
+  sampleBrowsers: () => browsers.captureSamples(),
+})
+stability.start()
 process.once('exit', () => {
   appLog.shutdown('exit')
   terminals.killSync()
@@ -220,7 +226,11 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
 
   if (method === 'GET' && url.pathname === '/api/diagnostics') {
     diagnostics.request('diagnostics')
-    sendJson(response, 200, diagnostics.snapshotState(await readManagerOperations()))
+    sendJson(
+      response,
+      200,
+      diagnostics.snapshotState(await readManagerOperations(), stability.snapshotState()),
+    )
     return
   }
 
@@ -271,6 +281,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       }\n\n`,
     )
     eventClients.add(response)
+    stability.trackStream('events', response)
     request.on('close', () => eventClients.delete(response))
     return
   }
@@ -930,6 +941,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         return
       }
       const stream = openSseStream(response)
+      stability.trackStream('browser-frames', response)
       const writeEvent = (event: string, json: string): void => {
         if (event === 'frame' && stream.writableLength > 512 * 1024) return
         stream.writeEvent(event, json)
@@ -1029,6 +1041,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         return
       }
       const stream = openSseStream(response)
+      stability.trackStream('terminal', response)
       const lastEventId = parseSseLastEventId(request.headers['last-event-id'])
         ?? parseSseLastEventId(url.searchParams.get('lastEventId'))
       for (const item of terminalSession.replay(lastEventId)) {
@@ -1227,6 +1240,7 @@ function isClientLogBody(body: unknown): body is ClientLogRequestBody {
     'sse-drop',
     'sse-reopen',
     'session-reconcile',
+    'fetch-stall',
     'connection-stall',
   ]
   return typeof body.source === 'string'

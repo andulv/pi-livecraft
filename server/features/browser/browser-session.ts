@@ -247,6 +247,21 @@ export class BrowserSession {
     }
   }
 
+  /** Cheap synchronous capture counters for periodic stability sampling. */
+  captureCounters(): {
+    state: string
+    viewerCount: number
+    capturedFrames: number
+    capturedBytes: number
+  } {
+    return {
+      state: this.#state,
+      viewerCount: this.#viewers,
+      capturedFrames: this.#capturedFrames,
+      capturedBytes: this.#capturedBytes,
+    }
+  }
+
   /** Samples process and stream diagnostics without changing the browser session. */
   async debugSnapshot(): Promise<BrowserDebugSnapshot> {
     const browser = this.#browser

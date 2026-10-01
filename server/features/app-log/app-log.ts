@@ -5,6 +5,7 @@ import type {
 } from '../../../shared/types.ts'
 
 import type { OperationAnomaly } from '../diagnostics/operations.ts'
+import type { StabilityLogKind } from '../diagnostics/stability.ts'
 
 import { appendFileSync, closeSync, existsSync, openSync, readSync, statSync } from 'node:fs'
 
@@ -138,6 +139,11 @@ export class AppLog {
    */
   operationAnomaly(anomaly: OperationAnomaly, process: 'backend' | 'manager' = 'backend'): void {
     this.#write(anomaly.type, { process, ...anomaly.report })
+  }
+
+  /** Records one stability signal (event-loop lag, stream pressure, closures, browser capture). */
+  stability(kind: StabilityLogKind, fields: Record<string, unknown>): void {
+    this.#write(kind, fields)
   }
 
   /** Logs a failed snapshot without the session identity or the Pi error text. */

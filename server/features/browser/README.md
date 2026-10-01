@@ -32,6 +32,12 @@ tooling (Chrome DevTools MCP, Playwright, Puppeteer, or raw CDP).
   viewer. While a viewer watches, capture runs at a steady 12 FPS ceiling —
   pacing acknowledgement alone caps Chrome's encode rate. The frames SSE route
   also sends heartbeat events for viewer-side stream liveness checks.
+  Every viewer holds one long-lived frames stream (one HTTP/1.1 connection; see
+  [long-lived connections](/docs/DATA-FLOW.md#long-lived-connections)).
+  `captureCounters()` exposes state, viewers, and cumulative frames and bytes
+  synchronously; `BrowserService.captureSamples()` feeds them to the backend's
+  [stability monitor](/server/features/diagnostics/README.md#stability-monitor) every
+  10 s, so capture activity is logged without touching the per-frame path.
   Its diagnostics snapshot opens a short-lived connection
   to the browser-level CDP target for `SystemInfo.getProcessInfo`; it also reports the
   root PID, temporary profile, viewer count, and capture counters without starting a

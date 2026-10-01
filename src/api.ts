@@ -53,6 +53,45 @@ const viewId = crypto.randomUUID().slice(0, 8)
 let lastManagerMessageAt: number | undefined
 let managerStream: EventSource | undefined
 
+/** This tab's long-lived streams; closed ones are pruned when the load is reported. */
+const trackedStreams = new Map<EventSource, 'events' | 'frames' | 'terminal'>()
+/** Start times of requests still awaiting a response, keyed by an opaque token. */
+const pendingRequests = new Map<object, number>()
+/** A GET still pending after this long is reported once as `fetch-stall`. */
+const fetchStallMs = 15_000
+
+function trackStream(kind: 'events' | 'frames' | 'terminal', source: EventSource): EventSource {
+  trackedStreams.set(source, kind)
+  return source
+}
+
+/**
+ * Summarizes this tab's open streams (events/frames/terminal) and pending requests for drop
+ * and stall reports. Every stream holds one HTTP/1.1 connection, and Chrome shares six per
+ * origin across all tabs, so this shows whether requests could be queued behind them.
+ */
+export function connectionLoad(): string {
+  const counts = { events: 0, frames: 0, terminal: 0 }
+  for (const [source, kind] of trackedStreams) {
+    if (source.readyState === EventSource.CLOSED) trackedStreams.delete(source)
+    else counts[kind] += 1
+  }
+  const now = Date.now()
+  let oldestPendingMs = 0
+  for (const startedAt of pendingRequests.values()) {
+    oldestPendingMs = Math.max(oldestPendingMs, now - startedAt)
+  }
+  return `streams=e${counts.events}/f${counts.frames}/t${counts.terminal}; pending=${pendingRequests.size}; oldestPendingMs=${oldestPendingMs}`
+}
+
+/** Content-free route for client reports: no query, session or instance identifiers. */
+function requestRouteTemplate(path: string): string {
+  return (path.split('?')[0] ?? '')
+    .replace(/^\/api\//, '')
+    .replace(/sessions\/[^/]+(?=\/)/, 'sessions/:id')
+    .replace(/instances\/[^/]+/, 'instances/:id')
+}
+
 /** The browser's manager EventSource state, not the backend-to-manager connection state. */
 export function managerEventStreamState(): 'connecting' | 'open' | 'closed' | 'none' {
   if (!managerStream) return 'none'
@@ -118,7 +157,7 @@ export function subscribeManagerEvents(
 
   const open = (): void => {
     if (disposed) return
-    const stream = new EventSource('/api/events')
+    const stream = trackStream('events', new EventSource('/api/events'))
     source = stream
     managerStream = stream
     stream.onmessage = ({ data }) => {
@@ -138,7 +177,9 @@ export function subscribeManagerEvents(
         'sse-reopen',
         `manager event stream recovered after ${durationMs} ms; silenceMs=${
           managerStreamSilenceMs() ?? 'none'
-        }; hidden=${isHidden?.() ?? 'unknown'}; state=${managerEventStreamState()}`,
+        }; hidden=${
+          isHidden?.() ?? 'unknown'
+        }; state=${managerEventStreamState()}; ${connectionLoad()}`,
       )
     }
     stream.onerror = () => {
@@ -148,7 +189,7 @@ export function subscribeManagerEvents(
           'sse-drop',
           `manager event stream error; silenceMs=${managerStreamSilenceMs() ?? 'none'}; hidden=${
             isHidden?.() ?? 'unknown'
-          }; state=${managerEventStreamState()}`,
+          }; state=${managerEventStreamState()}; ${connectionLoad()}`,
         )
         onError()
       }
@@ -674,8 +715,9 @@ export function subscribeBrowserEvents(
   let lastHeartbeatAt = Date.now()
   let watchdog: ReturnType<typeof setInterval> | undefined
   handlers.onStreamState?.('connecting')
-  const source = new EventSource(
-    `${browserInstanceUrl(target, 'frames')}?${browserWorkspaceQuery(target)}`,
+  const source = trackStream(
+    'frames',
+    new EventSource(`${browserInstanceUrl(target, 'frames')}?${browserWorkspaceQuery(target)}`),
   )
   const markStale = (): void => {
     if (disposed || stale) return
@@ -714,7 +756,7 @@ export function subscribeBrowserEvents(
   })
   source.onerror = () => {
     if (disposed) return
-    void postClientLog('sse-drop', 'browser stream error')
+    void postClientLog('sse-drop', `browser stream error; ${connectionLoad()}`)
     markStale()
   }
   watchdog = setInterval(() => {
@@ -776,7 +818,10 @@ export function subscribeTerminalOutput(
     const query = lastSeenId === undefined
       ? `workspacePath=${encodeURIComponent(target.workspacePath)}`
       : `workspacePath=${encodeURIComponent(target.workspacePath)}&lastEventId=${lastSeenId}`
-    source = new EventSource(`${terminalInstanceUrl(target, 'stream')}?${query}`)
+    source = trackStream(
+      'terminal',
+      new EventSource(`${terminalInstanceUrl(target, 'stream')}?${query}`),
+    )
     source.addEventListener('output', (event) => {
       const rawId = (event as MessageEvent).lastEventId
       const parsed = Number(rawId)
@@ -800,7 +845,7 @@ export function subscribeTerminalOutput(
     })
     source.onerror = () => {
       if (source && source.readyState === EventSource.CLOSED) {
-        void postClientLog('sse-drop', 'terminal stream closed')
+        void postClientLog('sse-drop', `terminal stream closed; ${connectionLoad()}`)
         source.close()
         source = null
         reopenTimer = setTimeout(open, 500)
@@ -877,33 +922,51 @@ export async function sendPiCommand(sessionId: string, command: JsonObject): Pro
 const inflightGet = new Map<string, Promise<unknown>>()
 
 async function performRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  let response: Response
+  const token = {}
+  pendingRequests.set(token, Date.now())
+  // Only GETs: the routes that are legitimately slow (prompt runs, quota refreshes, push and
+  // pull) are POSTs, while a stalled GET is what leaves a view waiting indefinitely.
+  const method = init?.method?.toUpperCase() ?? 'GET'
+  const stallTimer = method === 'GET'
+    ? setTimeout(() => {
+      void postClientLog(
+        'fetch-stall',
+        `route=${requestRouteTemplate(path)}; pendingMs=${fetchStallMs}; ${connectionLoad()}`,
+      )
+    }, fetchStallMs)
+    : undefined
   try {
-    response = await fetch(path, {
-      ...init,
-      headers: typeof init?.body === 'string'
-        ? { 'Content-Type': 'application/json', ...init.headers }
-        : init?.headers,
-    })
-  } catch (error) {
-    // Network failure: the backend is unreachable, so the report itself will be
-    // dropped; the throw preserves the caller's error handling.
-    void postClientLog(
-      'fetch-failure',
-      `network error: ${error instanceof Error ? error.message : String(error)}`,
-    )
-    throw error
+    let response: Response
+    try {
+      response = await fetch(path, {
+        ...init,
+        headers: typeof init?.body === 'string'
+          ? { 'Content-Type': 'application/json', ...init.headers }
+          : init?.headers,
+      })
+    } catch (error) {
+      // Network failure: the backend is unreachable, so the report itself will be
+      // dropped; the throw preserves the caller's error handling.
+      void postClientLog(
+        'fetch-failure',
+        `network error: ${error instanceof Error ? error.message : String(error)}`,
+      )
+      throw error
+    }
+    const value: unknown = await response.json()
+    if (!response.ok) {
+      // Only unexpected server failures are instability; 4xx is user-visible validation.
+      if (response.status >= 500) void postClientLog('fetch-failure', `HTTP ${response.status}`)
+      const message = isObject(value) && typeof value.error === 'string'
+        ? value.error
+        : `Request failed (${response.status})`
+      throw new Error(message)
+    }
+    return value as T
+  } finally {
+    if (stallTimer !== undefined) clearTimeout(stallTimer)
+    pendingRequests.delete(token)
   }
-  const value: unknown = await response.json()
-  if (!response.ok) {
-    // Only unexpected server failures are instability; 4xx is user-visible validation.
-    if (response.status >= 500) void postClientLog('fetch-failure', `HTTP ${response.status}`)
-    const message = isObject(value) && typeof value.error === 'string'
-      ? value.error
-      : `Request failed (${response.status})`
-    throw new Error(message)
-  }
-  return value as T
 }
 
 /** Posts one bounded client entry to the backend app log; failures are silent by design. */

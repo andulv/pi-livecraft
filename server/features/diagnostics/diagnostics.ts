@@ -2,6 +2,7 @@ import type {
   DiagnosticEventEntry,
   DiagnosticsSnapshot,
   OperationsSnapshot,
+  StabilitySnapshot,
   SnapshotStageEntry,
   SnapshotRpcWaits,
 } from '../../../shared/types.ts'
@@ -9,6 +10,12 @@ import { operationLedger, type OperationLedger } from './operations.ts'
 
 const maxRecentEvents = 100
 const maxRecentStages = 50
+const emptyStability: StabilitySnapshot = {
+  windowMs: 0,
+  streams: { 'events': 0, 'browser-frames': 0, 'terminal': 0 },
+  peakStreams: 0,
+  recent: [],
+}
 
 export interface SnapshotStageMeasurement {
   rpcMs: number
@@ -91,7 +98,10 @@ export class DiagnosticsRecorder {
    * Serializes the current diagnostics; bounded and content-free. The manager's ledger
    * lives in another process, so the caller supplies it (null when unavailable).
    */
-  snapshotState(managerOperations: OperationsSnapshot | null = null): DiagnosticsSnapshot {
+  snapshotState(
+    managerOperations: OperationsSnapshot | null = null,
+    stability: StabilitySnapshot = emptyStability,
+  ): DiagnosticsSnapshot {
     return {
       uptimeMs: Date.now() - this.#startedAt,
       requests: Object.fromEntries(this.#requests),
@@ -103,6 +113,7 @@ export class DiagnosticsRecorder {
       recentStages: this.#stages.slice(-20),
       operations: this.#operations.snapshotState(),
       managerOperations,
+      stability,
     }
   }
 

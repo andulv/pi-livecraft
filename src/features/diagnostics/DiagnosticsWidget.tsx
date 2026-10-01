@@ -1,5 +1,9 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import type { DiagnosticsSnapshot, OperationsSnapshot } from '../../../shared/types.ts'
+import type {
+  DiagnosticsSnapshot,
+  OperationsSnapshot,
+  StabilitySnapshot,
+} from '../../../shared/types.ts'
 import { getDiagnostics } from '../../api.ts'
 import './diagnostics.css'
 import { Tooltip } from '../../components/Tooltip.tsx'
@@ -120,6 +124,7 @@ export function DiagnosticsWidget() {
                 </table>
               </section>
             )}
+            <StabilitySection stability={snapshot.stability} />
             <OperationSections label='Backend' operations={snapshot.operations} />
             <OperationSections label='Manager' operations={snapshot.managerOperations} />
             {topRoutes.length > 0 && (
@@ -157,6 +162,39 @@ export function DiagnosticsWidget() {
         )}
       </div>
     </WidgetLayout>
+  )
+}
+
+/**
+ * Shows the backend's event-loop delay, open long-lived streams, and shared-browser capture
+ * for the latest window plus the worst of the retained ten minutes.
+ */
+function StabilitySection({ stability }: { stability: StabilitySnapshot }) {
+  const latest = stability.recent.at(-1)
+  if (!latest) return null
+  const worstLoopMs = Math.max(...stability.recent.map((window) => window.loopMaxMs))
+  const streams = stability.streams
+  const openStreams = streams['events'] + streams['browser-frames'] + streams['terminal']
+  const fps = Math.round(latest.browser.frames / (stability.windowMs / 1000))
+  return (
+    <section className='diagnostics-section'>
+      <h3>Stability</h3>
+      <div className='diagnostics-rows'>
+        <span title='Event-loop delay in the latest window: p99 / max'>Event loop</span>
+        <code>{latest.loopP99Ms}/{latest.loopMaxMs} ms</code>
+        <span title='Worst event-loop delay in the retained windows'>Worst (10 min)</span>
+        <code>{worstLoopMs} ms</code>
+        <span title='Open streams: events / browser frames / terminal, across all clients. Chrome allows six HTTP/1.1 connections per origin.'>
+          Open streams
+        </span>
+        <code>
+          {openStreams} ({streams['events']}/{streams['browser-frames']}/{streams['terminal']}){' '}
+          · peak {stability.peakStreams}
+        </code>
+        <span title='Shared-browser screencast in the latest window'>Browser capture</span>
+        <code>{fps} fps · {latest.browser.viewers} viewers</code>
+      </div>
+    </section>
   )
 }
 

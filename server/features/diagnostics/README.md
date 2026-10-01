@@ -23,6 +23,26 @@ observability handoff; nothing here logs payloads, prompts, session ids, or path
   replaced before recording). Entries carry counts, durations, byte totals, modes, and ok
   flags — never request bodies, tool output, prompts, or file paths.
 
+## Stability monitor
+
+[`stability.ts`](stability.ts) samples signals for diagnosing lost connections and views
+that never finish loading. Every 10 s window records the backend's event-loop delay (p50,
+p99, max from Node's `monitorEventLoopDelay`), the long-lived streams open at that moment
+(`events`, `browser-frames`, `terminal`, across all clients), and shared-browser capture in
+the window (live instances, viewers, frames, bytes; sampled from each session's counters,
+never per frame). The last 60 windows (ten minutes) appear as `stability` in
+`GET /api/diagnostics` and in the widget's Stability section, with the peak stream count
+since backend start.
+
+The app log receives `event-loop-lag` (a window whose worst delay is at least 200 ms),
+`stream-pressure` (open streams reach six, logged once per episode), `sse-close` (every
+`/api/events` closure with its lifetime and whether the server finished it or the transport
+closed), `browser-state` (an instance changed state between windows), and
+`browser-activity` (one capture summary per minute that had a viewer or frame). The
+stream threshold is Chrome's limit of six HTTP/1.1 connections per origin, shared by all
+tabs; because the gauge counts every client, it is an upper bound for one browser. See
+[long-lived connections](/docs/DATA-FLOW.md#long-lived-connections).
+
 ## Operation ledger
 
 [`operations.ts`](operations.ts) measures every expensive operation at its owning
@@ -86,7 +106,8 @@ it once at its chokepoint with `measureOperation(kind, detail, run)`, adding a k
 `OperationKind` only for a new family. A new frontend trigger of such work passes its own
 `RequestCause` rather than reusing another trigger's name.
 
-Focused coverage: `test/diagnostics.test.ts` (counters, ring bounds, payload shape),
+Focused coverage: `test/stability.test.ts` (stream pressure, closures, lag, browser
+capture), `test/diagnostics.test.ts` (counters, ring bounds, payload shape),
 `test/operations.test.ts` (attribution, cause and origin validation, anomaly parsing, slow,
 burst, and fan-out reports), and the `attributes Pi processes and RPCs to the forwarded
 request origin` case in `test/manager.integration.test.ts`.
