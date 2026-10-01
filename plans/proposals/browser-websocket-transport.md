@@ -1,6 +1,8 @@
 # Browser viewer over WebSocket
 
-Status: **proposal, fourth draft (owner's final revision)**. Two review rounds converged (`browser-websocket-transport-review1/2.md`, `reviewer1/2-reply1.md`); this draft then removed everything the converged design did not need — see the [simplification pass](#simplification-pass). Ready to implement pending dependency approval for `ws`.
+Status: **fourth draft, prototype implemented** — the socket transport ships behind the
+per-view `?browserTransport=ws` flag with the frames SSE route still present (rollout step
+1); the HTTP guard prerequisite is implemented. The `ws` dependency was approved. Two review rounds converged (`browser-websocket-transport-review1/2.md`, `reviewer1/2-reply1.md`); this draft then removed everything the converged design did not need — see the [simplification pass](#simplification-pass). Ready to implement pending dependency approval for `ws`.
 
 ## Goal
 
