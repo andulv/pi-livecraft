@@ -59,3 +59,37 @@ test('sends one input request at a time, merging queued moves without reordering
     globalThis.fetch = original
   }
 })
+
+test('sheds queued moves before discarding a stale backlog on overflow', async () => {
+  const sent: string[] = []
+  let release: (() => void) | undefined
+  const original = globalThis.fetch
+  globalThis.fetch = (async (_input, init) => {
+    sent.push((JSON.parse(String(init?.body)) as { type: string }).type)
+    if (sent.length === 1) await new Promise<void>((resolve) => release = resolve)
+    return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
+  }) as typeof fetch
+  const overflowTarget = { workspacePath: '/overflow', browserId: 'main' }
+  const key = (type: 'keyDown' | 'keyUp'): BrowserInputEvent => ({
+    type,
+    key: 'a',
+    code: 'KeyA',
+    keyCode: 65,
+    modifiers: 0,
+  })
+
+  try {
+    sendBrowserInput(overflowTarget, move(0))
+    await new Promise((resolve) => setImmediate(resolve))
+    // A queued move is shed first when the backlog exceeds 200 events.
+    sendBrowserInput(overflowTarget, move(1))
+    for (let index = 0; index < 200; index++) sendBrowserInput(overflowTarget, key('keyDown'))
+    // Only presses and keys remain: the next overflow discards the stale backlog.
+    sendBrowserInput(overflowTarget, key('keyUp'))
+    release?.()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    assert.deepEqual(sent, ['mouseMoved'])
+  } finally {
+    globalThis.fetch = original
+  }
+})

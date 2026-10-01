@@ -41,11 +41,14 @@ screencast as a viewer.
   session becomes live and on explicit selection, but never fights external
   viewport changes while live. The zoom control picks `Auto` (frames scale to the
   pane, with a live percentage readout) or `100%` (natural frame size, scrollable).
-- Input is forwarded by `sendBrowserInput` (`src/api.ts`) with at most one request in flight
-  per browser, so it occupies one connection and reaches Chrome in order; while a request
+- The pane sends pointer moves at most every 32 ms and batches wheel deltas every 50 ms.
+  `sendBrowserInput` (`src/api.ts`) then keeps at most one input request in flight per
+  browser, so input occupies one connection and reaches Chrome in order; while a request
   is pending, consecutive pointer moves collapse to the latest, and presses, releases,
-  wheel, and keys are never merged or reordered (`test/api-browser-input.test.ts`). This is
-  a stop-gap until the [WebSocket transport](/plans/proposals/browser-websocket-transport.md).
+  wheel, and keys are never merged or reordered. Past 200 queued events it sheds moves
+  first and otherwise discards the stale backlog rather than replaying it
+  (`test/api-browser-input.test.ts`). This is a stop-gap until the
+  [WebSocket transport](/plans/proposals/browser-websocket-transport.md).
 - The frames stream holds one of the six HTTP/1.1 connections the browser allows per
   origin across all tabs ([long-lived connections](/docs/DATA-FLOW.md#long-lived-connections)).
   While the document is hidden, the pane closes its event stream and the debug

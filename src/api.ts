@@ -621,7 +621,7 @@ export async function setBrowserViewport(
 /** Fire-and-forget input forwarding; pane status errors surface via the stream. */
 /** Queued input per browser viewer target; see `sendBrowserInput`. */
 const browserInputQueues = new Map<string, { sending: boolean; events: BrowserInputEvent[] }>()
-/** Bounds the queue while the backend is slow or unreachable; the oldest events go first. */
+/** Bounds the queue while the backend is slow or unreachable; see `sendBrowserInput`. */
 const maxQueuedBrowserInput = 200
 
 /**
@@ -642,7 +642,14 @@ export function sendBrowserInput(target: BrowserInstanceTarget, event: BrowserIn
   if (event.type === 'mouseMoved' && last?.type === 'mouseMoved')
     queue.events[queue.events.length - 1] = event
   else queue.events.push(event)
-  if (queue.events.length > maxQueuedBrowserInput) queue.events.shift()
+  if (queue.events.length > maxQueuedBrowserInput) {
+    // Shed pointer moves first. A backlog of only presses, releases, wheel, and keys means
+    // the backend has been unreachable for a long time: discard it rather than replay stale
+    // input later, and never drop a single release out of order.
+    const moveIndex = queue.events.findIndex(({ type }) => type === 'mouseMoved')
+    if (moveIndex >= 0) queue.events.splice(moveIndex, 1)
+    else queue.events.length = 0
+  }
   if (!queue.sending) void drainBrowserInput(target, key, queue)
 }
 
