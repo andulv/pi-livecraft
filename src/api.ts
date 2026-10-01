@@ -790,9 +790,25 @@ function openBrowserViewerSocket(url: string): BrowserViewerSocket {
  * socket per viewer. Enabled per view with `?browserTransport=ws`.
  */
 export function browserSocketTransportEnabled(): boolean {
+  // The app rewrites its own URL, so a query flag would not survive navigation; the
+  // persistent switch lives in localStorage, and a query parameter sets it once.
   const location = (globalThis as { location?: { search?: string } }).location
-  return location?.search !== undefined
-    && new URLSearchParams(location.search).get('browserTransport') === 'ws'
+  if (location?.search !== undefined) {
+    const fromQuery = new URLSearchParams(location.search).get('browserTransport')
+    if (fromQuery === 'ws' || fromQuery === 'sse') {
+      try {
+        globalThis.localStorage?.setItem('pi-livecraft.browser-transport', fromQuery)
+      } catch {
+        // Storage can be unavailable; the query value still applies until navigation.
+      }
+    }
+    if (fromQuery !== null) return fromQuery === 'ws'
+  }
+  try {
+    return globalThis.localStorage?.getItem('pi-livecraft.browser-transport') === 'ws'
+  } catch {
+    return false
+  }
 }
 
 /** Subscribes to one browser instance's livecast frame, url, and status streams. */

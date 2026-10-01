@@ -2,8 +2,10 @@
 
 `BrowserView.tsx` renders the viewer pane's Browser tab as a workspace-scoped,
 backend-owned headless Chrome streamed into the pane as screencast frames. Frames reach the
-pane either as the frames SSE stream or — with `?browserTransport=ws` in the view's URL,
-the WebSocket prototype — as binary messages on one socket that also carries input; the
+pane either as the frames SSE stream or — with the WebSocket prototype, enabled once via
+`?browserTransport=ws` (the app rewrites its URL, so the switch persists in localStorage as
+`pi-livecraft.browser-transport`; `?browserTransport=sse` switches back) — as binary
+messages on one socket that also carries input; the
 pane acknowledges each frame once decoded (`image.decode()`, settling either way), renders
 blob object URLs (revoking replaced ones), reconnects automatically with backoff, and drops
 input produced while disconnected. Opening the
