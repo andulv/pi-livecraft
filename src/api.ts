@@ -405,25 +405,32 @@ export type SessionSnapshotResponse = SessionSnapshot | SessionSnapshotDelta
 
 export async function getSnapshot(
   sessionId: string,
+  cause: RequestCause,
   since?: string,
 ): Promise<SessionSnapshotResponse> {
   const query = since ? `?since=${encodeURIComponent(since)}` : ''
   return request<SessionSnapshotResponse>(
     `/api/sessions/${encodeURIComponent(sessionId)}/snapshot${query}`,
+    { headers: causeHeaders(cause) },
   )
 }
 
-export async function getQuotas(): Promise<QuotaSnapshot> {
-  return request<QuotaSnapshot>('/api/quotas')
+export async function getQuotas(cause: RequestCause): Promise<QuotaSnapshot> {
+  return request<QuotaSnapshot>('/api/quotas', { headers: causeHeaders(cause) })
 }
 
 export async function getDiagnostics(): Promise<DiagnosticsSnapshot> {
   return request<DiagnosticsSnapshot>('/api/diagnostics')
 }
 
-export async function refreshQuotas(sessionId: string, automatic = false): Promise<QuotaSnapshot> {
+export async function refreshQuotas(
+  sessionId: string,
+  automatic: boolean,
+  cause: RequestCause,
+): Promise<QuotaSnapshot> {
   return request<QuotaSnapshot>('/api/quotas/refresh', {
     method: 'POST',
+    headers: causeHeaders(cause),
     body: JSON.stringify({ automatic, sessionId }),
   })
 }
@@ -440,9 +447,13 @@ export async function resetQuota(
   })
 }
 
-export async function getEnvironment(sessionId: string): Promise<SessionEnvironmentSnapshot> {
+export async function getEnvironment(
+  sessionId: string,
+  cause: RequestCause,
+): Promise<SessionEnvironmentSnapshot> {
   return request<SessionEnvironmentSnapshot>(
     `/api/environment?sessionId=${encodeURIComponent(sessionId)}`,
+    { headers: causeHeaders(cause) },
   )
 }
 
@@ -806,9 +817,13 @@ export function subscribeTerminalOutput(
   }
 }
 
-export async function refreshEnvironment(sessionId: string): Promise<SessionEnvironmentSnapshot> {
+export async function refreshEnvironment(
+  sessionId: string,
+  cause: RequestCause,
+): Promise<SessionEnvironmentSnapshot> {
   return request<SessionEnvironmentSnapshot>('/api/environment/refresh', {
     method: 'POST',
+    headers: causeHeaders(cause),
     body: JSON.stringify({ sessionId }),
   })
 }

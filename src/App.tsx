@@ -611,7 +611,10 @@ function LivecraftProjectApp(
         sessionId: selectedId,
       })
     }
-    await Promise.all([refreshSnapshot(selectedId), refreshSessions('sessions:dialog-response')])
+    await Promise.all([
+      refreshSnapshot(selectedId, 'snapshot:dialog-response'),
+      refreshSessions('sessions:dialog-response'),
+    ])
     return true
   }, [refreshSessions, refreshSnapshot, selectedId])
 
@@ -768,10 +771,15 @@ function LivecraftProjectApp(
       }
       try {
         setQuotas((current) => current && { ...current, refreshing: true })
-        setQuotas(await refreshQuotas(sessionId, automatic))
-      } catch (cause) {
-        if (!automatic) showToast('error', messageOf(cause))
-        setQuotas(await getQuotas().catch(() => quotasRef.current))
+        const cause: RequestCause = automatic ? 'quotas:agent-settled' : 'quotas:manual'
+        setQuotas(await refreshQuotas(sessionId, automatic, cause))
+      } catch (error) {
+        if (!automatic) showToast('error', messageOf(error))
+        setQuotas(
+          await getQuotas(automatic ? 'quotas:agent-settled' : 'quotas:manual').catch(() =>
+            quotasRef.current
+          ),
+        )
       }
     },
     [showToast],
@@ -787,7 +795,7 @@ function LivecraftProjectApp(
         showToast('error', messageOf(cause))
         return { ok: false, error: messageOf(cause) }
       } finally {
-        setQuotas(await getQuotas().catch(() => quotasRef.current))
+        setQuotas(await getQuotas('quotas:after-reset').catch(() => quotasRef.current))
       }
     },
     [selectedId, showToast],
@@ -799,10 +807,12 @@ function LivecraftProjectApp(
       if (!sessionId) throw new Error('An open Pi session is required to refresh the environment.')
       try {
         setEnvironment((current) => current && { ...current, refreshing: true })
-        setEnvironment(await refreshEnvironment(sessionId))
+        setEnvironment(await refreshEnvironment(sessionId, 'environment:manual'))
       } catch (cause) {
         showToast('error', messageOf(cause))
-        setEnvironment(await getEnvironment(sessionId).catch(() => environmentRef.current))
+        setEnvironment(
+          await getEnvironment(sessionId, 'environment:manual').catch(() => environmentRef.current),
+        )
       }
     },
     [showToast],
@@ -824,7 +834,7 @@ function LivecraftProjectApp(
     if (agentBusy[sessionId]) return
     setAgentBusy((current) => ({ ...current, [sessionId]: true }))
     void sendPiCommand(sessionId, { type: 'prompt', message: `/agent ${agentName}` })
-      .then(() => refreshSnapshot(sessionId))
+      .then(() => refreshSnapshot(sessionId, 'snapshot:agent-activated'))
       .catch((cause) => showToast('error', messageOf(cause)))
       .finally(() => setAgentBusy((current) => ({ ...current, [sessionId]: false })))
   }, [agentBusy, refreshSnapshot, showToast])
@@ -878,7 +888,7 @@ function LivecraftProjectApp(
   }, [])
 
   useEffect(() => {
-    void getQuotas().then(setQuotas).catch(() => undefined)
+    void getQuotas('quotas:mount').then(setQuotas).catch(() => undefined)
   }, [])
 
   // Per-session environment: the selected session's report only. Subagent child
@@ -887,7 +897,9 @@ function LivecraftProjectApp(
   useEffect(() => {
     setEnvironment(null)
     if (!selectedId || selectedShubAgentRef.current) return
-    void getEnvironment(selectedId).then(setEnvironment).catch(() => undefined)
+    void getEnvironment(selectedId, 'environment:selection').then(setEnvironment).catch(() =>
+      undefined
+    )
   }, [selectedId])
 
   // Pi extension settings: published by the extensions themselves, read when the modal opens.
@@ -1001,14 +1013,16 @@ function LivecraftProjectApp(
         event.type === 'extension_ui_request' && event.method === 'setStatus'
         && event.statusKey === 'pi-livecraft.quotas'
       ) {
-        void getQuotas().then(setQuotas).catch(() => undefined)
+        void getQuotas('quotas:status-report').then(setQuotas).catch(() => undefined)
       }
       if (
         event.type === 'extension_ui_request' && event.method === 'setStatus'
         && event.statusKey === 'pi-livecraft.environment'
       ) {
         if (sessionId === selectedIdRef.current && !selectedShubAgentRef.current)
-          void getEnvironment(sessionId).then(setEnvironment).catch(() => undefined)
+          void getEnvironment(sessionId, 'environment:status-report').then(setEnvironment).catch(
+            () => undefined,
+          )
       }
       if (
         event.type === 'extension_ui_request' && isBlockingDialog(event) && !isAgentSelector(event)
@@ -1207,7 +1221,7 @@ function LivecraftProjectApp(
   /** Executes a composer command and synchronizes capabilities affected by it. */
   const handleComposerCommand = useCallback(async (command: JsonObject) => {
     const result = await sendPiCommand(selectedId, command)
-    await refreshSnapshot(selectedId)
+    await refreshSnapshot(selectedId, 'snapshot:composer-command')
     if (command.type === 'compact') showToast('notice', 'Session compacted.')
     return result
   }, [refreshSnapshot, selectedId, showToast])

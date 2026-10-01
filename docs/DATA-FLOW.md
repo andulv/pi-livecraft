@@ -39,17 +39,19 @@ What runs when something happens. "Per tab" work is repeated by every open Livec
 
 | When | Cause | What runs |
 |---|---|---|
-| A Pi tool call finishes (`tool_execution_end`) | `git:tool-end` | Per tab, after 250 ms, unless the tool is read-only (`read`, `grep`, `find`, `ls`): one Git snapshot request for the session's workspace; concurrent tabs share one run. Also a delta snapshot after 100 ms. |
-| `message_end`, `queue_update`, `agent_settled` | — | Per tab: a delta snapshot for the selected session. `agent_settled` also refreshes quotas, at most once per 30 s per session and provider. |
+| A Pi tool call finishes (`tool_execution_end`) | `git:tool-end`, `snapshot:tool-end` | Per tab, after 250 ms, unless the tool is read-only (`read`, `grep`, `find`, `ls`): one Git snapshot request for the session's workspace; concurrent tabs share one run. Also a delta snapshot after 100 ms. |
+| `message_end`, `queue_update`, `agent_settled` | `snapshot:settled`, `snapshot:queue-update` | Per tab: a delta snapshot for the selected session. `agent_settled` also refreshes quotas (`quotas:agent-settled`), at most once per 30 s per session and provider. |
 | A session is created or reassigned, or the manager (re)connects | `sessions:session_created`, `sessions:session_reassigned`, `sessions:manager_connected` | Per tab, once per 250 ms window of such events (cause of the first event): live session list + recent-sessions scan. After a manager restart, every reopened session emits `session_created`. |
 | The manager connects | — | Backend: clears `MetadataCache`; refreshes quotas and environment through one idle session. |
 | Project view opens, the worktree list changes, or the workspace switches | `git:workspace-paths`, `sessions:workspace-switch` | Per tab: one Git snapshot request per worktree of the project (shared across tabs); one recent-sessions scan. |
 | The project registry loads or the project changes | `projects:discovery`, `projects:activity` | Per tab: one Git project per registered project, then one recent-sessions scan per worktree of every project. |
-| Session selected | — | Per tab: a full snapshot. |
-| Tab becomes visible after missed events, or SSE reconnects | — | Per tab: a delta snapshot reconciliation. |
+| Session selected | `snapshot:selection`, `environment:selection` | Per tab: a full snapshot and the environment report. |
+| Tab becomes visible after missed events, or SSE reconnects | `snapshot:visible`, `snapshot:reconnect` | Per tab: a delta snapshot reconciliation. |
 | Session starts, is renamed, closed, or a dialog closes | `sessions:session-started`, `sessions:rename`, `sessions:close`, `sessions:dialog-*` | Live session list + recent-sessions scan. |
 | Git widget action or manual refresh | `git:after-*`, `git:manual` | The action, then one Git snapshot. |
 | Pinned sessions load or manual refresh | `pins:mount`, `pins:manual` | One session-file read per pin. |
+| A dialog response, composer command, or `/agent` activation completes | `snapshot:dialog-response`, `snapshot:composer-command`, `snapshot:agent-activated` | One snapshot for the affected session. |
+| Quota or environment reports arrive from Pi, or the widgets load or act | `quotas:mount`, `quotas:manual`, `quotas:status-report`, `quotas:after-reset`, `environment:manual`, `environment:status-report` | Cached reports; a refresh sends one prompt command to an idle session. |
 | Diagnostics or browser-debug widget open | — | Polls every 5 s (diagnostics; also reads the manager ledger) or every 2 s while visible (browser debug). |
 
 ## Measured hotspots

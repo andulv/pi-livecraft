@@ -13,7 +13,7 @@ and work from that evidence instead of simulating heavy usage.
 | `boot` | backend start | `pid`, `previousRun` (`{uptimeMs, clean}` or `'unknown'`) |
 | `shutdown` | run ends; first write wins | `reason` (`exit` / `crash`), `uptimeMs` |
 | `uncaught` | `uncaughtException` / `unhandledRejection` | `source`, `message`, `stack` |
-| `request-error` | failed HTTP request | `route` (template, `sessions/:id` masked), `status` |
+| `request-error` | failed HTTP request with status ≥ 500 | `route` (template, e.g. `sessions/:id/snapshot`; fixed routes like `sessions/recent` stay whole), `status`. 4xx validation failures are counted in diagnostics only |
 | `manager` | manager connect/disconnect | `state` |
 | `sse-open` | SSE stream opened (loads and reconnects) | — |
 | `slow-snapshot` | successful snapshot ≥ 1000 ms | `mode`, `rpcMs`, `buildMs`, `templatesMs`, `totalMs`, `bytes`, `rpcWaitMs`, `sameSessionInFlight`, `totalInFlight` |

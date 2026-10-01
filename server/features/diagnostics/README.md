@@ -54,8 +54,9 @@ large operation count.
   (`requestCauseHeader` in `shared/types.ts`). `src/api.ts` requires a `RequestCause`
   (`<area>:<trigger>`, for example `git:tool-end`, `sessions:session_created`) on the
   repeatable reads whose trigger the route cannot reveal — Git snapshot and project, session
-  listing, recent sessions, and pin resolution — so a new caller must name its trigger. Other
-  routes are attributed by route alone until they gain a cause. Missing
+  listing, recent sessions, pin resolution, session snapshots, quotas, and environment — so a
+  new caller must name its trigger. Other routes are attributed by route alone until they
+  gain a cause. Missing
   headers are recorded as `unspecified`; values outside `[A-Za-z0-9:_-]{1,64}` as `invalid`.
   Concurrent identical GETs share one fetch, so only the first caller's cause is recorded.
 - **Exposed:** `operations` (backend) and `managerOperations` in `GET /api/diagnostics` —

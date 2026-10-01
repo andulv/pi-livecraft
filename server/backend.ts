@@ -197,9 +197,12 @@ const server = createServer((request, response) => {
     .runInRequest(operations, () => route(request, response))
     .catch((error) => {
       const status = error instanceof HttpError ? error.status : 500
-      const route = (request.url ?? '').split('?')[0].replace(/sessions\/[^/]+/g, 'sessions/:id')
-      diagnostics.error(route)
-      appLog.requestError(route, status)
+      // The request context already holds the route template: fixed routes such as
+      // `sessions/recent` stay whole instead of being masked as `sessions/:id`.
+      diagnostics.error(operations.route)
+      // 4xx is user-visible validation, not instability (for example input forwarded while
+      // the shared browser restarts); only server failures reach the persistent log.
+      if (status >= 500) appLog.requestError(operations.route, status)
       if (!response.headersSent) sendJson(response, status, { error: errorMessage(error) })
       else response.end()
     })

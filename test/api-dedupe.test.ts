@@ -52,7 +52,7 @@ test('keeps distinct GET paths separate and never dedupes writes', async () => {
       })
     },
     async () => {
-      await Promise.all([getGitProject('/x', 'test:dedupe'), getQuotas()])
+      await Promise.all([getGitProject('/x', 'test:dedupe'), getQuotas('test:dedupe')])
       // createSession is a POST (write) and must not be deduped even if called twice.
       const { createSession } = await import('../src/api.ts')
       await Promise.all([

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { RequestCause } from '../../api.ts'
 import { getSnapshot, managerStreamSilenceMs, postClientLog } from '../../api.ts'
 import {
   assistantMessageAfterEvent,
@@ -39,6 +40,8 @@ const snapshotRefreshDelayMs = 100
 
 interface SnapshotRefreshRequest {
   sessionId: string
+  /** Latest trigger of this refresh; attributed to the snapshot fetch it causes. */
+  cause: RequestCause
   needsRefresh: boolean
   cancelled: boolean
   promise: Promise<SessionSnapshotResponse | undefined>
@@ -154,6 +157,7 @@ export function useConversationRuntime(
   /** Synchronizes the selected snapshot and replays newer buffered manager events. */
   const refreshSnapshot = useCallback((
     sessionId: string,
+    cause: RequestCause,
   ): Promise<SessionSnapshotResponse | undefined> => {
     if (!sessionId) {
       const current = snapshotRefreshRef.current
@@ -167,11 +171,13 @@ export function useConversationRuntime(
     const current = snapshotRefreshRef.current
     if (current?.sessionId === sessionId) {
       current.needsRefresh = true
+      current.cause = cause
       return current.promise
     }
     if (current) current.cancelled = true
     const request = {
       sessionId,
+      cause,
       needsRefresh: false,
       cancelled: false,
     } as SnapshotRefreshRequest
@@ -191,6 +197,7 @@ export function useConversationRuntime(
           const since = snapshotCursorRef.current || undefined
           nextSnapshot = await getSnapshot(
             sessionId,
+            request.cause,
             delayNextRefresh && snapshotSessionIdRef
                   .current === sessionId
               ? since
@@ -263,7 +270,7 @@ export function useConversationRuntime(
       : Math.max(0, started - lastSelectedPiEventAtRef.current)
     const appliedBefore = appliedSnapshotsRef.current
     const failedBefore = failedSnapshotsRef.current
-    const result = await refreshSnapshot(sessionId)
+    const result = await refreshSnapshot(sessionId, `snapshot:${reason}`)
     const outcome = failedSnapshotsRef.current > failedBefore
       ? 'failed'
       : appliedSnapshotsRef.current > appliedBefore && selectedIdRef.current === sessionId
@@ -291,9 +298,9 @@ export function useConversationRuntime(
   }, [refreshSnapshot])
 
   /** Runs an automatic snapshot now, or defers it while the page is hidden. */
-  const scheduleSnapshot = useCallback((sessionId: string): void => {
+  const scheduleSnapshot = useCallback((sessionId: string, cause: RequestCause): void => {
     if (snapshotGateRef.current?.schedule() === 'deferred') return
-    void refreshSnapshot(sessionId)
+    void refreshSnapshot(sessionId, cause)
   }, [refreshSnapshot])
 
   /** Returning to a tab reconciles even if its SSE stream missed every event. */
@@ -346,7 +353,7 @@ export function useConversationRuntime(
         const version = ++queueUpdateVersionRef.current
         setPendingSteering((current) => steering.length > current.length ? steering : current)
         const reconciled = snapshotGateRef.current?.schedule() === 'run'
-          ? refreshSnapshot(sessionId)
+          ? refreshSnapshot(sessionId, 'snapshot:queue-update')
           : undefined
         void (reconciled ?? Promise.resolve()).finally(() => {
           if (version === queueUpdateVersionRef.current && sessionId === selectedIdRef.current)
@@ -396,7 +403,7 @@ export function useConversationRuntime(
         queueToolExecutions((current) =>
           current.map((execution) => execution.id === id ? { ...execution, result } : execution)
         )
-        scheduleSnapshot(sessionId)
+        scheduleSnapshot(sessionId, 'snapshot:tool-end')
       }
       setActivity((current) => {
         const next = activityForPiEvent(current, event)
@@ -446,7 +453,7 @@ export function useConversationRuntime(
         queueToolExecutions(interruptToolCallGeneration)
         flushLiveUpdates()
         const settledSnapshot = snapshotGateRef.current?.schedule() === 'run'
-          ? refreshSnapshot(sessionId)
+          ? refreshSnapshot(sessionId, 'snapshot:settled')
           : undefined
         void settledSnapshot?.then((nextSnapshot) => {
           if (!nextSnapshot || settledRequestDuration === undefined) return
@@ -481,7 +488,7 @@ export function useConversationRuntime(
     setObservedRequestDurations(new Map())
     toolStartedAtRef.current.clear()
     requestStartedAtRef.current = undefined
-    void refreshSnapshot(selectedId)
+    void refreshSnapshot(selectedId, 'snapshot:selection')
   }, [clearLiveUpdates, refreshSnapshot, selectedId])
 
   const addPendingSteering = useCallback((message: string): void => {
