@@ -48,6 +48,7 @@ import {
   type SnapshotStageMeasurement,
 } from './features/diagnostics/diagnostics.ts'
 import { StabilityMonitor } from './features/diagnostics/stability.ts'
+import { createRequestGuard, isJsonContentType } from './request-guard.ts'
 import {
   operationLedger,
   operationRouteTemplate,
@@ -94,6 +95,8 @@ const host = '127.0.0.1'
 const browserStreamHeartbeatIntervalMs = 10_000
 const port = readPort('PI_LIVECRAFT_BACKEND_PORT', 43_121)
 const managerPort = readPort('PI_LIVECRAFT_MANAGER_PORT', 43_120)
+const frontendPort = readPort('PI_LIVECRAFT_FRONTEND_PORT', 5173)
+const requestGuard = createRequestGuard({ backendPort: port, frontendPort })
 const manager = new ManagerClient(host, managerPort)
 const eventClients = new Set<ServerResponse>()
 const activeSnapshotLoads = new Map<string, number>()
@@ -217,12 +220,25 @@ const server = createServer((request, response) => {
 
 server.listen(port, host, () => {
   console.log(`Pi backend listening on http://${host}:${port}`)
+  console.log(`Request guard origins: ${requestGuard.allowedOrigins.join(', ')}`)
 })
 
 /** Centralizes HTTP routing so validation and responses remain consistent across endpoints. */
 async function route(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? 'GET'
   const url = new URL(request.url ?? '/', `http://${host}`)
+  if (url.pathname.startsWith('/api/')) {
+    const rejection = requestGuard.violation({
+      method,
+      host: request.headers.host,
+      origin: headerValue(request.headers.origin),
+      secFetchSite: headerValue(request.headers['sec-fetch-site']),
+    })
+    if (rejection) {
+      appLog.requestError(operationRouteTemplate(url.pathname), rejection.status)
+      throw new HttpError(rejection.status, rejection.error)
+    }
+  }
 
   if (method === 'GET' && url.pathname === '/api/diagnostics') {
     diagnostics.request('diagnostics')
@@ -1157,6 +1173,8 @@ async function listDirectories(path: string): Promise<DirectoryListing> {
 
 /** Reads the JSON body with a size limit to protect the backend from oversized requests. */
 async function readJsonBody(request: IncomingMessage): Promise<JsonObject> {
+  if (!isJsonContentType(request.headers['content-type']))
+    throw new HttpError(415, 'Requests must use Content-Type: application/json.')
   const chunks: Buffer[] = []
   let size = 0
   for await (const chunk of request) {
@@ -1302,4 +1320,8 @@ class HttpError extends Error {
     super(message)
     this.status = status
   }
+}
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value
 }
