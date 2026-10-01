@@ -38,6 +38,7 @@ import {
 } from './api.ts'
 import type { QuotaResetTarget, RequestCause } from './api.ts'
 import { toolMayChangeGitState } from './features/git/git-refresh.ts'
+import { createSessionRefreshBatcher } from './features/workspace/session-refresh-batch.ts'
 import type {
   ExtensionSettingsSnapshot,
   ExtensionSettingValue,
@@ -1071,6 +1072,11 @@ function LivecraftProjectApp(
   // identity: every resubscription reconnects /api/events and replays the event stream.
   const refreshSessionsRef = useRef<(cause: RequestCause) => void>(() => undefined)
   refreshSessionsRef.current = refreshSessions
+  const sessionEventRefresh = useMemo(
+    () => createSessionRefreshBatcher((cause) => void refreshSessionsRef.current(cause)),
+    [],
+  )
+  useEffect(() => () => sessionEventRefresh.cancel(), [sessionEventRefresh])
   const reconcileSnapshotRef = useRef(reconcileSnapshot)
   reconcileSnapshotRef.current = reconcileSnapshot
   const needsSnapshotAfterReconnectRef = useRef(false)
@@ -1102,7 +1108,7 @@ function LivecraftProjectApp(
       } else if (
         managerEvent.event === 'manager_connected' || managerEvent.event === 'session_created'
         || managerEvent.event === 'session_reassigned'
-      ) void refreshSessionsRef.current(`sessions:${managerEvent.event}`)
+      ) sessionEventRefresh.schedule(`sessions:${managerEvent.event}`)
       if (managerEvent.event === 'pi' && isObject(managerEvent.data))
         replayPiEventRef.current(
           managerEvent.sessionId,
@@ -1124,6 +1130,7 @@ function LivecraftProjectApp(
     clearManagerUnavailableToasts,
     clearSessionCaches,
     resetEventSequence,
+    sessionEventRefresh,
     showToast,
   ])
 
