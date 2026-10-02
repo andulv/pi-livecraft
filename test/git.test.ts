@@ -616,3 +616,43 @@ test('refuses to delete the main worktree', async () => {
     await rm(main, { force: true, recursive: true })
   }
 })
+
+test('force-removes a clean worktree that contains an initialized submodule', async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'pi-livecraft-wt-sub-')))
+  const sub = join(root, 'sub')
+  const main = join(root, 'main')
+  const worktree = join(main, 'feature-tree')
+  const author = { cwd: main }
+  try {
+    await execFile('git', ['init', '--quiet', sub])
+    await execFile('git', ['config', 'user.email', 'test@example.com'], { cwd: sub })
+    await execFile('git', ['config', 'user.name', 'Test User'], { cwd: sub })
+    await execFile('git', ['commit', '--quiet', '--allow-empty', '-m', 'Submodule init'], {
+      cwd: sub,
+    })
+
+    await execFile('git', ['init', '--quiet', main])
+    await execFile('git', ['config', 'user.email', 'test@example.com'], author)
+    await execFile('git', ['config', 'user.name', 'Test User'], author)
+    await execFile('git', ['commit', '--quiet', '--allow-empty', '-m', 'Initial commit'], author)
+    await execFile('git', ['branch', '-M', 'main'], author)
+    await execFile(
+      'git',
+      ['-c', 'protocol.file.allow=always', 'submodule', 'add', '--quiet', sub, 'vendor'],
+      author,
+    )
+    await execFile('git', ['commit', '--quiet', '-m', 'Add submodule'], author)
+    await execFile('git', ['worktree', 'add', '--quiet', '-b', 'feature', worktree], author)
+    await execFile(
+      'git',
+      ['-c', 'protocol.file.allow=always', 'submodule', 'update', '--init', '--quiet'],
+      { cwd: worktree },
+    )
+
+    const result = await deleteWorktree(main, worktree)
+    assert.deepEqual(result, { deleted: true, branch: 'feature' })
+    assert.equal(existsSync(worktree), false)
+  } finally {
+    await rm(root, { force: true, recursive: true })
+  }
+})

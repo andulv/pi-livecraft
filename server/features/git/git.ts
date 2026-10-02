@@ -498,7 +498,13 @@ export async function deleteWorktree(
   }
 
   const mainPath = workspaces.find((entry) => entry.workspace.main)?.path ?? cwd
-  await runGit(mainPath, ['worktree', 'remove', canonicalTarget])
+  // We already verified the worktree is clean, so retry with --force only when Git refuses
+  // because the worktree contains submodules; other refusals (e.g. a locked worktree) surface.
+  const removal = await runGit(mainPath, ['worktree', 'remove', canonicalTarget], [0, 128])
+  if (removal.exitCode !== 0) {
+    if (!/submodules/i.test(removal.stderr)) throw new Error(gitError(removal))
+    await runGit(mainPath, ['worktree', 'remove', '--force', canonicalTarget])
+  }
   if (target.branch) await runGit(mainPath, ['branch', '-D', target.branch])
   return { deleted: true, branch: target.branch }
 }

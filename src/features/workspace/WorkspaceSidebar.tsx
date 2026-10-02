@@ -32,6 +32,7 @@ import { aggregateSessionIndicator, sessionIndicator } from './session-indicator
 import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
 import { sidebarSessions, type SessionActionTarget } from './sidebar-sessions.ts'
 import { SessionRenameDialog } from './SessionRenameDialog.tsx'
+import { WorktreeDeleteErrorDialog } from './WorktreeDeleteErrorDialog.tsx'
 import { formatSessionTime } from './session-time.ts'
 import { maxWorkspaceSidebarWidth, minWorkspaceSidebarWidth } from './workspace-sidebar.ts'
 import type { RequestCause } from '../../api.ts'
@@ -162,6 +163,9 @@ export function WorkspaceSidebar({
   const [contextMenuPosition, setContextMenuPosition] = useState({ left: 0, top: 0 })
   const [workspaceMenu, setWorkspaceMenu] = useState<WorkspaceContextMenuState | null>(null)
   const [workspaceDeleteConfirm, setWorkspaceDeleteConfirm] = useState(false)
+  const [worktreeDeleteError, setWorktreeDeleteError] = useState<
+    { label: string; message: string } | null
+  >(null)
   const [workspaceMenuPosition, setWorkspaceMenuPosition] = useState({ left: 0, top: 0 })
   const [renameTarget, setRenameTarget] = useState<SessionActionTarget | null>(null)
   const [showMoveTargets, setShowMoveTargets] = useState(false)
@@ -395,7 +399,12 @@ export function WorkspaceSidebar({
     const { workspace } = workspaceMenu
     setWorkspaceMenu(null)
     setWorkspaceDeleteConfirm(false)
-    void onDeleteWorktree(workspace).catch(onError)
+    void onDeleteWorktree(workspace).catch((cause) => {
+      setWorktreeDeleteError({
+        label: workspace.branch ?? workspace.path,
+        message: cause instanceof Error ? cause.message : String(cause),
+      })
+    })
   }
 
   function openContextMenu(
@@ -1096,6 +1105,13 @@ export function WorkspaceSidebar({
           key={renameTarget.sessionPath ?? renameTarget.sessionId ?? renameTarget.name}
           onClose={dismissRename}
           onConfirm={(name) => onRenameSession(renameTarget, name)}
+        />
+      )}
+      {worktreeDeleteError && (
+        <WorktreeDeleteErrorDialog
+          label={worktreeDeleteError.label}
+          message={worktreeDeleteError.message}
+          onClose={() => setWorktreeDeleteError(null)}
         />
       )}
     </aside>
