@@ -1,11 +1,12 @@
 # Browser viewer over WebSocket
 
-Status: **implemented — rollout step 2 complete.** The socket is the only viewer
-transport: the frames SSE route, the input POST route, the HTTP input stop-gap, and
-`wireFor` were deleted after live verification (socket and SSE viewers streamed side by
-side; blob-URL rendering; input over the socket with zero input POSTs). The `ws`
-dependency was approved; the HTTP guard prerequisite is implemented. Remaining: the
-embedded terminal on the same pattern (step 3); `/api/events` stays on SSE (step 4). Two review rounds converged (`browser-websocket-transport-review1/2.md`, `reviewer1/2-reply1.md`); this draft then removed everything the converged design did not need — see the [simplification pass](#simplification-pass). Ready to implement pending dependency approval for `ws`.
+Status: **implemented — rollout steps 1–3 complete.** The browser viewer and the embedded
+terminal both run on one WebSocket per viewer (frames/output to the tab, input/resize from
+it); the SSE streams, the input and resize POST routes, the HTTP input stop-gap, the
+ordered sender, and `wireFor` were deleted after live verification. The `ws` dependency
+was approved; the HTTP guard prerequisite is implemented. `/api/events` stays on SSE
+(step 4): one connection per tab, whose native reconnect suits the correctness-critical
+stream. Two review rounds converged (`browser-websocket-transport-review1/2.md`, `reviewer1/2-reply1.md`); this draft then removed everything the converged design did not need — see the [simplification pass](#simplification-pass). Ready to implement pending dependency approval for `ws`.
 
 ## Goal
 
