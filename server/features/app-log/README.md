@@ -67,7 +67,12 @@ loads at the beginning of the RPC phase; they do not identify a session or tab.
 
 - **Retention: none.** The file grows unbounded by explicit decision (2026-09-07):
   handle size later, when real usage shows it matters. Each line is one JSON object
-  with `t` (epoch ms) and `kind`.
+  with `t` (epoch ms) and `kind`. Update 2026-10-02: after 23 days of use the file is
+  1.5 MB / ~10,400 entries (~450 entries per day, dominated by `slow-snapshot` and client
+  reports during agent work) — growth is slower than feared but unbounded. When it is
+  next revisited, the suggested shape is size-based rotation on boot (keep `app.log` and
+  one `app.log.1`, compress neither), which preserves the crash-analysis tail without a
+  rotation daemon. Not yet implemented.
 - **Bounds per entry:** client messages ≤ 300 chars (client truncates at 500 first),
   stacks ≤ 2000 chars, client entries capped at 500 per run with one `client-cap`
   marker.

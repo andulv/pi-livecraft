@@ -80,7 +80,7 @@ Measured on 2026-10-01 with four tabs open and an agent working.
 
 - **Recent-sessions scans** averaged 1.1 s, peaked at 11 s, and ran up to six at once; 40 scans followed one manager restart within 36 s. The workspace folder held 174 session files (138 MB), about 112 of them sub-agent children. Main triggers: `projects:activity` and repeated `session_created` events. With the per-file metadata cache, an unchanged rescan of that folder takes about 3 ms; only the first scan after a backend start pays the full cost.
 - **Git tool-end refreshes** produced bursts of at least 40 `git` processes in 10 s throughout agent work, about 13 per refresh and tab, including after read-only tools.
-- **Full session snapshots** of a long session reached 6 MB and 1.9 s, dominated by `get_entries`.
+- **Full session snapshots** of a long session reached 6 MB and 1.9 s, dominated by `get_entries`; their serialization correlates with the backend's worst event-loop stalls. Findings and suggestions: [large snapshots investigation](/plans/investigations/large-snapshots.md).
 
 ## Budgets
 
