@@ -46,6 +46,19 @@
   border-color: var(--danger);
   color: var(--danger);
 }
+.delete-from-action {
+  color: var(--danger);
+}
+.delete-from-action:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.delete-from-action.armed,
+.delete-from-action.armed:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: var(--surface-raised);
+}
 .conversation-action-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;

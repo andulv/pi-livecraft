@@ -47,6 +47,9 @@ Action components are implementations, not the extension contract. `CopyButton.t
 - Text messages expose one copy action when `visibleText()` returns content.
 - Forkable user messages expose an action that starts a Pi fork before that prompt, refreshes the
   active branch, and places Pi's returned prompt text in the composer for editing.
+- Forkable user messages expose a two-step delete action that removes that prompt and everything
+  after it (the fork whose history ends before the prompt) and places the removed prompt selected
+  in the composer for one-keystroke removal.
 - Tool calls always expose their serialized input (`↘`) and expose raw output (`↗`) once a result exists, including error results.
 - Successful `read`, `write`, and `edit` calls expose an action that resolves relative paths from the session working directory and opens the resulting file, including absolute targets outside it.
 - Pending calls have no output or file action. Directional markers distinguish copy actions without visible button text.

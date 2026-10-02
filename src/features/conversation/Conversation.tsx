@@ -54,6 +54,7 @@ export function Conversation(
     workingDirectory,
     onError,
     onFork,
+    onDelete,
     onOpenShubAgentSession,
     onRetry,
     onRetractSteering,
@@ -73,6 +74,7 @@ export function Conversation(
     workingDirectory: string
     onError: (cause: unknown) => void
     onFork: (entryId: string) => Promise<boolean>
+    onDelete: (entryId: string) => Promise<boolean>
     /** Opens the session a shub-agent run persisted, from its tool call card. */
     onOpenShubAgentSession?: (cwd: string, sessionPath: string) => Promise<void>
     onRetry?: (prompt: string) => Promise<void>
@@ -414,6 +416,7 @@ export function Conversation(
                     message={message}
                     onError={onError}
                     onFork={onFork}
+                    onDelete={onDelete}
                     onRetry={retryByMessage.get(message)}
                   />
                 )}
@@ -482,6 +485,7 @@ export function Conversation(
                         message={part.message}
                         onError={onError}
                         onFork={onFork}
+                        onDelete={onDelete}
                         onRetry={retryByMessage.get(part.message)}
                       />
                     )

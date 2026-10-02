@@ -354,7 +354,7 @@ function LivecraftProjectApp(
   const [submitRequest, setSubmitRequest] = useState(0)
   const [focusComposerRequest, setFocusComposerRequest] = useState(0)
   const [composerDraftRequest, setComposerDraftRequest] = useState<
-    { id: string; message: string; sessionId: string }
+    { id: string; message: string; sessionId: string; selectAll?: boolean }
   >()
   const [scrollToBottomRequest, setScrollToBottomRequest] = useState(0)
   const [conversationNavigation, setConversationNavigation] = useState<
@@ -603,23 +603,36 @@ function LivecraftProjectApp(
         })
     },
   )
-  const handleForkConversation = useCallback(async (entryId: string): Promise<boolean> => {
-    const response = await sendPiCommand(selectedId, { type: 'fork', entryId })
-    const data = isObject(response.data) ? response.data : undefined
-    if (data?.cancelled === true) return false
-    if (typeof data?.text === 'string') {
-      setComposerDraftRequest({
-        id: crypto.randomUUID(),
-        message: data.text,
-        sessionId: selectedId,
-      })
-    }
-    await Promise.all([
-      refreshSnapshot(selectedId, 'snapshot:dialog-response'),
-      refreshSessions('sessions:dialog-response'),
-    ])
-    return true
-  }, [refreshSessions, refreshSnapshot, selectedId])
+  /** Forks from a prompt; `selectAll` marks the seeded draft so delete's text can be removed in one keystroke. */
+  const forkConversationFrom = useCallback(
+    async (entryId: string, selectAll: boolean): Promise<boolean> => {
+      const response = await sendPiCommand(selectedId, { type: 'fork', entryId })
+      const data = isObject(response.data) ? response.data : undefined
+      if (data?.cancelled === true) return false
+      if (typeof data?.text === 'string') {
+        setComposerDraftRequest({
+          id: crypto.randomUUID(),
+          message: data.text,
+          sessionId: selectedId,
+          selectAll,
+        })
+      }
+      await Promise.all([
+        refreshSnapshot(selectedId, 'snapshot:dialog-response'),
+        refreshSessions('sessions:dialog-response'),
+      ])
+      return true
+    },
+    [refreshSessions, refreshSnapshot, selectedId],
+  )
+  const handleForkConversation = useCallback(
+    (entryId: string) => forkConversationFrom(entryId, false),
+    [forkConversationFrom],
+  )
+  const handleDeleteConversation = useCallback(
+    (entryId: string) => forkConversationFrom(entryId, true),
+    [forkConversationFrom],
+  )
 
   const model = isObject(snapshot.state?.model) ? snapshot.state.model : undefined
   const currentQuotaProvider = quotaProviderForModel(model?.provider)
@@ -1749,6 +1762,7 @@ function LivecraftProjectApp(
                       navigationRequest={conversationNavigation}
                       onError={handleConversationError}
                       onFork={handleForkConversation}
+                      onDelete={handleDeleteConversation}
                       onOpenShubAgentSession={handleOpenShubAgentSession}
                       onRetry={retryConversationPrompt}
                       onRetractSteering={handleRetractSteering}

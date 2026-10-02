@@ -108,7 +108,7 @@ export const Composer = memo(function Composer({
   onSelectOpened?: () => void
   submitRequest?: number
   focusRequest?: number
-  draftRequest?: { id: string; message: string }
+  draftRequest?: { id: string; message: string; selectAll?: boolean }
   onDraftApplied?: (id: string) => void
   persistDrafts?: boolean
   readOnly?: boolean
@@ -170,6 +170,7 @@ export const Composer = memo(function Composer({
   } = formatSessionStats(snapshot.stats)
   // Keep a ref to the latest draft so stable callbacks can read it without re-creating on every keystroke.
   const messageRef = useRef(message)
+  const selectAllNextRenderRef = useRef(false)
   messageRef.current = message
   /** Snapshot commands augmented with local commands Pi does not expose. */
   const allCommands = ensureLocalCommands(commands)
@@ -232,10 +233,22 @@ export const Composer = memo(function Composer({
 
   useEffect(() => {
     if (!draftRequest) return
+    const selectAll = draftRequest.selectAll === true
+    const textChanged = messageRef.current !== draftRequest.message
+    // A select-all must wait for the requested text to be committed before the DOM can select it.
+    if (selectAll && textChanged) selectAllNextRenderRef.current = true
     setDraftMessage(draftRequest.message)
     textareaRef.current?.focus()
+    if (selectAll && !textChanged) textareaRef.current?.select()
     onDraftApplied?.(draftRequest.id)
   }, [draftRequest, onDraftApplied])
+
+  // Consumes a pending select-all once the requested draft text is committed to the textarea.
+  useLayoutEffect(() => {
+    if (!selectAllNextRenderRef.current) return
+    selectAllNextRenderRef.current = false
+    textareaRef.current?.select()
+  }, [message])
 
   // Place the caret at the end when the browser restores focus on refresh.
   useLayoutEffect(() => {

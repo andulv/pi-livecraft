@@ -2,6 +2,7 @@ import { memo, useState, type ReactNode } from 'react'
 import type { JsonObject } from '../../../shared/types.ts'
 import { isObject } from '../../../shared/is-object.ts'
 import { CopyButton } from './CopyButton.tsx'
+import { DeleteFromButton } from './DeleteFromButton.tsx'
 import { ForkButton } from './ForkButton.tsx'
 import { Markdown } from './Markdown.tsx'
 import {
@@ -22,27 +23,35 @@ import {
 /** Renders a visible protocol message with the default or custom presentation. */
 export const MessageCard = memo(
   function MessageCard(
-    { message, onError, onFork, onRetry }: {
+    { message, onError, onFork, onDelete, onRetry }: {
       message: JsonObject
       onError: (cause: unknown) => void
       onFork: (entryId: string) => Promise<boolean>
+      onDelete: (entryId: string) => Promise<boolean>
       onRetry?: () => Promise<void>
     },
   ) {
     if (message.role === 'custom' && typeof message.customType === 'string')
       return <DefaultCustomMessage message={message} />
     return (
-      <DefaultMessageCard message={message} onError={onError} onFork={onFork} onRetry={onRetry} />
+      <DefaultMessageCard
+        message={message}
+        onError={onError}
+        onFork={onFork}
+        onDelete={onDelete}
+        onRetry={onRetry}
+      />
     )
   },
 )
 
 const DefaultMessageCard = memo(
   function DefaultMessageCard(
-    { message, onError, onFork, onRetry }: {
+    { message, onError, onFork, onDelete, onRetry }: {
       message: JsonObject
       onError: (cause: unknown) => void
       onFork: (entryId: string) => Promise<boolean>
+      onDelete: (entryId: string) => Promise<boolean>
       onRetry?: () => Promise<void>
     },
   ) {
@@ -59,6 +68,9 @@ const DefaultMessageCard = memo(
         {(text || forkEntryId) && (
           <div className='conversation-actions message-actions'>
             {forkEntryId && <ForkButton entryId={forkEntryId} onError={onError} onFork={onFork} />}
+            {forkEntryId && (
+              <DeleteFromButton entryId={forkEntryId} onError={onError} onDelete={onDelete} />
+            )}
             {text && <CopyButton label='Copy message' onError={onError} value={text} />}
           </div>
         )}
