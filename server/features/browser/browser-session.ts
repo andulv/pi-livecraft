@@ -474,8 +474,7 @@ export class BrowserSession {
         if (typeof params.data === 'string') {
           this.#capturedFrames++
           this.#capturedBytes += Buffer.byteLength(params.data, 'base64')
-          // Decoded once here: the socket transport needs bytes, and the SSE adapter
-          // re-encodes inside wireFor.
+          // Decoded once here so every viewer adapter shares the same bytes.
           this.#emit({ type: 'frame', buffer: Buffer.from(params.data, 'base64') })
         }
         // Chrome reports the screencast session id as a number or a string

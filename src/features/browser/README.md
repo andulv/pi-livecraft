@@ -7,8 +7,8 @@ pane either as the frames SSE stream or — with the WebSocket prototype, enable
 `pi-livecraft.browser-transport`; `?browserTransport=sse` switches back) — as binary
 messages on one socket that also carries input; the
 pane acknowledges each frame once decoded (`image.decode()`, settling either way), renders
-blob object URLs (revoking replaced ones), reconnects automatically with backoff, and drops
-input produced while disconnected. Opening the
+blob object URLs (revoking replaced ones), reconnects automatically with backoff, reports
+socket closures to the app log, and drops input produced while disconnected. Opening the
 pane starts the browser automatically; there is no iframe mode or manual live toggle.
 The current tab uses browser ID `main`; the API already accepts other IDs for later
 multi-browser tabs. The pane forwards pointer, wheel, and key input back through the

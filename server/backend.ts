@@ -37,9 +37,7 @@ import {
 import { openTerminalApplication, TerminalTemplateError } from './features/terminal/launcher.ts'
 import {
   parseBrowserCaptureSettings,
-  parseBrowserInputEvent,
   parseBrowserViewport,
-  wireFor,
 } from './features/browser/browser-session.ts'
 import { BrowserService, parseBrowserId } from './features/browser/browser-service.ts'
 import {
@@ -99,7 +97,6 @@ import { isObject } from '../shared/is-object.ts'
 import { providerFailure } from '../shared/provider-failure.ts'
 
 const host = '127.0.0.1'
-const browserStreamHeartbeatIntervalMs = 10_000
 const port = readPort('PI_LIVECRAFT_BACKEND_PORT', 43_121)
 const managerPort = readPort('PI_LIVECRAFT_MANAGER_PORT', 43_120)
 const frontendPort = readPort('PI_LIVECRAFT_FRONTEND_PORT', 5173)
@@ -1000,44 +997,19 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   }
 
   const browserInstanceMatch = url.pathname.match(
-    /^\/api\/browser\/instances\/([^/]+)\/(status|start|stop|navigate|reload|viewport|capture|input|frames)$/,
+    /^\/api\/browser\/instances\/([^/]+)\/(status|start|stop|navigate|reload|viewport|capture)$/,
   )
   if (browserInstanceMatch) {
     const browserId = parseBrowserId(decodeURIComponent(browserInstanceMatch[1]))
     if (!browserId) throw new HttpError(400, 'A valid browser ID is required')
     const action = browserInstanceMatch[2]
 
-    if (method === 'GET' && (action === 'status' || action === 'frames')) {
+    if (method === 'GET' && action === 'status') {
       const workspacePath = await resolveBrowserWorkspace(
         url.searchParams.get('workspacePath'),
       )
       const browserSession = browsers.session(workspacePath, browserId)
-      if (action === 'status') {
-        sendJson(response, 200, browserSession.status())
-        return
-      }
-      const stream = openSseStream(response)
-      stability.trackStream('browser-frames', response)
-      const writeEvent = (event: string, json: string): void => {
-        if (event === 'frame' && stream.writableLength > 512 * 1024) return
-        stream.writeEvent(event, json)
-      }
-      writeEvent('status', JSON.stringify(browserSession.status()))
-      const currentUrl = browserSession.status().url
-      if (currentUrl) writeEvent('url', JSON.stringify({ url: currentUrl }))
-      const unsubscribe = browserSession.subscribe((event) => {
-        const { name, json } = wireFor(event)
-        writeEvent(name, json)
-      })
-      browserSession.addViewer()
-      const heartbeat = (): void => writeEvent('heartbeat', '{}')
-      heartbeat()
-      const heartbeatTimer = setInterval(heartbeat, browserStreamHeartbeatIntervalMs)
-      request.on('close', () => {
-        clearInterval(heartbeatTimer)
-        unsubscribe()
-        browserSession.releaseViewer()
-      })
+      sendJson(response, 200, browserSession.status())
       return
     }
 
@@ -1092,17 +1064,6 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         }
         await browserSession.setCapture(capture)
         sendJson(response, 200, browserSession.status())
-        return
-      }
-      if (action === 'input') {
-        const input = parseBrowserInputEvent(body)
-        if (!input) throw new HttpError(400, 'Invalid browser input event')
-        try {
-          await browserSession.dispatchInput(input)
-        } catch {
-          throw new HttpError(409, 'The browser session is not live')
-        }
-        sendJson(response, 200, { ok: true })
         return
       }
     }
@@ -1270,6 +1231,8 @@ async function serveStatic(
   method: string,
   response: ServerResponse,
 ): Promise<void> {
+  // Unknown API paths must 404, never fall through to the SPA shell.
+  if (pathname.startsWith('/api/')) throw new HttpError(404, 'Not found')
   const requestedPath = pathname === '/' ? 'index.html' : pathname.slice(1)
   let filePath = resolve(distDirectory, requestedPath)
   if (!filePath.startsWith(`${resolve(distDirectory)}${sep}`)) throw new HttpError(404, 'Not found')

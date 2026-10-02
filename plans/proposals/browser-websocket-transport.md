@@ -1,12 +1,11 @@
 # Browser viewer over WebSocket
 
-Status: **fourth draft, prototype implemented** — the socket transport ships behind a
-per-browser switch (`?browserTransport=ws` once, persisted in localStorage; the app
-rewrites its URL so a query flag alone would not survive navigation) with the frames SSE
-route still present (rollout step 1); the HTTP guard prerequisite is implemented. The `ws`
-dependency was approved. Verified live: one socket viewer and one SSE viewer streamed the
-same session side by side, blob-URL rendering, input over the socket with zero input
-POSTs. Two review rounds converged (`browser-websocket-transport-review1/2.md`, `reviewer1/2-reply1.md`); this draft then removed everything the converged design did not need — see the [simplification pass](#simplification-pass). Ready to implement pending dependency approval for `ws`.
+Status: **implemented — rollout step 2 complete.** The socket is the only viewer
+transport: the frames SSE route, the input POST route, the HTTP input stop-gap, and
+`wireFor` were deleted after live verification (socket and SSE viewers streamed side by
+side; blob-URL rendering; input over the socket with zero input POSTs). The `ws`
+dependency was approved; the HTTP guard prerequisite is implemented. Remaining: the
+embedded terminal on the same pattern (step 3); `/api/events` stays on SSE (step 4). Two review rounds converged (`browser-websocket-transport-review1/2.md`, `reviewer1/2-reply1.md`); this draft then removed everything the converged design did not need — see the [simplification pass](#simplification-pass). Ready to implement pending dependency approval for `ws`.
 
 ## Goal
 

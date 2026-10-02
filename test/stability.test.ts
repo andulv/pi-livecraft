@@ -51,7 +51,7 @@ test('logs stream pressure once per episode and re-arms after it eases', () => {
   const { monitor, logged } = monitorFixture()
   const responses = Array.from({ length: streamPressureThreshold + 1 }, () => new FakeResponse())
   responses.forEach((response, index) =>
-    monitor.trackStream(index === 0 ? 'browser-frames' : 'events', response)
+    monitor.trackStream(index === 0 ? 'terminal' : 'events', response)
   )
   assert.equal(logged.filter(({ kind }) => kind === 'stream-pressure').length, 1)
   assert.equal(monitor.snapshotState().peakStreams, streamPressureThreshold + 1)
