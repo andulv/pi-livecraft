@@ -234,6 +234,22 @@
 .browser-attach-label {
   flex: 0 0 auto;
 }
+.browser-attach-control {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.browser-attach-control .browser-bar-select {
+  height: 24px;
+  padding: 0 2px;
+  font-size: 10px;
+}
+.browser-attach-control:has(.browser-bar-select:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
 .browser-attach code {
   flex: 1;
   min-width: 0;

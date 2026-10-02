@@ -481,28 +481,6 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
           ))}
         </select>
         <select
-          aria-label='Stream image quality'
-          className='browser-bar-select'
-          disabled={!browserInteractive}
-          onChange={(event) => selectStream({ quality: Number(event.target.value) })}
-          title='Stream image quality (JPEG compression)'
-          value={String(streamChoice.quality)}
-        >
-          {streamQualityChoices.map((quality) => (
-            <option key={quality} value={quality}>{quality}%</option>
-          ))}
-        </select>
-        <select
-          aria-label='Stream frame rate'
-          className='browser-bar-select'
-          disabled={!browserInteractive}
-          onChange={(event) => selectStream({ maxFrameRate: Number(event.target.value) })}
-          title='Stream frame rate ceiling'
-          value={String(streamChoice.maxFrameRate)}
-        >
-          {streamRateChoices.map((rate) => <option key={rate} value={rate}>{rate} fps</option>)}
-        </select>
-        <select
           aria-label='Frame zoom mode'
           className='browser-bar-select'
           disabled={!browserInteractive}
@@ -636,6 +614,34 @@ export function BrowserView({ browserId, onUrlCommit, url, workspacePath }: {
             <span aria-hidden='true' className='browser-stream-dot' />
             {streamStatusLabel}
           </span>
+          <label className='browser-attach-control'>
+            <span className='browser-attach-label'>Quality</span>
+            <select
+              aria-label='Stream image quality'
+              className='browser-bar-select'
+              disabled={!browserInteractive}
+              onChange={(event) => selectStream({ quality: Number(event.target.value) })}
+              title='Stream image quality (JPEG compression)'
+              value={String(streamChoice.quality)}
+            >
+              {streamQualityChoices.map((quality) => (
+                <option key={quality} value={quality}>{quality}%</option>
+              ))}
+            </select>
+          </label>
+          <label className='browser-attach-control'>
+            <span className='browser-attach-label'>Frame rate</span>
+            <select
+              aria-label='Stream frame rate'
+              className='browser-bar-select'
+              disabled={!browserInteractive}
+              onChange={(event) => selectStream({ maxFrameRate: Number(event.target.value) })}
+              title='Stream frame rate ceiling'
+              value={String(streamChoice.maxFrameRate)}
+            >
+              {streamRateChoices.map((rate) => <option key={rate} value={rate}>{rate} fps</option>)}
+            </select>
+          </label>
           {status.endpoint && (
             <>
               <span className='browser-attach-label'>Attach browser tooling</span>
