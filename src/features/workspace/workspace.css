@@ -1293,6 +1293,22 @@
   cursor: not-allowed;
   opacity: 0.5;
 }
+.session-context-menu button.session-context-menu-back {
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 7px 7px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+.session-context-menu-tag {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 
 .session-rename-modal {
   width: min(430px, 100%);

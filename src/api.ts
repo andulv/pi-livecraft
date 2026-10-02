@@ -447,6 +447,16 @@ export async function renameSession(
   })
 }
 
+export async function moveSession(
+  sessionPath: string,
+  targetCwd: string,
+): Promise<{ sessionPath: string; cwd: string }> {
+  return request<{ sessionPath: string; cwd: string }>('/api/sessions/move', {
+    method: 'POST',
+    body: JSON.stringify({ sessionPath, targetCwd }),
+  })
+}
+
 export type SessionSnapshotResponse = SessionSnapshot | SessionSnapshotDelta
 
 export async function getSnapshot(

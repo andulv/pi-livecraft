@@ -177,6 +177,7 @@ export interface ManagerRequest {
     | 'open'
     | 'close'
     | 'rename'
+    | 'move'
     | 'command'
     | 'improve_prompt'
     | 'run_prompt'
@@ -187,6 +188,8 @@ export interface ManagerRequest {
   cwd?: string
   name?: string
   sessionPath?: string
+  /** Target worktree for a `move` request. */
+  targetCwd?: string
   command?: JsonObject
   prompt?: string
   systemPrompt?: string

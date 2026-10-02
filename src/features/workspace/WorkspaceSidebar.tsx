@@ -75,6 +75,7 @@ interface WorkspaceSidebarProps {
   onSelectSession: (sessionId: string) => void
   onOpenSettings: () => void
   onRenameSession: (target: SessionActionTarget, name: string) => Promise<void>
+  onMoveSession: (target: SessionActionTarget, targetCwd: string) => Promise<void>
   onResize: (width: number) => void
   onToggleCollapsed: () => void
   onToggleProjectPin: (target: SessionActionTarget) => void
@@ -132,6 +133,7 @@ export function WorkspaceSidebar({
   onSelectSession,
   onOpenSettings,
   onRenameSession,
+  onMoveSession,
   onResize,
   onToggleCollapsed,
   onToggleProjectPin,
@@ -159,6 +161,7 @@ export function WorkspaceSidebar({
   const [workspaceMenu, setWorkspaceMenu] = useState<WorkspaceContextMenuState | null>(null)
   const [workspaceMenuPosition, setWorkspaceMenuPosition] = useState({ left: 0, top: 0 })
   const [renameTarget, setRenameTarget] = useState<SessionActionTarget | null>(null)
+  const [showMoveTargets, setShowMoveTargets] = useState(false)
   const [brandMenuOpen, setBrandMenuOpen] = useState(false)
   const [sessionListMenuOpen, setSessionListMenuOpen] = useState(false)
   const [showArchivedSessions, setShowArchivedSessions] = useState(false)
@@ -242,6 +245,12 @@ export function WorkspaceSidebar({
   const contextSessionArchived = Boolean(
     contextSessionPath && archivedSessionPathSet.has(contextSessionPath),
   )
+  const contextMoveTargets = contextMenu
+    ? [...workspaces]
+      .filter((workspace) => workspace.path !== contextMenu.target.cwd)
+      .sort((left, right) => compareWorkspaces(left, right, recentSessions, sentSessions))
+    : []
+  const contextCanMove = Boolean(contextSessionPath) && contextMoveTargets.length > 0
 
   useEffect(() => {
     selectedSessionRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
@@ -355,6 +364,7 @@ export function WorkspaceSidebar({
 
   function dismissContextMenu(): void {
     setContextMenu(null)
+    setShowMoveTargets(false)
     contextMenuTriggerRef.current?.focus()
   }
 
@@ -384,6 +394,7 @@ export function WorkspaceSidebar({
     setSessionListMenuOpen(false)
     setWorkspaceMenu(null)
     contextMenuTriggerRef.current = event.currentTarget
+    setShowMoveTargets(false)
     setContextMenu({ target, x: event.clientX, y: event.clientY })
   }
 
@@ -406,6 +417,13 @@ export function WorkspaceSidebar({
     const { target } = contextMenu
     dismissContextMenu()
     onToggleSessionArchive(target)
+  }
+
+  function moveToWorktree(targetCwd: string): void {
+    if (!contextMenu) return
+    const { target } = contextMenu
+    dismissContextMenu()
+    void onMoveSession(target, targetCwd).catch(onError)
   }
 
   function dismissRename(): void {
@@ -971,21 +989,60 @@ export function WorkspaceSidebar({
           role='menu'
           style={{ left: contextMenuPosition.left, top: contextMenuPosition.top }}
         >
-          <button
-            autoFocus
-            disabled={!contextSessionCanPin}
-            onClick={toggleContextPin}
-            role='menuitem'
-            type='button'
-          >
-            {contextSessionPinned ? 'Unpin from project' : 'Pin to project'}
-          </button>
-          <button onClick={startRename} role='menuitem' type='button'>
-            Rename…
-          </button>
-          <button onClick={toggleContextArchive} role='menuitem' type='button'>
-            {contextSessionArchived ? 'Restore from archive' : 'Archive session'}
-          </button>
+          {showMoveTargets
+            ? (
+              <>
+                <button
+                  autoFocus
+                  className='session-context-menu-back'
+                  onClick={() => setShowMoveTargets(false)}
+                  role='menuitem'
+                  type='button'
+                >
+                  ← Move to worktree
+                </button>
+                {contextMoveTargets.map((workspace) => (
+                  <button
+                    key={workspace.path}
+                    onClick={() => moveToWorktree(workspace.path)}
+                    role='menuitem'
+                    type='button'
+                  >
+                    {workspace.branch ?? workspace.path.split(/[\\/]/).filter(Boolean).at(-1)
+                      ?? workspace.path}
+                    {workspace.main && <span className='session-context-menu-tag'>main</span>}
+                  </button>
+                ))}
+              </>
+            )
+            : (
+              <>
+                <button
+                  autoFocus
+                  disabled={!contextSessionCanPin}
+                  onClick={toggleContextPin}
+                  role='menuitem'
+                  type='button'
+                >
+                  {contextSessionPinned ? 'Unpin from project' : 'Pin to project'}
+                </button>
+                <button onClick={startRename} role='menuitem' type='button'>
+                  Rename…
+                </button>
+                {contextCanMove && (
+                  <button
+                    onClick={() => setShowMoveTargets(true)}
+                    role='menuitem'
+                    type='button'
+                  >
+                    Move to worktree…
+                  </button>
+                )}
+                <button onClick={toggleContextArchive} role='menuitem' type='button'>
+                  {contextSessionArchived ? 'Restore from archive' : 'Archive session'}
+                </button>
+              </>
+            )}
         </div>
       )}
       {renameTarget && (

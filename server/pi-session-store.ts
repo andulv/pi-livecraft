@@ -1,32 +1,19 @@
 import { createReadStream } from 'node:fs'
 import { readdir, open, readFile, realpath, stat } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { createInterface } from 'node:readline'
 import { isAbsolute, join, relative, sep } from 'node:path'
 import type { RecentSession } from '../shared/types.ts'
 import { isObject } from '../shared/is-object.ts'
 import { shubMarkerFromEntry } from '../shared/shub-agent-session.ts'
 import { fallbackSessionTitle } from '../shared/session-title.ts'
-import { workspaceSessionFolderName } from '../shared/pi-session-paths.ts'
+import {
+  resolvePiSessionDirectory,
+  sessionDirectory,
+  workspaceSessionDir,
+} from './pi-session-directory.ts'
 import { measureOperation } from './features/diagnostics/operations.ts'
 
-const sessionDirectory = resolvePiSessionDirectory(process.env, homedir())
-
-/** Resolves Pi's session storage using its configured profile before the default profile. */
-export function resolvePiSessionDirectory(
-  environment: { PI_CODING_AGENT_SESSION_DIR?: string; PI_CODING_AGENT_DIR?: string },
-  homeDirectory: string,
-): string {
-  return environment.PI_CODING_AGENT_SESSION_DIR
-    ?? (environment.PI_CODING_AGENT_DIR
-      ? join(environment.PI_CODING_AGENT_DIR, 'sessions')
-      : join(homeDirectory, '.pi', 'agent', 'sessions'))
-}
-
-/** Absolute path of the folder Pi uses for one workspace's sessions. */
-export function workspaceSessionDir(cwd: string, baseDir: string): string {
-  return join(baseDir, workspaceSessionFolderName(cwd))
-}
+export { resolvePiSessionDirectory, workspaceSessionDir }
 
 interface PiSessionHeader {
   type: 'session'

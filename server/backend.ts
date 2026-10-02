@@ -747,6 +747,23 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     return
   }
 
+  if (method === 'POST' && url.pathname === '/api/sessions/move') {
+    const body = await readJsonBody(request)
+    if (typeof body.sessionPath !== 'string' || typeof body.targetCwd !== 'string')
+      throw new HttpError(400, 'Session path and target worktree are required')
+    const session = await loadPiSession(body.sessionPath)
+    const targetCwd = await resolveWorkingDirectory(body.targetCwd)
+    if (session.cwd === targetCwd)
+      throw new HttpError(400, 'Session already belongs to this worktree')
+    const moved = await manager.request({
+      action: 'move',
+      sessionPath: session.sessionPath,
+      targetCwd,
+    })
+    sendJson(response, 200, moved)
+    return
+  }
+
   if (method === 'POST' && url.pathname === '/api/sessions') {
     const body = await readJsonBody(request)
     const cwd = await resolveWorkingDirectory(typeof body.cwd === 'string' ? body.cwd : '~/.pi')

@@ -501,6 +501,7 @@ function LivecraftProjectApp(
     refreshSessions,
     removePendingRequest,
     retainNewSession,
+    moveManagedSession,
     renameManagedSession,
     renameSession,
     selectCreatedSession,
@@ -1697,6 +1698,7 @@ function LivecraftProjectApp(
           if (pin) viewerState.handlePinTab(`git:${commitHash ?? 'working-tree'}:${path}`)
         }}
         onRenameSession={renameManagedSession}
+        onMoveSession={moveManagedSession}
         onResize={updateWorkspaceSidebarWidth}
         onToggleCollapsed={toggleWorkspaceSidebar}
         onToggleProjectPin={toggleProjectPin}

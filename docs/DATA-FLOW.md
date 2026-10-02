@@ -47,7 +47,7 @@ What runs when something happens. "Per tab" work is repeated by every open Livec
 | The project registry loads or the project changes | `projects:discovery`, `projects:activity` | Per tab: one Git project per registered project, then one recent-sessions scan per worktree of every project. |
 | Session selected | `snapshot:selection`, `environment:selection` | Per tab: a full snapshot and the environment report. |
 | Tab becomes visible after missed events, or SSE reconnects | `snapshot:visible`, `snapshot:reconnect` | Per tab: a delta snapshot reconciliation. |
-| Session starts, is renamed, closed, or a dialog closes | `sessions:session-started`, `sessions:rename`, `sessions:close`, `sessions:dialog-*` | Live session list + recent-sessions scan. |
+| Session starts, is renamed, moved to another worktree, closed, or a dialog closes | `sessions:session-started`, `sessions:rename`, `sessions:move`, `sessions:close`, `sessions:dialog-*` | Live session list + recent-sessions scan. A move scans both the source and destination worktree. |
 | Git widget action or manual refresh | `git:after-*`, `git:manual` | The action, then one Git snapshot. |
 | Pinned sessions load or manual refresh | `pins:mount`, `pins:manual` | One session-file read per pin. |
 | A dialog response, composer command, or `/agent` activation completes | `snapshot:dialog-response`, `snapshot:composer-command`, `snapshot:agent-activated` | One snapshot for the affected session. |
@@ -65,7 +65,7 @@ client logs) share whatever remains and queue when none is free.
 | Stream | Route | Held by |
 |---|---|---|
 | Manager events | `GET /api/events` | every open tab, always |
-| Browser frames | `GET /api/browser/instances/:id/frames` — or one WebSocket per viewer (`.../socket`, enabled per view with `?browserTransport=ws`; outside the HTTP pool) | every visible tab showing the Browser pane; hidden tabs close it |
+| Browser frames and input | one WebSocket per viewer (`.../socket`; outside the HTTP pool) | every visible tab showing the Browser pane; hidden tabs close it |
 | Terminal output | `GET /api/terminal/instances/:id/stream` | every tab showing an embedded terminal |
 
 Three tabs that each show the Browser pane hold all six connections, and every other

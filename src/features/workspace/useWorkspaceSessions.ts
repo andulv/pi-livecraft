@@ -4,6 +4,7 @@ import {
   getGitProject,
   listRecentSessions,
   listSessions,
+  moveSession as moveStoredSession,
   openSession as requestOpenSession,
   renameSession as renameStoredSession,
   resolveSessions,
@@ -598,6 +599,22 @@ export function useWorkspaceSessions(
     [refreshSessions],
   )
 
+  /** Relocates a session to another worktree, reopening it there when it was the open one. */
+  const moveManagedSession = useCallback(
+    async (target: SessionActionTarget, targetCwd: string): Promise<void> => {
+      if (!target.sessionPath) throw new Error('Session path is unavailable')
+      const active = sessionsRef.current.find((session) =>
+        session.sessionPath === target.sessionPath && session.status !== 'exited'
+      )
+      const wasSelected = active !== undefined && selectedIdRef.current === active.id
+      const moved = await moveStoredSession(target.sessionPath, targetCwd)
+      await refreshSessions('sessions:move', target.cwd)
+      await refreshSessions('sessions:move', moved.cwd)
+      if (wasSelected) await openPinnedSession({ cwd: moved.cwd, sessionPath: moved.sessionPath })
+    },
+    [openPinnedSession, refreshSessions],
+  )
+
   /** Stops a managed process, keeps its persisted history, and selects a nearby active session. */
   const closeManagedSession = useCallback(async (sessionId: string): Promise<void> => {
     const nextId = selectedIdRef.current === sessionId
@@ -678,6 +695,7 @@ export function useWorkspaceSessions(
     creatingSession,
     isRefreshingSessions,
     markSessionCompleted,
+    moveManagedSession,
     openPinnedSession,
     pinnedSessions,
     projectWorkspaces,

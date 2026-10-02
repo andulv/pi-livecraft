@@ -10,6 +10,7 @@ import { realpath, stat } from 'node:fs/promises'
 import { createServer, type Socket } from 'node:net'
 import { JsonLineDecoder, encodeJsonLine } from './jsonl.ts'
 import { PiProcess, terminateAllPiProcesses } from './pi-process.ts'
+import { movePiSession } from './pi-session-move.ts'
 import {
   generateProjectMap,
   improvementDirectionInstruction,
@@ -141,7 +142,8 @@ async function handleRequest(socket: Socket, value: unknown): Promise<void> {
 
 async function executeRequest(socket: Socket, value: ManagerRequest): Promise<void> {
   const tracksActivity = value.action === 'create' || value.action === 'open'
-    || value.action === 'close' || value.action === 'rename' || value.action === 'command'
+    || value.action === 'close' || value.action === 'rename' || value.action === 'move'
+    || value.action === 'command'
     || value.action === 'improve_prompt' || value.action === 'run_prompt'
   if (tracksActivity) activeRequests += 1
   try {
@@ -170,6 +172,7 @@ async function executeRequest(socket: Socket, value: ManagerRequest): Promise<vo
     else if (value.action === 'open') data = await openSession(value)
     else if (value.action === 'close') data = await closeSession(value)
     else if (value.action === 'rename') data = await renameSession(value)
+    else if (value.action === 'move') data = await moveSession(value)
     else if (value.action === 'improve_prompt') data = await improvePrompt(value)
     else if (value.action === 'run_prompt') data = await runPrompt(value)
     else data = await sendCommand(value)
@@ -343,6 +346,43 @@ async function renameSession(request: ManagerRequest): Promise<{ name: string }>
   } finally {
     await pi.terminate()
   }
+}
+
+/**
+ * Relocates a session to another worktree. A live process is stopped first — Pi appends to
+ * the file while running and bakes its cwd into the spawn — then the storage layer moves the
+ * file and rewrites its header. Active work blocks the move so nothing in flight is lost.
+ */
+async function moveSession(
+  request: ManagerRequest,
+): Promise<{ sessionPath: string; cwd: string; wasLive: boolean }> {
+  if (typeof request.sessionPath !== 'string' || typeof request.targetCwd !== 'string')
+    throw new Error('Session path and target worktree are required')
+  const sessionPath = request.sessionPath
+
+  const managed = [...sessions.values()].find((session) =>
+    session.summary.sessionPath === sessionPath && session.summary.status !== 'exited'
+  )
+  const wasLive = managed !== undefined
+  if (managed) {
+    if (managed.switching) throw new Error('Pi session is switching')
+    const running = piHasActiveWork(await requestPi(managed, { type: 'get_state' }, 5_000))
+    if (running || managed.pendingUi.size > 0)
+      throw new Error('Finish or stop the session before moving it to another worktree')
+    await managed.pi.terminate()
+    if ((managed.summary.status as SessionSummary['status']) !== 'exited') {
+      managed.summary.status = 'exited'
+      broadcast({
+        kind: 'event',
+        event: 'session_exited',
+        sessionId: managed.summary.id,
+        data: { reason: 'moved' },
+      })
+    }
+  }
+
+  const moved = await movePiSession(sessionPath, request.targetCwd)
+  return { ...moved, wasLive }
 }
 
 /** Keeps three workspace sessions alive and reuses only long-idle processes. */
@@ -690,7 +730,8 @@ function respond(socket: Socket, response: ManagerResponse): void {
 function isManagerRequest(value: unknown): value is ManagerRequest {
   if (!isObject(value) || typeof value.id !== 'string') return false
   return value.action === 'list' || value.action === 'create' || value.action === 'open'
-    || value.action === 'close' || value.action === 'rename' || value.action === 'command'
+    || value.action === 'close' || value.action === 'rename' || value.action === 'move'
+    || value.action === 'command'
     || value.action === 'improve_prompt' || value.action === 'run_prompt'
     || value.action === 'status' || value.action === 'restart' || value.action === 'diagnostics'
 }
