@@ -122,7 +122,10 @@ async function scanRecentPiSessions(cwd: string, directory: string): Promise<Rec
       const group = session.shubAgent !== undefined ? shubChildren : ordinary
       group.push(session)
     }
-    if (ordinary.length >= batchSize) break
+    // Both result groups are capped at MAX_SESSIONS downstream, so once each holds enough,
+    // reading older candidates (and whole-file usage scans for children) is pure waste —
+    // this is what keeps a cold scan of a folder with many child runs bounded.
+    if (ordinary.length >= MAX_SESSIONS && shubChildren.length >= MAX_SESSIONS) break
   }
 
   const newest = (sessions: RecentSession[]): RecentSession[] =>

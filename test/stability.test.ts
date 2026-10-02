@@ -72,7 +72,7 @@ test('records how long an events stream lived and who closed it', () => {
   assert.deepEqual(closes[0]?.fields, {
     lifetimeMs: 4_200,
     reason: 'transport-closed',
-    open: { 'events': 0, 'browser-frames': 0, 'browser-socket': 0, 'terminal': 0 },
+    open: { 'events': 0, 'browser-socket': 0, 'terminal': 0 },
   })
 
   const terminal = new FakeResponse()

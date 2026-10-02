@@ -83,7 +83,6 @@ export class StabilityMonitor {
   readonly #now: () => number
   readonly #open: Record<StabilityStreamKind, number> = {
     'events': 0,
-    'browser-frames': 0,
     'browser-socket': 0,
     'terminal': 0,
   }
@@ -183,8 +182,7 @@ export class StabilityMonitor {
   }
 
   #totalOpen(): number {
-    return this.#open['events'] + this.#open['browser-frames'] + this.#open['browser-socket']
-      + this.#open['terminal']
+    return this.#open['events'] + this.#open['browser-socket'] + this.#open['terminal']
   }
 
   /** Converts per-instance cumulative counters into this window's frames, bytes, and states. */

@@ -174,8 +174,7 @@ function StabilitySection({ stability }: { stability: StabilitySnapshot }) {
   if (!latest) return null
   const worstLoopMs = Math.max(...stability.recent.map((window) => window.loopMaxMs))
   const streams = stability.streams
-  const openStreams = streams['events'] + streams['browser-frames'] + streams['browser-socket']
-    + streams['terminal']
+  const openStreams = streams['events'] + streams['browser-socket'] + streams['terminal']
   const fps = Math.round(latest.browser.frames / (stability.windowMs / 1000))
   return (
     <section className='diagnostics-section'>
@@ -189,8 +188,8 @@ function StabilitySection({ stability }: { stability: StabilitySnapshot }) {
           Open streams
         </span>
         <code>
-          {openStreams} (e{streams['events']}/f{streams['browser-frames']}
-          /w{streams['browser-socket']}/t{streams['terminal']}) · peak {stability.peakStreams}
+          {openStreams} (e{streams['events']}/w{streams['browser-socket']}
+          /t{streams['terminal']}) · peak {stability.peakStreams}
         </code>
         <span title='Shared-browser screencast in the latest window'>Browser capture</span>
         <code>{fps} fps · {latest.browser.viewers} viewers</code>

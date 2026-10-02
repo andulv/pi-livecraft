@@ -12,7 +12,7 @@ const maxRecentEvents = 100
 const maxRecentStages = 50
 const emptyStability: StabilitySnapshot = {
   windowMs: 0,
-  streams: { 'events': 0, 'browser-frames': 0, 'browser-socket': 0, 'terminal': 0 },
+  streams: { 'events': 0, 'browser-socket': 0, 'terminal': 0 },
   peakStreams: 0,
   recent: [],
 }
