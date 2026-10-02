@@ -41,12 +41,7 @@ import {
   parseBrowserViewport,
 } from './features/browser/browser-session.ts'
 import { BrowserService, parseBrowserId } from './features/browser/browser-service.ts'
-import {
-  parseTerminalId,
-  parseTerminalInput,
-  parseTerminalResize,
-  TerminalService,
-} from './features/terminal/session.ts'
+import { parseTerminalId, TerminalService } from './features/terminal/session.ts'
 import {
   DiagnosticsRecorder,
   type SnapshotStageMeasurement,
@@ -55,13 +50,14 @@ import { StabilityMonitor } from './features/diagnostics/stability.ts'
 import { createRequestGuard, isJsonContentType } from './request-guard.ts'
 import { WebSocketServer } from 'ws'
 import { attachViewerSocket } from './features/browser/viewer-socket.ts'
+import { attachTerminalSocket } from './features/terminal/socket.ts'
 import {
   operationLedger,
   operationRouteTemplate,
   parseOperationAnomaly,
 } from './features/diagnostics/operations.ts'
 import { MetadataCache } from './features/session-metadata/metadata-cache.ts'
-import { openSseStream, parseSseLastEventId } from './sse-response.ts'
+import { parseSseLastEventId } from './sse-response.ts'
 import {
   openVSCodeApplication,
   readWorkspaceTitleBarColor,
@@ -223,37 +219,61 @@ const server = createServer((request, response) => {
     .finally(() => operationLedger.closeRequest(operations))
 })
 
-/** Browser viewer sockets: binary frames to the tab, ordered input from it. */
+/** Viewer sockets: binary frames and ordered input for the browser pane. */
 const viewerSockets = new WebSocketServer({
   noServer: true,
   perMessageDeflate: false,
   maxPayload: 64 * 1024,
 })
+/** Terminal viewer sockets: ordered lossless output, input, and resize. */
+const terminalSockets = new WebSocketServer({
+  noServer: true,
+  perMessageDeflate: false,
+  maxPayload: 64 * 1024,
+})
+
 server.on('upgrade', (request, socket, head) => {
   const url = new URL(request.url ?? '/', `http://${host}`)
   const rejection = requestGuard.upgradeViolation({
     host: request.headers.host,
     origin: headerValue(request.headers.origin),
   })
-  const match = url.pathname.match(/^\/api\/browser\/instances\/([^/]+)\/socket$/)
-  if (rejection || !match) {
-    appLog.requestError('browser/instances/:id/socket', 403)
+  const browserMatch = url.pathname.match(/^\/api\/browser\/instances\/([^/]+)\/socket$/)
+  const terminalMatch = url.pathname.match(/^\/api\/terminal\/instances\/([^/]+)\/socket$/)
+  if (rejection || (!browserMatch && !terminalMatch)) {
+    if (url.pathname.endsWith('/socket')) appLog.requestError('socket', 403)
     socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n')
     socket.destroy()
     return
   }
-  const browserId = parseBrowserId(decodeURIComponent(match[1] ?? ''))
   void (async () => {
     try {
-      if (!browserId) throw new HttpError(400, 'A valid browser ID is required')
       const workspacePath = await resolveBrowserWorkspace(url.searchParams.get('workspacePath'))
-      const browserSession = browsers.session(workspacePath, browserId)
-      viewerSockets.handleUpgrade(request, socket, head, (ws) => {
-        stability.trackStream('browser-socket', ws)
-        attachViewerSocket(ws, browserSession)
+      if (browserMatch) {
+        const browserId = parseBrowserId(decodeURIComponent(browserMatch[1] ?? ''))
+        if (!browserId) throw new HttpError(400, 'A valid browser ID is required')
+        const browserSession = browsers.session(workspacePath, browserId)
+        viewerSockets.handleUpgrade(request, socket, head, (ws) => {
+          stability.trackStream('browser-socket', ws)
+          attachViewerSocket(ws, browserSession)
+        })
+        return
+      }
+      const terminalId = parseTerminalId(decodeURIComponent(terminalMatch![1] ?? ''))
+      if (!terminalId) throw new HttpError(400, 'A valid terminal ID is required')
+      const terminalSession = terminals.session(workspacePath, terminalId)
+      if (!terminalSession) throw new HttpError(429, 'Too many terminal sessions')
+      terminalSockets.handleUpgrade(request, socket, head, (ws) => {
+        stability.trackStream('terminal', ws)
+        attachTerminalSocket(ws, terminalSession, {
+          lastEventId: parseSseLastEventId(url.searchParams.get('lastEventId')),
+        })
       })
-    } catch {
-      socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n')
+    } catch (error) {
+      const status = error instanceof HttpError && error.status === 429 ? 429 : 403
+      const reason = status === 429 ? '429 Too Many Requests' : '403 Forbidden'
+      appLog.requestError('socket', status)
+      socket.write(`HTTP/1.1 ${reason}\r\nConnection: close\r\n\r\n`)
       socket.destroy()
     }
   })()
@@ -1081,14 +1101,14 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
   }
 
   const terminalInstanceMatch = url.pathname.match(
-    /^\/api\/terminal\/instances\/([^/]+)\/(status|stream|start|stop|input|resize)$/,
+    /^\/api\/terminal\/instances\/([^/]+)\/(status|start|stop)$/,
   )
   if (terminalInstanceMatch) {
     const terminalId = parseTerminalId(decodeURIComponent(terminalInstanceMatch[1]))
     if (!terminalId) throw new HttpError(400, 'A valid terminal ID is required')
     const action = terminalInstanceMatch[2]
 
-    if (method === 'GET' && (action === 'status' || action === 'stream')) {
+    if (method === 'GET' && action === 'status') {
       const workspacePath = await resolveBrowserWorkspace(
         url.searchParams.get('workspacePath'),
       )
@@ -1096,27 +1116,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       if (!terminalSession) {
         throw new HttpError(429, 'Too many terminal sessions for this workspace')
       }
-      if (action === 'status') {
-        sendJson(response, 200, terminalSession.status())
-        return
-      }
-      const stream = openSseStream(response)
-      stability.trackStream('terminal', response)
-      const lastEventId = parseSseLastEventId(request.headers['last-event-id'])
-        ?? parseSseLastEventId(url.searchParams.get('lastEventId'))
-      for (const item of terminalSession.replay(lastEventId)) {
-        stream.writeEvent(item.name, item.json, item.id)
-      }
-      const subscription = terminalSession.subscribe((event, json, id) => {
-        if (!stream.writeEvent(event, json, id)) subscription.setCongested(true)
-      })
-      const drain = (): void => subscription.setCongested(false)
-      response.on('drain', drain)
-      request.on('close', () => {
-        subscription.setCongested(false)
-        subscription.unsubscribe()
-        response.off('drain', drain)
-      })
+      sendJson(response, 200, terminalSession.status())
       return
     }
 
@@ -1138,20 +1138,6 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       if (action === 'stop') {
         terminalSession.stop()
         sendJson(response, 200, { ok: true })
-        return
-      }
-      if (action === 'input') {
-        const data = parseTerminalInput(body)
-        if (data === null) throw new HttpError(400, 'Invalid terminal input payload')
-        terminalSession.write(data)
-        sendJson(response, 200, { ok: true })
-        return
-      }
-      if (action === 'resize') {
-        const resize = parseTerminalResize(body)
-        if (!resize) throw new HttpError(400, 'A valid terminal size is required')
-        terminalSession.resize(resize.cols, resize.rows)
-        sendJson(response, 200, terminalSession.status())
         return
       }
     }

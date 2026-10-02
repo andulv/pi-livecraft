@@ -689,50 +689,10 @@ function terminalInstanceUrl(target: TerminalInstanceTarget, action?: string): s
   return action ? `${base}/${action}` : base
 }
 
-/** One-in-flight sender that preserves submission order and coalesces a backlog. */
-export interface OrderedSender {
-  send(data: string): void
-}
-
-/** Creates a sender that keeps one POST in flight and merges bytes queued behind it. */
-export function createOrderedSender(post: (data: string) => Promise<unknown>): OrderedSender {
-  let queued = ''
-  let sending = false
-  const pump = (): void => {
-    if (sending || queued === '') return
-    const batch = queued
-    queued = ''
-    sending = true
-    void post(batch).catch(() => {}).finally(() => {
-      sending = false
-      pump()
-    })
-  }
-  return {
-    send(data) {
-      if (!data) return
-      queued += data
-      pump()
-    },
-  }
-}
-
-const terminalSenders = new Map<string, OrderedSender>()
-
-function terminalSender(target: TerminalInstanceTarget): OrderedSender {
-  const key = `${target.workspacePath}\u0000${target.terminalId}`
-  let sender = terminalSenders.get(key)
-  if (!sender) {
-    sender = createOrderedSender((data) =>
-      request<void>(terminalInstanceUrl(target, 'input'), {
-        method: 'POST',
-        body: JSON.stringify({ workspacePath: target.workspacePath, data }),
-      })
-    )
-    terminalSenders.set(key, sender)
-  }
-  return sender
-}
+/** Input and resize senders for open terminal viewer sockets, keyed per target. */
+const terminalSocketSenders = new Map<string, { send(message: Record<string, unknown>): void }>()
+/** Keystrokes typed while the socket reconnects wait here, oldest first. */
+const terminalSendBufferLimit = 64
 
 export type BrowserStreamState = 'connecting' | 'connected' | 'stale'
 
@@ -758,12 +718,11 @@ interface BrowserViewerSocket {
   close(): void
 }
 
-function openBrowserViewerSocket(url: string): BrowserViewerSocket {
-  const socket = new (globalThis as unknown as {
+function openTabWebSocket(url: string): BrowserViewerSocket {
+  return new (globalThis as unknown as {
     WebSocket: new(url: string) => BrowserViewerSocket
   })
     .WebSocket(url)
-  return socket
 }
 
 /** Subscribes to one browser instance's livecast frame, url, and status streams. */
@@ -792,7 +751,7 @@ function subscribeBrowserSocket(
   const open = (): void => {
     if (disposed || !location) return
     const scheme = location.protocol === 'https:' ? 'wss' : 'ws'
-    const ws = openBrowserViewerSocket(
+    const ws = openTabWebSocket(
       `${scheme}://${location.host}${browserInstanceUrl(target, 'socket')}?${
         browserWorkspaceQuery(target)
       }`,
@@ -879,9 +838,13 @@ function subscribeBrowserSocket(
   }
 }
 
-/** Forwards typed bytes in order; a backlog of keystrokes merges into the next POST. */
+/**
+ * Forwards typed bytes to the terminal over its viewer socket. While the socket
+ * reconnects, keystrokes wait in a bounded queue and flush in order on reopen; beyond the
+ * bound the newest keystrokes win (a stale backlog of half a command is worse than a gap).
+ */
 export function sendTerminalInput(target: TerminalInstanceTarget, data: string): void {
-  terminalSender(target).send(data)
+  terminalSocketSenders.get(terminalSenderKey(target))?.send({ type: 'input', data })
 }
 
 /** Fire-and-forget resize; the latest size wins and races with input are harmless. */
@@ -890,11 +853,11 @@ export function resizeTerminal(
   cols: number,
   rows: number,
 ): void {
-  void request<void>(terminalInstanceUrl(target, 'resize'), {
-    method: 'POST',
-    body: JSON.stringify({ workspacePath: target.workspacePath, cols, rows }),
-  })
-    .catch(() => {})
+  terminalSocketSenders.get(terminalSenderKey(target))?.send({ type: 'resize', cols, rows })
+}
+
+function terminalSenderKey(target: TerminalInstanceTarget): string {
+  return `${target.workspacePath}\0${target.terminalId}`
 }
 
 export interface TerminalStreamHandlers {
@@ -902,73 +865,98 @@ export interface TerminalStreamHandlers {
   onStatus: (status: TerminalSessionStatus) => void
 }
 
-/** Validates a raw SSE data field into the base64 output payload it carries. Pure. */
-export function parseTerminalOutputPayload(data: string): string | null {
-  try {
-    const value: unknown = JSON.parse(data)
-    return isObject(value) && typeof value.data === 'string' ? value.data : null
-  } catch {
-    return null
-  }
+/** Validates one terminal output message from the socket. Pure. */
+export function parseTerminalOutputMessage(value: unknown): { id: number; data: string } | null {
+  return isObject(value) && value.type === 'output' && typeof value.id === 'number'
+      && Number.isSafeInteger(value.id) && value.id >= 0 && typeof value.data === 'string'
+    ? { id: value.id, data: value.data }
+    : null
 }
 
-/** Subscribes to one terminal's output stream, resuming from the last seen id on reopen. */
+/** Subscribes to one terminal's output socket, resuming from the last seen id on reopen. */
 export function subscribeTerminalOutput(
   target: TerminalInstanceTarget,
   handlers: TerminalStreamHandlers,
 ): () => void {
-  let lastSeenId: number | undefined
   let disposed = false
-  let reopenTimer: ReturnType<typeof setTimeout> | null = null
-  let source: EventSource | null = null
+  let lastSeenId: number | undefined
+  let retryMs = 500
+  let reopenTimer: ReturnType<typeof setTimeout> | undefined
+  let socket: BrowserViewerSocket | undefined
+  const queue: Array<Record<string, unknown>> = []
+  const key = terminalSenderKey(target)
+
+  const send = (message: Record<string, unknown>): void => {
+    if (socket?.readyState === 1) {
+      socket.send(JSON.stringify(message))
+      return
+    }
+    queue.push(message)
+    if (queue.length > terminalSendBufferLimit) queue.shift()
+  }
+  terminalSocketSenders.set(key, { send })
+
+  const flush = (): void => {
+    if (socket?.readyState !== 1) return
+    for (const message of queue) socket.send(JSON.stringify(message))
+    queue.length = 0
+  }
+
+  const location = (globalThis as { location?: { protocol: string; host: string } }).location
   const open = (): void => {
-    if (disposed) return
-    // EventSource reconnects on its own carrying the Last-Event-ID header; the
-    // query covers a deliberate reopen after the stream reached CLOSED state.
+    if (disposed || !location) return
+    const scheme = location.protocol === 'https:' ? 'wss' : 'ws'
     const query = lastSeenId === undefined
       ? `workspacePath=${encodeURIComponent(target.workspacePath)}`
       : `workspacePath=${encodeURIComponent(target.workspacePath)}&lastEventId=${lastSeenId}`
-    source = trackStream(
-      'terminal',
-      new EventSource(`${terminalInstanceUrl(target, 'stream')}?${query}`),
+    const ws = openTabWebSocket(
+      `${scheme}://${location.host}${terminalInstanceUrl(target, 'socket')}?${query}`,
     )
-    source.addEventListener('output', (event) => {
-      const rawId = (event as MessageEvent).lastEventId
-      const parsed = Number(rawId)
-      if (rawId !== '' && Number.isSafeInteger(parsed) && parsed >= 0) lastSeenId = parsed
-      const data = (event as { data?: unknown }).data
-      if (typeof data !== 'string') return
-      const payload = parseTerminalOutputPayload(data)
-      if (payload !== null) handlers.onOutput(payload)
-    })
-    source.addEventListener('status', (event) => {
-      const data = (event as { data?: unknown }).data
-      if (typeof data !== 'string') return
+    socket = ws
+    trackedStreams.set(ws, 'terminal')
+    ws.onopen = () => {
+      retryMs = 500
+      flush()
+    }
+    ws.onmessage = ({ data }) => {
+      if (disposed || typeof data !== 'string') return
+      let value: unknown
       try {
-        const value: unknown = JSON.parse(data)
-        if (isObject(value) && typeof value.state === 'string') {
-          handlers.onStatus(value as unknown as TerminalSessionStatus)
-        }
+        value = JSON.parse(data)
       } catch {
-        // Ignore malformed stream payloads.
+        return
       }
-    })
-    source.onerror = () => {
-      if (source && source.readyState === EventSource.CLOSED) {
-        void postClientLog('sse-drop', `terminal stream closed; ${connectionLoad()}`)
-        source.close()
-        source = null
-        reopenTimer = setTimeout(open, 500)
-        void postClientLog('sse-reopen', 'terminal stream reopen scheduled')
+      if (!isObject(value)) return
+      if (value.type === 'status' && isObject(value.status)) {
+        handlers.onStatus(value.status as unknown as TerminalSessionStatus)
+        return
       }
+      const output = parseTerminalOutputMessage(value)
+      if (output) {
+        lastSeenId = output.id
+        handlers.onOutput(output.data)
+      }
+    }
+    ws.onclose = ({ code }) => {
+      trackedStreams.delete(ws)
+      void postClientLog(
+        'sse-drop',
+        `terminal socket closed (code ${code}); ${connectionLoad()}`,
+      )
+      if (disposed) return
+      socket = undefined
+      const delay = retryMs + Math.floor(Math.random() * 100)
+      retryMs = Math.min(retryMs * 2, 30_000)
+      reopenTimer = setTimeout(open, delay)
     }
   }
   open()
+
   return () => {
     disposed = true
-    if (reopenTimer !== null) clearTimeout(reopenTimer)
-    source?.close()
-    source = null
+    if (reopenTimer !== undefined) clearTimeout(reopenTimer)
+    terminalSocketSenders.delete(key)
+    socket?.close()
   }
 }
 

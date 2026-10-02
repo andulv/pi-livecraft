@@ -66,12 +66,11 @@ client logs) share whatever remains and queue when none is free.
 |---|---|---|
 | Manager events | `GET /api/events` | every open tab, always |
 | Browser frames and input | one WebSocket per viewer (`.../socket`; outside the HTTP pool) | every visible tab showing the Browser pane; hidden tabs close it |
-| Terminal output | `GET /api/terminal/instances/:id/stream` | every tab showing an embedded terminal |
+| Terminal output, input, and resize | one WebSocket per viewer (`.../socket`; outside the HTTP pool) | every tab showing an embedded terminal |
 
-Three tabs that each show the Browser pane hold all six connections, and every other
-request from any of them waits indefinitely — a view stuck loading its snapshot is the
-expected symptom. A new long-lived stream therefore needs a strong reason; prefer carrying
-its events on an existing stream. The [stability monitor](/server/features/diagnostics/README.md#stability-monitor)
+Today only `/api/events` remains on HTTP: one connection per tab, which the pool absorbs.
+A new long-lived stream therefore needs a strong reason; prefer carrying its events on an
+existing socket. The [stability monitor](/server/features/diagnostics/README.md#stability-monitor)
 reports open streams by kind, and client drop and stall reports include each tab's own load.
 
 ## Measured hotspots

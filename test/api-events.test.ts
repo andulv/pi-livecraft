@@ -6,6 +6,8 @@ import {
   sendBrowserInput,
   subscribeBrowserEvents,
   subscribeManagerEvents,
+  subscribeTerminalOutput,
+  sendTerminalInput,
 } from '../src/api.ts'
 
 test('parses a valid manager event', () => {
@@ -313,4 +315,89 @@ test('rejects malformed or unknown manager events', () => {
       .stringify({ kind: 'event', event: 'pi', sessionId: 'session-1', sequence: -1 })),
     null,
   )
+})
+
+test('terminal viewer socket resumes from the last id and buffers input while closed', async () => {
+  class FakeWebSocket {
+    static latest: FakeWebSocket | undefined
+    readyState = 0
+    binaryType = 'blob'
+    onopen: (() => void) | null = null
+    onclose: ((event: { code: number }) => void) | null = null
+    onmessage: ((event: { data: unknown }) => void) | null = null
+    readonly sent: string[] = []
+    readonly url: string
+
+    constructor(url: string) {
+      this.url = url
+      FakeWebSocket.latest = this
+    }
+
+    send(data: string): void {
+      this.sent.push(data)
+    }
+
+    close(): void {
+      this.readyState = 3
+      this.onclose?.({ code: 1000 })
+    }
+  }
+
+  const originalWebSocket = (globalThis as { WebSocket?: unknown }).WebSocket
+  const originalLocation = (globalThis as { location?: unknown }).location
+  const originalFetch = globalThis.fetch
+  ;(globalThis as { WebSocket?: unknown }).WebSocket = FakeWebSocket
+  ;(globalThis as { location?: unknown }).location = {
+    protocol: 'http:',
+    host: '127.0.0.1:5173',
+  }
+  globalThis.fetch = (async () => new Response(null, { status: 202 })) as typeof fetch
+
+  try {
+    const outputs: string[] = []
+    const target = { terminalId: 'main', workspacePath: '/workspace' }
+    const unsubscribe = subscribeTerminalOutput(target, {
+      onOutput: (base64) => outputs.push(base64),
+      onStatus: () => undefined,
+    })
+
+    // Reopen after a seen id resumes from the exclusive offset.
+    const first = FakeWebSocket.latest!
+    assert.equal(
+      first.url,
+      'ws://127.0.0.1:5173/api/terminal/instances/main/socket?workspacePath=%2Fworkspace',
+    )
+    first.onmessage?.({
+      data: JSON.stringify({ type: 'output', id: 41, data: 'aGk=' }),
+    })
+    assert.deepEqual(outputs, ['aGk='])
+
+    first.close()
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    // Input typed while reconnecting waits in the bounded queue.
+    sendTerminalInput(target, 'ls\r')
+    assert.deepEqual(first.sent, [])
+
+    // The backoff-scheduled reopen creates a fresh socket that resumes from the last id.
+    let second = FakeWebSocket.latest!
+    const startedAt = Date.now()
+    while (second === first && Date.now() - startedAt < 2000) {
+      await new Promise<void>((resolve) => setImmediate(resolve))
+      second = FakeWebSocket.latest!
+    }
+    assert.notEqual(second, first)
+    second.readyState = 1
+    second.onopen?.()
+    assert.deepEqual(JSON.parse(second.sent[0]!), { type: 'input', data: 'ls\r' })
+    assert.match(
+      second.url,
+      /lastEventId=41$/,
+      'the reconnect resumes after the last seen output id',
+    )
+    unsubscribe()
+  } finally {
+    ;(globalThis as { WebSocket?: unknown }).WebSocket = originalWebSocket
+    ;(globalThis as { location?: unknown }).location = originalLocation
+    globalThis.fetch = originalFetch
+  }
 })
