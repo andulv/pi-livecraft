@@ -117,6 +117,12 @@ export interface GitRevertResult {
   hash: string
 }
 
+export interface GitWorktreeDeletion {
+  deleted: true
+  /** Branch removed with the worktree, or null when it was detached. */
+  branch: string | null
+}
+
 export interface GitOutgoingChanges {
   files: GitFileChange[]
 }

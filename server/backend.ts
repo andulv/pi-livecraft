@@ -8,6 +8,7 @@ import { ManagerRuntimeMonitor } from './manager-runtime-monitor.ts'
 import { listRecentPiSessions, loadPiSession, resolvePiSessions } from './pi-session-store.ts'
 import {
   commitChanges,
+  deleteWorktree,
   discardChanges,
   discardFileChanges,
   getGitCommitFiles,
@@ -693,6 +694,16 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
       throw new HttpError(400, 'Working directory and commit hash are required')
     const cwd = await resolveWorkingDirectory(body.cwd)
     sendJson(response, 200, await revertGitCommit(cwd, body.hash))
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/git/worktree/delete') {
+    const body = await readJsonBody(request)
+    if (typeof body.cwd !== 'string' || typeof body.worktreePath !== 'string')
+      throw new HttpError(400, 'Working directory and worktree path are required')
+    const cwd = await resolveWorkingDirectory(body.cwd)
+    const worktreePath = await resolveWorkingDirectory(body.worktreePath)
+    sendJson(response, 200, await deleteWorktree(cwd, worktreePath))
     return
   }
 

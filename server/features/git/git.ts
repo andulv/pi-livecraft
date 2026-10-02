@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { readFile, stat } from 'node:fs/promises'
+import { readFile, realpath, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type {
   GitCommitFiles,
@@ -13,6 +13,7 @@ import type {
   GitRevertResult,
   GitSnapshot,
   GitWorkspace,
+  GitWorktreeDeletion,
 } from '../../../shared/types.ts'
 import { measureOperation } from '../diagnostics/operations.ts'
 import { FreshRuns } from './fresh-runs.ts'
@@ -458,6 +459,48 @@ export async function revertGitCommit(cwd: string, hash: string): Promise<GitRev
 
   await runGit(cwd, ['revert', '--no-edit', hash])
   return { hash }
+}
+
+/**
+ * Removes a linked worktree and its branch, refusing when work could be lost. The worktree is
+ * deleted only when it has no uncommitted changes and no commits beyond the main checkout's
+ * branch (every commit is already merged into "master"). Git commands run from the main
+ * checkout so the worktree being removed is never the command's own directory.
+ */
+export async function deleteWorktree(
+  cwd: string,
+  worktreePath: string,
+): Promise<GitWorktreeDeletion> {
+  const project = await getGitProject(cwd)
+  if (!project) throw new Error('The current directory is not a Git repository.')
+
+  const canonicalTarget = await realpath(worktreePath)
+  const workspaces = await Promise.all(
+    project.workspaces.map(async (workspace) => ({
+      workspace,
+      path: await realpath(workspace.path).catch(() => workspace.path),
+    })),
+  )
+  const target = workspaces.find((entry) => entry.path === canonicalTarget)?.workspace
+  if (!target) throw new Error('That worktree is not part of this repository.')
+  if (target.main) throw new Error('The main worktree cannot be deleted.')
+
+  const snapshot = await getGitSnapshot(worktreePath)
+  if (snapshot.files.length > 0)
+    throw new Error('This worktree has uncommitted changes. Commit or discard them first.')
+  if (!snapshot.baseBranch)
+    throw new Error('Cannot verify this worktree is merged into the main branch.')
+  if (snapshot.baseAhead > 0) {
+    const plural = snapshot.baseAhead === 1 ? 'commit' : 'commits'
+    throw new Error(
+      `This worktree has ${snapshot.baseAhead} ${plural} not merged into ${snapshot.baseBranch}.`,
+    )
+  }
+
+  const mainPath = workspaces.find((entry) => entry.workspace.main)?.path ?? cwd
+  await runGit(mainPath, ['worktree', 'remove', canonicalTarget])
+  if (target.branch) await runGit(mainPath, ['branch', '-D', target.branch])
+  return { deleted: true, branch: target.branch }
 }
 
 /** Commits all current changes with the given message. */

@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict'
 import { execFile as execFileCallback } from 'node:child_process'
-import { mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { mkdtemp, readFile, realpath, rm, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import test from 'node:test'
 import {
   commitChanges,
+  deleteWorktree,
   discardChanges,
   discardFileChanges,
   getGitCommitFiles,
@@ -551,5 +553,66 @@ test('concurrent snapshots of one checkout share a single six-process read', asy
     assert.ok(snapshots.every((snapshot) => snapshot === snapshots[0]))
   } finally {
     await rm(directory, { force: true, recursive: true })
+  }
+})
+
+/** Creates a repository on `main` with one clean linked worktree on a `feature` branch. */
+async function repoWithWorktree(): Promise<{ main: string; worktree: string }> {
+  const main = await realpath(await mkdtemp(join(tmpdir(), 'pi-livecraft-wt-main-')))
+  const worktree = join(main, 'feature-tree')
+  await execFile('git', ['init', '--quiet'], { cwd: main })
+  await execFile('git', ['config', 'user.email', 'test@example.com'], { cwd: main })
+  await execFile('git', ['config', 'user.name', 'Test User'], { cwd: main })
+  await writeFile(join(main, 'tracked.ts'), 'content\n')
+  await execFile('git', ['add', 'tracked.ts'], { cwd: main })
+  await execFile('git', ['commit', '--quiet', '-m', 'Initial commit'], { cwd: main })
+  await execFile('git', ['branch', '-M', 'main'], { cwd: main })
+  await execFile('git', ['worktree', 'add', '--quiet', '-b', 'feature', worktree], { cwd: main })
+  return { main, worktree }
+}
+
+test('deletes a clean, merged worktree and its branch', async () => {
+  const { main, worktree } = await repoWithWorktree()
+  try {
+    const result = await deleteWorktree(main, worktree)
+    assert.deepEqual(result, { deleted: true, branch: 'feature' })
+    assert.equal(existsSync(worktree), false)
+    const branches = await execFile('git', ['branch', '--format=%(refname:short)'], { cwd: main })
+    assert.equal(branches.stdout.split('\n').includes('feature'), false)
+  } finally {
+    await rm(main, { force: true, recursive: true })
+  }
+})
+
+test('refuses to delete a worktree with uncommitted changes', async () => {
+  const { main, worktree } = await repoWithWorktree()
+  try {
+    await writeFile(join(worktree, 'tracked.ts'), 'edited\n')
+    await assert.rejects(() => deleteWorktree(main, worktree), /uncommitted changes/)
+    assert.equal(existsSync(worktree), true)
+  } finally {
+    await rm(main, { force: true, recursive: true })
+  }
+})
+
+test('refuses to delete a worktree with commits not merged into the main branch', async () => {
+  const { main, worktree } = await repoWithWorktree()
+  try {
+    await writeFile(join(worktree, 'feature.ts'), 'feature\n')
+    await execFile('git', ['add', 'feature.ts'], { cwd: worktree })
+    await execFile('git', ['commit', '--quiet', '-m', 'Feature commit'], { cwd: worktree })
+    await assert.rejects(() => deleteWorktree(main, worktree), /not merged into main/)
+    assert.equal(existsSync(worktree), true)
+  } finally {
+    await rm(main, { force: true, recursive: true })
+  }
+})
+
+test('refuses to delete the main worktree', async () => {
+  const { main } = await repoWithWorktree()
+  try {
+    await assert.rejects(() => deleteWorktree(main, main), /main worktree cannot be deleted/)
+  } finally {
+    await rm(main, { force: true, recursive: true })
   }
 })

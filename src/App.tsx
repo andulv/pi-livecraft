@@ -3,6 +3,7 @@ import './App.css'
 import {
   commitChanges,
   createSession,
+  deleteWorktree,
   discardChanges,
   getGitCommitFiles,
   getGitFileDiff,
@@ -1649,6 +1650,16 @@ function LivecraftProjectApp(
             workspace.main,
           )
             .catch((cause) => showToast('error', messageOf(cause)))
+        }}
+        onDeleteWorktree={async (workspace) => {
+          const mainPath = projectWorkspaces[project.root]
+            ?.workspaces
+            .find(({ main }) => main)
+            ?.path ?? project.root
+          await deleteWorktree(mainPath, workspace.path)
+          if (workspacePath === workspace.path) selectWorkspace(mainPath)
+          retryProjectDiscovery()
+          showToast('notice', `Deleted worktree ${workspace.branch ?? workspace.path}`)
         }}
         onSelectWorkspace={selectWorkspace}
         onSelectSession={setSelectedId}

@@ -71,6 +71,7 @@ interface WorkspaceSidebarProps {
   onRefreshWorkspaces: () => void
   onOpenSession: (session: RecentSession) => Promise<void>
   onOpenVSCode: (workspace: GitWorkspace) => void
+  onDeleteWorktree: (workspace: GitWorkspace) => Promise<void>
   onSelectWorkspace: (path: string) => void
   onSelectSession: (sessionId: string) => void
   onOpenSettings: () => void
@@ -129,6 +130,7 @@ export function WorkspaceSidebar({
   onRefreshWorkspaces,
   onOpenSession,
   onOpenVSCode,
+  onDeleteWorktree,
   onSelectWorkspace,
   onSelectSession,
   onOpenSettings,
@@ -159,6 +161,7 @@ export function WorkspaceSidebar({
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [contextMenuPosition, setContextMenuPosition] = useState({ left: 0, top: 0 })
   const [workspaceMenu, setWorkspaceMenu] = useState<WorkspaceContextMenuState | null>(null)
+  const [workspaceDeleteConfirm, setWorkspaceDeleteConfirm] = useState(false)
   const [workspaceMenuPosition, setWorkspaceMenuPosition] = useState({ left: 0, top: 0 })
   const [renameTarget, setRenameTarget] = useState<SessionActionTarget | null>(null)
   const [showMoveTargets, setShowMoveTargets] = useState(false)
@@ -345,13 +348,16 @@ export function WorkspaceSidebar({
   useEffect(() => {
     if (!workspaceMenu) return
     const dismissOnPointerDown = (event: PointerEvent): void => {
-      if (!(event.target instanceof Node) || !workspaceMenuRef.current?.contains(event.target))
+      if (!(event.target instanceof Node) || !workspaceMenuRef.current?.contains(event.target)) {
         setWorkspaceMenu(null)
+        setWorkspaceDeleteConfirm(false)
+      }
     }
     const dismissOnKeyDown = (event: globalThis.KeyboardEvent): void => {
       if (event.key !== 'Escape') return
       event.preventDefault()
       setWorkspaceMenu(null)
+      setWorkspaceDeleteConfirm(false)
       workspaceMenuTriggerRef.current?.focus()
     }
     document.addEventListener('pointerdown', dismissOnPointerDown)
@@ -375,6 +381,7 @@ export function WorkspaceSidebar({
     event.preventDefault()
     setContextMenu(null)
     setSessionListMenuOpen(false)
+    setWorkspaceDeleteConfirm(false)
     workspaceMenuTriggerRef.current = event.currentTarget
     setWorkspaceMenu({ workspace, x: event.clientX, y: event.clientY })
   }
@@ -384,6 +391,14 @@ export function WorkspaceSidebar({
     const { workspace } = workspaceMenu
     setWorkspaceMenu(null)
     onOpenVSCode(workspace)
+  }
+
+  function confirmDeleteWorktree(): void {
+    if (!workspaceMenu) return
+    const { workspace } = workspaceMenu
+    setWorkspaceMenu(null)
+    setWorkspaceDeleteConfirm(false)
+    void onDeleteWorktree(workspace).catch(onError)
   }
 
   function openContextMenu(
@@ -979,6 +994,39 @@ export function WorkspaceSidebar({
           <button autoFocus onClick={openWorkspaceVSCode} role='menuitem' type='button'>
             Open in VS Code
           </button>
+          {!workspaceMenu.workspace.main && (
+            workspaceDeleteConfirm
+              ? (
+                <>
+                  <button
+                    className='session-context-menu-back'
+                    onClick={() => setWorkspaceDeleteConfirm(false)}
+                    role='menuitem'
+                    type='button'
+                  >
+                    ← Delete worktree
+                  </button>
+                  <button
+                    className='danger'
+                    onClick={confirmDeleteWorktree}
+                    role='menuitem'
+                    type='button'
+                  >
+                    Delete {workspaceMenu.workspace.branch ?? 'worktree'}
+                  </button>
+                </>
+              )
+              : (
+                <button
+                  className='danger'
+                  onClick={() => setWorkspaceDeleteConfirm(true)}
+                  role='menuitem'
+                  type='button'
+                >
+                  Delete worktree…
+                </button>
+              )
+          )}
         </div>
       )}
       {contextMenu && (

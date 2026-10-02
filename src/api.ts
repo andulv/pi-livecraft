@@ -21,6 +21,7 @@ import type {
   GitResetResult,
   GitRevertResult,
   GitSnapshot,
+  GitWorktreeDeletion,
   JsonObject,
   ManagerEvent,
   PromptTemplate,
@@ -399,6 +400,16 @@ export async function revertGitCommit(cwd: string, hash: string): Promise<GitRev
   return request<GitRevertResult>('/api/git/revert', {
     method: 'POST',
     body: JSON.stringify({ cwd, hash }),
+  })
+}
+
+export async function deleteWorktree(
+  cwd: string,
+  worktreePath: string,
+): Promise<GitWorktreeDeletion> {
+  return request<GitWorktreeDeletion>('/api/git/worktree/delete', {
+    method: 'POST',
+    body: JSON.stringify({ cwd, worktreePath }),
   })
 }
 
