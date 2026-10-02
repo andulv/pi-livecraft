@@ -21,6 +21,7 @@ import type {
   GitResetResult,
   GitRevertResult,
   GitSnapshot,
+  GitWorktreeCreation,
   GitWorktreeDeletion,
   JsonObject,
   ManagerEvent,
@@ -410,6 +411,16 @@ export async function deleteWorktree(
   return request<GitWorktreeDeletion>('/api/git/worktree/delete', {
     method: 'POST',
     body: JSON.stringify({ cwd, worktreePath }),
+  })
+}
+
+export async function createWorktree(
+  cwd: string,
+  branch: string,
+): Promise<GitWorktreeCreation> {
+  return request<GitWorktreeCreation>('/api/git/worktree/create', {
+    method: 'POST',
+    body: JSON.stringify({ cwd, branch }),
   })
 }
 

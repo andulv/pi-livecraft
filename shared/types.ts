@@ -123,6 +123,12 @@ export interface GitWorktreeDeletion {
   branch: string | null
 }
 
+export interface GitWorktreeCreation {
+  /** Absolute path of the new worktree as Git reports it. */
+  path: string
+  branch: string
+}
+
 export interface GitOutgoingChanges {
   files: GitFileChange[]
 }

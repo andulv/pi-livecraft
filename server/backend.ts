@@ -8,6 +8,7 @@ import { ManagerRuntimeMonitor } from './manager-runtime-monitor.ts'
 import { listRecentPiSessions, loadPiSession, resolvePiSessions } from './pi-session-store.ts'
 import {
   commitChanges,
+  createWorktree,
   deleteWorktree,
   discardChanges,
   discardFileChanges,
@@ -724,6 +725,15 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     const cwd = await resolveWorkingDirectory(body.cwd)
     const worktreePath = await resolveWorkingDirectory(body.worktreePath)
     sendJson(response, 200, await deleteWorktree(cwd, worktreePath))
+    return
+  }
+
+  if (method === 'POST' && url.pathname === '/api/git/worktree/create') {
+    const body = await readJsonBody(request)
+    if (typeof body.cwd !== 'string' || typeof body.branch !== 'string')
+      throw new HttpError(400, 'Working directory and branch name are required')
+    const cwd = await resolveWorkingDirectory(body.cwd)
+    sendJson(response, 200, await createWorktree(cwd, body.branch))
     return
   }
 

@@ -491,6 +491,7 @@ function LivecraftProjectApp(
     archivedSessionPaths,
     completedSessionIds,
     creatingSession,
+    createWorktree,
     isRefreshingSessions,
     markSessionCompleted,
     openPinnedSession,
@@ -1673,6 +1674,10 @@ function LivecraftProjectApp(
           if (workspacePath === workspace.path) selectWorkspace(mainPath)
           retryProjectDiscovery()
           showToast('notice', `Deleted worktree ${workspace.branch ?? workspace.path}`)
+        }}
+        onCreateWorktree={async (branch) => {
+          await createWorktree(branch)
+          showToast('notice', `Created worktree ${branch}`)
         }}
         onSelectWorkspace={selectWorkspace}
         onSelectSession={setSelectedId}

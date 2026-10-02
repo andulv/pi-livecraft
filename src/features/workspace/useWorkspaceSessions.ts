@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   closeSession as requestCloseSession,
+  createWorktree as createStoredWorktree,
   getGitProject,
   listRecentSessions,
   listSessions,
@@ -409,6 +410,23 @@ export function useWorkspaceSessions(
       selectWorkspace(workspacePaths[0])
   }, [workspacePaths, selectWorkspace, workspacePath])
 
+  /**
+   * Creates a branch and worktree, then re-discovers the project and switches to the new
+   * worktree. Re-discovery runs before the switch so the valid-workspace guard above does not
+   * bounce the selection back to the main checkout before the worktree is known.
+   */
+  const createWorktree = useCallback(async (branch: string): Promise<void> => {
+    const mainPath = projectWorkspaces[project.root]?.workspaces.find(({ main }) => main)?.path
+      ?? project.root
+    const created = await createStoredWorktree(mainPath, branch)
+    const details = await getGitProject(project.root, 'projects:workspaces')
+    setProjectWorkspaces({ [project.root]: details })
+    const match = details.workspaces.find((workspace) =>
+      workspace.path === created.path || workspace.branch === created.branch
+    )
+    selectWorkspace(match?.path ?? created.path)
+  }, [project.root, projectWorkspaces, selectWorkspace])
+
   const rememberStartedSession = useCallback((session: SessionSummary): void => {
     const sessionPath = session.sessionPath
     if (!sessionPath) return
@@ -693,6 +711,7 @@ export function useWorkspaceSessions(
     closeManagedSession,
     completedSessionIds,
     creatingSession,
+    createWorktree,
     isRefreshingSessions,
     markSessionCompleted,
     moveManagedSession,

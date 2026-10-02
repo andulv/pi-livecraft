@@ -3,11 +3,12 @@ import { execFile as execFileCallback } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, realpath, rm, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import test from 'node:test'
 import {
   commitChanges,
+  createWorktree,
   deleteWorktree,
   discardChanges,
   discardFileChanges,
@@ -654,5 +655,50 @@ test('force-removes a clean worktree that contains an initialized submodule', as
     assert.equal(existsSync(worktree), false)
   } finally {
     await rm(root, { force: true, recursive: true })
+  }
+})
+
+test('creates a branch and worktree in the sibling worktrees group folder', async () => {
+  const main = await realpath(await mkdtemp(join(tmpdir(), 'pi-livecraft-create-wt-')))
+  try {
+    await execFile('git', ['init', '--quiet', main])
+    await execFile('git', ['config', 'user.email', 'test@example.com'], { cwd: main })
+    await execFile('git', ['config', 'user.name', 'Test User'], { cwd: main })
+    await execFile('git', ['commit', '--quiet', '--allow-empty', '-m', 'Initial commit'], {
+      cwd: main,
+    })
+    await execFile('git', ['branch', '-M', 'main'], { cwd: main })
+
+    const created = await createWorktree(main, 'feature/login')
+    const expectedPath = join(dirname(main), `${basename(main)}.worktrees`, 'feature-login')
+
+    assert.deepEqual(created, { path: expectedPath, branch: 'feature/login' })
+    assert.equal(existsSync(expectedPath), true)
+    const worktrees = await execFile('git', ['worktree', 'list', '--porcelain'], { cwd: main })
+    assert.ok(worktrees.stdout.includes(expectedPath))
+    assert.ok(worktrees.stdout.includes('branch refs/heads/feature/login'))
+  } finally {
+    await rm(dirname(main), { force: true, recursive: true }).catch(() => {})
+    await rm(main, { force: true, recursive: true })
+  }
+})
+
+test('surfaces Git\'s error when the branch already exists', async () => {
+  const main = await realpath(await mkdtemp(join(tmpdir(), 'pi-livecraft-create-wt-dup-')))
+  try {
+    await execFile('git', ['init', '--quiet', main])
+    await execFile('git', ['config', 'user.email', 'test@example.com'], { cwd: main })
+    await execFile('git', ['config', 'user.name', 'Test User'], { cwd: main })
+    await execFile('git', ['commit', '--quiet', '--allow-empty', '-m', 'Initial commit'], {
+      cwd: main,
+    })
+    await execFile('git', ['branch', '-M', 'main'], { cwd: main })
+    await execFile('git', ['branch', 'existing'], { cwd: main })
+
+    await assert.rejects(() => createWorktree(main, 'existing'), /already exists/)
+  } finally {
+    await rm(join(dirname(main), `${basename(main)}.worktrees`), { force: true, recursive: true })
+      .catch(() => {})
+    await rm(main, { force: true, recursive: true })
   }
 })

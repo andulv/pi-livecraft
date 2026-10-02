@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
-import { readFile, realpath, stat } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { mkdir, readFile, realpath, stat } from 'node:fs/promises'
+import { basename, dirname, join, resolve } from 'node:path'
 import type {
   GitCommitFiles,
   GitCommitSummary,
@@ -13,6 +13,7 @@ import type {
   GitRevertResult,
   GitSnapshot,
   GitWorkspace,
+  GitWorktreeCreation,
   GitWorktreeDeletion,
 } from '../../../shared/types.ts'
 import { measureOperation } from '../diagnostics/operations.ts'
@@ -507,6 +508,33 @@ export async function deleteWorktree(
   }
   if (target.branch) await runGit(mainPath, ['branch', '-D', target.branch])
   return { deleted: true, branch: target.branch }
+}
+
+/**
+ * Creates a new branch and a worktree for it, started from the main checkout's current HEAD.
+ * The worktree lives beside the repository in a `<repo>.worktrees/<branch>` group folder, so
+ * it never sits inside the main working tree. Git naming and collision errors surface verbatim.
+ */
+export async function createWorktree(
+  cwd: string,
+  branch: string,
+): Promise<GitWorktreeCreation> {
+  const project = await getGitProject(cwd)
+  if (!project) throw new Error('The current directory is not a Git repository.')
+  const mainPath = project.workspaces.find((workspace) => workspace.main)?.path ?? cwd
+
+  const name = branch.trim()
+  if (!name) throw new Error('A branch name is required.')
+  if (name.length > 200) throw new Error('The branch name is too long.')
+
+  const group = `${basename(mainPath)}.worktrees`
+  const folder = name.replace(/[/\\]+/g, '-')
+  const worktreePath = join(dirname(mainPath), group, folder)
+  await mkdir(dirname(worktreePath), { recursive: true })
+  // Default exit handling rejects on failure, so an existing branch, invalid name, or
+  // occupied path reaches the caller as Git's own message.
+  await runGit(mainPath, ['worktree', 'add', worktreePath, '-b', name])
+  return { path: worktreePath, branch: name }
 }
 
 /** Commits all current changes with the given message. */

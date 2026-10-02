@@ -32,6 +32,7 @@ import { aggregateSessionIndicator, sessionIndicator } from './session-indicator
 import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
 import { sidebarSessions, type SessionActionTarget } from './sidebar-sessions.ts'
 import { SessionRenameDialog } from './SessionRenameDialog.tsx'
+import { NewWorktreeDialog } from './NewWorktreeDialog.tsx'
 import { WorktreeDeleteErrorDialog } from './WorktreeDeleteErrorDialog.tsx'
 import { formatSessionTime } from './session-time.ts'
 import { maxWorkspaceSidebarWidth, minWorkspaceSidebarWidth } from './workspace-sidebar.ts'
@@ -73,6 +74,7 @@ interface WorkspaceSidebarProps {
   onOpenSession: (session: RecentSession) => Promise<void>
   onOpenVSCode: (workspace: GitWorkspace) => void
   onDeleteWorktree: (workspace: GitWorkspace) => Promise<void>
+  onCreateWorktree: (branch: string) => Promise<void>
   onSelectWorkspace: (path: string) => void
   onSelectSession: (sessionId: string) => void
   onOpenSettings: () => void
@@ -132,6 +134,7 @@ export function WorkspaceSidebar({
   onOpenSession,
   onOpenVSCode,
   onDeleteWorktree,
+  onCreateWorktree,
   onSelectWorkspace,
   onSelectSession,
   onOpenSettings,
@@ -166,6 +169,7 @@ export function WorkspaceSidebar({
   const [worktreeDeleteError, setWorktreeDeleteError] = useState<
     { label: string; message: string } | null
   >(null)
+  const [newWorktreeOpen, setNewWorktreeOpen] = useState(false)
   const [workspaceMenuPosition, setWorkspaceMenuPosition] = useState({ left: 0, top: 0 })
   const [renameTarget, setRenameTarget] = useState<SessionActionTarget | null>(null)
   const [showMoveTargets, setShowMoveTargets] = useState(false)
@@ -392,6 +396,11 @@ export function WorkspaceSidebar({
     const { workspace } = workspaceMenu
     setWorkspaceMenu(null)
     onOpenVSCode(workspace)
+  }
+
+  function openNewWorktree(): void {
+    setWorkspaceMenu(null)
+    setNewWorktreeOpen(true)
   }
 
   function confirmDeleteWorktree(): void {
@@ -1000,6 +1009,11 @@ export function WorkspaceSidebar({
           <button autoFocus onClick={openWorkspaceVSCode} role='menuitem' type='button'>
             Open in VS Code
           </button>
+          {workspaceMenu.workspace.main && (
+            <button onClick={openNewWorktree} role='menuitem' type='button'>
+              New worktree…
+            </button>
+          )}
           {!workspaceMenu.workspace.main && (
             workspaceDeleteConfirm
               ? (
@@ -1112,6 +1126,12 @@ export function WorkspaceSidebar({
           label={worktreeDeleteError.label}
           message={worktreeDeleteError.message}
           onClose={() => setWorktreeDeleteError(null)}
+        />
+      )}
+      {newWorktreeOpen && (
+        <NewWorktreeDialog
+          onClose={() => setNewWorktreeOpen(false)}
+          onConfirm={onCreateWorktree}
         />
       )}
     </aside>
