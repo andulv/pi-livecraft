@@ -1,4 +1,4 @@
-import type { GitWorkspace, RecentSession, SessionSummary } from '../../../shared/types.ts'
+import type { RecentSession, SessionSummary } from '../../../shared/types.ts'
 import { placeholderSessionTitle } from '../../../shared/session-title.ts'
 
 export interface SessionActionTarget {
@@ -16,29 +16,6 @@ export function shubAgentMarker(
   return recentSessions.find((recent) =>
     recent.sessionPath === session.sessionPath && recent.shubAgent !== undefined
   )
-}
-
-/** Returns the newest known activity across persisted and optimistic sessions in a workspace. */
-export function workspaceActivity(
-  workspacePath: string,
-  recentSessions: readonly RecentSession[],
-  sentSessions: readonly RecentSession[] = [],
-): number {
-  return [...recentSessions, ...sentSessions]
-    .filter(({ cwd, shubAgent }) => cwd === workspacePath && shubAgent === undefined)
-    .reduce((latest, { updatedAt }) => Math.max(latest, updatedAt), 0)
-}
-
-/** Keeps the primary checkout first, then orders linked worktrees by latest activity. */
-export function compareWorkspaces(
-  left: GitWorkspace,
-  right: GitWorkspace,
-  recentSessions: readonly RecentSession[],
-  sentSessions: readonly RecentSession[] = [],
-): number {
-  if (left.main !== right.main) return left.main ? -1 : 1
-  return workspaceActivity(right.path, recentSessions, sentSessions)
-    - workspaceActivity(left.path, recentSessions, sentSessions)
 }
 
 /**

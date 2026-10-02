@@ -30,7 +30,7 @@ import { PinnedSessionList } from './PinnedSessionList.tsx'
 import type { Project } from './projects.ts'
 import { aggregateSessionIndicator, sessionIndicator } from './session-indicator.ts'
 import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
-import { compareWorkspaces, sidebarSessions, type SessionActionTarget } from './sidebar-sessions.ts'
+import { sidebarSessions, type SessionActionTarget } from './sidebar-sessions.ts'
 import { SessionRenameDialog } from './SessionRenameDialog.tsx'
 import { formatSessionTime } from './session-time.ts'
 import { maxWorkspaceSidebarWidth, minWorkspaceSidebarWidth } from './workspace-sidebar.ts'
@@ -225,9 +225,8 @@ export function WorkspaceSidebar({
   const selectedWorkspace = workspaces.find(({ path }) => path === workspacePath)
   const selectedWorkspaceLabel = selectedWorkspace?.branch ?? workspacePath
   const mainWorkspace = workspaces.find(({ main }) => main)
-  const worktrees = [...workspaces]
-    .filter(({ main }) => !main)
-    .sort((left, right) => compareWorkspaces(left, right, recentSessions, sentSessions))
+  // Worktrees keep the project's stable listing order so selecting one never reorders the list.
+  const worktrees = workspaces.filter(({ main }) => !main)
   const currentBranch = selectedWorkspace?.branch
     ?? workspacePath.split(/[\\/]/).filter(Boolean).at(-1)
     ?? workspacePath
@@ -249,9 +248,7 @@ export function WorkspaceSidebar({
     contextSessionPath && archivedSessionPathSet.has(contextSessionPath),
   )
   const contextMoveTargets = contextMenu
-    ? [...workspaces]
-      .filter((workspace) => workspace.path !== contextMenu.target.cwd)
-      .sort((left, right) => compareWorkspaces(left, right, recentSessions, sentSessions))
+    ? workspaces.filter((workspace) => workspace.path !== contextMenu.target.cwd)
     : []
   const contextCanMove = Boolean(contextSessionPath) && contextMoveTargets.length > 0
 

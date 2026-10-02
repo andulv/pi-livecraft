@@ -2,13 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { RecentSession, SessionSummary } from '../shared/types.ts'
 import {
-  compareWorkspaces,
   shubAgentMarker,
   newestWorkspaceSession,
   reconcileSessionNames,
   reusableNewSession,
   sidebarSessions,
-  workspaceActivity,
 } from '../src/features/workspace/sidebar-sessions.ts'
 
 const persisted: RecentSession = {
@@ -110,34 +108,6 @@ test('does not include unowned or cross-workspace shub-agent children', () => {
     sidebarSessions([persisted, orphan, otherWorkspaceChild], '/workspace', [], true),
     [persisted],
   )
-})
-
-test('reports latest workspace activity from persisted and optimistic sessions', () => {
-  assert.equal(
-    workspaceActivity('/workspace', [{ ...persisted, updatedAt: 100 }], [
-      { ...persisted, id: 'pending', sessionPath: '/sessions/pending.jsonl', updatedAt: 200 },
-    ]),
-    200,
-  )
-  assert.equal(workspaceActivity('/other', [persisted]), 0)
-})
-
-test('keeps the main workspace above more recently active linked worktrees', () => {
-  const main = { path: '/workspace', branch: 'main', main: true }
-  const linked = { path: '/workspace-feature', branch: 'feature', main: false }
-  const recent = [{ ...persisted, cwd: linked.path, updatedAt: 200 }]
-
-  assert.equal(compareWorkspaces(main, linked, recent), -1)
-  assert.equal(compareWorkspaces(linked, main, recent), 1)
-})
-
-test('orders linked worktrees by their latest activity', () => {
-  const older = { path: '/workspace-old', branch: 'old', main: false }
-  const newer = { path: '/workspace-new', branch: 'new', main: false }
-  const recent = [{ ...persisted, cwd: newer.path, updatedAt: 200 }]
-
-  assert.equal(compareWorkspaces(newer, older, recent), -200)
-  assert.equal(compareWorkspaces(older, newer, recent), 200)
 })
 
 test('orders sessions by their latest activity', () => {
