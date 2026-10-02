@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   managerEventStreamState,
   parseManagerEvent,
+  sendBrowserInput,
   subscribeBrowserEvents,
   subscribeManagerEvents,
 } from '../src/api.ts'
@@ -220,64 +221,79 @@ test('reopens a closed manager stream and cancels a pending reopen on unsubscrib
   }
 })
 
-test('marks browser stream errors stale without automatic reconnect', async () => {
-  type Listener = (event: { data?: unknown }) => void
-  class FakeEventSource {
-    static latest: FakeEventSource | undefined
-    static instances = 0
-    onerror: ((event: Event) => void) | null = null
-    closed = false
-    readonly listeners = new Map<string, Listener[]>()
+test('browser viewer socket streams status, forwards input, and reports closes', async () => {
+  class FakeWebSocket {
+    static latest: FakeWebSocket | undefined
+    readyState = 0
+    binaryType = 'blob'
+    onopen: (() => void) | null = null
+    onclose: ((event: { code: number }) => void) | null = null
+    onmessage: ((event: { data: unknown }) => void) | null = null
+    readonly sent: string[] = []
     readonly url: string
 
     constructor(url: string) {
       this.url = url
-      FakeEventSource.latest = this
-      FakeEventSource.instances++
+      FakeWebSocket.latest = this
     }
 
-    addEventListener(name: string, listener: Listener): void {
-      this.listeners.set(name, [...(this.listeners.get(name) ?? []), listener])
-    }
-
-    emit(name: string, data: unknown): void {
-      for (const listener of this.listeners.get(name) ?? []) {
-        listener({ data: JSON.stringify(data) })
-      }
+    send(data: string): void {
+      this.sent.push(data)
     }
 
     close(): void {
-      this.closed = true
+      this.readyState = 3
+      this.onclose?.({ code: 1006 })
     }
   }
 
-  const originalEventSource = globalThis.EventSource
+  const originalWebSocket = (globalThis as { WebSocket?: unknown }).WebSocket
+  const originalLocation = (globalThis as { location?: unknown }).location
   const originalFetch = globalThis.fetch
-  globalThis.EventSource = FakeEventSource as unknown as typeof EventSource
-  globalThis.fetch = (async () => new Response(null, { status: 202 })) as typeof fetch
+  const logs: Array<{ source: string; message: string }> = []
+  ;(globalThis as { WebSocket?: unknown }).WebSocket = FakeWebSocket
+  ;(globalThis as { location?: unknown }).location = {
+    protocol: 'http:',
+    host: '127.0.0.1:5173',
+  }
+  globalThis.fetch = (async (_input, init) => {
+    logs.push(JSON.parse(String(init?.body)))
+    return new Response(null, { status: 202 })
+  }) as typeof fetch
 
   try {
-    const states: string[] = []
-    const unsubscribe = subscribeBrowserEvents(
-      { browserId: 'main', workspacePath: '/workspace' },
-      { onStreamState: (state) => states.push(state) },
+    const statuses: string[] = []
+    const target = { browserId: 'main', workspacePath: '/workspace' }
+    const unsubscribe = subscribeBrowserEvents(target, {
+      onStatus: (status) => statuses.push(status.state),
+    })
+    const ws = FakeWebSocket.latest!
+    assert.equal(
+      ws.url,
+      'ws://127.0.0.1:5173/api/browser/instances/main/socket?workspacePath=%2Fworkspace',
     )
-    const source = FakeEventSource.latest!
-    assert.deepEqual(states, ['connecting'])
 
-    source.emit('heartbeat', {})
-    assert.deepEqual(states, ['connecting', 'connected'])
+    ws.readyState = 1
+    ws.onopen?.()
+    ws.onmessage?.({ data: JSON.stringify({ type: 'status', status: { state: 'live' } }) })
+    assert.deepEqual(statuses, ['live'])
 
-    source.onerror?.(new Event('error'))
+    sendBrowserInput(target, { type: 'insertText', text: 'hi' })
+    assert.deepEqual(ws.sent, ['{"type":"input","event":{"type":"insertText","text":"hi"}}'])
+
+    ws.close()
     await new Promise<void>((resolve) => setImmediate(resolve))
-    assert.deepEqual(states, ['connecting', 'connected', 'stale'])
-    assert.equal(source.closed, true)
-    assert.equal(FakeEventSource.instances, 1)
+    const drops = logs.filter(({ source }) => source === 'sse-drop')
+    assert.equal(drops.length, 1)
+    assert.match(drops[0]!.message, /browser socket closed \(code 1006\); streams=/)
 
+    // Input after a close is dropped, and unsubscribing cancels the scheduled reconnect.
+    sendBrowserInput(target, { type: 'insertText', text: 'dropped' })
+    assert.equal(ws.sent.length, 1)
     unsubscribe()
-    assert.equal(source.url, '/api/browser/instances/main/frames?workspacePath=%2Fworkspace')
   } finally {
-    globalThis.EventSource = originalEventSource
+    ;(globalThis as { WebSocket?: unknown }).WebSocket = originalWebSocket
+    ;(globalThis as { location?: unknown }).location = originalLocation
     globalThis.fetch = originalFetch
   }
 })
