@@ -240,10 +240,17 @@
 .sidebar .widget-header {
   padding-top: 2px;
 }
-.sessions-heading-actions {
+/* The Sessions tab keeps its toolbar inside the panel like Files and Git: fixed
+   above the scrolling list, with the options menu anchored to this row. */
+.sessions-panel-actions {
+  position: relative;
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
+  justify-content: flex-end;
   gap: 2px;
+  border-bottom: 1px solid var(--line);
+  padding: 3px 4px;
 }
 .session-list-options {
   width: 24px;

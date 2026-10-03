@@ -454,8 +454,15 @@ export function WorkspaceSidebar({
             {gitChangeCount > 0 && <small>{gitChangeCount}</small>}
           </button>
         </div>
-        {openWorkspacePanel === 'sessions' && (
-          <div className='sessions-heading-actions'>
+      </div>
+      {openWorkspacePanel === 'sessions' && (
+        <section
+          aria-labelledby='workspace-sessions-tab'
+          className='workspace-view-panel'
+          id='workspace-sessions-panel'
+          role='tabpanel'
+        >
+          <div className='sessions-panel-actions'>
             <Tooltip label='Session list options'>
               <button
                 aria-expanded={sessionListMenuOpen}
@@ -519,15 +526,6 @@ export function WorkspaceSidebar({
               </button>
             </Tooltip>
           </div>
-        )}
-      </div>
-      {openWorkspacePanel === 'sessions' && (
-        <section
-          aria-labelledby='workspace-sessions-tab'
-          className='workspace-view-panel'
-          id='workspace-sessions-panel'
-          role='tabpanel'
-        >
           <nav
             aria-label={showArchivedSessions ? 'Pi sessions' : 'Recent Pi sessions'}
             className='session-list'
