@@ -1,6 +1,6 @@
 # Code and media viewer specification
 
-Status: **proposed** — for review before implementation.
+Status: **v1 implemented** — media viewers, sandboxed HTML/SVG preview, the raw route, and binary text rejection shipped (2026-10); the CodeMirror code surface, search, and LSP seams remain unimplemented.
 
 ## Goal
 
