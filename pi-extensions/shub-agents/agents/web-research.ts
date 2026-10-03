@@ -11,12 +11,12 @@ const parameters = Type.Object({
 
 export default defineSubagent<{ question: string }>({
   name: 'web_research',
-  description:
-    'Research current information on the public web and return a concise answer with verified source URLs.',
   promptSnippet: 'Research current public web information and return a cited answer',
   promptGuidelines: [
     'Use subagent_web_research for current facts, external documentation, releases, or public sources that require live verification.',
   ],
+  description:
+    'Research current information on the public web and return a concise answer with verified source URLs.',
   parameters,
   task: ({ question }) => question.trim(),
   systemPrompt:
@@ -25,7 +25,12 @@ export default defineSubagent<{ question: string }>({
 Answer directly, cite factual claims with numbered references, and finish with a Sources section containing the matching URLs. State material uncertainty or contradictions. Do not emit conversational preambles before tool calls.`,
   tools: ['bash', 'codex-research', 'codex-search'],
   extensions: [agentPackageEntry('pi-gpt-search', 'src/index.ts')],
-  models: ['openrouter/z-ai/glm-5.3-flash'],
+  models: [
+    'fireworks/accounts/fireworks/models/deepseek-v4p1-flash',
+    'fireworks/accounts/fireworks/models/glm-5p3-flash',
+    'openai-codex/gpt-6-luna',
+  ],
+  modelSelection: 'random',
   thinking: 'off',
   effort: {
     quick: { timeoutMs: 60_000, softToolCalls: 4, hardToolCalls: 6 },
