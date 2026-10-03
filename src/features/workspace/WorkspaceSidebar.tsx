@@ -148,6 +148,12 @@ export function WorkspaceSidebar({
   const [includeShubAgentSessions, setIncludeShubAgentSessions] = useState(false)
   const [startingNewSession, setStartingNewSession] = useState(false)
   const [openWorkspacePanel, setOpenWorkspacePanel] = useState<WorkspacePanel>('sessions')
+  const [filesWorkspace, setFilesWorkspace] = useState<string | null>(null)
+  useEffect(() => {
+    setFilesWorkspace((previous) =>
+      openWorkspacePanel === 'files' ? workspacePath : previous === workspacePath ? previous : null
+    )
+  }, [openWorkspacePanel, workspacePath])
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
   const contextMenuTriggerRef = useRef<HTMLButtonElement>(null)
@@ -637,8 +643,9 @@ export function WorkspaceSidebar({
           </nav>
         </section>
       )}
-      {openWorkspacePanel === 'files' && (
+      {(openWorkspacePanel === 'files' || filesWorkspace === workspacePath) && (
         <section
+          hidden={openWorkspacePanel !== 'files'}
           aria-labelledby='workspace-files-tab'
           className='workspace-view-panel'
           id='workspace-files-panel'

@@ -53,6 +53,7 @@ What runs when something happens. "Per tab" work is repeated by every open Livec
 | Pinned sessions load or manual refresh | `pins:mount`, `pins:manual` | One session-file read per pin. |
 | A dialog response, composer command, or `/agent` activation completes | `snapshot:dialog-response`, `snapshot:composer-command`, `snapshot:agent-activated` | One snapshot for the affected session. |
 | Quota or environment reports arrive from Pi, or the widgets load or act | `quotas:mount`, `quotas:manual`, `quotas:status-report`, `quotas:after-reset`, `environment:manual`, `environment:status-report` | Cached reports; a refresh sends one prompt command to an idle session. |
+| Files panel first opens in a workspace, folder first expands, or Explorer Refresh | — | Per tab: root listing on first open; one listing per first expansion (cached across panel switches and collapse/expand); Refresh rereads root and loaded surviving folders, following fresh parents. Failed reads retain old listings. |
 | Diagnostics or browser-debug widget open | — | Polls every 5 s (diagnostics; also reads the manager ledger) or every 2 s while visible (browser debug). |
 
 ## Long-lived connections

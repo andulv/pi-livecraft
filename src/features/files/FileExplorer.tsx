@@ -7,7 +7,13 @@ import {
   type TreeApi,
 } from 'react-arborist'
 import { listWorkspaceFiles } from '../../api.ts'
-import { buildFileTree, type DirectoryState, type ExplorerNode } from './file-tree-data.ts'
+import {
+  buildFileTree,
+  refreshDirectories,
+  survivingTreePath,
+  type DirectoryState,
+  type ExplorerNode,
+} from './file-tree-data.ts'
 
 const PinFileContext = createContext<(path: string) => void>(() => {})
 
@@ -22,6 +28,9 @@ export function FileExplorer({
 }) {
   const [directories, setDirectories] = useState<Record<string, DirectoryState>>({})
   const [filter, setFilter] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
+  const selectionAfterRefresh = useRef<string | null>(null)
   const [treeHeight, setTreeHeight] = useState(0)
   const treeContainerRef = useRef<HTMLDivElement>(null)
   const treeRef = useRef<TreeApi<ExplorerNode> | null>(null)
@@ -34,7 +43,8 @@ export function FileExplorer({
     if (!container) return
     const observer = new ResizeObserver(([entry]) => {
       const height = Math.round(entry.contentRect.height)
-      setTreeHeight((current) => current === height ? current : height)
+      // A hidden Files panel must not unmount its tree and lose Arborist state.
+      if (height > 0) setTreeHeight((current) => current === height ? current : height)
     })
     observer.observe(container)
     return () => observer.disconnect()
@@ -96,6 +106,41 @@ export function FileExplorer({
     }
   }
 
+  async function refresh(): Promise<void> {
+    if (refreshing || Object.values(directories).some((directory) => directory.loading)) return
+    setRefreshing(true)
+    setRefreshError(null)
+    const selectedPath = treeRef.current?.selectedIds.values().next().value ?? null
+    const result = await refreshDirectories(
+      directories,
+      async (path) => (await listWorkspaceFiles(workspacePath, path)).entries,
+    )
+    if (workspaceRef.current !== workspacePath) return
+    selectionAfterRefresh.current = selectedPath
+    setDirectories(result.directories)
+    setRefreshError(result.error)
+    setRefreshing(false)
+  }
+
+  useEffect(() => {
+    const tree = treeRef.current
+    if (!tree || refreshing) return
+    for (const path of Object.keys(tree.openState)) {
+      if (tree.openState[path] && !directories[path]) tree.close(path)
+    }
+    const previousSelection = selectionAfterRefresh.current
+    selectionAfterRefresh.current = null
+    if (!previousSelection) return
+    const selection = survivingTreePath(previousSelection, directories)
+    if (selection === previousSelection) return
+    tree.setSelection({
+      ids: selection ? [selection] : [],
+      anchor: selection,
+      mostRecent: selection,
+    })
+    if (selection) tree.focus(selection, { scroll: false })
+  }, [directories, refreshing])
+
   function activateNode(node: NodeApi<ExplorerNode>): void {
     if (node.data.kind === 'directory') node.toggle()
     else if (node.data.kind === 'file') onOpenFile(node.data.path)
@@ -117,14 +162,33 @@ export function FileExplorer({
 
   return (
     <section aria-label='Files' className='file-explorer'>
-      <input
-        aria-label='Filter files'
-        onChange={(event) => setFilter(event.target.value)}
-        placeholder='Filter files'
-        type='search'
-        value={filter}
-      />
+      <div className='file-explorer-toolbar'>
+        <input
+          aria-label='Filter files'
+          onChange={(event) => setFilter(event.target.value)}
+          placeholder='Filter files'
+          type='search'
+          value={filter}
+        />
+        <button
+          aria-label='Refresh files'
+          className='file-refresh'
+          disabled={refreshing || Object.values(directories).some((directory) => directory.loading)}
+          onClick={() => void refresh()}
+          title='Refresh files from disk'
+          type='button'
+        >
+          ↻
+        </button>
+      </div>
+      {refreshError && (
+        <p className='file-tree-status error' role='alert'>
+          Couldn’t refresh files: {refreshError}
+        </p>
+      )}
       <div
+        aria-busy={refreshing}
+        inert={refreshing}
         className='file-tree'
         onKeyDown={(event) => {
           if (event.key !== 'Enter' || event.defaultPrevented) return

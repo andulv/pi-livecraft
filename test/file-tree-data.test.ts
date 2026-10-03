@@ -1,6 +1,63 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildFileTree } from '../src/features/files/file-tree-data.ts'
+import {
+  buildFileTree,
+  refreshDirectories,
+  survivingTreePath,
+} from '../src/features/files/file-tree-data.ts'
+import type { DirectoryState } from '../src/features/files/file-tree-data.ts'
+
+test('refreshes loaded collapsed folders, prunes deleted trees, and falls back to a surviving parent', async () => {
+  const folder = (path: string) => ({ kind: 'directory' as const, name: path, path })
+  const state = (...entries: ReturnType<typeof folder>[]): DirectoryState => ({
+    entries,
+    loading: false,
+    error: null,
+  })
+  const previous = {
+    '': state(folder('src'), folder('gone')),
+    src: state(folder('src/nested')),
+    'src/nested': state(),
+    gone: state(folder('gone/child')),
+    'gone/child': state(),
+  }
+  const reads: string[] = []
+  const result = await refreshDirectories(previous, async (path) => {
+    reads.push(path)
+    if (path === '') return [folder('src'), folder('new')]
+    return []
+  })
+  assert.deepEqual(reads, ['', 'src'])
+  assert.deepEqual(Object.keys(result.directories), ['', 'src'])
+  assert.equal(result.error, null)
+  assert.equal(survivingTreePath('src/nested/file.txt', result.directories), 'src')
+  assert.equal(survivingTreePath('gone/child', result.directories), null)
+  assert.equal(survivingTreePath('new', result.directories), 'new')
+})
+
+test('failed refresh retains old listings and subtrees instead of implying deletion', async () => {
+  const previous: Record<string, DirectoryState> = {
+    '': { entries: [{ kind: 'directory', name: 'src', path: 'src' }], loading: false, error: null },
+    src: {
+      entries: [{ kind: 'directory', name: 'nested', path: 'src/nested' }],
+      loading: false,
+      error: null,
+    },
+    'src/nested': { entries: [], loading: false, error: null },
+  }
+  const result = await refreshDirectories(previous, async (path) => {
+    if (path === '') return previous['']!.entries
+    throw new Error('Unavailable')
+  })
+  assert.deepEqual(result.directories, previous)
+  assert.match(result.error!, /src: Unavailable/)
+  assert.equal(survivingTreePath('src/nested', result.directories), 'src/nested')
+  const rootFailure = await refreshDirectories(previous, async () => {
+    throw new Error('Offline')
+  })
+  assert.deepEqual(rootFailure.directories, previous)
+  assert.match(rootFailure.error!, /Workspace: Offline/)
+})
 
 test('keeps unloaded directories expandable and filters files at each loaded level', () => {
   const entries = [

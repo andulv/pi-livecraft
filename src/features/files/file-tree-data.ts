@@ -6,6 +6,54 @@ export interface DirectoryState {
   error: string | null
 }
 
+/** Reloads only previously loaded folders, following fresh parents so deleted trees
+ * are not read. Failed reads retain their old subtree rather than implying deletion. */
+export async function refreshDirectories(
+  previous: Readonly<Record<string, DirectoryState>>,
+  read: (path: string) => Promise<WorkspaceFileEntry[]>,
+): Promise<{ directories: Record<string, DirectoryState>; error: string | null }> {
+  const directories: Record<string, DirectoryState> = {}
+  const errors: string[] = []
+  async function visit(path: string): Promise<void> {
+    let entries: WorkspaceFileEntry[]
+    try {
+      entries = await read(path)
+      directories[path] = { entries, loading: false, error: null }
+    } catch (cause) {
+      errors.push(
+        `${path || 'Workspace'}: ${cause instanceof Error ? cause.message : String(cause)}`,
+      )
+      for (const [key, state] of Object.entries(previous)) {
+        if (path === '' || key === path || key.startsWith(`${path}/`)) directories[key] = state
+      }
+      return
+    }
+    await Promise.all(
+      entries
+        .filter((entry) => entry.kind === 'directory' && previous[entry.path])
+        .map((entry) => visit(entry.path)),
+    )
+  }
+  await visit('')
+  return { directories, error: errors.length ? errors.join('; ') : null }
+}
+
+/** Finds the nearest surviving selection without mistaking failed reads for deletion. */
+export function survivingTreePath(
+  path: string,
+  directories: Readonly<Record<string, DirectoryState>>,
+): string | null {
+  const paths = new Set(
+    Object.values(directories).flatMap((state) => state.entries.map((entry) => entry.path)),
+  )
+  while (path) {
+    if (paths.has(path)) return path
+    const slash = path.lastIndexOf('/')
+    path = slash < 0 ? '' : path.slice(0, slash)
+  }
+  return null
+}
+
 /** An empty children array keeps an unloaded directory expandable in Arborist. */
 export interface FileTreeNode extends WorkspaceFileEntry {
   id: string

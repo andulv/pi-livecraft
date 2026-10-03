@@ -228,6 +228,9 @@
   border-radius: 0 0 10px 10px;
   background: var(--accent-soft);
 }
+.workspace-view-panel[hidden] {
+  display: none;
+}
 /* Widgets hosted in the sidebar start close to the tab band; the right panel keeps
    its own calibration. */
 .sidebar .widget-header {
