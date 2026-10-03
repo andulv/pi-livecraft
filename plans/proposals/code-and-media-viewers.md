@@ -325,6 +325,10 @@ plain-text CodeViewer.
 - Preserve realpath-based workspace containment and the existing non-symlink listing
   behavior.
 - Raw previews never use `allowOutsideWorkspace`.
+- `/api/files/raw` passes through the request guard (`server/request-guard.ts`) like
+  every API route: the `Host` header must match an allowed application host on all
+  requests, and state-changing requests must carry a matching `Origin`. The raw route
+  is GET-only and must not be exempted from the guard.
 - MIME types come from the allow-list, never request parameters or browser sniffing.
 - Set `X-Content-Type-Options: nosniff` on raw responses.
 - Never return HTML or SVG from the same-origin raw route.
