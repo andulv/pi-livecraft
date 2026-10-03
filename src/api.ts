@@ -325,6 +325,32 @@ export async function openWorkspaceFile(cwd: string, path: string): Promise<void
   })
 }
 
+/**
+ * Fetches allow-listed preview media (images, PDFs) as a Blob, translating the
+ * backend's JSON error contract into an `Error` like `request` does.
+ */
+export async function getWorkspaceFileRaw(
+  cwd: string,
+  path: string,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const response = await fetch(
+    `/api/files/raw?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}`,
+    { signal },
+  )
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`
+    try {
+      const value: unknown = await response.json()
+      if (isObject(value) && typeof value.error === 'string') message = value.error
+    } catch {
+      // An error body without JSON keeps the status-based message.
+    }
+    throw new Error(message)
+  }
+  return response.blob()
+}
+
 export async function getWorkspaceFilePath(
   cwd: string,
   path: string,

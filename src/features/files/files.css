@@ -328,6 +328,53 @@
   tab-size: 2;
   white-space: pre;
 }
+/* Media and sandboxed markup previews fill the area below the header. The
+   wrapper centers images and lets oversized content scroll instead of
+   overflowing the pane. */
+.file-content-media {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+}
+.file-content-media img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.file-content-media iframe,
+.file-content-iframe {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: var(--surface-raised);
+}
+.file-content-status .file-open-external {
+  margin-left: 8px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--muted);
+  font: 650 10.5px ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+}
+.file-content-status .file-open-external:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.file-content-status .file-open-external:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.file-content-status .file-open-external:active:not(:disabled) {
+  transform: scale(0.97);
+}
 /* Rendered-vs-raw switch for Markdown files; mirrors the sidebar view tabs'
    soft-fill selection treatment. */
 .file-view-toggle {

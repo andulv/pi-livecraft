@@ -30,7 +30,7 @@ Costs are per request. "Cache" means server-side unless stated otherwise.
 | Session snapshot (`GET /api/sessions/:id/snapshot`) | `backend.ts`, `server/snapshot-requests.ts` | `get_state`, `get_entries`, `get_session_stats` always; models, commands, fork messages, thinking levels, and prompt templates when not cached | `MetadataCache`: 60 s TTL, 20 sessions LRU, in-flight sharing; per tab, one in-flight load per session plus delta reads with a `since` cursor | Session exit or reassignment, manager connect or disconnect, prompt-template save |
 | Quotas (`GET /api/quotas`, `POST /api/quotas/refresh`) | `server/features/quotas/` | `GET`: manager `list`; refresh: a `/livecraft-quotas` prompt command in Pi | Last valid report per provider; one refresh in flight | New report events from Pi |
 | Session environment (`GET /api/environment`, refresh) | `server/features/session-environment/` | `GET`: manager `list`; refresh: a `/livecraft-environment` prompt command | One report per session; one refresh in flight per session | New report events from Pi |
-| Workspace files and directories | `server/workspace-file.ts`, `listDirectories` in `backend.ts` | one `readdir`, or one `readFile` of at most 2 MiB | None | — |
+| Workspace files and directories | `server/workspace-file.ts`, `listDirectories` in `backend.ts` | one `readdir`, or one `readFile` of at most 2 MiB of text (binary content refused) or 25 MiB of allow-listed raw media | None | — |
 | Pi processes | `server/manager.ts`, `server/pi-process.ts` | one `pi --mode rpc` per new session beyond the pool, per temporary rename, and per isolated prompt | Process pool rules in the [manager lifecycle](/docs/MANAGER-LIFECYCLE.md#pi-process-allocation) | — |
 
 ## Triggers

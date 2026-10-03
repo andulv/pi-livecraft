@@ -67,6 +67,7 @@ import {
 import {
   listWorkspaceFiles,
   readWorkspaceFile,
+  readWorkspaceRawFile,
   resolveWorkspaceFilePath,
   WorkspaceFileError,
 } from './workspace-file.ts'
@@ -595,6 +596,28 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
           ? file
           : { absolutePath: file.path, path: await externalWorkspacePath(file.path) },
       )
+    } catch (error) {
+      if (error instanceof WorkspaceFileError) throw new HttpError(error.status, error.message)
+      throw error
+    }
+    return
+  }
+
+  if (method === 'GET' && url.pathname === '/api/files/raw') {
+    const cwd = await resolveWorkingDirectory(url.searchParams.get('cwd') ?? '~/.pi')
+    const path = url.searchParams.get('path')
+    if (!path) throw new HttpError(400, 'File path is required')
+    try {
+      const file = await readWorkspaceRawFile(cwd, path)
+      const filename = encodeURIComponent(file.path.split(/[\\/]/).at(-1) ?? 'file')
+      response.writeHead(200, {
+        'Content-Type': file.mimeType,
+        'Content-Length': file.bytes.length,
+        'Content-Disposition': `inline; filename*=UTF-8''${filename}`,
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+      })
+      response.end(file.bytes)
     } catch (error) {
       if (error instanceof WorkspaceFileError) throw new HttpError(error.status, error.message)
       throw error

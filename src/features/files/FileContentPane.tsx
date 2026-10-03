@@ -9,6 +9,8 @@ import { Markdown } from '../conversation/Markdown.tsx'
 import { BrowserView } from '../browser/BrowserView.tsx'
 import { TerminalView } from '../terminal/TerminalView.tsx'
 import { getWorkspaceFile } from '../../api.ts'
+import { classifyWorkspaceFilePreview } from '../../../shared/file-preview.ts'
+import { FilePreviewError, MediaFilePreview, SandboxedMarkupPreview } from './FilePreview.tsx'
 import { maxFilePaneShare, minFilePaneShare } from './file-pane-width.ts'
 import { parseGitDiff } from '../git/git-diff.ts'
 import type { GitDiffTab } from '../workspace/workspace-viewer-state.ts'
@@ -77,16 +79,25 @@ export function FileContentPane({
   workspacePath: string
 }) {
   const [files, setFiles] = useState<Record<string, FileState>>({})
-  const [viewRaw, setViewRaw] = useState(false)
+  const [rawByPath, setRawByPath] = useState<Record<string, boolean>>({})
   const filesRef = useRef(files)
   filesRef.current = files
+  const previewKind = activePath ? classifyWorkspaceFilePreview(activePath) : 'text'
 
   useEffect(() => {
     setFiles({})
+    setRawByPath({})
   }, [workspacePath])
 
   useEffect(() => {
-    if (!activePath || filesRef.current[activePath]) return
+    const kind = activePath ? classifyWorkspaceFilePreview(activePath) : 'text'
+    if (
+      !activePath
+      // Media is fetched as raw bytes by its own viewer, not as text.
+      || kind === 'image'
+      || kind === 'pdf'
+      || filesRef.current[activePath]
+    ) return
     let cancelled = false
     setFiles((current) => ({
       ...current,
@@ -118,7 +129,13 @@ export function FileContentPane({
 
   const activeFile = activePath ? files[activePath] : undefined
   const activeGitDiff = gitDiffTabs.find((tab) => tab.id === activeGitDiffId)
-  const isMarkdown = activePath !== null && /\.(md|markdown)$/i.test(activePath)
+  // HTML defaults to source: rendering project HTML without its scripts and
+  // relative assets is intentionally incomplete. SVG defaults to preview.
+  const viewRaw = activePath ? (rawByPath[activePath] ?? previewKind === 'html') : false
+
+  function setViewRaw(raw: boolean): void {
+    if (activePath) setRawByPath((current) => ({ ...current, [activePath]: raw }))
+  }
 
   /** Installs temporary listeners needed for pane pointer resizing. */
   function startResize(event: ReactPointerEvent<HTMLDivElement>): void {
@@ -348,45 +365,67 @@ export function FileContentPane({
           <div className='file-content'>
             <div className='file-content-header'>
               <span title={activePath}>{activePath}</span>
-              {isMarkdown && (
-                <div aria-label='Markdown display' className='file-view-toggle' role='group'>
+              {(previewKind === 'markdown' || previewKind === 'html' || previewKind === 'svg') && (
+                <div
+                  aria-label={previewKind === 'markdown' ? 'Markdown display' : 'Markup display'}
+                  className='file-view-toggle'
+                  role='group'
+                >
                   <button
                     aria-pressed={!viewRaw}
-                    onClick={() =>
-                      setViewRaw(false)}
+                    onClick={() => setViewRaw(false)}
                     type='button'
                   >
-                    Markdown
+                    {previewKind === 'markdown' ? 'Markdown' : 'Preview'}
                   </button>
                   <button
                     aria-pressed={viewRaw}
-                    onClick={() =>
-                      setViewRaw(true)}
+                    onClick={() => setViewRaw(true)}
                     type='button'
                   >
-                    Raw
+                    {previewKind === 'markdown' ? 'Raw' : 'Source'}
                   </button>
                 </div>
               )}
               <small>Read-only preview</small>
             </div>
-            {activeFile?.loading && <p className='file-content-status'>Loading file…</p>}
-            {activeFile?.error && <p className='file-content-status error'>{activeFile.error}</p>}
-            {activeFile && !activeFile.loading && !activeFile.error
-              && (isMarkdown && !viewRaw
-                ? (
-                  <div className='file-content-markdown'>
-                    <Markdown renderFrontmatter>{activeFile.content}</Markdown>
-                  </div>
-                )
-                : (
-                  <textarea
-                    aria-label={activePath}
-                    readOnly
-                    spellCheck={false}
-                    value={activeFile.content}
-                  />
-                ))}
+            {(previewKind === 'image' || previewKind === 'pdf')
+              ? (
+                <MediaFilePreview
+                  kind={previewKind}
+                  path={activePath}
+                  workspacePath={workspacePath}
+                />
+              )
+              : (
+                <>
+                  {activeFile?.loading && <p className='file-content-status'>Loading file…</p>}
+                  {activeFile?.error && (
+                    <FilePreviewError
+                      message={activeFile.error}
+                      path={activePath}
+                      workspacePath={workspacePath}
+                    />
+                  )}
+                  {activeFile && !activeFile.loading && !activeFile.error
+                    && (previewKind !== 'text' && !viewRaw
+                      ? previewKind === 'markdown'
+                        ? (
+                          <div className='file-content-markdown'>
+                            <Markdown renderFrontmatter>{activeFile.content}</Markdown>
+                          </div>
+                        )
+                        : <SandboxedMarkupPreview content={activeFile.content} path={activePath} />
+                      : (
+                        <textarea
+                          aria-label={activePath}
+                          readOnly
+                          spellCheck={false}
+                          value={activeFile.content}
+                        />
+                      ))}
+                </>
+              )}
           </div>
         )
         : (

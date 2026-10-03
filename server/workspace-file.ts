@@ -1,8 +1,18 @@
 import { readdir, readFile, realpath, stat } from 'node:fs/promises'
 import { isAbsolute, relative, resolve } from 'node:path'
+import { rawPreviewMimeTypes } from '../shared/file-preview.ts'
 import type { WorkspaceFile, WorkspaceFileEntry, WorkspaceFileListing } from '../shared/types.ts'
 
 const maxWorkspaceFileSize = 2 * 1024 * 1024
+const maxRawPreviewFileSize = 25 * 1024 * 1024
+/** How many leading bytes are inspected before serving content as text. */
+const binaryPrefixLength = 8000
+
+export interface WorkspaceRawFile {
+  path: string
+  mimeType: string
+  bytes: Buffer
+}
 
 export class WorkspaceFileError extends Error {
   readonly status: number
@@ -75,7 +85,7 @@ export async function listWorkspaceFiles(
   return { path: pathFromRoot, entries }
 }
 
-/** Reads an existing text file within the working directory. */
+/** Reads an existing text file within the working directory, refusing binary content. */
 export async function readWorkspaceFile(
   workspacePath: string,
   requestedPath: string,
@@ -83,6 +93,27 @@ export async function readWorkspaceFile(
   const path = await resolveWorkspaceFilePath(workspacePath, requestedPath)
   const file = await stat(path)
   if (file.size > maxWorkspaceFileSize) throw new WorkspaceFileError('File exceeds 2 MiB', 413)
+  const bytes = await readFile(path)
+  if (bytes.subarray(0, binaryPrefixLength).includes(0))
+    throw new WorkspaceFileError('File is binary and has no text preview', 415)
 
-  return { path, content: await readFile(path, 'utf8') }
+  return { path, content: bytes.toString('utf8') }
+}
+
+/**
+ * Reads an existing media file as raw bytes for previewing. Only extensions in
+ * the shared allow-list are served; SVG and HTML are deliberately absent so
+ * they never become a same-origin executable document.
+ */
+export async function readWorkspaceRawFile(
+  workspacePath: string,
+  requestedPath: string,
+): Promise<WorkspaceRawFile> {
+  const path = await resolveWorkspaceFilePath(workspacePath, requestedPath)
+  const extension = path.split(/[\\/]/).at(-1)?.split('.').at(-1)?.toLowerCase() ?? ''
+  const mimeType = rawPreviewMimeTypes[extension]
+  if (!mimeType) throw new WorkspaceFileError('Preview is not available for this file type', 415)
+  const file = await stat(path)
+  if (file.size > maxRawPreviewFileSize) throw new WorkspaceFileError('File exceeds 25 MiB', 413)
+  return { path, mimeType, bytes: await readFile(path) }
 }
