@@ -252,14 +252,42 @@
   border-bottom: 1px solid var(--line);
   padding: 3px 4px;
 }
+/* Sidebar toolbar controls are self-contained compact ghosts — they left the
+   section-heading button base and match the Files toolbar and .icon-button. */
 .session-list-options {
-  width: 24px;
-  padding: 0 !important;
-  font-size: 16px !important;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 17px;
   line-height: 1;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+.session-list-options:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.session-list-options:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.session-list-options:active:not(:disabled) {
+  transform: scale(0.97);
 }
 .session-list-options[aria-expanded="true"] {
-  border-color: var(--line-strong);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
   background: var(--accent-soft);
   color: var(--accent-hover);
 }
@@ -350,22 +378,26 @@
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
   padding: 0;
-  background: var(--accent-soft);
-  color: var(--accent-hover);
-  font-size: 16px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 17px;
   line-height: 1;
+  cursor: pointer;
   transition:
     background 180ms ease,
     border-color 180ms ease,
+    color 180ms ease,
     transform 180ms ease;
 }
 .new-session:hover:not(:disabled) {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  background: var(--accent-soft);
+  color: var(--accent-hover);
 }
 .new-session:active:not(:disabled) {
   transform: scale(0.97);
