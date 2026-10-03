@@ -2,9 +2,9 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
-  padding: 16px 12px 12px;
+  padding: 8px;
   overflow: hidden;
   border-right: 1px solid var(--panel-line);
   background: linear-gradient(
@@ -151,12 +151,16 @@
 .sidebar-list-heading > span {
   color: color-mix(in srgb, var(--secondary) 72%, var(--muted));
 }
-/* No border under the tab band: the selected tab stays open toward its panel. */
+/* No border under the tab band: the selected tab stays open toward its panel.
+   The band also drops the section-heading hairline: the app top bar's own
+   bottom divider already closes the space above the sidebar. */
 .workspace-view-heading {
   position: relative;
   z-index: 1;
   align-items: flex-end;
+  border-top: 0;
   container-type: inline-size;
+  padding-top: 0;
 }
 /* Folder-style tabs: bordered, top-rounded, and open toward the panel they select. */
 .workspace-view-tabs {
@@ -222,7 +226,7 @@
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  margin-top: -12px;
+  margin-top: -8px;
   border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line-strong));
   border-top: 0;
   border-radius: 0 0 10px 10px;
