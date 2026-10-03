@@ -14,8 +14,6 @@
   );
 }
 .sidebar.collapsed {
-  /* Keep the expand rail above the workspace's sticky top bar (z-index: 5). */
-  z-index: 6;
   width: 0;
   height: 0;
   padding: 0;
@@ -23,20 +21,8 @@
   border-right: 0;
   background: transparent;
 }
-.sidebar.collapsed > :not(.sidebar-rail) {
+.sidebar.collapsed > * {
   display: none;
-}
-.sidebar-rail {
-  position: absolute;
-  z-index: 3;
-  top: 12px;
-  left: 12px;
-  display: none;
-  width: auto;
-  align-items: center;
-}
-.sidebar.collapsed .sidebar-rail {
-  display: flex;
 }
 .sidebar-resize-handle {
   position: absolute;
@@ -69,172 +55,6 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
-/* The brand mark is the home control: it opens a small dropdown whose items
-   navigate to the projects overview. */
-.brand-menu {
-  position: relative;
-  flex: 0 0 auto;
-}
-.brand-menu-trigger {
-  border: 0;
-  border-radius: 10px;
-  padding: 0;
-  background: none;
-  cursor: pointer;
-}
-.brand-menu-trigger .brand-mark {
-  transition: box-shadow 180ms ease, transform 180ms ease;
-}
-.brand-menu-trigger:hover:not(:disabled) .brand-mark {
-  box-shadow: 0 2px 0 var(--accent-hover);
-  transform: translateY(-1px);
-}
-.brand-menu-trigger:active:not(:disabled) .brand-mark {
-  box-shadow: none;
-  transform: scale(0.97);
-}
-.brand-menu-trigger:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.brand-menu-list {
-  position: absolute;
-  z-index: 45;
-  top: calc(100% + 6px);
-  left: 0;
-  display: grid;
-  min-width: 210px;
-  gap: 2px;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  padding: 4px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-.brand-menu-list a {
-  display: flex;
-  align-items: center;
-  min-height: 32px;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  padding: 7px 9px;
-  color: var(--ink);
-  font-size: 12px;
-  text-decoration: none;
-  transition:
-    background 180ms ease,
-    border-color 180ms ease,
-    color 180ms ease,
-    transform 180ms ease;
-}
-.brand-menu-list a:hover,
-.brand-menu-list a:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
-  background: var(--accent-soft);
-  color: var(--accent-hover);
-  outline: 0;
-}
-.brand-menu-list a:active {
-  transform: scale(0.97);
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 2px;
-  padding: 2px 6px;
-}
-.brand-project {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  gap: 6px;
-  min-width: 0;
-}
-.settings-button,
-.sidebar-toggle {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 0;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition:
-    background 180ms ease,
-    border-color 180ms ease,
-    color 180ms ease,
-    transform 180ms ease,
-    box-shadow 180ms ease;
-}
-.settings-button:hover:not(:disabled),
-.sidebar-toggle:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--line-strong));
-  background: var(--accent-soft);
-  color: var(--accent-hover);
-  transform: translateY(-1px);
-}
-.settings-button:focus-visible,
-.sidebar-toggle:focus-visible {
-  outline: 0;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
-}
-.settings-button:active:not(:disabled),
-.sidebar-toggle:active:not(:disabled) {
-  transform: translateY(0) scale(0.97);
-}
-.settings-button:disabled,
-.sidebar-toggle:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-  transform: none;
-}
-.sidebar-toggle {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  font-size: 18px;
-  line-height: 1;
-}
-.sidebar.collapsed .sidebar-toggle {
-  width: 29px;
-  height: 29px;
-  border-color: var(--accent);
-  border-radius: 7px;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-.sidebar.collapsed .sidebar-toggle:hover:not(:disabled),
-.sidebar.collapsed .sidebar-toggle:focus-visible {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
-  transform: none;
-}
-.sidebar-toggle:active:not(:disabled) {
-  transform: scale(0.97);
-}
-.sidebar.collapsed .sidebar-toggle:active:not(:disabled) {
-  transform: translateY(0) scale(0.97);
-}
-.brand strong {
-  display: block;
-  font-size: 14px;
-  letter-spacing: -0.02em;
-  color: var(--accent);
-}
-.brand-project strong {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .brand-mark {
   display: grid;
   place-items: center;
@@ -248,13 +68,6 @@
   font: 500 23px ui-monospace, monospace;
   box-shadow: 0 3px 0 var(--accent-hover);
 }
-.brand-menu-trigger .brand-mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  font-size: 20px;
-  box-shadow: none;
-}
 .brand-mark.large {
   width: 64px;
   height: 64px;
@@ -263,11 +76,6 @@
   font-size: 38px;
 }
 
-.workspace-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
 .project-list {
   display: grid;
   gap: 8px;
@@ -320,11 +128,6 @@
 .sidebar-section-heading button:active:not(:disabled) {
   transform: scale(0.97);
 }
-.project-item {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
 .pinned-sessions {
   display: grid;
   gap: 4px;
@@ -340,30 +143,6 @@
   flex: 0 0 auto;
   color: var(--secondary);
 }
-.project-workspaces {
-  display: grid;
-  gap: 3px;
-}
-.workspace-row {
-  display: flex;
-  gap: 2px;
-  min-width: 0;
-}
-.workspace-row .workspace-path,
-.workspace-row .workspace-card {
-  flex: 1;
-  min-width: 0;
-  width: auto;
-}
-.project-workspaces .workspace-path {
-  min-height: 36px;
-  border-radius: 8px;
-  padding: 5px 7px;
-}
-.workspace-path.selected {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  background: var(--accent-soft);
-}
 .sidebar-list-heading {
   min-height: 24px;
   padding-top: 4px;
@@ -376,7 +155,6 @@
 .workspace-view-heading {
   position: relative;
   z-index: 1;
-  margin-top: -8px;
   align-items: flex-end;
   container-type: inline-size;
 }
@@ -554,243 +332,6 @@
   stroke-width: 2;
 }
 
-.workspace-path {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  padding: 8px 9px;
-  background: var(--surface);
-  color: var(--ink);
-  text-align: left;
-  transition: background 180ms ease, border-color 180ms ease;
-}
-.workspace-path:hover {
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--line-strong));
-  background: var(--accent-soft);
-}
-.workspace-path:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-.workspace-path-copy {
-  display: grid;
-  flex: 1;
-  gap: 2px;
-  min-width: 0;
-}
-.workspace-path-copy > .workspace-path-detail {
-  overflow: hidden;
-  color: var(--subtle);
-  font: 10.5px/1.4 ui-monospace, monospace;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  /* Keep the tail of long paths visible: the unique leaf is at the end. */
-  direction: rtl;
-  text-align: left;
-}
-.workspace-path-copy > strong {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--ink);
-  font: 12px/1.35 ui-monospace, monospace;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Main-workspace card: main's own section above the worktree list.
-   Highlighted only while it is the selected workspace. */
-.workspace-card {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  padding: 7px 10px;
-  background: var(--surface);
-  color: var(--ink);
-  cursor: pointer;
-  text-align: left;
-  transition: background 180ms ease, border-color 180ms ease;
-}
-.workspace-card:hover:not(:disabled),
-.workspace-card:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--line-strong));
-  background: var(--accent-soft);
-}
-.workspace-card:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-.workspace-card.current {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  background: var(--accent-soft);
-}
-.workspace-card-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-.workspace-card-glyph {
-  flex: 0 0 auto;
-  color: var(--accent);
-  font-family: ui-monospace, monospace;
-}
-.workspace-card-branch {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--ink);
-  font: 650 12px/1.4 ui-monospace, monospace;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.workspace-card-pill {
-  flex: 0 0 auto;
-  border-radius: 6px;
-  padding: 2px 6px;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent-hover);
-  font: 700 9px/1.3 ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.workspace-card-path {
-  overflow: hidden;
-  color: var(--subtle);
-  font: 10.5px/1.4 ui-monospace, monospace;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  direction: rtl;
-  text-align: left;
-}
-
-/* Compact working-tree summary; rendered inside the workspace card or the
-   selected worktree row — whichever workspace is currently selected. */
-.git-line {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  margin-top: 2px;
-  overflow: hidden;
-  padding-top: 2px;
-  color: var(--muted);
-  font: 10.5px/1.4 ui-monospace, monospace;
-  white-space: nowrap;
-}
-.git-line-dot {
-  flex: 0 0 auto;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-.git-line-dot.clean {
-  background: var(--success);
-}
-.git-line-dot.dirty {
-  background: var(--warning);
-}
-.git-line .git-clean {
-  color: var(--success);
-}
-.git-line .git-changed {
-  color: var(--warning-strong);
-  font-weight: 600;
-}
-.git-line .git-ahead {
-  color: var(--accent-hover);
-  font-weight: 600;
-}
-.git-line .git-divergence {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  overflow: hidden;
-  padding-left: 6px;
-  border-left: 1px solid var(--line);
-  text-overflow: ellipsis;
-}
-.git-line .git-divergence .ahead {
-  color: var(--success);
-}
-.git-line .git-divergence .behind {
-  color: var(--warning-strong);
-}
-
-/* Collapsed-sidebar chip: keeps project ▸ workspace visible with zero width. */
-.sidebar-context-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  max-width: min(46vw, 420px);
-  height: 29px;
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  padding: 0 11px;
-  background: var(--surface);
-  cursor: pointer;
-  transition: background 180ms ease, border-color 180ms ease;
-}
-.sidebar-context-chip:hover:not(:disabled),
-.sidebar-context-chip:focus-visible {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-.sidebar-context-chip:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-.sidebar-context-chip strong {
-  flex: 0 0 auto;
-  overflow: hidden;
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sidebar-context-chip-sep {
-  flex: 0 0 auto;
-  color: var(--subtle);
-  font-size: 10px;
-}
-.sidebar-context-chip-ws {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--muted);
-  font: 500 11.5px/1.4 ui-monospace, monospace;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sidebar-context-chip-dot {
-  flex: 0 0 auto;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--warning);
-}
-.workspace-path > svg:last-child {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
-  color: var(--muted);
-  transition: color 180ms ease, transform 180ms ease;
-}
-.workspace-path:hover > svg:last-child,
-.workspace-path:focus-visible > svg:last-child {
-  color: var(--accent-hover);
-  transform: translateX(1px);
-}
-
 .new-session {
   display: grid;
   place-items: center;
@@ -905,9 +446,6 @@
   flex: 1;
   min-width: 0;
   width: auto;
-}
-.workspace-actions {
-  min-height: 36px;
 }
 .session-actions {
   flex: 0 0 auto;
@@ -1369,7 +907,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .brand-menu-list a,
   .session-context-menu button,
   .session-list-options-menu label,
   .session-rename-input {

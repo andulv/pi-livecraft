@@ -118,6 +118,7 @@ button:disabled, select:disabled {
 .app-shell {
   display: grid;
   grid-template-columns: var(--workspace-sidebar-width, 272px) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100dvh;
   overflow: hidden;
   background: var(--canvas);

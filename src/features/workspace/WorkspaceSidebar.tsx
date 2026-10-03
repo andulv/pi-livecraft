@@ -21,31 +21,22 @@ import type {
   GitResetResult,
   GitRevertResult,
   GitSnapshot,
-  GitWorkspace,
   RecentSession,
   SessionSummary,
 } from '../../../shared/types.ts'
 import { resolvePinnedSessions } from './pinned-sessions.ts'
 import { PinnedSessionList } from './PinnedSessionList.tsx'
 import type { Project } from './projects.ts'
-import { aggregateSessionIndicator, sessionIndicator } from './session-indicator.ts'
+import { sessionIndicator } from './session-indicator.ts'
 import { SessionStatusIndicator } from './SessionStatusIndicator.tsx'
 import { sidebarSessions, type SessionActionTarget } from './sidebar-sessions.ts'
 import { SessionRenameDialog } from './SessionRenameDialog.tsx'
-import { NewWorktreeDialog } from './NewWorktreeDialog.tsx'
-import { WorktreeDeleteErrorDialog } from './WorktreeDeleteErrorDialog.tsx'
 import { formatSessionTime } from './session-time.ts'
 import { maxWorkspaceSidebarWidth, minWorkspaceSidebarWidth } from './workspace-sidebar.ts'
 import type { RequestCause } from '../../api.ts'
 
 interface ContextMenuState {
   target: SessionActionTarget
-  x: number
-  y: number
-}
-
-interface WorkspaceContextMenuState {
-  workspace: GitWorkspace
   x: number
   y: number
 }
@@ -70,18 +61,11 @@ interface WorkspaceSidebarProps {
   onOpenPinnedSession: (session: RecentSession) => Promise<void>
   onNewSession: () => Promise<void>
   onRefreshSessions: () => void
-  onRefreshWorkspaces: () => void
   onOpenSession: (session: RecentSession) => Promise<void>
-  onOpenVSCode: (workspace: GitWorkspace) => void
-  onDeleteWorktree: (workspace: GitWorkspace) => Promise<void>
-  onCreateWorktree: (branch: string) => Promise<void>
-  onSelectWorkspace: (path: string) => void
   onSelectSession: (sessionId: string) => void
-  onOpenSettings: () => void
   onRenameSession: (target: SessionActionTarget, name: string) => Promise<void>
   onMoveSession: (target: SessionActionTarget, targetCwd: string) => Promise<void>
   onResize: (width: number) => void
-  onToggleCollapsed: () => void
   onToggleProjectPin: (target: SessionActionTarget) => void
   onToggleSessionArchive: (target: SessionActionTarget) => void
   onError: (cause: unknown) => void
@@ -130,18 +114,11 @@ export function WorkspaceSidebar({
   onOpenPinnedSession,
   onNewSession,
   onRefreshSessions,
-  onRefreshWorkspaces,
   onOpenSession,
-  onOpenVSCode,
-  onDeleteWorktree,
-  onCreateWorktree,
-  onSelectWorkspace,
   onSelectSession,
-  onOpenSettings,
   onRenameSession,
   onMoveSession,
   onResize,
-  onToggleCollapsed,
   onToggleProjectPin,
   onToggleSessionArchive,
   onError,
@@ -164,16 +141,8 @@ export function WorkspaceSidebar({
   const [openingSessionPath, setOpeningSessionPath] = useState('')
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [contextMenuPosition, setContextMenuPosition] = useState({ left: 0, top: 0 })
-  const [workspaceMenu, setWorkspaceMenu] = useState<WorkspaceContextMenuState | null>(null)
-  const [workspaceDeleteConfirm, setWorkspaceDeleteConfirm] = useState(false)
-  const [worktreeDeleteError, setWorktreeDeleteError] = useState<
-    { label: string; message: string } | null
-  >(null)
-  const [newWorktreeOpen, setNewWorktreeOpen] = useState(false)
-  const [workspaceMenuPosition, setWorkspaceMenuPosition] = useState({ left: 0, top: 0 })
   const [renameTarget, setRenameTarget] = useState<SessionActionTarget | null>(null)
   const [showMoveTargets, setShowMoveTargets] = useState(false)
-  const [brandMenuOpen, setBrandMenuOpen] = useState(false)
   const [sessionListMenuOpen, setSessionListMenuOpen] = useState(false)
   const [showArchivedSessions, setShowArchivedSessions] = useState(false)
   const [includeShubAgentSessions, setIncludeShubAgentSessions] = useState(false)
@@ -182,10 +151,6 @@ export function WorkspaceSidebar({
   const selectedSessionRef = useRef<HTMLButtonElement>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
   const contextMenuTriggerRef = useRef<HTMLButtonElement>(null)
-  const workspaceMenuRef = useRef<HTMLDivElement>(null)
-  const workspaceMenuTriggerRef = useRef<HTMLButtonElement>(null)
-  const brandMenuRef = useRef<HTMLDivElement>(null)
-  const brandMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const sessionListMenuRef = useRef<HTMLDivElement>(null)
   const sessionListMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const archivedSessionPathSet = useMemo(
@@ -232,15 +197,7 @@ export function WorkspaceSidebar({
   const workspaces = useMemo(() => projectDetails?.workspaces ?? [], [projectDetails])
   const selectedWorkspace = workspaces.find(({ path }) => path === workspacePath)
   const selectedWorkspaceLabel = selectedWorkspace?.branch ?? workspacePath
-  const mainWorkspace = workspaces.find(({ main }) => main)
-  // Worktrees keep the project's stable listing order so selecting one never reorders the list.
-  const worktrees = workspaces.filter(({ main }) => !main)
-  const currentBranch = selectedWorkspace?.branch
-    ?? workspacePath.split(/[\\/]/).filter(Boolean).at(-1)
-    ?? workspacePath
   const selectedGit = workspaceGit[workspacePath]
-  const mainGit = mainWorkspace ? workspaceGit[mainWorkspace.path] : undefined
-  const mainWorkspaceCurrent = mainWorkspace?.path === workspacePath
   const gitDirtyCount = selectedGit?.files.length ?? 0
   const gitUnpushedCount = selectedGit?.ahead ?? 0
   const gitChangeCount = gitDirtyCount + gitUnpushedCount
@@ -299,37 +256,6 @@ export function WorkspaceSidebar({
     }
   }, [contextMenu])
 
-  useLayoutEffect(() => {
-    if (!workspaceMenu || !workspaceMenuRef.current) return
-    const { width: menuWidth, height: menuHeight } = workspaceMenuRef
-      .current
-      .getBoundingClientRect()
-    setWorkspaceMenuPosition({
-      left: Math.min(Math.max(8, workspaceMenu.x), Math.max(8, window.innerWidth - menuWidth - 8)),
-      top: Math.min(Math.max(8, workspaceMenu.y), Math.max(8, window.innerHeight - menuHeight - 8)),
-    })
-  }, [workspaceMenu])
-
-  useEffect(() => {
-    if (!brandMenuOpen) return
-    const dismissOnPointerDown = (event: PointerEvent): void => {
-      if (!(event.target instanceof Node) || !brandMenuRef.current?.contains(event.target))
-        setBrandMenuOpen(false)
-    }
-    const dismissOnKeyDown = (event: globalThis.KeyboardEvent): void => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      setBrandMenuOpen(false)
-      brandMenuTriggerRef.current?.focus()
-    }
-    document.addEventListener('pointerdown', dismissOnPointerDown)
-    document.addEventListener('keydown', dismissOnKeyDown)
-    return () => {
-      document.removeEventListener('pointerdown', dismissOnPointerDown)
-      document.removeEventListener('keydown', dismissOnKeyDown)
-    }
-  }, [brandMenuOpen])
-
   useEffect(() => {
     if (!sessionListMenuOpen) return
     const dismissOnPointerDown = (event: PointerEvent): void => {
@@ -350,70 +276,10 @@ export function WorkspaceSidebar({
     }
   }, [sessionListMenuOpen])
 
-  useEffect(() => {
-    if (!workspaceMenu) return
-    const dismissOnPointerDown = (event: PointerEvent): void => {
-      if (!(event.target instanceof Node) || !workspaceMenuRef.current?.contains(event.target)) {
-        setWorkspaceMenu(null)
-        setWorkspaceDeleteConfirm(false)
-      }
-    }
-    const dismissOnKeyDown = (event: globalThis.KeyboardEvent): void => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      setWorkspaceMenu(null)
-      setWorkspaceDeleteConfirm(false)
-      workspaceMenuTriggerRef.current?.focus()
-    }
-    document.addEventListener('pointerdown', dismissOnPointerDown)
-    document.addEventListener('keydown', dismissOnKeyDown)
-    return () => {
-      document.removeEventListener('pointerdown', dismissOnPointerDown)
-      document.removeEventListener('keydown', dismissOnKeyDown)
-    }
-  }, [workspaceMenu])
-
   function dismissContextMenu(): void {
     setContextMenu(null)
     setShowMoveTargets(false)
     contextMenuTriggerRef.current?.focus()
-  }
-
-  function openWorkspaceMenu(
-    workspace: GitWorkspace,
-    event: ReactMouseEvent<HTMLButtonElement>,
-  ): void {
-    event.preventDefault()
-    setContextMenu(null)
-    setSessionListMenuOpen(false)
-    setWorkspaceDeleteConfirm(false)
-    workspaceMenuTriggerRef.current = event.currentTarget
-    setWorkspaceMenu({ workspace, x: event.clientX, y: event.clientY })
-  }
-
-  function openWorkspaceVSCode(): void {
-    if (!workspaceMenu) return
-    const { workspace } = workspaceMenu
-    setWorkspaceMenu(null)
-    onOpenVSCode(workspace)
-  }
-
-  function openNewWorktree(): void {
-    setWorkspaceMenu(null)
-    setNewWorktreeOpen(true)
-  }
-
-  function confirmDeleteWorktree(): void {
-    if (!workspaceMenu) return
-    const { workspace } = workspaceMenu
-    setWorkspaceMenu(null)
-    setWorkspaceDeleteConfirm(false)
-    void onDeleteWorktree(workspace).catch((cause) => {
-      setWorktreeDeleteError({
-        label: workspace.branch ?? workspace.path,
-        message: cause instanceof Error ? cause.message : String(cause),
-      })
-    })
   }
 
   function openContextMenu(
@@ -422,7 +288,6 @@ export function WorkspaceSidebar({
   ): void {
     event.preventDefault()
     setSessionListMenuOpen(false)
-    setWorkspaceMenu(null)
     contextMenuTriggerRef.current = event.currentTarget
     setShowMoveTargets(false)
     setContextMenu({ target, x: event.clientX, y: event.clientY })
@@ -516,34 +381,6 @@ export function WorkspaceSidebar({
       aria-label='Session sidebar'
       className={`sidebar${collapsed ? ' collapsed' : ''}`}
     >
-      <div className='sidebar-rail'>
-        <Tooltip label='Expand session sidebar'>
-          <button
-            aria-expanded={false}
-            aria-label='Expand session sidebar'
-            className='sidebar-toggle'
-            onClick={onToggleCollapsed}
-            type='button'
-          >
-            <SidebarToggleIcon collapsed />
-          </button>
-        </Tooltip>
-        <Tooltip label={`${project.name} — ${workspacePath}`}>
-          <button
-            aria-label={`Expand session sidebar: ${project.name}, ${currentBranch}`}
-            className='sidebar-context-chip'
-            onClick={onToggleCollapsed}
-            type='button'
-          >
-            <strong>{project.name}</strong>
-            <span aria-hidden='true' className='sidebar-context-chip-sep'>▸</span>
-            <span className='sidebar-context-chip-ws'>{currentBranch}</span>
-            {selectedGit && selectedGit.files.length > 0 && (
-              <i aria-hidden='true' className='sidebar-context-chip-dot' />
-            )}
-          </button>
-        </Tooltip>
-      </div>
       <div
         aria-label='Resize session sidebar'
         aria-orientation='vertical'
@@ -556,172 +393,20 @@ export function WorkspaceSidebar({
         role='separator'
         tabIndex={0}
       />
-      <div className='brand'>
-        <div className='brand-menu'>
-          <Tooltip label='Projects overview'>
-            <button
-              aria-expanded={brandMenuOpen}
-              aria-haspopup='menu'
-              aria-label='Projects overview menu'
-              className='brand-menu-trigger'
-              onClick={() => setBrandMenuOpen((open) => !open)}
-              ref={brandMenuTriggerRef}
-              type='button'
-            >
-              <span aria-hidden='true' className='brand-mark'>π</span>
-            </button>
-          </Tooltip>
-          {brandMenuOpen && (
-            <div
-              aria-label='Projects overview'
-              className='brand-menu-list'
-              ref={brandMenuRef}
-              role='menu'
-            >
-              <a href='/' role='menuitem'>
-                Back to projects overview
-              </a>
-            </div>
-          )}
-        </div>
-        <div className='brand-project'>
-          <strong title={project.name}>{project.name}</strong>
-        </div>
-        <Tooltip label='Settings'>
-          <button
-            aria-label='Open settings'
-            className='settings-button'
-            onClick={onOpenSettings}
-            type='button'
-          >
-            <SettingsIcon />
-          </button>
-        </Tooltip>
-        <Tooltip label='Collapse session sidebar'>
-          <button
-            aria-expanded={true}
-            aria-label='Collapse session sidebar'
-            className='sidebar-toggle'
-            onClick={onToggleCollapsed}
-            type='button'
-          >
-            <SidebarToggleIcon collapsed={false} />
-          </button>
-        </Tooltip>
-      </div>
-      {mainWorkspace && (
-        <div className='workspace-row'>
-          <Tooltip label={`${mainWorkspace.branch ?? mainWorkspace.path} — ${mainWorkspace.path}`}>
-            <button
-              aria-current={mainWorkspaceCurrent ? 'page' : undefined}
-              className={`workspace-card${mainWorkspaceCurrent ? ' current' : ''}`}
-              onClick={() => onSelectWorkspace(mainWorkspace.path)}
-              type='button'
-            >
-              <span className='workspace-card-head'>
-                <span aria-hidden='true' className='workspace-card-glyph'>⎇</span>
-                <span className='workspace-card-branch'>{mainWorkspace.branch ?? 'main'}</span>
-                <span className='workspace-card-pill'>Main</span>
-              </span>
-              <span className='workspace-card-path' title={mainWorkspace.path}>
-                {mainWorkspace.path}
-              </span>
-              {mainGit && <GitLine snapshot={mainGit} />}
-            </button>
-          </Tooltip>
-          <Tooltip label={`Workspace actions for ${mainWorkspace.branch ?? mainWorkspace.path}`}>
-            <button
-              aria-haspopup='menu'
-              aria-label={`Workspace actions for ${mainWorkspace.branch ?? mainWorkspace.path}`}
-              className='session-actions workspace-actions'
-              onClick={(event) => openWorkspaceMenu(mainWorkspace, event)}
-              type='button'
-            >
-              …
-            </button>
-          </Tooltip>
-        </div>
+      {resolvedPinnedSessions.length > 0 && (
+        <section className='project-list' aria-label={`${project.name} pinned sessions`}>
+          <PinnedSessionList
+            compactingSessionIds={compactingSessionIds}
+            completedSessionIds={completedSessionIds}
+            onError={onError}
+            onOpenActions={openContextMenu}
+            onOpenSession={onOpenPinnedSession}
+            pinnedSessions={resolvedPinnedSessions}
+            selectedId={selectedId}
+            sessions={sessions}
+          />
+        </section>
       )}
-      <section className='project-list' aria-label={`${project.name} worktrees`}>
-        <div className='project-item'>
-          {resolvedPinnedSessions.length > 0 && (
-            <PinnedSessionList
-              compactingSessionIds={compactingSessionIds}
-              completedSessionIds={completedSessionIds}
-              onError={onError}
-              onOpenActions={openContextMenu}
-              onOpenSession={onOpenPinnedSession}
-              pinnedSessions={resolvedPinnedSessions}
-              selectedId={selectedId}
-              sessions={sessions}
-            />
-          )}
-          {worktrees.length > 0 && (
-            <>
-              <div className='sidebar-section-heading sidebar-list-heading'>
-                <span>Worktrees</span>
-                <Tooltip label='Refresh worktrees'>
-                  <button
-                    aria-label='Refresh worktrees'
-                    className='new-session refresh-sessions'
-                    onClick={onRefreshWorkspaces}
-                    type='button'
-                  >
-                    <RefreshIcon />
-                  </button>
-                </Tooltip>
-              </div>
-              <div className='project-workspaces'>
-                {worktrees.map((workspace) => {
-                  const workspaceIndicator = aggregateSessionIndicator(
-                    sessions.filter(({ cwd }) => cwd === workspace.path),
-                    selectedId,
-                    compactingSessionIds,
-                    completedSessionIds,
-                  )
-                  const selected = workspace.path === workspacePath
-                  return (
-                    <div className='workspace-row' key={workspace.path}>
-                      <button
-                        aria-current={selected ? 'page' : undefined}
-                        className={`workspace-path${selected ? ' selected' : ''}`}
-                        onClick={() => onSelectWorkspace(workspace.path)}
-                        type='button'
-                      >
-                        <span className='workspace-path-copy'>
-                          <strong>{workspace.branch ?? workspace.path}</strong>
-                          <span className='workspace-path-detail' title={workspace.path}>
-                            {workspace.path}
-                          </span>
-                          {workspaceGit[workspace.path] && (
-                            <GitLine snapshot={workspaceGit[workspace.path]} />
-                          )}
-                        </span>
-                        {workspaceIndicator && (
-                          <SessionStatusIndicator status={workspaceIndicator} />
-                        )}
-                      </button>
-                      <Tooltip
-                        label={`Workspace actions for ${workspace.branch ?? workspace.path}`}
-                      >
-                        <button
-                          aria-haspopup='menu'
-                          aria-label={`Workspace actions for ${workspace.branch ?? workspace.path}`}
-                          className='session-actions workspace-actions'
-                          onClick={(event) => openWorkspaceMenu(workspace, event)}
-                          type='button'
-                        >
-                          …
-                        </button>
-                      </Tooltip>
-                    </div>
-                  )
-                })}
-              </div>
-            </>
-          )}
-        </div>
-      </section>
       <div className='sidebar-section-heading sidebar-list-heading workspace-view-heading'>
         <div aria-label='Workspace view' className='workspace-view-tabs' role='tablist'>
           <button
@@ -773,7 +458,6 @@ export function WorkspaceSidebar({
                 className='session-list-options'
                 onClick={() => {
                   setContextMenu(null)
-                  setWorkspaceMenu(null)
                   setSessionListMenuOpen((current) => !current)
                 }}
                 ref={sessionListMenuTriggerRef}
@@ -996,59 +680,6 @@ export function WorkspaceSidebar({
             : <p className='empty-sidebar'>No Git repository in this workspace.</p>}
         </section>
       )}
-      {workspaceMenu && (
-        <div
-          aria-label={`Workspace actions for ${
-            workspaceMenu.workspace.branch ?? workspaceMenu.workspace.path
-          }`}
-          className='session-context-menu'
-          ref={workspaceMenuRef}
-          role='menu'
-          style={{ left: workspaceMenuPosition.left, top: workspaceMenuPosition.top }}
-        >
-          <button autoFocus onClick={openWorkspaceVSCode} role='menuitem' type='button'>
-            Open in VS Code
-          </button>
-          {workspaceMenu.workspace.main && (
-            <button onClick={openNewWorktree} role='menuitem' type='button'>
-              New worktree…
-            </button>
-          )}
-          {!workspaceMenu.workspace.main && (
-            workspaceDeleteConfirm
-              ? (
-                <>
-                  <button
-                    className='session-context-menu-back'
-                    onClick={() => setWorkspaceDeleteConfirm(false)}
-                    role='menuitem'
-                    type='button'
-                  >
-                    ← Delete worktree
-                  </button>
-                  <button
-                    className='danger'
-                    onClick={confirmDeleteWorktree}
-                    role='menuitem'
-                    type='button'
-                  >
-                    Delete {workspaceMenu.workspace.branch ?? 'worktree'}
-                  </button>
-                </>
-              )
-              : (
-                <button
-                  className='danger'
-                  onClick={() => setWorkspaceDeleteConfirm(true)}
-                  role='menuitem'
-                  type='button'
-                >
-                  Delete worktree…
-                </button>
-              )
-          )}
-        </div>
-      )}
       {contextMenu && (
         <div
           aria-label='Session actions'
@@ -1121,42 +752,7 @@ export function WorkspaceSidebar({
           onConfirm={(name) => onRenameSession(renameTarget, name)}
         />
       )}
-      {worktreeDeleteError && (
-        <WorktreeDeleteErrorDialog
-          label={worktreeDeleteError.label}
-          message={worktreeDeleteError.message}
-          onClose={() => setWorktreeDeleteError(null)}
-        />
-      )}
-      {newWorktreeOpen && (
-        <NewWorktreeDialog
-          onClose={() => setNewWorktreeOpen(false)}
-          onConfirm={onCreateWorktree}
-        />
-      )}
     </aside>
-  )
-}
-
-/** Compact working-tree summary for the selected workspace; the sidebar card
-    shows it while main is selected, the selected worktree row otherwise. */
-function GitLine({ snapshot }: { snapshot: GitSnapshot }) {
-  const clean = snapshot.files.length === 0
-  return (
-    <span className='git-line'>
-      <i aria-hidden='true' className={`git-line-dot ${clean ? 'clean' : 'dirty'}`} />
-      <span className={clean ? 'git-clean' : 'git-changed'}>
-        {clean ? 'Clean' : `${snapshot.files.length} changed`}
-      </span>
-      {snapshot.ahead > 0 && <span className='git-ahead'>↑ {snapshot.ahead}</span>}
-      {snapshot.worktree && snapshot.baseBranch && (
-        <span className='git-divergence'>
-          vs {snapshot.baseBranch}
-          <b className='ahead'>+{snapshot.baseAhead}</b>
-          <b className='behind'>−{snapshot.baseBehind}</b>
-        </span>
-      )}
-    </span>
   )
 }
 
@@ -1180,25 +776,6 @@ function SessionActions({
         …
       </button>
     </Tooltip>
-  )
-}
-
-function SidebarToggleIcon({ collapsed }: { collapsed: boolean }) {
-  return (
-    <svg
-      aria-hidden='true'
-      fill='none'
-      height='16'
-      stroke='currentColor'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      strokeWidth='1.75'
-      viewBox='0 0 24 24'
-      width='16'
-    >
-      <path d='M3 3v18' />
-      <path d={collapsed ? 'm9 6 6 6-6 6' : 'm15 6-6 6 6 6'} />
-    </svg>
   )
 }
 
@@ -1238,25 +815,6 @@ function RefreshIcon() {
     >
       <path d='M21 12a9 9 0 1 1-2.6-6.4' />
       <path d='M21 3v5h-5' />
-    </svg>
-  )
-}
-
-function SettingsIcon() {
-  return (
-    <svg
-      aria-hidden='true'
-      fill='none'
-      height='16'
-      stroke='currentColor'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      strokeWidth='1.5'
-      viewBox='0 0 24 24'
-      width='16'
-    >
-      <path d='M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z' />
-      <path d='m19.4 15 .1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.9 1.9 0 0 0-3.2 1.3v.2a2 2 0 1 1-4 0v-.2a1.9 1.9 0 0 0-3.2-1.3l.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.9 1.9 0 0 0 2.2 12a1.9 1.9 0 0 0 1.2-3.2l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.9 1.9 0 0 0 3.2-1.3v-.2a2 2 0 1 1 4 0v.2a1.9 1.9 0 0 0 3.2 1.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.9 1.9 0 0 0 20.8 12a1.9 1.9 0 0 0-1.4 3Z' />
     </svg>
   )
 }

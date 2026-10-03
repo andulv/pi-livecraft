@@ -99,6 +99,7 @@ import { useProjects } from './features/workspace/useProjects.ts'
 import { shubAgentMarker, sidebarSessions } from './features/workspace/sidebar-sessions.ts'
 import { useWorkspaceSessions } from './features/workspace/useWorkspaceSessions.ts'
 import { WorkspaceSidebar } from './features/workspace/WorkspaceSidebar.tsx'
+import { WorkspaceTopBar } from './features/workspace/WorkspaceTopBar.tsx'
 import { FileContentPane } from './features/files/FileContentPane.tsx'
 import { clampFilePaneShare, readFilePaneShare } from './features/files/file-pane-width.ts'
 import {
@@ -1630,31 +1631,19 @@ function LivecraftProjectApp(
         '--file-pane-share': `${filePaneShare * 100}%`,
       } as CSSProperties}
     >
-      <WorkspaceSidebar
-        archivedSessionPaths={archivedSessionPaths}
-        collapsed={workspaceSidebarCollapsed}
-        compactingSessionIds={compactingSessionIds}
-        completedSessionIds={completedSessionIds}
-        isRefreshing={isRefreshingSessions}
-        pinnedSessions={pinnedSessions}
-        recentSessions={recentSessions}
-        sentSessions={sentSessions}
-        sessions={sessions}
-        selectedId={selectedId}
-        width={workspaceSidebarWidth}
-        workspacePath={workspacePath}
+      <WorkspaceTopBar
         project={project}
         projectDetails={projectWorkspaces[project.root]}
-        onOpenPinnedSession={openPinnedSession}
-        onNewSession={handleNewSession}
-        onRefreshSessions={() => {
-          void refreshSessions('sessions:manual')
-          void refreshPinnedSessions('pins:manual')
-        }}
+        workspacePath={workspacePath}
+        workspaceGit={workspaceGit}
+        sessions={sessions}
+        selectedId={selectedId}
+        compactingSessionIds={compactingSessionIds}
+        completedSessionIds={completedSessionIds}
+        collapsed={workspaceSidebarCollapsed}
+        onToggleCollapsed={toggleWorkspaceSidebar}
+        onOpenSettings={() => setSettingsOpen(true)}
         onRefreshWorkspaces={retryProjectDiscovery}
-        onOpenSession={async (recentSession) => {
-          await startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))
-        }}
         onOpenVSCode={(workspace) => {
           void openVSCode(
             workspace.path,
@@ -1680,9 +1669,33 @@ function LivecraftProjectApp(
           showToast('notice', `Created worktree ${branch}`)
         }}
         onSelectWorkspace={selectWorkspace}
+      />
+      <WorkspaceSidebar
+        archivedSessionPaths={archivedSessionPaths}
+        collapsed={workspaceSidebarCollapsed}
+        compactingSessionIds={compactingSessionIds}
+        completedSessionIds={completedSessionIds}
+        isRefreshing={isRefreshingSessions}
+        pinnedSessions={pinnedSessions}
+        recentSessions={recentSessions}
+        sentSessions={sentSessions}
+        sessions={sessions}
+        selectedId={selectedId}
+        width={workspaceSidebarWidth}
+        workspacePath={workspacePath}
+        project={project}
+        projectDetails={projectWorkspaces[project.root]}
+        onOpenPinnedSession={openPinnedSession}
+        onNewSession={handleNewSession}
+        onRefreshSessions={() => {
+          void refreshSessions('sessions:manual')
+          void refreshPinnedSessions('pins:manual')
+        }}
+        onOpenSession={async (recentSession) => {
+          await startAndSelectSession(() => openSession(workspacePath, recentSession.sessionPath))
+        }}
         onSelectSession={setSelectedId}
         onError={(cause) => showToast('error', messageOf(cause))}
-        onOpenSettings={() => setSettingsOpen(true)}
         workspaceGit={workspaceGit}
         onGitCommit={async (message) => {
           await commitChanges(workspacePath, message)
@@ -1729,7 +1742,6 @@ function LivecraftProjectApp(
         onRenameSession={renameManagedSession}
         onMoveSession={moveManagedSession}
         onResize={updateWorkspaceSidebarWidth}
-        onToggleCollapsed={toggleWorkspaceSidebar}
         onToggleProjectPin={toggleProjectPin}
         onToggleSessionArchive={toggleSessionArchive}
       />
