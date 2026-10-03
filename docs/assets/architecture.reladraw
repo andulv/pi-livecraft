@@ -1,0 +1,24 @@
+// Pi Livecraft, browser to Pi process, left to right.
+// The frontend reaches the backend only through src/api.ts; the backend owns
+// HTTP + SSE and may restart freely; the manager alone owns pi --mode rpc;
+// watched runtime files take effect only on the user's guarded restart.
+
+style core  fill: theme-primary-subtle  border: theme-primary
+
+node browser "Browser"
+node ui      "React frontend / App.tsx + src/features/"   right of browser
+node api     "src/api.ts / the only door to the backend"  right of ui
+node backend "server/backend.ts / HTTP API + SSE / on 127.0.0.1 only"  right of api  style: core
+node manager "server/manager.ts / alone owns pi --mode rpc"  below backend  style: core
+node pi      "pi --mode rpc"  right of manager  deck: "pi --mode rpc #2" "pi --mode rpc #3"
+node runtime "server/manager-runtime-files.json / declares runtime files"  below api
+
+edge browser -> ui  "loads the app"    from: right  to: left
+edge ui -> api      "state + actions"  from: right  to: left
+edge api -> backend "fetch + SSE"      from: right  to: left
+edge backend -> manager "spawn + supervise"  from: bottom  to: top
+edge manager -> pi  "RPC over stdio"   from: right  to: left
+edge runtime -> manager "edits detected / guarded restart"  from: right  to: left
+
+node ext  "loads pi-extensions/ into Pi" (wrap: 28)  shape: none  below pi (gap: tight)
+node live "The backend may restart freely; / Pi sessions live on." (wrap: 32)  shape: none  below manager (gap: tight)
