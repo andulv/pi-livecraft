@@ -312,9 +312,14 @@ export async function listWorkspaceFiles(
   )
 }
 
-export async function getWorkspaceFile(cwd: string, path: string): Promise<WorkspaceFile> {
+export async function getWorkspaceFile(
+  cwd: string,
+  path: string,
+  signal?: AbortSignal,
+): Promise<WorkspaceFile> {
   return request<WorkspaceFile>(
     `/api/files?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}`,
+    { signal },
   )
 }
 
@@ -1080,12 +1085,12 @@ async function performRequest<T>(path: string, init?: RequestInit): Promise<T> {
           : init?.headers,
       })
     } catch (error) {
-      // Network failure: the backend is unreachable, so the report itself will be
-      // dropped; the throw preserves the caller's error handling.
-      void postClientLog(
-        'fetch-failure',
-        `network error: ${error instanceof Error ? error.message : String(error)}`,
-      )
+      // Intentional cancellation is not backend instability.
+      if (!init?.signal?.aborted)
+        void postClientLog(
+          'fetch-failure',
+          `network error: ${error instanceof Error ? error.message : String(error)}`,
+        )
       throw error
     }
     const value: unknown = await response.json()
@@ -1123,11 +1128,11 @@ export async function postClientLog(source: ClientLogSource, message: string): P
   }
 }
 
-/** Fetches a resource, sharing concurrent identical GET requests so duplicated
- *  effect re-runs and overlapping callers issue a single network call. */
+/** Shares concurrent identical GETs unless a caller owns cancellation; an aborted
+ * request must never be reused by a new effect or abort another caller's read. */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const method = init?.method?.toUpperCase()
-  if (method && method !== 'GET') return performRequest<T>(path, init)
+  if (init?.signal || (method && method !== 'GET')) return performRequest<T>(path, init)
   const existing = inflightGet.get(path)
   if (existing) return existing as Promise<T>
   const promise = performRequest<T>(path, init).finally(() => inflightGet.delete(path))

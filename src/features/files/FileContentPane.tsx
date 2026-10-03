@@ -1,6 +1,5 @@
 import {
   useEffect,
-  useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -8,7 +7,7 @@ import {
 import { Markdown } from '../conversation/Markdown.tsx'
 import { BrowserView } from '../browser/BrowserView.tsx'
 import { TerminalView } from '../terminal/TerminalView.tsx'
-import { getWorkspaceFile } from '../../api.ts'
+import { getWorkspaceFile, getWorkspaceFileRaw } from '../../api.ts'
 import { classifyWorkspaceFilePreview } from '../../../shared/file-preview.ts'
 import { FilePreviewError, MediaFilePreview, SandboxedMarkupPreview } from './FilePreview.tsx'
 import { maxFilePaneShare, minFilePaneShare } from './file-pane-width.ts'
@@ -16,7 +15,9 @@ import { parseGitDiff } from '../git/git-diff.ts'
 import type { GitDiffTab } from '../workspace/workspace-viewer-state.ts'
 
 interface FileState {
-  content: string
+  path: string | null
+  content: string | null
+  url: string | null
   error: string | null
   loading: boolean
 }
@@ -92,58 +93,67 @@ export function FileContentPane({
   terminalOpen: boolean
   workspacePath: string
 }) {
-  const [files, setFiles] = useState<Record<string, FileState>>({})
+  const [file, setFile] = useState<FileState>({
+    path: null,
+    content: null,
+    url: null,
+    error: null,
+    loading: false,
+  })
+  const [reload, setReload] = useState(0)
   const [rawByPath, setRawByPath] = useState<Record<string, boolean>>({})
   const [zoomByPath, setZoomByPath] = useState<Record<string, number>>({})
-  const filesRef = useRef(files)
-  filesRef.current = files
   const previewKind = activePath ? classifyWorkspaceFilePreview(activePath) : 'text'
 
   useEffect(() => {
-    setFiles({})
     setRawByPath({})
     setZoomByPath({})
   }, [workspacePath])
 
   useEffect(() => {
-    const kind = activePath ? classifyWorkspaceFilePreview(activePath) : 'text'
-    if (
-      !activePath
-      // Media is fetched as raw bytes by its own viewer, not as text.
-      || kind === 'image'
-      || kind === 'pdf'
-      || filesRef.current[activePath]
-    ) return
-    let cancelled = false
-    setFiles((current) => ({
-      ...current,
-      [activePath]: { content: '', error: null, loading: true },
+    const controller = new AbortController()
+    // Only retain content during refresh of this same active file, never across tabs.
+    setFile((current) => ({
+      path: activePath,
+      content: current.path === activePath ? current.content : null,
+      url: current.path === activePath ? current.url : null,
+      error: null,
+      loading: activePath !== null,
     }))
-    void getWorkspaceFile(workspacePath, activePath)
-      .then((file) => {
-        if (!cancelled)
-          setFiles((current) => ({
+    if (!activePath) return
+    const path = activePath
+    void (async () => {
+      try {
+        const media = previewKind === 'image' || previewKind === 'pdf'
+        const result = media
+          ? await getWorkspaceFileRaw(workspacePath, path, controller.signal)
+          : await getWorkspaceFile(workspacePath, path, controller.signal)
+        if (controller.signal.aborted) return
+        setFile({
+          path,
+          content: result instanceof Blob ? null : result.content,
+          url: result instanceof Blob ? URL.createObjectURL(result) : null,
+          error: null,
+          loading: false,
+        })
+      } catch (cause) {
+        if (!controller.signal.aborted)
+          setFile((current) => ({
             ...current,
-            [activePath]: { content: file.content, error: null, loading: false },
+            error: cause instanceof Error ? cause.message : String(cause),
+            loading: false,
           }))
-      })
-      .catch((cause) => {
-        if (!cancelled)
-          setFiles((current) => ({
-            ...current,
-            [activePath]: {
-              content: '',
-              error: cause instanceof Error ? cause.message : String(cause),
-              loading: false,
-            },
-          }))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [activePath, workspacePath])
+      }
+    })()
+    return () => controller.abort()
+  }, [activePath, workspacePath, previewKind, reload])
 
-  const activeFile = activePath ? files[activePath] : undefined
+  // Revoke only after replacement, so a media refresh keeps the old preview visible.
+  useEffect(() => () => {
+    if (file.url) URL.revokeObjectURL(file.url)
+  }, [file.url])
+
+  const activeFile = activePath && file.path === activePath ? file : undefined
   const activeGitDiff = gitDiffTabs.find((tab) => tab.id === activeGitDiffId)
   // HTML defaults to source: rendering project HTML without its scripts and
   // relative assets is intentionally incomplete. SVG defaults to preview.
@@ -399,7 +409,7 @@ export function FileContentPane({
         : activePath
         ? (
           <div className='file-content'>
-            <div className='file-content-header'>
+            <div className='file-content-header file-preview-header'>
               <span title={activePath}>{activePath}</span>
               {(previewKind === 'markdown' || previewKind === 'html' || previewKind === 'svg') && (
                 <div
@@ -473,51 +483,60 @@ export function FileContentPane({
                   </button>
                 </div>
               )}
-              <small>Read-only preview</small>
+              <button
+                aria-label='Refresh file contents'
+                className='file-refresh'
+                disabled={!activeFile || activeFile.loading}
+                onClick={() => setReload((current) => current + 1)}
+                title='Refresh file contents from disk'
+                type='button'
+              >
+                ↻
+              </button>
             </div>
+            {activeFile?.loading && (
+              <p className='file-content-status' role='status'>Loading file…</p>
+            )}
+            {activeFile?.error && (
+              <FilePreviewError
+                message={activeFile.content !== null || activeFile.url
+                  ? `Refresh failed; displayed content may be outdated. ${activeFile.error}`
+                  : activeFile.error}
+                path={activePath}
+                workspacePath={workspacePath}
+              />
+            )}
             {(previewKind === 'image' || previewKind === 'pdf')
-              ? (
+              ? activeFile?.url && (
                 <MediaFilePreview
                   kind={previewKind}
                   path={activePath}
-                  workspacePath={workspacePath}
+                  url={activeFile.url}
                 />
               )
-              : (
-                <>
-                  {activeFile?.loading && <p className='file-content-status'>Loading file…</p>}
-                  {activeFile?.error && (
-                    <FilePreviewError
-                      message={activeFile.error}
-                      path={activePath}
-                      workspacePath={workspacePath}
+              : activeFile && activeFile.content !== null
+                && (previewKind !== 'text' && !viewRaw
+                  ? previewKind === 'markdown'
+                    ? (
+                      <div className='file-content-markdown'>
+                        <Markdown renderFrontmatter>{activeFile.content}</Markdown>
+                      </div>
+                    )
+                    : (
+                      <SandboxedMarkupPreview
+                        content={activeFile.content}
+                        path={activePath}
+                        zoomPercent={zoomPercent}
+                      />
+                    )
+                  : (
+                    <textarea
+                      aria-label={activePath}
+                      readOnly
+                      spellCheck={false}
+                      value={activeFile.content}
                     />
-                  )}
-                  {activeFile && !activeFile.loading && !activeFile.error
-                    && (previewKind !== 'text' && !viewRaw
-                      ? previewKind === 'markdown'
-                        ? (
-                          <div className='file-content-markdown'>
-                            <Markdown renderFrontmatter>{activeFile.content}</Markdown>
-                          </div>
-                        )
-                        : (
-                          <SandboxedMarkupPreview
-                            content={activeFile.content}
-                            path={activePath}
-                            zoomPercent={zoomPercent}
-                          />
-                        )
-                      : (
-                        <textarea
-                          aria-label={activePath}
-                          readOnly
-                          spellCheck={false}
-                          value={activeFile.content}
-                        />
-                      ))}
-                </>
-              )}
+                  ))}
           </div>
         )
         : (

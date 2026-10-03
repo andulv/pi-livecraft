@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { getGitProject, getQuotas } from '../src/api.ts'
+import { getGitProject, getQuotas, getWorkspaceFile } from '../src/api.ts'
 
 /** Replaces the global fetch for one test and restores it afterwards. */
 function withFetch(
-  handler: (url: string) => Promise<Response>,
+  handler: (url: string, init?: RequestInit) => Promise<Response>,
   run: () => Promise<void>,
 ): Promise<void> {
   const original = globalThis.fetch
   globalThis.fetch =
-    ((input: unknown) => handler(typeof input === 'string' ? input : String(input))) as typeof fetch
+    ((input: unknown, init?: RequestInit) =>
+      handler(typeof input === 'string' ? input : String(input), init)) as typeof fetch
   return run().finally(() => {
     globalThis.fetch = original
   })
@@ -34,6 +35,41 @@ test('shares concurrent identical GET requests and refetches after they settle',
       assert.deepEqual(first, second)
       await getGitProject('/x', 'test:dedupe')
       assert.equal(calls, 2)
+    },
+  )
+})
+
+test('cancelled file reads are independent, retry fresh, and do not report intentional aborts', async () => {
+  let reads = 0
+  const reports: string[] = []
+  await withFetch(
+    async (url, init) => {
+      if (url === '/api/client-log') {
+        reports.push(String(init?.body))
+        return new Response('{}')
+      }
+      const version = ++reads
+      if (version === 1) {
+        await new Promise<void>((_, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+        })
+      }
+      return new Response(JSON.stringify({ content: `version-${version}` }))
+    },
+    async () => {
+      const controller = new AbortController()
+      const cancelled = getWorkspaceFile('/x', 'file.txt', controller.signal)
+      const rejection = assert.rejects(cancelled, { name: 'AbortError' })
+      controller.abort()
+      // This read starts before the aborted promise has settled.
+      const fresh = getWorkspaceFile('/x', 'file.txt', new AbortController().signal)
+      assert.equal((await fresh).content, 'version-2')
+      await rejection
+      assert.equal(reports.length, 0)
+      assert.equal(
+        (await getWorkspaceFile('/x', 'file.txt', new AbortController().signal)).content,
+        'version-3',
+      )
     },
   )
 })

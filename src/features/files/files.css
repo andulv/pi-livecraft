@@ -305,6 +305,18 @@
   color: var(--muted);
   font: 11px ui-monospace, monospace;
 }
+.file-preview-header {
+  flex-wrap: wrap;
+  padding-block: 4px;
+}
+.file-content-header.file-preview-header > span {
+  flex-basis: 60px;
+}
+.file-preview-header .file-view-toggle button,
+.file-preview-header .file-zoom button,
+.file-preview-header .file-zoom input {
+  height: 30px;
+}
 .file-content-header > span {
   flex: 1;
   min-width: 0;
