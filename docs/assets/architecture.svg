@@ -1,58 +1,260 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1880" height="377" viewBox="0 0 1880 377" font-family="'DejaVu Sans Mono', 'Menlo', 'Consolas', 'Liberation Mono', 'Courier New', monospace" font-size="14px">
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="1880"
+  height="377"
+  viewBox="0 0 1880 377"
+  font-family="'DejaVu Sans Mono', 'Menlo', 'Consolas', 'Liberation Mono', 'Courier New', monospace"
+  font-size="14px"
+>
   <defs>
-    <marker id="r65dde023-arrow-5c5c7c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5c5c7c"/>
+    <marker
+      id="r65dde023-arrow-5c5c7c"
+      viewBox="0 0 10 10"
+      refX="9"
+      refY="5"
+      markerWidth="7"
+      markerHeight="7"
+      orient="auto-start-reverse"
+    >
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5c5c7c" />
     </marker>
   </defs>
-  <rect x="0" y="0" width="1880" height="377" fill="#111111"/>
-  <path d="M48 59 H119 a8 8 0 0 1 8 8 V98 a8 8 0 0 1 -8 8 H48 a8 8 0 0 1 -8 -8 V67 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
+  <rect x="0" y="0" width="1880" height="377" fill="#111111" />
+  <path
+    d="M48 59 H119 a8 8 0 0 1 8 8 V98 a8 8 0 0 1 -8 8 H48 a8 8 0 0 1 -8 -8 V67 a8 8 0 0 1 8 -8 Z"
+    fill="#191728"
+    stroke="#4f5367"
+  />
   <text x="83.5" y="87.4" fill="#d9d9d9" text-anchor="middle">Browser</text>
-  <path d="M317.4 49.5 H523.4 a8 8 0 0 1 8 8 V107.5 a8 8 0 0 1 -8 8 H317.4 a8 8 0 0 1 -8 -8 V57.5 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <text x="420.4" y="77.9" fill="#d9d9d9" text-anchor="middle">React frontend</text>
-  <text x="420.4" y="96.9" fill="#d9d9d9" text-anchor="middle">App.tsx + src/features/</text>
-  <path d="M737.8 49.5 H985.8 a8 8 0 0 1 8 8 V107.5 a8 8 0 0 1 -8 8 H737.8 a8 8 0 0 1 -8 -8 V57.5 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
+  <path
+    d="M317.4 49.5 H523.4 a8 8 0 0 1 8 8 V107.5 a8 8 0 0 1 -8 8 H317.4 a8 8 0 0 1 -8 -8 V57.5 a8 8 0 0 1 8 -8 Z"
+    fill="#191728"
+    stroke="#4f5367"
+  />
+  <text
+    x="420.4"
+    y="77.9"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >React frontend</text>
+  <text
+    x="420.4"
+    y="96.9"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >App.tsx + src/features/</text>
+  <path
+    d="M737.8 49.5 H985.8 a8 8 0 0 1 8 8 V107.5 a8 8 0 0 1 -8 8 H737.8 a8 8 0 0 1 -8 -8 V57.5 a8 8 0 0 1 8 -8 Z"
+    fill="#191728"
+    stroke="#4f5367"
+  />
   <text x="861.8" y="77.9" fill="#d9d9d9" text-anchor="middle">src/api.ts</text>
-  <text x="861.8" y="96.9" fill="#d9d9d9" text-anchor="middle">the only door to the backend</text>
-  <path d="M1250.7 40 H1405.7 a8 8 0 0 1 8 8 V117 a8 8 0 0 1 -8 8 H1250.7 a8 8 0 0 1 -8 -8 V48 a8 8 0 0 1 8 -8 Z" fill="#142814" stroke="#486544"/>
-  <text x="1328.2" y="68.4" fill="#d9d9d9" text-anchor="middle">server/backend.ts</text>
-  <text x="1328.2" y="87.4" fill="#d9d9d9" text-anchor="middle">HTTP API + SSE</text>
-  <text x="1328.2" y="106.4" fill="#d9d9d9" text-anchor="middle">on 127.0.0.1 only</text>
-  <path d="M1221.2 206.4 H1435.2 a8 8 0 0 1 8 8 V264.4 a8 8 0 0 1 -8 8 H1221.2 a8 8 0 0 1 -8 -8 V214.4 a8 8 0 0 1 8 -8 Z" fill="#142814" stroke="#486544"/>
-  <text x="1328.2" y="234.8" fill="#d9d9d9" text-anchor="middle">server/manager.ts</text>
-  <text x="1328.2" y="253.8" fill="#d9d9d9" text-anchor="middle">alone owns pi --mode rpc</text>
-  <path d="M1641.6 181.9 H1763.6 a8 8 0 0 1 8 8 V220.9 a8 8 0 0 1 -8 8 H1641.6 a8 8 0 0 1 -8 -8 V189.9 a8 8 0 0 1 8 -8 Z" fill="#191920" stroke="#4f5367"/>
-  <text x="1647.6" y="210.3" fill="#d9d9d9" text-anchor="start">pi --mode rpc #3</text>
-  <path d="M1675.6 215.9 H1797.6 a8 8 0 0 1 8 8 V254.9 a8 8 0 0 1 -8 8 H1675.6 a8 8 0 0 1 -8 -8 V223.9 a8 8 0 0 1 8 -8 Z" fill="#191920" stroke="#4f5367"/>
-  <text x="1681.6" y="244.3" fill="#d9d9d9" text-anchor="start">pi --mode rpc #2</text>
-  <path d="M1709.6 249.9 H1831.6 a8 8 0 0 1 8 8 V288.9 a8 8 0 0 1 -8 8 H1709.6 a8 8 0 0 1 -8 -8 V257.9 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <text x="1770.6" y="278.3" fill="#d9d9d9" text-anchor="middle">pi --mode rpc</text>
-  <path d="M716.8 171.5 H1006.8 a8 8 0 0 1 8 8 V229.5 a8 8 0 0 1 -8 8 H716.8 a8 8 0 0 1 -8 -8 V179.5 a8 8 0 0 1 8 -8 Z" fill="#191728" stroke="#4f5367"/>
-  <text x="861.8" y="199.9" fill="#d9d9d9" text-anchor="middle">server/manager-runtime-files.json</text>
-  <text x="861.8" y="218.9" fill="#d9d9d9" text-anchor="middle">declares runtime files</text>
+  <text
+    x="861.8"
+    y="96.9"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >the only door to the backend</text>
+  <path
+    d="M1250.7 40 H1405.7 a8 8 0 0 1 8 8 V117 a8 8 0 0 1 -8 8 H1250.7 a8 8 0 0 1 -8 -8 V48 a8 8 0 0 1 8 -8 Z"
+    fill="#142814"
+    stroke="#486544"
+  />
+  <text
+    x="1328.2"
+    y="68.4"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >server/backend.ts</text>
+  <text
+    x="1328.2"
+    y="87.4"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >HTTP API + SSE</text>
+  <text
+    x="1328.2"
+    y="106.4"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >on 127.0.0.1 only</text>
+  <path
+    d="M1221.2 206.4 H1435.2 a8 8 0 0 1 8 8 V264.4 a8 8 0 0 1 -8 8 H1221.2 a8 8 0 0 1 -8 -8 V214.4 a8 8 0 0 1 8 -8 Z"
+    fill="#142814"
+    stroke="#486544"
+  />
+  <text
+    x="1328.2"
+    y="234.8"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >server/manager.ts</text>
+  <text
+    x="1328.2"
+    y="253.8"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >alone owns pi --mode rpc</text>
+  <path
+    d="M1641.6 181.9 H1763.6 a8 8 0 0 1 8 8 V220.9 a8 8 0 0 1 -8 8 H1641.6 a8 8 0 0 1 -8 -8 V189.9 a8 8 0 0 1 8 -8 Z"
+    fill="#191920"
+    stroke="#4f5367"
+  />
+  <text
+    x="1647.6"
+    y="210.3"
+    fill="#d9d9d9"
+    text-anchor="start"
+  >pi --mode rpc #3</text>
+  <path
+    d="M1675.6 215.9 H1797.6 a8 8 0 0 1 8 8 V254.9 a8 8 0 0 1 -8 8 H1675.6 a8 8 0 0 1 -8 -8 V223.9 a8 8 0 0 1 8 -8 Z"
+    fill="#191920"
+    stroke="#4f5367"
+  />
+  <text
+    x="1681.6"
+    y="244.3"
+    fill="#d9d9d9"
+    text-anchor="start"
+  >pi --mode rpc #2</text>
+  <path
+    d="M1709.6 249.9 H1831.6 a8 8 0 0 1 8 8 V288.9 a8 8 0 0 1 -8 8 H1709.6 a8 8 0 0 1 -8 -8 V257.9 a8 8 0 0 1 8 -8 Z"
+    fill="#191728"
+    stroke="#4f5367"
+  />
+  <text
+    x="1770.6"
+    y="278.3"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >pi --mode rpc</text>
+  <path
+    d="M716.8 171.5 H1006.8 a8 8 0 0 1 8 8 V229.5 a8 8 0 0 1 -8 8 H716.8 a8 8 0 0 1 -8 -8 V179.5 a8 8 0 0 1 8 -8 Z"
+    fill="#191728"
+    stroke="#4f5367"
+  />
+  <text
+    x="861.8"
+    y="199.9"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >server/manager-runtime-files.json</text>
+  <text
+    x="861.8"
+    y="218.9"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >declares runtime files</text>
   <g font-size="12px">
-  <text x="1635.6" y="333.1" fill="#d9d9d9" text-anchor="start">loads pi-extensions/ into Pi</text>
+    <text
+      x="1635.6"
+      y="333.1"
+      fill="#d9d9d9"
+      text-anchor="start"
+    >loads pi-extensions/ into Pi</text>
   </g>
   <g font-size="12px">
-  <text x="1216.2" y="308.6" fill="#d9d9d9" text-anchor="start">The backend may restart freely;</text>
-  <text x="1216.2" y="324.6" fill="#d9d9d9" text-anchor="start">Pi sessions live on.</text>
+    <text
+      x="1216.2"
+      y="308.6"
+      fill="#d9d9d9"
+      text-anchor="start"
+    >The backend may restart freely;</text>
+    <text
+      x="1216.2"
+      y="324.6"
+      fill="#d9d9d9"
+      text-anchor="start"
+    >Pi sessions live on.</text>
   </g>
-  <path d="M 127 82.5 C 199.96 82.5, 236.44 82.5, 298.2 82.5 L 309.4 82.5" fill="none" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#r65dde023-arrow-5c5c7c)"/>
-  <rect x="156.8" y="73" width="120" height="19" fill="#111111"/>
-  <text x="216.8" y="87.4" fill="#d9d9d9" text-anchor="middle">loads the app</text>
-  <path d="M 531.4 82.5 C 610.76 82.5, 650.44 82.5, 718.6 82.5 L 729.8 82.5" fill="none" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#r65dde023-arrow-5c5c7c)"/>
-  <rect x="561.2" y="73" width="136" height="19" fill="#111111"/>
-  <text x="629.2" y="87.4" fill="#d9d9d9" text-anchor="middle">state + actions</text>
-  <path d="M 993.8 82.5 C 1093.36 82.5, 1143.14 82.5, 1231.5 82.5 L 1242.7 82.5" fill="none" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#r65dde023-arrow-5c5c7c)"/>
-  <rect x="1065.35" y="73" width="103" height="19" fill="#111111"/>
-  <text x="1116.85" y="87.4" fill="#d9d9d9" text-anchor="middle">fetch + SSE</text>
-  <path d="M 1328.2 125 C 1328.2 157.56, 1328.2 173.84, 1328.2 195.2 L 1328.2 206.4" fill="none" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#r65dde023-arrow-5c5c7c)"/>
-  <rect x="1251.7" y="154.8" width="153" height="19" fill="#111111"/>
-  <text x="1328.2" y="169.2" fill="#d9d9d9" text-anchor="middle">spawn + supervise</text>
-  <path d="M 1443.2 239.4 C 1547.45 239.4, 1597.35 273.4, 1690.4 273.4 L 1701.6 273.4" fill="none" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#r65dde023-arrow-5c5c7c)"/>
-  <rect x="1507" y="246.9" width="128" height="19" fill="#111111"/>
-  <text x="1571" y="261.3" fill="#d9d9d9" text-anchor="middle">RPC over stdio</text>
-  <path d="M 1014.8 204.5 C 1095.38 204.5, 1132.62 239.4, 1202 239.4 L 1213.2 239.4" fill="none" stroke="#5c5c7c" stroke-width="1.6" marker-end="url(#r65dde023-arrow-5c5c7c)"/>
-  <rect x="1044.6" y="202.95" width="136" height="38" fill="#111111"/>
-  <text x="1112.6" y="217.35" fill="#d9d9d9" text-anchor="middle">edits detected</text>
-  <text x="1112.6" y="236.35" fill="#d9d9d9" text-anchor="middle">guarded restart</text>
+  <path
+    d="M 127 82.5 C 199.96 82.5, 236.44 82.5, 298.2 82.5 L 309.4 82.5"
+    fill="none"
+    stroke="#5c5c7c"
+    stroke-width="1.6"
+    marker-end="url(#r65dde023-arrow-5c5c7c)"
+  />
+  <rect x="156.8" y="73" width="120" height="19" fill="#111111" />
+  <text
+    x="216.8"
+    y="87.4"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >loads the app</text>
+  <path
+    d="M 531.4 82.5 C 610.76 82.5, 650.44 82.5, 718.6 82.5 L 729.8 82.5"
+    fill="none"
+    stroke="#5c5c7c"
+    stroke-width="1.6"
+    marker-end="url(#r65dde023-arrow-5c5c7c)"
+  />
+  <rect x="561.2" y="73" width="136" height="19" fill="#111111" />
+  <text
+    x="629.2"
+    y="87.4"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >state + actions</text>
+  <path
+    d="M 993.8 82.5 C 1093.36 82.5, 1143.14 82.5, 1231.5 82.5 L 1242.7 82.5"
+    fill="none"
+    stroke="#5c5c7c"
+    stroke-width="1.6"
+    marker-end="url(#r65dde023-arrow-5c5c7c)"
+  />
+  <rect x="1065.35" y="73" width="103" height="19" fill="#111111" />
+  <text
+    x="1116.85"
+    y="87.4"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >fetch + SSE</text>
+  <path
+    d="M 1328.2 125 C 1328.2 157.56, 1328.2 173.84, 1328.2 195.2 L 1328.2 206.4"
+    fill="none"
+    stroke="#5c5c7c"
+    stroke-width="1.6"
+    marker-end="url(#r65dde023-arrow-5c5c7c)"
+  />
+  <rect x="1251.7" y="154.8" width="153" height="19" fill="#111111" />
+  <text
+    x="1328.2"
+    y="169.2"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >spawn + supervise</text>
+  <path
+    d="M 1443.2 239.4 C 1547.45 239.4, 1597.35 273.4, 1690.4 273.4 L 1701.6 273.4"
+    fill="none"
+    stroke="#5c5c7c"
+    stroke-width="1.6"
+    marker-end="url(#r65dde023-arrow-5c5c7c)"
+  />
+  <rect x="1507" y="246.9" width="128" height="19" fill="#111111" />
+  <text
+    x="1571"
+    y="261.3"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >RPC over stdio</text>
+  <path
+    d="M 1014.8 204.5 C 1095.38 204.5, 1132.62 239.4, 1202 239.4 L 1213.2 239.4"
+    fill="none"
+    stroke="#5c5c7c"
+    stroke-width="1.6"
+    marker-end="url(#r65dde023-arrow-5c5c7c)"
+  />
+  <rect x="1044.6" y="202.95" width="136" height="38" fill="#111111" />
+  <text
+    x="1112.6"
+    y="217.35"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >edits detected</text>
+  <text
+    x="1112.6"
+    y="236.35"
+    fill="#d9d9d9"
+    text-anchor="middle"
+  >guarded restart</text>
 </svg>
