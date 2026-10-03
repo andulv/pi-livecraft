@@ -33,6 +33,7 @@ export function RightSidebar({
   environment,
   onConversationNavigate,
   onOpenBrowser,
+  onOpenSettings,
   onResize,
   sessionCommands,
   sessionMessages,
@@ -57,6 +58,7 @@ export function RightSidebar({
   environment: SessionEnvironmentSnapshot | null
   onConversationNavigate: (target: ConversationNavigationTarget) => void
   onOpenBrowser: () => void
+  onOpenSettings: () => void
   onResize: (width: number) => void
   sessionCommands: readonly JsonObject[]
   sessionMessages: readonly JsonObject[]
@@ -321,9 +323,38 @@ export function RightSidebar({
               <DiagnosticsIcon />
             </button>
           </Tooltip>
+          <Tooltip label='Settings'>
+            <button
+              aria-label='Open settings'
+              className='rail-tab'
+              onClick={onOpenSettings}
+              type='button'
+            >
+              <SettingsIcon />
+            </button>
+          </Tooltip>
         </div>
       </div>
     </aside>
+  )
+}
+
+function SettingsIcon() {
+  return (
+    <svg
+      aria-hidden='true'
+      fill='none'
+      height='16'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='1.5'
+      viewBox='0 0 24 24'
+      width='16'
+    >
+      <path d='M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z' />
+      <path d='m19.4 15 .1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.9 1.9 0 0 0-3.2 1.3v.2a2 2 0 1 1-4 0v-.2a1.9 1.9 0 0 0-3.2-1.3l.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.9 1.9 0 0 0 2.2 12a1.9 1.9 0 0 0 1.2-3.2l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.9 1.9 0 0 0 3.2-1.3v-.2a2 2 0 1 1 4 0v.2a1.9 1.9 0 0 0 3.2 1.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.9 1.9 0 0 0 20.8 12a1.9 1.9 0 0 0-1.4 3Z' />
+    </svg>
   )
 }
 

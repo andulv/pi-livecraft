@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -32,7 +33,6 @@ interface WorkspaceTopBarProps {
   completedSessionIds: ReadonlySet<string>
   collapsed: boolean
   onToggleCollapsed: () => void
-  onOpenSettings: () => void
   onRefreshWorkspaces: () => void
   onSelectWorkspace: (path: string) => void
   onOpenVSCode: (workspace: GitWorkspace) => void
@@ -59,7 +59,6 @@ export function WorkspaceTopBar({
   completedSessionIds,
   collapsed,
   onToggleCollapsed,
-  onOpenSettings,
   onRefreshWorkspaces,
   onSelectWorkspace,
   onOpenVSCode,
@@ -79,7 +78,7 @@ export function WorkspaceTopBar({
   const { visible, overflow, cardWidth } = workspaceNavigation(
     projectDetails?.workspaces ?? [],
     workspacePath,
-    availableWidth,
+    availableWidth - (projectDetails?.workspaces.some(({ main }) => main) ? 36 : 0),
   )
 
   useLayoutEffect(() => {
@@ -230,6 +229,29 @@ export function WorkspaceTopBar({
 
   return (
     <header className='workspace-topbar' aria-label='Project and workspaces'>
+      <Tooltip label={`${collapsed ? 'Expand' : 'Collapse'} session sidebar`}>
+        <button
+          aria-expanded={!collapsed}
+          aria-label={`${collapsed ? 'Expand' : 'Collapse'} session sidebar`}
+          className='workspace-sidebar-toggle'
+          onClick={onToggleCollapsed}
+          type='button'
+        >
+          <svg
+            aria-hidden='true'
+            fill='none'
+            height='16'
+            stroke='currentColor'
+            strokeWidth='1.75'
+            viewBox='0 0 24 24'
+            width='16'
+          >
+            <rect x='3' y='4' width='18' height='16' rx='2' />
+            <path d='M9 4v16' />
+            <path d={collapsed ? 'm13 9 3 3-3 3' : 'm16 9-3 3 3 3'} />
+          </svg>
+        </button>
+      </Tooltip>
       <a className='workspace-topbar-brand' href='/' title='Back to projects overview'>
         <span className='workspace-topbar-wordmark'>
           <span aria-hidden='true' className='brand-mark'>π</span>
@@ -243,7 +265,23 @@ export function WorkspaceTopBar({
         ref={navigationRef}
         style={{ '--workspace-card-width': `${cardWidth}px` } as CSSProperties}
       >
-        {visible.map(renderWorkspace)}
+        {visible.map((workspace) => (
+          <Fragment key={workspace.path}>
+            {renderWorkspace(workspace)}
+            {workspace.main && (
+              <Tooltip label='Refresh workspaces'>
+                <button
+                  aria-label='Refresh workspaces'
+                  className='workspace-nav-refresh'
+                  onClick={onRefreshWorkspaces}
+                  type='button'
+                >
+                  ↻
+                </button>
+              </Tooltip>
+            )}
+          </Fragment>
+        ))}
         {overflow.length > 0 && (
           <button
             aria-expanded={popup?.kind === 'overflow'}
@@ -277,51 +315,6 @@ export function WorkspaceTopBar({
           </div>
         )}
       </nav>
-      <div className='workspace-topbar-controls'>
-        <Tooltip label='Refresh workspaces'>
-          <button
-            aria-label='Refresh workspaces'
-            className='workspace-topbar-control'
-            onClick={onRefreshWorkspaces}
-            type='button'
-          >
-            ↻
-          </button>
-        </Tooltip>
-        <Tooltip label='Settings'>
-          <button
-            aria-label='Open settings'
-            className='workspace-topbar-control'
-            onClick={onOpenSettings}
-            type='button'
-          >
-            <SettingsIcon />
-          </button>
-        </Tooltip>
-        <Tooltip label={`${collapsed ? 'Expand' : 'Collapse'} session sidebar`}>
-          <button
-            aria-expanded={!collapsed}
-            aria-label={`${collapsed ? 'Expand' : 'Collapse'} session sidebar`}
-            className='workspace-topbar-control'
-            onClick={onToggleCollapsed}
-            type='button'
-          >
-            <svg
-              aria-hidden='true'
-              fill='none'
-              height='16'
-              stroke='currentColor'
-              strokeWidth='1.75'
-              viewBox='0 0 24 24'
-              width='16'
-            >
-              <rect x='3' y='4' width='18' height='16' rx='2' />
-              <path d='M9 4v16' />
-              <path d={collapsed ? 'm13 9 3 3-3 3' : 'm16 9-3 3 3 3'} />
-            </svg>
-          </button>
-        </Tooltip>
-      </div>
       {popup?.kind === 'actions' && (
         <div
           aria-label={`Workspace actions for ${popup.workspace.branch ?? popup.workspace.path}`}
@@ -426,24 +419,5 @@ function GitLine({ snapshot }: { snapshot: GitSnapshot }) {
       <i aria-hidden='true' className={clean ? 'clean' : 'dirty'} />
       <span>{summary}</span>
     </span>
-  )
-}
-
-function SettingsIcon() {
-  return (
-    <svg
-      aria-hidden='true'
-      fill='none'
-      height='16'
-      stroke='currentColor'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      strokeWidth='1.5'
-      viewBox='0 0 24 24'
-      width='16'
-    >
-      <path d='M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z' />
-      <path d='m19.4 15 .1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.9 1.9 0 0 0-3.2 1.3v.2a2 2 0 1 1-4 0v-.2a1.9 1.9 0 0 0-3.2-1.3l.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.9 1.9 0 0 0 2.2 12a1.9 1.9 0 0 0 1.2-3.2l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.9 1.9 0 0 0 3.2-1.3v-.2a2 2 0 1 1 4 0v.2a1.9 1.9 0 0 0 3.2 1.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.9 1.9 0 0 0 20.8 12a1.9 1.9 0 0 0-1.4 3Z' />
-    </svg>
   )
 }

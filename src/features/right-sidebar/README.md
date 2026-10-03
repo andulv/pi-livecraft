@@ -1,6 +1,6 @@
 # Right sidebar
 
-The right sidebar keeps session and system tools close without mixing their behavior. Its rail separates current-session widgets (index, analysis, environment) from system widgets (browser system, quotas, diagnostics) with accessible groups and compact dividers. `RightSidebar.tsx` composes the rail, active panel, and accessible resizing; `App.tsx` owns the active widget and width because they affect the whole layout. Git status lives in the workspace sidebar's Git tab instead (see [workspace and sessions](/src/features/workspace/README.md) and [Git widget](/src/features/git/README.md)).
+The right sidebar keeps session and system tools close without mixing their behavior. Its rail separates current-session widgets (index, analysis, environment) from system widgets (browser system, quotas, diagnostics) with accessible groups and compact dividers. The Settings action sits below the system-widget icons and opens the existing settings panel; it is not a widget. `RightSidebar.tsx` composes the rail, active panel, and accessible resizing; `App.tsx` owns the active widget and width because they affect the whole layout. Git status lives in the workspace sidebar's Git tab instead (see [workspace and sessions](/src/features/workspace/README.md) and [Git widget](/src/features/git/README.md)).
 
 ## Adding a widget
 

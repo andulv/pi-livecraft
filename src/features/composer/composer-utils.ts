@@ -115,6 +115,10 @@ export function ensureLocalCommands(commands: JsonObject[]): JsonObject[] {
   return local.length === 0 ? commands : [...local, ...commands]
 }
 
+export function composerDraftKey(sessionId: string): string {
+  return `pi-livecraft.composer-draft.${sessionId}`
+}
+
 /** Restores the draft for one session from local storage. */
 export function readComposerDraft(storageKey: string): string {
   try {

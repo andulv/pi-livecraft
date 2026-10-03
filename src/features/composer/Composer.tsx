@@ -18,6 +18,7 @@ import type {
 } from '../../../shared/types.ts'
 import { maxComposerImages, prepareComposerImage, type ComposerImage } from './composer-images.ts'
 import {
+  composerDraftKey,
   ensureLocalCommands,
   formatSessionStats,
   isCommandDraft,
@@ -70,6 +71,7 @@ export const Composer = memo(function Composer({
   focusRequest,
   draftRequest,
   onDraftApplied,
+  onDraftChange,
   persistDrafts = true,
   readOnly = false,
   shubContextTokens,
@@ -110,12 +112,13 @@ export const Composer = memo(function Composer({
   focusRequest?: number
   draftRequest?: { id: string; message: string; selectAll?: boolean }
   onDraftApplied?: (id: string) => void
+  onDraftChange?: (sessionId: string, message: string) => void
   persistDrafts?: boolean
   readOnly?: boolean
   /** Input context size on the child's last message, shown in the read-only stub. */
   shubContextTokens?: number
 }) {
-  const draftStorageKey = `pi-livecraft.composer-draft.${session.id}`
+  const draftStorageKey = composerDraftKey(session.id)
   const [message, setMessage] = useState(() =>
     persistDrafts ? readComposerDraft(draftStorageKey) : ''
   )
@@ -258,6 +261,10 @@ export const Composer = memo(function Composer({
     }
   }, [])
 
+  useLayoutEffect(() => {
+    onDraftChange?.(session.id, messageRef.current)
+  }, [onDraftChange, session.id])
+
   /** Persists the draft to storage, tolerating unavailable storage (private browsing). */
   const persistDraft = useCallback((text: string): void => {
     if (!persistDrafts) return
@@ -306,15 +313,16 @@ export const Composer = memo(function Composer({
   }, [slashOpen])
 
   /** Updates the visible draft immediately and persists it on a debounce so typing never blocks on storage I/O. */
-  const setDraftMessage = useCallback((nextMessage: string): void => {
+  const setDraftMessage = useCallback((nextMessage: string, reportChange = true): void => {
     setMessage(nextMessage)
     messageRef.current = nextMessage
+    if (reportChange) onDraftChange?.(session.id, nextMessage)
     window.clearTimeout(draftPersistTimerRef.current)
     draftPersistTimerRef.current = window.setTimeout(() => {
       persistDraft(nextMessage)
       draftPersistTimerRef.current = 0
     }, 400)
-  }, [persistDraft])
+  }, [onDraftChange, persistDraft, session.id])
 
   /** Inserts the selected slash command into the textarea and closes the popover. */
   const selectSlashCommand = useCallback((name: string): void => {
@@ -385,7 +393,8 @@ export const Composer = memo(function Composer({
     }
     setSubmitting(true)
     setSuggestion(undefined)
-    setDraftMessage('')
+    // Keep the pending session protected until its prompt succeeds or the draft is restored.
+    setDraftMessage('', false)
     setImages([])
     try {
       if (isCompactCommandDraft(nextMessage)) {
@@ -411,6 +420,7 @@ export const Composer = memo(function Composer({
       setImages(images)
       onError(cause)
     } finally {
+      onDraftChange?.(session.id, messageRef.current)
       setSubmitting(false)
     }
   }

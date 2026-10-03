@@ -36,13 +36,15 @@ import {
 import type { Project } from './projects.ts'
 import { placeholderSessionTitle } from '../../../shared/session-title.ts'
 import {
-  newestWorkspaceSession,
   nextActiveSessionId,
   reconcileSessionNames,
   reusableNewSession,
   sidebarSessions,
   type SessionActionTarget,
 } from './sidebar-sessions.ts'
+
+import { discardableNewSessions, restoreWorkspaceSession } from './session-selection.ts'
+import { composerDraftKey, readComposerDraft } from '../composer/composer-utils.ts'
 
 interface WorkspaceSessionsOptions {
   project: Project
@@ -137,7 +139,8 @@ export function useWorkspaceSessions(
   const pinnedSessionsRef = useRef(pinnedSessions)
   const selectedIdRef = useRef(selectedId)
   const creatingSessionRef = useRef(false)
-  const transientNewSessionIdRef = useRef<string | null>(null)
+  const transientNewSessionIdsRef = useRef(new Set<string>())
+  const draftMessagesRef = useRef(new Map<string, string>())
   const refreshVersionRef = useRef(0)
   const autoSelectOnRefreshRef = useRef(true)
   /** Names received from manager events, keyed by session path and id. They are applied over
@@ -153,8 +156,14 @@ export function useWorkspaceSessions(
   workspaceSessionSelectionsRef.current = workspaceSessionSelections
 
   useEffect(() => () => {
-    const transientId = transientNewSessionIdRef.current
-    if (transientId) void requestCloseSession(transientId).catch(() => undefined)
+    for (
+      const id of discardableNewSessions(
+        transientNewSessionIdsRef.current,
+        draftMessagesRef.current,
+      )
+    ) {
+      void requestCloseSession(id).catch(() => undefined)
+    }
   }, [])
 
   useEffect(() => {
@@ -248,6 +257,22 @@ export function useWorkspaceSessions(
       ])
       if (version !== refreshVersionRef.current) return
       let nextSessions = listedSessions
+      // Re-entering the project must restore draft-bearing live sessions that have no history file.
+      const persistedPaths = new Set(nextRecentSessions.map(({ sessionPath }) => sessionPath))
+      const draftSessions: RecentSession[] = []
+      for (const session of nextSessions) {
+        if (
+          session.cwd !== cwd || session.status === 'exited' || session
+              .name !== placeholderSessionTitle
+          || !session.sessionPath || persistedPaths.has(session.sessionPath)
+        ) continue
+        const draft = draftMessagesRef.current.get(session.id)
+          ?? readComposerDraft(composerDraftKey(session.id))
+        if (!draft.trim()) continue
+        draftMessagesRef.current.set(session.id, draft)
+        transientNewSessionIdsRef.current.add(session.id)
+        draftSessions.push({ ...session, sessionPath: session.sessionPath, updatedAt: Date.now() })
+      }
       let autoSelectId: string | undefined
       if (shouldAutoSelect) {
         const openTarget = async (target: {
@@ -266,43 +291,27 @@ export function useWorkspaceSessions(
           ]
           return opened.id
         }
-        const newestTarget = (): { sessionPath?: string; activeSessionId?: string } | null =>
-          newestWorkspaceSession(
-            sidebarSessions(nextRecentSessions, cwd, sentSessionsRef.current),
-            nextSessions,
-          )
         const forcedPath = initialSessionPathRef.current
-        if (forcedPath) initialSessionPathRef.current = null
-        if (forcedPath) {
-          try {
-            autoSelectId = await openTarget({ sessionPath: forcedPath })
-          } catch {
-            // A stale workspace/session from the URL; fall back to the newest session.
-            autoSelectId = undefined
-          }
-        }
-        if (autoSelectId === undefined) {
-          const rememberedPath = workspaceSessionSelectionsRef.current[cwd]?.sessionPath
-          if (rememberedPath) {
-            const activeRemembered = nextSessions.find((session) =>
-              session.sessionPath === rememberedPath
-            )
-            if (activeRemembered) autoSelectId = activeRemembered.id
-            else {
-              try {
-                autoSelectId = await openTarget({ sessionPath: rememberedPath })
-              } catch {
-                // A remembered session may have been deleted; use the newest session instead.
-                autoSelectId = undefined
-              }
-            }
-          }
-        }
-        if (autoSelectId === undefined) {
-          const target = newestTarget()
-          if (target) autoSelectId = await openTarget(target)
-        }
+        initialSessionPathRef.current = null
+        const rememberedPath = workspaceSessionSelectionsRef.current[cwd]?.sessionPath
+        autoSelectId = await restoreWorkspaceSession({
+          cwd,
+          preferredPaths: [forcedPath ?? undefined, rememberedPath],
+          visibleSessions: sidebarSessions(nextRecentSessions, cwd, [
+            ...sentSessionsRef.current,
+            ...draftSessions.filter((draft) =>
+              !sentSessionsRef.current.some((sent) => sent.id === draft.id)
+            ),
+          ]),
+          activeSessions: nextSessions,
+          openTarget,
+          onStalePath: (path) => {
+            if (path === rememberedPath) forgetSessionSelection(cwd)
+            setSentSessions((current) => current.filter((session) => session.sessionPath !== path))
+          },
+        })
       }
+      if (version !== refreshVersionRef.current) return
       const named = reconcileSessionNames(nextSessions, nextRecentSessions, eventNamesRef.current)
       setSessionLoadError(null)
       setSessions(named.sessions)
@@ -321,11 +330,15 @@ export function useWorkspaceSessions(
       })
       setRecentSessions(named.recentSessions)
       setSentSessions((current) =>
-        current.filter((sent) =>
-          !nextRecentSessions.some((recent) =>
-            recent.id === sent.id || recent.sessionPath === sent.sessionPath
+        [
+          ...draftSessions.filter((draft) => !current.some((sent) => sent.id === draft.id)),
+          ...current,
+        ]
+          .filter((sent) =>
+            !nextRecentSessions.some((recent) =>
+              recent.id === sent.id || recent.sessionPath === sent.sessionPath
+            )
           )
-        )
       )
       if (shouldAutoSelect) {
         autoSelectOnRefreshRef.current = false
@@ -348,7 +361,7 @@ export function useWorkspaceSessions(
     } finally {
       if (version === refreshVersionRef.current) setIsRefreshingSessions(false)
     }
-  }, [onError, onSessionsRefreshed, rememberSessionPath, workspacePath])
+  }, [forgetSessionSelection, onError, onSessionsRefreshed, rememberSessionPath, workspacePath])
 
   /** Re-runs project discovery after a failed load without leaving the project view. */
   const retryProjectDiscovery = useCallback((): void => {
@@ -360,18 +373,38 @@ export function useWorkspaceSessions(
     void refreshSessions('sessions:discovery')
   }, [projectDiscoveryComplete, projectDiscoveryError, refreshSessions])
 
-  /** Stops and removes an unmessaged session when navigation abandons it. */
+  /** Stops only abandoned, message-free sessions with no input draft. */
   const discardTransientNewSession = useCallback((nextSessionId?: string): void => {
-    const transientId = transientNewSessionIdRef.current
-    if (!transientId || transientId === nextSessionId) return
-    transientNewSessionIdRef.current = null
-    const sessionPath = sessionsRef.current.find(({ id }) => id === transientId)?.sessionPath
-    setSessions((current) => current.filter(({ id }) => id !== transientId))
-    setSentSessions((current) =>
-      current.filter((session) => session.id !== transientId && session.sessionPath !== sessionPath)
+    const ids = new Set(discardableNewSessions(
+      transientNewSessionIdsRef.current,
+      draftMessagesRef.current,
+      nextSessionId,
+    ))
+    if (ids.size === 0) return
+    const paths = new Set(
+      sessionsRef.current.filter(({ id }) => ids.has(id)).map(({ sessionPath }) => sessionPath),
     )
-    void requestCloseSession(transientId).catch(onError)
-  }, [onError])
+    for (const id of ids) {
+      const session = sessionsRef.current.find((candidate) => candidate.id === id)
+      if (
+        session
+        && workspaceSessionSelectionsRef.current[session.cwd]?.sessionPath === session.sessionPath
+      )
+        forgetSessionSelection(session.cwd)
+      transientNewSessionIdsRef.current.delete(id)
+      draftMessagesRef.current.delete(id)
+      void requestCloseSession(id).catch(onError)
+    }
+    setSessions((current) => current.filter(({ id }) => !ids.has(id)))
+    setSentSessions((current) =>
+      current.filter((session) => !ids.has(session.id) && !paths.has(session.sessionPath))
+    )
+  }, [forgetSessionSelection, onError])
+
+  /** Runs synchronously on edits so navigation never races the storage debounce. */
+  const updateSessionDraft = useCallback((sessionId: string, message: string): void => {
+    draftMessagesRef.current.set(sessionId, message)
+  }, [])
 
   const selectSession = useCallback((sessionId: string): void => {
     discardTransientNewSession(sessionId)
@@ -492,34 +525,40 @@ export function useWorkspaceSessions(
   /** Reuses the workspace's empty live session, or starts one when none exists. */
   const startNewSession = useCallback(
     async (start: () => Promise<SessionSummary>): Promise<SessionSummary | null> => {
-      const markedId = transientNewSessionIdRef.current
-      const marked = markedId
-        ? sessionsRef.current.find((session) => session.id === markedId)
-        : undefined
+      const marked = sessionsRef.current.find((session) =>
+        transientNewSessionIdsRef.current.has(session.id) && session.cwd === workspacePath
+        && session.status !== 'exited'
+      )
       const existing = marked ?? reusableNewSession(
         sessionsRef.current,
         recentSessionsRef.current,
         workspacePath,
       )
       if (existing) {
-        transientNewSessionIdRef.current = existing.id
+        discardTransientNewSession(existing.id)
+        transientNewSessionIdsRef.current.add(existing.id)
         rememberStartedSession(existing)
         rememberSessionPath(existing.cwd, existing.sessionPath)
         setSelectedId(existing.id)
         return existing
       }
-      transientNewSessionIdRef.current = null
       const created = await startAndSelectSession(start)
-      if (created) transientNewSessionIdRef.current = created.id
+      if (created) transientNewSessionIdsRef.current.add(created.id)
       return created
     },
-    [rememberSessionPath, rememberStartedSession, startAndSelectSession, workspacePath],
+    [
+      discardTransientNewSession,
+      rememberSessionPath,
+      rememberStartedSession,
+      startAndSelectSession,
+      workspacePath,
+    ],
   )
 
   /** Keeps a new session once its first user message succeeds. */
   const retainNewSession = useCallback((sessionId: string): void => {
-    if (transientNewSessionIdRef.current === sessionId)
-      transientNewSessionIdRef.current = null
+    transientNewSessionIdsRef.current.delete(sessionId)
+    draftMessagesRef.current.delete(sessionId)
   }, [])
 
   const toggleProjectPin = useCallback((target: SessionActionTarget): void => {
@@ -626,11 +665,16 @@ export function useWorkspaceSessions(
       )
       const wasSelected = active !== undefined && selectedIdRef.current === active.id
       const moved = await moveStoredSession(target.sessionPath, targetCwd)
+      if (workspaceSessionSelectionsRef.current[target.cwd]?.sessionPath === target.sessionPath)
+        forgetSessionSelection(target.cwd)
+      setSentSessions((current) =>
+        current.filter((session) => session.sessionPath !== target.sessionPath)
+      )
       await refreshSessions('sessions:move', target.cwd)
       await refreshSessions('sessions:move', moved.cwd)
       if (wasSelected) await openPinnedSession({ cwd: moved.cwd, sessionPath: moved.sessionPath })
     },
-    [openPinnedSession, refreshSessions],
+    [forgetSessionSelection, openPinnedSession, refreshSessions],
   )
 
   /** Stops a managed process, keeps its persisted history, and selects a nearby active session. */
@@ -645,6 +689,8 @@ export function useWorkspaceSessions(
       )
       : null
     await requestCloseSession(sessionId)
+    transientNewSessionIdsRef.current.delete(sessionId)
+    draftMessagesRef.current.delete(sessionId)
     if (selectedIdRef.current === sessionId) {
       if (nextId) rememberSessionId(workspacePath, nextId)
       else forgetSessionSelection(workspacePath)
@@ -740,6 +786,7 @@ export function useWorkspaceSessions(
     toggleProjectPin,
     toggleSessionArchive,
     updateSession,
+    updateSessionDraft,
     workspacePath,
   }
 }

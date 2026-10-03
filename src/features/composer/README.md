@@ -30,14 +30,14 @@ and rejects programmatic submission.
 | `selects/SummarySelect.tsx` | Reasoning summary — per-session override sent through the `/livecraft-response-controls` extension command, shown only for supported models |
 | `selects/PromptSelect.tsx` | More-actions menu — prompt templates, saving, and draft improvement |
 | `selects/BehaviorSelect.tsx` | Steer/Queue send-mode menu, beside the send control while Pi is running (Queue is disabled) |
-| `status-bar/ChatTopBar.tsx` | Two-line session strip pinned to the top of the chat window: session identity and conversation-view selector first, then usage stats. Workspace context lives in the sidebar; context usage in `ContextUsage` |
+| `status-bar/ChatTopBar.tsx` | Two-line session strip pinned to the top of the chat window: session identity and conversation-view selector first, then usage stats. Workspace context lives in the project top bar; context usage in `ContextUsage` |
 | `status-bar/SessionInfo.tsx` | Session name and active status dot |
 | `status-bar/SessionStats.tsx` | `SessionStats` renders input/cache/output tokens, message and tool counts, and cost; `ContextUsage` renders context-window pressure as a compact two-line block in the composer's action row |
 
 ## Internal state
 
-- `message`, `images` — the draft; persisted to `localStorage` per session
-  (`pi-livecraft.composer-draft.<sessionId>`). Pending sessions pass `persistDrafts={false}` so an abandoned, not-yet-created session leaves no stored draft.
+- `message`, `images` — the draft; text is persisted to `localStorage` per session
+  (`pi-livecraft.composer-draft.<sessionId>`, through `composerDraftKey`). New sessions use the same text-draft persistence. `onDraftChange` reports edits synchronously to the workspace controller so a nonempty draft protects a message-free session from navigation cleanup; temporary prompt previews are not reported as user drafts. During submission that protection stays until delivery succeeds or the draft is restored.
 - `slashOpen`, `slashFilter`, `slashIndex` — slash-command popover.
 - `openSelect` — which dropdown (agent/model/thinking) is open.
 - `behavior` — `steer` vs `followUp`; its send-mode menu is only visible while Pi is running. Queue (`followUp`) is currently disabled.

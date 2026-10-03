@@ -519,6 +519,7 @@ function LivecraftProjectApp(
     toggleProjectPin,
     toggleSessionArchive,
     updateSession,
+    updateSessionDraft,
     workspacePath,
     retryProjectDiscovery,
     projectDiscoveryError,
@@ -1642,7 +1643,6 @@ function LivecraftProjectApp(
         completedSessionIds={completedSessionIds}
         collapsed={workspaceSidebarCollapsed}
         onToggleCollapsed={toggleWorkspaceSidebar}
-        onOpenSettings={() => setSettingsOpen(true)}
         onRefreshWorkspaces={retryProjectDiscovery}
         onOpenVSCode={(workspace) => {
           void openVSCode(
@@ -1826,6 +1826,7 @@ function LivecraftProjectApp(
                         ? composerDraftRequest
                         : undefined}
                       onDraftApplied={markComposerDraftApplied}
+                      onDraftChange={updateSessionDraft}
                       showAgentSelector={snapshotSessionId !== selectedSession.id
                         || snapshot.commands.some((command) => command.name === 'agent')}
                       running={selectedSession.status === 'running'}
@@ -1968,6 +1969,7 @@ function LivecraftProjectApp(
         currentQuotaProvider={currentQuotaProvider}
         onConversationNavigate={navigateToConversationTarget}
         onOpenBrowser={viewerState.handleOpenBrowser}
+        onOpenSettings={() => setSettingsOpen(true)}
         onResize={updateRightSidebarWidth}
         sessionMessages={snapshot.messages}
         sessionMessagesAvailable={selectedSession !== undefined
