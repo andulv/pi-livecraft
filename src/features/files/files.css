@@ -419,6 +419,65 @@
   background: var(--accent-soft);
   color: var(--accent-hover);
 }
+/* Zoom controls for sandboxed markup previews; shares the toggle treatment. */
+.file-zoom {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 3px;
+}
+.file-zoom button {
+  height: 22px;
+  min-width: 26px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0 6px;
+  background: transparent;
+  color: var(--muted);
+  font: 650 10.5px ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+.file-zoom button:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.file-zoom button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.file-zoom button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.file-zoom button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+.file-zoom input {
+  box-sizing: border-box;
+  width: 52px;
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0 4px;
+  background: transparent;
+  color: var(--ink);
+  font: 650 10.5px ui-sans-serif, system-ui, sans-serif;
+  text-align: center;
+}
+.file-zoom input:hover:not(:focus) {
+  border-color: var(--line-strong);
+  background: var(--accent-soft);
+}
+.file-zoom input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 /* Markdown documents share the conversation's prose rhythm at file-pane scale. */
 .file-content-markdown {
   flex: 1;

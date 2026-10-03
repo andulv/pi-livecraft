@@ -21,6 +21,20 @@ interface FileState {
   loading: boolean
 }
 
+/** Preview-zoom bounds and step, in percent of natural size. */
+const minPreviewZoomPercent = 25
+const maxPreviewZoomPercent = 400
+const previewZoomStepPercent = 10
+/** Datalist choices for the percent field: 10% steps through the common
+ *  range, coarser above 200%; any value in bounds can be typed directly. */
+const previewZoomChoices: readonly number[] = [
+  ...Array.from({ length: 16 }, (_, index) => 50 + index * 10),
+  250,
+  300,
+  350,
+  400,
+]
+
 export function FileContentPane({
   activeGitDiffId,
   activePath,
@@ -80,6 +94,7 @@ export function FileContentPane({
 }) {
   const [files, setFiles] = useState<Record<string, FileState>>({})
   const [rawByPath, setRawByPath] = useState<Record<string, boolean>>({})
+  const [zoomByPath, setZoomByPath] = useState<Record<string, number>>({})
   const filesRef = useRef(files)
   filesRef.current = files
   const previewKind = activePath ? classifyWorkspaceFilePreview(activePath) : 'text'
@@ -87,6 +102,7 @@ export function FileContentPane({
   useEffect(() => {
     setFiles({})
     setRawByPath({})
+    setZoomByPath({})
   }, [workspacePath])
 
   useEffect(() => {
@@ -132,9 +148,29 @@ export function FileContentPane({
   // HTML defaults to source: rendering project HTML without its scripts and
   // relative assets is intentionally incomplete. SVG defaults to preview.
   const viewRaw = activePath ? (rawByPath[activePath] ?? previewKind === 'html') : false
+  const zoomPercent = activePath ? (zoomByPath[activePath] ?? 100) : 100
+  // While the percent field is focused it holds the text being typed; on commit
+  // it clears and the field falls back to the effective level.
+  const [zoomDraft, setZoomDraft] = useState<string | null>(null)
 
   function setViewRaw(raw: boolean): void {
     if (activePath) setRawByPath((current) => ({ ...current, [activePath]: raw }))
+  }
+
+  /** Clamps to the supported range; out-of-range typed values land on a bound. */
+  function setZoom(percent: number): void {
+    const clamped = Math.min(
+      maxPreviewZoomPercent,
+      Math.max(minPreviewZoomPercent, Math.round(percent)),
+    )
+    if (activePath) setZoomByPath((current) => ({ ...current, [activePath]: clamped }))
+  }
+
+  function commitZoomDraft(): void {
+    if (zoomDraft === null) return
+    const digits = zoomDraft.replace(/[^0-9]/g, '')
+    setZoomDraft(null)
+    if (digits !== '') setZoom(Number.parseInt(digits, 10))
   }
 
   /** Installs temporary listeners needed for pane pointer resizing. */
@@ -387,6 +423,56 @@ export function FileContentPane({
                   </button>
                 </div>
               )}
+              {(previewKind === 'html' || previewKind === 'svg') && !viewRaw && (
+                <div aria-label='Preview zoom' className='file-zoom' role='group'>
+                  <button
+                    aria-label='Zoom out'
+                    disabled={zoomPercent <= minPreviewZoomPercent}
+                    onClick={() =>
+                      setZoom(zoomPercent - previewZoomStepPercent)}
+                    type='button'
+                  >
+                    −
+                  </button>
+                  <input
+                    aria-label='Zoom percent'
+                    inputMode='numeric'
+                    list='file-zoom-levels'
+                    onBlur={commitZoomDraft}
+                    onChange={(event) =>
+                      setZoomDraft(
+                        event
+                          .target
+                          .value,
+                      )}
+                    onFocus={() =>
+                      setZoomDraft(String(zoomPercent))}
+                    onKeyDown={(event) => {
+                      if (
+                        event
+                          .key === 'Enter'
+                      )
+                        commitZoomDraft()
+                    }}
+                    title='Zoom level; type a value between 25 and 400'
+                    type='text'
+                    value={zoomDraft ?? String(zoomPercent)}
+                  />
+                  <datalist id='file-zoom-levels'>
+                    {previewZoomChoices
+                      .map((choice) => <option key={choice} value={choice} />)}
+                  </datalist>
+                  <button
+                    aria-label='Zoom in'
+                    disabled={zoomPercent >= maxPreviewZoomPercent}
+                    onClick={() =>
+                      setZoom(zoomPercent + previewZoomStepPercent)}
+                    type='button'
+                  >
+                    +
+                  </button>
+                </div>
+              )}
               <small>Read-only preview</small>
             </div>
             {(previewKind === 'image' || previewKind === 'pdf')
@@ -415,7 +501,13 @@ export function FileContentPane({
                             <Markdown renderFrontmatter>{activeFile.content}</Markdown>
                           </div>
                         )
-                        : <SandboxedMarkupPreview content={activeFile.content} path={activePath} />
+                        : (
+                          <SandboxedMarkupPreview
+                            content={activeFile.content}
+                            path={activePath}
+                            zoomPercent={zoomPercent}
+                          />
+                        )
                       : (
                         <textarea
                           aria-label={activePath}

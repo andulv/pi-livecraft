@@ -81,16 +81,23 @@ const markupPreviewPolicy =
 
 /**
  * Renders previewed HTML or SVG text in a sandboxed document with an opaque
- * origin: no scripts, forms, popups, navigation, or network requests.
+ * origin: no scripts, forms, popups, navigation, or network requests. The zoom
+ * level is injected as a `:root` rule — the parent cannot script into the
+ * sandboxed frame, but it builds the document, so zooming needs no access.
  */
-export function SandboxedMarkupPreview({ content, path }: { content: string; path: string }) {
+export function SandboxedMarkupPreview({ content, path, zoomPercent }: {
+  content: string
+  path: string
+  zoomPercent: number
+}) {
   const filename = path.split(/[\\/]/).at(-1) ?? path
   return (
     <iframe
       className='file-content-iframe'
       referrerPolicy='no-referrer'
       sandbox=''
-      srcDoc={`<!doctype html><head>${markupPreviewPolicy}</head>${content}`}
+      srcDoc={`<!doctype html><head>${markupPreviewPolicy}`
+        + `<style>:root{zoom:${zoomPercent / 100}}</style></head>${content}`}
       title={`${filename} preview`}
     />
   )
