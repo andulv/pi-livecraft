@@ -343,21 +343,21 @@
   padding: 2px 16px;
 }
 .chat-topbar-name {
-  min-height: 22px;
-  padding-top: 5px;
+  min-height: 20px;
+  padding-top: 3px;
 }
 .chat-topbar-stats {
-  min-height: 20px;
+  min-height: 18px;
   overflow: hidden;
-  padding-bottom: 6px;
-  padding-top: 3px;
+  padding-bottom: 4px;
+  padding-top: 2px;
   color: var(--muted);
 }
 .chat-view-select {
   flex: 0 0 auto;
   min-width: 0;
   max-width: min(180px, 42%);
-  height: 22px;
+  height: 20px;
   margin-left: auto;
   border: 1px solid var(--line-strong);
   border-radius: 6px;

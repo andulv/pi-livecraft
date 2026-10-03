@@ -196,7 +196,6 @@
   color: var(--project-color);
 }
 .project-themed .chat-topbar {
-  border-top: 2px solid var(--project-color);
   border-bottom: 2px solid var(--project-color);
 }
 @media (max-width: 600px) {
